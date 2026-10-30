@@ -211,7 +211,7 @@ def test_tables_drill_to_target(page):
         assert "Correct" in page.inner_text("#feedback")
     assert page.inner_text("#dayDone") == "4"
     page.goto("/me")
-    assert "done ✅" in page.inner_text("[data-testid=tile-tables]")
+    assert "done" in page.inner_text("[data-testid=tile-tables]")
 
 
 def test_spelling_drill_audio_and_answers(page):

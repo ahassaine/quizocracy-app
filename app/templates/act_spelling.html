@@ -1,13 +1,13 @@
 {% extends "base.html" %}{% block title %}Spelling · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
 <div class="stage rise rise-3" id="stage">
-  <div class="row"><button class="btn big" id="play" type="button">🔊 Listen</button><span class="mut" id="letters"></span></div>
+  <div class="row"><button class="btn big" id="play" type="button">Listen again</button><span class="mut" id="letters"></span></div>
   <div class="mut" id="cue" style="margin-top:10px;font-size:1.1rem"></div>
   <audio id="audio" preload="auto"></audio>
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=4"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=5"></script><script>
 const audio = document.getElementById('audio');
 document.getElementById('play').addEventListener('click', () => { audio.currentTime = 0; audio.play().catch(() => {}); });
 Drill({ activity: 'spelling',

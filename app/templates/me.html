@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}My day · Quizocracy{% endblock %}
 {% block body %}
-<h1 class="rise">Hi {{ ctx.child.name }}! 👋</h1>
+<h1 class="rise">Hi {{ ctx.child.name }}</h1><p class="mut rise" style="margin-top:-.4em">Here is your plan for today.</p>
 <div class="card rise rise-2">
   <div class="kid"><span class="mut" style="font-weight:800">Today</span><span class="pct" data-testid="day-pct">{{ status.pct }}%</span></div>
   <div class="bar{% if status.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ status.pct }}"></i></div>
@@ -12,7 +12,7 @@
 {% for it in status['items'] %}
   <a class="card tile rise rise-{{ [loop.index + 1, 5]|min }}{% if it.complete %} complete{% endif %}" href="/me/{{ it.key }}" data-testid="tile-{{ it.key }}">
     <img class="ico" src="{{ it.img }}" alt=""><div class="ttl">{{ it.title }}</div>
-    <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.complete %} · done ✅{% endif %}</div>
+    <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.complete %} · done{% endif %}</div>
     <div class="bar{% if it.complete %} done{% endif %}" style="margin-top:10px"><i data-w="{{ it.pct }}"></i></div>
   </a>
 {% else %}<div class="card">Nothing set for today. Ask a parent.</div>{% endfor %}

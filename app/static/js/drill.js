@@ -53,7 +53,7 @@
       fb.className = 'feedback ' + (res.correct ? 'yes' : 'no');
       const st = $('stage');
       if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; st.classList.add(res.correct ? 'flash' : 'shake'); }
-      fb.innerHTML = res.correct ? '✅ Correct!' : '❌ Not quite. ' + opts.explain(res);
+      fb.innerHTML = res.correct ? 'Correct' : 'Not quite. ' + opts.explain(res);
       if (opts.after) opts.after(res);
       if (res.correct && opts.autoNext) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
       else $('next').focus();

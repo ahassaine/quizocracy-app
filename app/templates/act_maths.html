@@ -30,7 +30,7 @@
 <script src="/static/maths/components/scatter_plot.js?v=1"></script>
 <script src="/static/maths/components/shape.js?v=1"></script>
 <script src="/static/maths/components/strip_model.js?v=1"></script>
-<script src="/static/js/drill.js?v=4"></script><script>
+<script src="/static/js/drill.js?v=5"></script><script>
 window.MComp = window.MComp || {};
 Drill({ activity: 'maths',
   render(q) {
@@ -50,6 +50,6 @@ Drill({ activity: 'maths',
   explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';
     if (r.solution && r.solution.length) s += '<div class="m-sol">' + r.solution.map(esc).join('<br>') + '</div>'; return s; },
   after(r) { const h = document.getElementById('mHost'); if (h && h.__feedback) h.__feedback(r);
-    if (r.mastered) document.getElementById('feedback').innerHTML += ' 🏆 Skill mastered!';
+    if (r.mastered) document.getElementById('feedback').innerHTML += ' · skill mastered';
     document.getElementById('mastery').textContent = 'Skill score ' + r.score + '/100 · ' + r.progress.mastered + ' of ' + r.progress.total + ' skills mastered'; } });
 </script>{% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}Sign in · Quizocracy{% endblock %}
-{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:84px;animation:bob 5s ease-in-out infinite"></div>
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Sign in</h1>
 {% if request.query_params.get('reset') %}<div class="ok">Password changed. Sign in with your new password.</div>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}

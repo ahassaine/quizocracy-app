@@ -4,10 +4,10 @@
 {% if ctx.child %}<p class="mut small">Parents can leave practice from <a href="/parent-unlock">Parent</a>.</p>{% else %}<p class="mut small">Children will see that you can look at their answers and progress.</p>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <div class="grid">
-{% set colours = ['#7C5CFF', '#FF7A59', '#2ED3A0', '#3DB4FF', '#FFC542', '#5B3DF5'] %}
+{% set colours = ['#4F46E5', '#F43F5E', '#14B8A6', '#0EA5E9', '#F59E0B', '#7C3AED'] %}
 {% for p in pupils %}
   <div class="card lift rise rise-{{ [loop.index, 5]|min }}" style="text-align:center">
-    <div style="width:74px;height:74px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;font-family:var(--display);font-size:2rem;font-weight:800;color:#fff;background:{{ colours[loop.index0 % 6] }};box-shadow:var(--shadow)">{{ p.name[:1] }}</div>
+    <div style="width:74px;height:74px;border-radius:16px;margin:0 auto 8px;display:grid;place-items:center;font-family:var(--display);font-size:1.8rem;font-weight:800;color:#fff;background:{{ colours[loop.index0 % 6] }};box-shadow:var(--shadow)">{{ p.name[:1] }}</div>
     <div class="name display" style="font-weight:800;font-size:1.3rem">{{ p.name }}</div>
     <form method="post" action="/learn/{{ p._id }}" class="pinform" data-testid="pin-{{ p.name }}">
       <div class="field"><label for="pin-{{ p._id }}" class="mut small">PIN</label>

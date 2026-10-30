@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}Parent area · Quizocracy{% endblock %}
-{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:84px;animation:bob 5s ease-in-out infinite"></div>
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Parent area</h1><p class="mut">Enter the parent's password to leave {{ ctx.child.name }}'s practice.</p>
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" action="/parent-unlock" class="card">
