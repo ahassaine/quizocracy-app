@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Team board · Quizocracy{% endblock %}
+{% block body %}
+<div class="kid"><h1>Team board</h1><a class="btn primary" href="/team/{{ me._id }}/new">New thread</a></div>
+<p class="mut small">You are <b>{{ me.name }}</b>. Members: {% for m in members %}{{ m.name }}{% if m.telegram_chat_id %} 📨{% endif %}{% if not loop.last %} · {% endif %}{% endfor %} · Claude reads and replies here.</p>
+<p class="small">{% if open_only %}<a href="/team/{{ me._id }}">Show all</a>{% else %}<a href="/team/{{ me._id }}?open=1">Hide resolved</a>{% endif %}</p>
+{% for t in threads %}
+<a class="card tile" href="/team/{{ me._id }}/{{ t._id }}" data-testid="thread">
+  <div class="kid"><b dir="auto">{{ t.title }}</b><span class="chip{% if t.status == 'resolved' %} done{% endif %}">{{ statuses[t.status] }}</span></div>
+  <div class="mut small" dir="auto">{{ names[t.last_author].name if names.get(t.last_author) else '' }}: {{ t.last_preview }}</div>
+  <div class="mut small">{{ t.count }} message{{ '' if t.count == 1 else 's' }} · {{ t.last_at.strftime('%d %b %H:%M') }} UTC</div>
+</a>
+{% else %}<div class="card">No threads yet. Start one.</div>{% endfor %}
+{% endblock %}

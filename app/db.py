@@ -31,4 +31,6 @@ async def ensure_indexes():
         await db[c].create_index([("pupil_id", ASCENDING)])
     await db.items.create_index([("created", ASCENDING)], expireAfterSeconds=2 * 86400)
     await db.login_failures.create_index([("ts", ASCENDING)], expireAfterSeconds=3600)
+    await db.team_messages.create_index([("tid", ASCENDING), ("time", ASCENDING)])
+    await db.team_messages.create_index([("time", ASCENDING)])
     await db.outbox.create_index([("to", ASCENDING), ("created", DESCENDING)])

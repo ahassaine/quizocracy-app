@@ -9,3 +9,4 @@ mobile/android/keystore.properties
 mobile/android/*.jks
 src/
 releases/
+data/team_uploads/

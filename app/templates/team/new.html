@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}New thread · Quizocracy{% endblock %}
+{% block body %}
+<h1>New thread</h1>
+<form method="post" action="/team/{{ me._id }}/new" enctype="multipart/form-data" class="card">
+  <div class="field"><label for="title">Title</label><input id="title" name="title" type="text" dir="auto" maxlength="200"></div>
+  <div class="field"><label for="text">Message</label><textarea id="text" name="text" dir="auto" rows="7" style="width:100%;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit"></textarea></div>
+  <div class="field"><label for="files">Attachments <span class="mut small">(images, PDF, video; 8 MB each)</span></label><input id="files" name="files" type="file" multiple></div>
+  <div class="row"><button class="btn primary" type="submit">Post</button><a class="btn" href="/team/{{ me._id }}">Cancel</a></div>
+</form>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block title %}{{ t.title }} · Team board{% endblock %}
+{% block body %}
+<p><a href="/team/{{ me._id }}">← All threads</a></p>
+<div class="kid"><h1 dir="auto">{{ t.title }}</h1><span class="chip{% if t.status == 'resolved' %} done{% endif %}" data-testid="status">{{ statuses[t.status] }}</span></div>
+{% for m in msgs %}{% set a = names.get(m.author) %}
+<div class="card" {% if m.kind == 'system' %}style="background:transparent;border-style:dashed"{% endif %} data-testid="msg">
+  <div class="mut small"><b style="color:var(--ink)">{{ a.name if a else m.author }}</b>{% if a and a.role == 'bot' %} 🤖{% endif %} · {{ m.time.strftime('%d %b %H:%M') }} UTC</div>
+  <div dir="auto" style="white-space:pre-wrap;margin-top:6px">{{ m.text }}</div>
+  {% for f in m.attachments %}{% set url = '/team/' ~ me._id ~ '/' ~ t._id ~ '/files/' ~ m._id ~ '/' ~ f %}
+    {% if f.lower().endswith(('.png','.jpg','.jpeg','.gif','.webp')) %}<a href="{{ url }}"><img src="{{ url }}" alt="{{ f }}" style="max-width:100%;max-height:360px;border-radius:8px;margin-top:8px"></a>
+    {% else %}<div><a href="{{ url }}">📎 {{ f }}</a></div>{% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+<a id="end"></a>
+{% if empty %}<div class="err">The message was empty.</div>{% endif %}
+<form method="post" action="/team/{{ me._id }}/{{ t._id }}/send" enctype="multipart/form-data" class="card">
+  <textarea name="text" dir="auto" rows="5" aria-label="Reply" placeholder="Reply…" style="width:100%;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit"></textarea>
+  <div class="row"><input name="files" type="file" multiple><button class="btn primary" type="submit">Send</button></div>
+</form>
+<form method="post" action="/team/{{ me._id }}/{{ t._id }}/status" class="row">
+  {% if t.status != 'resolved' %}<button class="btn" name="status" value="resolved">Mark resolved</button>{% endif %}
+  {% if t.status != 'open' %}<button class="btn" name="status" value="open">Reopen</button>{% endif %}
+  {% if me.role in ('admin', 'bot') and t.status == 'open' %}<button class="btn" name="status" value="awaiting_retest">Awaiting retest</button>{% endif %}
+</form>
+{% endblock %}

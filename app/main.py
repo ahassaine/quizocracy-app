@@ -10,7 +10,7 @@ from . import config
 from .config import BASE_DIR
 from .db import db, ensure_indexes
 from .deps import Redirect, load
-from .routes import auth, child, parent
+from .routes import auth, child, parent, team
 from .web import page
 
 
@@ -22,7 +22,7 @@ async def lifespan(app):
 
 app = FastAPI(title="Quizocracy", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-for r in (auth.router, parent.router, child.router):
+for r in (auth.router, parent.router, child.router, team.router):
     app.include_router(r)
 
 
@@ -51,6 +51,8 @@ async def guard(request: Request, call_next):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
     resp.headers.setdefault("X-Frame-Options", "DENY")
+    if request.url.path.startswith("/team"):
+        resp.headers["X-Robots-Tag"] = "noindex, nofollow"     # private board links stay out of search engines
     return resp
 
 
