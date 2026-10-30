@@ -18,9 +18,14 @@ def pupil(pid):
 
 # ---------------------------------------------------------------- public + guards ----
 def test_public_pages_and_guards(page):
-    for path, text in [("/", "Daily practice"), ("/pricing", "£3.99"), ("/privacy", "Privacy notice"), ("/terms", "Terms")]:
+    for path, text in [("/", "Daily practice"), ("/privacy", "Privacy notice"), ("/terms", "Terms")]:
         r = page.goto(path)
         assert r.status == 200 and text in page.content()
+    page.goto("/pricing")                       # no prices in this version
+    assert page.url == BASE + "/" and "£" not in page.content()
+    for path in ("/", "/signup", "/login"):
+        page.goto(path)
+        assert "£" not in page.content() and "four" not in page.inner_text("main").lower()
     page.goto("/home")
     assert page.url.endswith("/login")
     page.goto("/me")
@@ -142,7 +147,7 @@ def test_children_validation_edit_and_plan_limits(page):
     # free plan: one child, three activities
     DB.families.update_one({"_id": fam_of(email)}, {"$set": {"plan": "free"}})
     page.goto("/children/new")
-    assert "needs the Family plan" in page.content()
+    assert "needs the Family plan" in page.content() and "£" not in page.content()
     page.goto("/home")
     chips = page.locator("[data-testid='kid-Lina'] .chip").all_inner_texts()
     assert not any("Irregular" in c or "Numbers" in c for c in chips)

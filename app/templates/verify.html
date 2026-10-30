@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}Verify your email · Quizocracy{% endblock %}
-{% block body %}
-<h1>Check your email</h1>
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:84px;animation:bob 5s ease-in-out infinite"></div>
+<h1 style="text-align:center">Check your email</h1>
 <p>We sent a 6-digit code to <b>{{ email }}</b>.</p>
 {% if request.query_params.get('sent') %}<div class="ok">A new code is on its way.</div>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
@@ -9,4 +9,4 @@
   <button class="btn primary" type="submit">Verify</button>
 </form>
 <form method="post" action="/verify/resend"><button class="btn" type="submit">Send a new code</button></form>
-{% endblock %}
+</div>{% endblock %}

@@ -9,8 +9,12 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+  let reached = null;
   function setDay(d) {
     if (!d) return;
+    const now = d.done >= d.target;
+    if (reached === false && now && window.QZ) QZ.confetti(140);     // the moment the target is reached
+    reached = now;
     const pct = d.target ? Math.min(100, Math.round(100 * d.done / d.target)) : 0;
     $('dayDone').textContent = d.done; $('dayTarget').textContent = d.target;
     $('dayFill').style.width = pct + '%';
@@ -47,6 +51,8 @@
       $('check').disabled = true; $('next').style.display = '';
       const fb = $('feedback');
       fb.className = 'feedback ' + (res.correct ? 'yes' : 'no');
+      const st = $('stage');
+      if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; st.classList.add(res.correct ? 'flash' : 'shake'); }
       fb.innerHTML = res.correct ? '✅ Correct!' : '❌ Not quite. ' + opts.explain(res);
       if (opts.after) opts.after(res);
       if (res.correct && opts.autoNext) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }

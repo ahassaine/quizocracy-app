@@ -3,15 +3,15 @@ from . import config
 
 ACTIVITIES = {
     "maths":    {"title": "Maths", "icon": "🧮", "target": 10, "min_year": 3, "free": True,
-                 "blurb": "Questions from the national curriculum, at your level."},
+                 "blurb": "Questions from the national curriculum, at your level.", "img": "/static/img/maths.png"},
     "tables":   {"title": "Times tables", "icon": "✖️", "target": 20, "min_year": 2, "free": True,
-                 "blurb": "Multiplication and division facts, quick-fire."},
+                 "blurb": "Multiplication and division facts, quick-fire.", "img": "/static/img/tables.png"},
     "spelling": {"title": "Spelling", "icon": "🔤", "target": 10, "min_year": 1, "free": True,
-                 "blurb": "Listen to the word, then spell it."},
+                 "blurb": "Listen to the word, then spell it.", "img": "/static/img/spelling.png"},
     "numbers":  {"title": "Numbers in words", "icon": "🔢", "target": 10, "min_year": 1, "free": False,
-                 "blurb": "Write numbers in words, and words in numbers."},
+                 "blurb": "Write numbers in words, and words in numbers.", "img": "/static/img/numbers.png"},
     "verbs":    {"title": "Irregular verbs", "icon": "📝", "target": 10, "min_year": 3, "free": False,
-                 "blurb": "Go, went, gone: the verbs that break the rules."},
+                 "blurb": "Go, went, gone: the verbs that break the rules.", "img": "/static/img/verbs.png"},
 }
 ORDER = ["maths", "tables", "spelling", "numbers", "verbs"]
 

@@ -1,13 +1,13 @@
 {% extends "base.html" %}{% block title %}Times tables · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
-<div class="card">
+<div class="stage rise rise-3" id="stage">
   <div class="q" id="q" data-testid="question">…</div>
   <input class="answer" id="answer" type="text" inputmode="numeric" autocomplete="off" aria-label="Your answer">
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=3"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=4"></script><script>
 Drill({ activity: 'tables', autoNext: 700,
-  render(q) { document.getElementById('q').textContent = q.prompt + ' ?'; const a = document.getElementById('answer'); a.value = ''; a.focus(); },
+  render(q) { const el = document.getElementById("q"); el.textContent = q.prompt + " ?"; el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },
   explain(r) { return 'It is <b>' + esc(r.expected) + '</b>.'; } });
 </script>{% endblock %}

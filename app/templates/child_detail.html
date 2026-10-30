@@ -4,15 +4,15 @@
 <div class="kid"><h1>{{ pupil.name }}</h1><a class="btn" href="/children/{{ pupil._id }}/edit">Settings</a></div>
 <p class="mut">Year {{ pupil.year }}</p>
 <div class="grid">
-  {% if stats.maths %}<div class="card"><b>🧮 Maths</b><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered</div></div>{% endif %}
-  <div class="card"><b>✖️ Times tables</b><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts answered right 3 times running</div></div>
-  <div class="card"><b>🔤 Spelling</b><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">statutory words learned</div></div>
-  {% if stats.verbs %}<div class="card"><b>📝 Irregular verbs</b><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">level {{ stats.verbs.level }} of {{ stats.verbs.levels }}</div></div>{% endif %}
+  {% if stats.maths %}<div class="card lift"><div class="act-head"><img src="/static/img/maths.png" alt="" style="width:46px;height:46px;animation:none"><b>Maths</b></div><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered</div></div>{% endif %}
+  <div class="card lift"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts answered right 3 times running</div></div>
+  <div class="card lift"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">statutory words learned</div></div>
+  {% if stats.verbs %}<div class="card lift"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">level {{ stats.verbs.level }} of {{ stats.verbs.levels }}</div></div>{% endif %}
 </div>
 <h2>Last 14 days</h2>
 <div class="card" style="overflow-x:auto">
 <table class="t" data-testid="history">
-  <tr><th>Day</th><th>Done</th>{% for it in hist[-1]['items'] %}<th>{{ it.icon }}</th>{% endfor %}</tr>
+  <tr><th>Day</th><th>Done</th>{% for it in hist[-1]['items'] %}<th><img src="{{ it.img }}" alt="{{ it.title }}" title="{{ it.title }}" style="width:24px"></th>{% endfor %}</tr>
   {% for h in hist|reverse %}
   <tr><td>{{ h.day }}</td><td><b>{{ h.pct }}%</b></td>{% for it in h['items'] %}<td title="{{ it.title }}: {{ it.correct }} right of {{ it.answered }}">{{ it.done }}/{{ it.target }}</td>{% endfor %}</tr>
   {% endfor %}

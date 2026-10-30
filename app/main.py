@@ -65,8 +65,8 @@ async def landing(request: Request):
 
 
 @app.get("/pricing")
-async def pricing(request: Request):
-    return page(request, "pricing.html", await load(request))
+async def pricing():
+    return RedirectResponse("/", 303)          # no prices in this version
 
 
 @app.get("/privacy")

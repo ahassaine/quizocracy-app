@@ -1,19 +1,22 @@
 {% extends "base.html" %}{% block title %}My day · Quizocracy{% endblock %}
 {% block body %}
-<h1>Hi {{ ctx.child.name }}!</h1>
-<div class="kid"><span class="mut">Today</span><span class="pct" data-testid="day-pct">{{ status.pct }}%</span></div>
-<div class="bar{% if status.pct >= 100 %} done{% endif %}"><i style="width:{{ status.pct }}%"></i></div>
-{% if reward.text %}
-<div class="reward{% if status.reward_earned %} earned{% endif %}" data-testid="reward">{% if status.reward_earned %}🏆 You earned: {{ reward.text }}{% else %}🎯 At {{ reward.threshold }}%: {{ reward.text }}{% endif %}</div>
-{% endif %}
-<div class="grid" style="margin-top:14px">
+<h1 class="rise">Hi {{ ctx.child.name }}! 👋</h1>
+<div class="card rise rise-2">
+  <div class="kid"><span class="mut" style="font-weight:800">Today</span><span class="pct" data-testid="day-pct">{{ status.pct }}%</span></div>
+  <div class="bar{% if status.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ status.pct }}"></i></div>
+  {% if reward.text %}
+  <div class="reward{% if status.reward_earned %} earned{% endif %}" data-testid="reward"><img src="/static/img/trophy.png" alt="">{% if status.reward_earned %}You earned: {{ reward.text }}{% else %}At {{ reward.threshold }}%: {{ reward.text }}{% endif %}</div>
+  {% endif %}
+</div>
+<div class="grid">
 {% for it in status['items'] %}
-  <a class="card tile" href="/me/{{ it.key }}" data-testid="tile-{{ it.key }}">
-    <div class="ico">{{ it.icon }}</div><div class="ttl">{{ it.title }}</div>
+  <a class="card tile rise rise-{{ [loop.index + 1, 5]|min }}{% if it.complete %} complete{% endif %}" href="/me/{{ it.key }}" data-testid="tile-{{ it.key }}">
+    <img class="ico" src="{{ it.img }}" alt=""><div class="ttl">{{ it.title }}</div>
     <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.complete %} · done ✅{% endif %}</div>
-    <div class="bar{% if it.complete %} done{% endif %}" style="margin-top:8px"><i style="width:{{ it.pct }}%"></i></div>
+    <div class="bar{% if it.complete %} done{% endif %}" style="margin-top:10px"><i data-w="{{ it.pct }}"></i></div>
   </a>
 {% else %}<div class="card">Nothing set for today. Ask a parent.</div>{% endfor %}
 </div>
 <p class="mut small">Your parent can see your answers and progress.</p>
+{% if status.pct >= 100 %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
 {% endblock %}

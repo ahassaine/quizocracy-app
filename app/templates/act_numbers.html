@@ -1,12 +1,12 @@
 {% extends "base.html" %}{% block title %}Numbers in words · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
-<div class="card">
+<div class="stage rise rise-3" id="stage">
   <div class="mut" id="ask">…</div>
   <div class="q" id="q" data-testid="question"></div>
   <input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" aria-label="Your answer" style="max-width:100%;text-align:left">
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=3"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=4"></script><script>
 Drill({ activity: 'numbers',
   render(q) { document.getElementById('ask').textContent = q.ask; const el = document.getElementById('q');
     el.textContent = q.prompt; el.className = 'q' + (q.mode === 'digits' ? ' words' : '');

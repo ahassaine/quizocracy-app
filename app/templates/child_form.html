@@ -14,7 +14,7 @@
   <input type="hidden" name="custom" value="1">
   <table class="t">
   {% for k in ORDER %}{% set a = ACTIVITIES[k] %}{% set cur = acts.get(k, {}) %}
-    <tr><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} data-testid="on-{{ k }}"> {{ a.icon }} {{ a.title }}</label>
+    <tr><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} data-testid="on-{{ k }}"> <img src="{{ a.img }}" alt="" style="width:30px;vertical-align:middle"> {{ a.title }}</label>
       <div class="mut small">{% if not a.free %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
       <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day</td></tr>
   {% endfor %}

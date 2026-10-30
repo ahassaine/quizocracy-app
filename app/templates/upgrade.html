@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% block title %}Family plan · Quizocracy{% endblock %}
 {% block body %}
-<h1>That needs the Family plan</h1>
-<p>The Free plan covers one child. The Family plan covers up to six children, all five activities and rewards, for {{ cfg.PRICE_MONTH }} a month.</p>
-<p class="mut">Payments open after the beta. Ask us to join the beta at {{ cfg.SUPPORT_EMAIL }}.</p>
-<a class="btn" href="/home">Back</a>
+<div class="card rise feature"><img src="/static/img/family.png" alt=""><div>
+<h1 style="margin:0 0 .3em">That needs the Family plan</h1>
+<p>The Free plan covers one child and three activities. The Family plan covers up to six children, all five activities and rewards.</p>
+<p class="mut">Ask us to switch your family over at {{ cfg.SUPPORT_EMAIL }}.</p>
+<a class="btn" href="/home">Back</a></div></div>
 {% endblock %}
