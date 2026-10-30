@@ -25,7 +25,12 @@ def _watch(since):
     return out
 
 
+import pytest
+
+
+@pytest.mark.skipif(BASE.startswith("https://"), reason="never touches the real team board")
 def test_team_board_end_to_end(page, tmp_path):
+    DB.team_members.delete_many({}); DB.team_threads.delete_many({}); DB.team_messages.delete_many({})
     ali, meriem, bot = _member("Ali", "admin"), _member("Meriem", "member"), _member("Claude", "bot")
     since = (datetime.datetime.utcnow() - datetime.timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     assert page.goto("/team/notAmember1").status == 404
