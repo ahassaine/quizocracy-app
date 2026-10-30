@@ -8,3 +8,4 @@ mobile/android/.gradle/
 mobile/android/keystore.properties
 mobile/android/*.jks
 src/
+releases/
