@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Home · Quizocracy{% endblock %}
+{% block body %}
+{% if welcome %}<div class="ok">Your email is verified. Add your first child to get started.</div>{% endif %}
+{% if request.query_params.get('deleted') %}<div class="ok">Child deleted, with all their practice data.</div>{% endif %}
+<div class="kid"><h1>{{ ctx.family.name }}</h1><span class="chip">{{ plan.title }} plan</span></div>
+{% for b in board %}{% set p = b.pupil %}
+<div class="card" data-testid="kid-{{ p.name }}">
+  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div><div class="pct" data-testid="pct">{{ b.pct }}%</div></div>
+  <div class="bar{% if b.pct >= 100 %} done{% endif %}"><i style="width:{{ b.pct }}%"></i></div>
+  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}">{{ it.icon }} {{ it.title }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
+  <div class="hist" title="Last 7 days">{% for h in hist[p._id] %}<i style="height:{{ [h.pct, 3]|max }}%" title="{{ h.day }}: {{ h.pct }}%"></i>{% endfor %}</div>
+  <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a><a class="btn" href="/children/{{ p._id }}/edit">Settings</a></div>
+</div>
+{% else %}
+<div class="card"><p>No children yet.</p></div>
+{% endfor %}
+<div class="row">
+  <a class="btn primary" href="/children/new">Add a child</a>
+  {% if board %}<a class="btn" href="/learn">Hand over to a child</a>{% endif %}
+</div>
+{% endblock %}

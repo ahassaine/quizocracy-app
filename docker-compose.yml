@@ -1,0 +1,19 @@
+# For moving to another VM: `docker compose up -d` brings up the app and its own MongoDB.
+# Restore data with: mongorestore --uri mongodb://127.0.0.1:27017 --archive=qz.archive --gzip
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      QZ_MONGO_URL: mongodb://mongo:27017
+      QZ_MAIL_HOST: host.docker.internal
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["127.0.0.1:8300:8300"]
+    depends_on: [mongo]
+    restart: unless-stopped
+  mongo:
+    image: mongo:7
+    volumes: [qzdata:/data/db]
+    restart: unless-stopped
+volumes:
+  qzdata:

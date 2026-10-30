@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}{% if pupil and pupil._id %}Edit {{ pupil.name }}{% else %}Add a child{% endif %} · Quizocracy{% endblock %}
+{% block body %}
+{% set editing = pupil and pupil._id %}
+<h1>{% if editing %}{{ pupil.name }}'s settings{% else %}Add a child{% endif %}</h1>
+{% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+<form method="post" class="card">
+  <div class="field"><label for="name">First name or nickname</label><input id="name" name="name" type="text" required maxlength="30" value="{{ pupil.name if pupil else '' }}"></div>
+  <div class="field"><label for="year">School year (England)</label>
+    <select id="year" name="year" required>{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="pin">{% if editing %}New 4-digit PIN <span class="mut">(leave blank to keep)</span>{% else %}4-digit PIN for your child{% endif %}</label>
+    <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off"></div>
+  <h2>Daily plan</h2>
+  <p class="mut small">Targets count correct answers. Activities the plan does not include, or that start above this school year, stay off.</p>
+  <input type="hidden" name="custom" value="1">
+  <table class="t">
+  {% for k in ORDER %}{% set a = ACTIVITIES[k] %}{% set cur = acts.get(k, {}) %}
+    <tr><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} data-testid="on-{{ k }}"> {{ a.icon }} {{ a.title }}</label>
+      <div class="mut small">{% if not a.free %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
+      <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day</td></tr>
+  {% endfor %}
+  </table>
+  <div class="row"><button class="btn primary" type="submit">Save</button><a class="btn" href="{{ '/children/' ~ pupil._id if editing else '/home' }}">Cancel</a></div>
+</form>
+{% if editing %}
+<form method="post" action="/children/{{ pupil._id }}/delete" class="card" onsubmit="return confirm('Delete {{ pupil.name }} and all their practice data?')">
+  <b>Delete {{ pupil.name }}</b><p class="mut small">This removes the child and every answer they have given. It cannot be undone.</p>
+  <button class="btn danger" type="submit">Delete child</button>
+</form>
+{% endif %}
+{% endblock %}

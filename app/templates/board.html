@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Family board · Quizocracy{% endblock %}
+{% block body %}
+<h1>Today's board</h1><p class="mut">{{ today }}</p>
+{% for b in board %}{% set p = b.pupil %}
+<div class="card" data-testid="board-{{ p.name }}">
+  <div class="kid"><span class="name">{{ p.name }}</span><span class="pct">{{ b.pct }}%</span></div>
+  <div class="bar{% if b.pct >= 100 %} done{% endif %}"><i style="width:{{ b.pct }}%"></i></div>
+  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}">{{ it.icon }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
+  {% if b.reward_earned %}<div class="reward earned">🏆 {{ ctx.family.reward.text }}</div>{% endif %}
+</div>
+{% else %}<div class="card">No children yet.</div>{% endfor %}
+{% endblock %}

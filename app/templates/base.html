@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<title>{% block title %}Quizocracy{% endblock %}</title>
+<link rel="stylesheet" href="/static/css/app.css?v=1">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Quiz<span>ocracy</span></a>
+  <nav class="links">
+    {% if ctx and ctx.child %}
+      <span class="mut" data-testid="child-name">{{ ctx.child.name }}</span>
+      <a href="/me">My day</a><a href="/board">Board</a><a href="/learn">Switch</a><a href="/parent-unlock">Parent</a>
+    {% elif ctx and ctx.account.verified_at %}
+      <a href="/home">Home</a><a href="/learn">Learn</a><a href="/board">Board</a><a href="/settings">Settings</a>
+      <form method="post" action="/logout" style="display:inline"><button class="linkish" type="submit">Sign out</button></form>
+    {% else %}
+      <a href="/pricing">Pricing</a><a href="/login">Sign in</a><a href="/signup">Sign up</a>
+    {% endif %}
+  </nav>
+</header>
+<main class="wrap">{% block body %}{% endblock %}</main>
+{% block foot %}<div class="foot"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/pricing">Pricing</a></div>{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

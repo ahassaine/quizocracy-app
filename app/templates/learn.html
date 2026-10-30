@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Who's learning? · Quizocracy{% endblock %}
+{% block body %}
+<h1>Who's learning?</h1>
+{% if ctx.child %}<p class="mut small">Parents can leave practice from <a href="/parent-unlock">Parent</a>.</p>{% else %}<p class="mut small">Children will see that you can look at their answers and progress.</p>{% endif %}
+{% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+<div class="grid">
+{% for p in pupils %}
+  <div class="card">
+    <div class="name" style="font-weight:800;font-size:1.2rem">{{ p.name }}</div>
+    <form method="post" action="/learn/{{ p._id }}" class="pinform" data-testid="pin-{{ p.name }}">
+      <div class="field"><label for="pin-{{ p._id }}">PIN</label>
+      <input id="pin-{{ p._id }}" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="off" style="max-width:140px;font-size:1.4rem;text-align:center" {% if pin_for == p._id %}autofocus{% endif %}></div>
+      <button class="btn primary" type="submit">Start</button>
+    </form>
+  </div>
+{% else %}<div class="card">No children yet. <a href="/children/new">Add one</a>.</div>{% endfor %}
+</div>
+{% endblock %}

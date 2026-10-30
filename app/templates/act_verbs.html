@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Irregular verbs · Quizocracy{% endblock %}
+{% block body %}{% include "_drill_head.html" %}
+<div class="card">
+  <div class="mut small" id="level"></div>
+  <div class="q" id="q" data-testid="question">…</div>
+  <div class="field"><label for="past">Past simple <span class="mut">(yesterday I …)</span></label><input id="past" type="text" autocomplete="off" autocapitalize="off" style="max-width:260px"></div>
+  <div class="field"><label for="pp">Past participle <span class="mut">(I have …)</span></label><input id="pp" type="text" autocomplete="off" autocapitalize="off" style="max-width:260px"></div>
+  {% include "_drill_buttons.html" %}
+</div>{% endblock %}
+{% block scripts %}<script src="/static/js/drill.js?v=2"></script><script>
+Drill({ activity: 'verbs',
+  render(q) { document.getElementById('q').textContent = 'to ' + q.base; document.getElementById('level').textContent = q.level_label;
+    ['past', 'pp'].forEach(i => { const e = document.getElementById(i); e.value = ''; e.style.borderColor = ''; }); document.getElementById('past').focus(); },
+  read() { const p = document.getElementById('past').value.trim(), pp = document.getElementById('pp').value.trim(); return p && pp ? { past: p, pp } : null; },
+  explain(r) { return '<b>' + esc(r.expected.past) + '</b>, <b>' + esc(r.expected.pp) + '</b>.'; },
+  after(r) { document.getElementById('past').style.borderColor = r.ok_past ? '#22c55e' : '#f85149';
+    document.getElementById('pp').style.borderColor = r.ok_pp ? '#22c55e' : '#f85149';
+    if (r.levelled_up) document.getElementById('feedback').innerHTML += ' 🎉 New level!'; } });
+</script>{% endblock %}

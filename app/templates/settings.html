@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Settings · Quizocracy{% endblock %}
+{% block body %}
+<h1>Settings</h1>
+{% if saved %}<div class="ok">Saved.</div>{% endif %}
+<form method="post" action="/settings" class="card">
+  <div class="field"><label for="family_name">Family name</label><input id="family_name" name="family_name" type="text" value="{{ ctx.family.name }}"></div>
+  <h2>Reward</h2>
+  {% if plan.rewards %}
+  <p class="mut small">What your children earn when they finish enough of their day. They see it on their page and on the family board.</p>
+  <div class="field"><label for="reward_text">Reward</label><input id="reward_text" name="reward_text" type="text" maxlength="120" placeholder="30 minutes of screen time" value="{{ ctx.family.reward.text if ctx.family.reward else '' }}"></div>
+  <div class="field"><label for="reward_threshold">Earned at (% of the day)</label><input id="reward_threshold" name="reward_threshold" type="number" min="10" max="100" value="{{ ctx.family.reward.threshold if ctx.family.reward else 100 }}" style="max-width:120px"></div>
+  {% else %}<input type="hidden" name="reward_threshold" value="100"><p class="mut">Rewards come with the Family plan.</p>{% endif %}
+  <button class="btn primary" type="submit">Save</button>
+</form>
+<div class="card"><b>Plan:</b> {{ plan.title }} · <a href="/pricing">see plans</a></div>
+<div class="card"><b>Your data</b><p class="mut small">Download everything we hold about your family as a file.</p><a class="btn" href="/account/export">Download my data</a></div>
+<form method="post" action="/account/delete" class="card">
+  <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.</p>
+  {% if delete_error %}<div class="err" role="alert">{{ delete_error }}</div>{% endif %}
+  <div class="field"><label for="confirm">Type DELETE</label><input id="confirm" name="confirm" type="text" style="max-width:200px"></div>
+  <div class="field"><label for="delpw">Your password</label><input id="delpw" name="password" type="password" style="max-width:260px"></div>
+  <button class="btn danger" type="submit">Delete everything</button>
+</form>
+{% endblock %}

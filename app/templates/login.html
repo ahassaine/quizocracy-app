@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Sign in · Quizocracy{% endblock %}
+{% block body %}
+<h1>Sign in</h1>
+{% if request.query_params.get('reset') %}<div class="ok">Password changed. Sign in with your new password.</div>{% endif %}
+{% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+<form method="post" action="/login" class="card">
+  <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="email" value="{{ email or '' }}"></div>
+  <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password"></div>
+  <button class="btn primary big" type="submit">Sign in</button>
+</form>
+<p><a href="/forgot">Forgot your password?</a> · <a href="/signup">Create an account</a></p>
+{% endblock %}

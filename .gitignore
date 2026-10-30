@@ -1,0 +1,10 @@
+.env
+venv/
+__pycache__/
+*.pyc
+mobile/node_modules/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/keystore.properties
+mobile/android/*.jks
+src/

@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% block title %}Maths · Quizocracy{% endblock %}
+{% block body %}{% include "_drill_head.html" %}
+<div class="card">
+  <div class="kid"><div><b id="skillTitle">Loading…</b> <span class="mut small" id="skillStrand"></span></div><span class="chip" id="badge"></span></div>
+  <div class="mut small" id="mastery"></div>
+  <div id="mStage"></div>
+  {% include "_drill_buttons.html" %}
+</div>{% endblock %}
+{% block scripts %}
+<script src="/static/maths/components/angle.js?v=1"></script>
+<script src="/static/maths/components/area_grid.js?v=1"></script>
+<script src="/static/maths/components/array.js?v=1"></script>
+<script src="/static/maths/components/bar_chart.js?v=1"></script>
+<script src="/static/maths/components/base_ten.js?v=1"></script>
+<script src="/static/maths/components/circle.js?v=1"></script>
+<script src="/static/maths/components/clock.js?v=1"></script>
+<script src="/static/maths/components/coordinate_grid.js?v=1"></script>
+<script src="/static/maths/components/data_table.js?v=1"></script>
+<script src="/static/maths/components/equal_groups.js?v=1"></script>
+<script src="/static/maths/components/fraction_bar.js?v=1"></script>
+<script src="/static/maths/components/inequality_line.js?v=1"></script>
+<script src="/static/maths/components/io_table.js?v=1"></script>
+<script src="/static/maths/components/line_graph.js?v=1"></script>
+<script src="/static/maths/components/net.js?v=1"></script>
+<script src="/static/maths/components/number.js?v=1"></script>
+<script src="/static/maths/components/number_line.js?v=1"></script>
+<script src="/static/maths/components/pictogram.js?v=1"></script>
+<script src="/static/maths/components/pie_chart.js?v=1"></script>
+<script src="/static/maths/components/ruler.js?v=1"></script>
+<script src="/static/maths/components/scatter_plot.js?v=1"></script>
+<script src="/static/maths/components/shape.js?v=1"></script>
+<script src="/static/maths/components/strip_model.js?v=1"></script>
+<script src="/static/js/drill.js?v=2"></script><script>
+window.MComp = window.MComp || {};
+Drill({ activity: 'maths',
+  render(q) {
+    document.getElementById('skillTitle').textContent = q.title;
+    document.getElementById('skillStrand').textContent = q.strand;
+    const b = document.getElementById('badge'); b.textContent = q.reason === 'new' ? 'new skill' : (q.reason === 'review' ? 'review' : 'practising');
+    document.getElementById('mastery').textContent = 'Skill score ' + q.score + '/100 · ' + q.progress.mastered + ' of ' + q.progress.total + ' skills mastered';
+    const stage = document.getElementById('mStage'); stage.innerHTML = '';
+    const pr = document.createElement('div'); pr.className = 'm-prompt'; pr.textContent = q.prompt; stage.appendChild(pr);
+    const host = document.createElement('div'); host.className = 'm-host'; host.id = 'mHost'; host.dataset.component = q.component; stage.appendChild(host);
+    const comp = window.MComp[q.component];
+    if (comp) comp.render(host, q.spec || {}, { submit: () => document.getElementById('check').click() });
+    else host.textContent = 'This question type is missing.';
+  },
+  read() { const h = document.getElementById('mHost'); const v = h && h.__getValue ? h.__getValue() : null;
+    return (v === null || v === '' || (typeof v === 'number' && isNaN(v))) ? null : { value: v }; },
+  explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';
+    if (r.solution && r.solution.length) s += '<div class="m-sol">' + r.solution.map(esc).join('<br>') + '</div>'; return s; },
+  after(r) { const h = document.getElementById('mHost'); if (h && h.__feedback) h.__feedback(r);
+    if (r.mastered) document.getElementById('feedback').innerHTML += ' 🏆 Skill mastered!';
+    document.getElementById('mastery').textContent = 'Skill score ' + r.score + '/100 · ' + r.progress.mastered + ' of ' + r.progress.total + ' skills mastered'; } });
+</script>{% endblock %}

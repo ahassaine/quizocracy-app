@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block body %}
+{% if request.query_params.get('deleted') %}<div class="ok">Your account and all of its data have been deleted.</div>{% endif %}
+<h1>Daily practice your children will actually do</h1>
+<p class="mut">Maths, times tables, spelling, numbers in words and irregular verbs, set to your child's school year in England. You set the targets; a family board shows everyone's day.</p>
+<div class="row"><a class="btn primary big" href="/signup">Start free</a><a class="btn big" href="/login">Sign in</a></div>
+<div class="grid" style="margin-top:22px">
+{% for k in ORDER %}{% set a = ACTIVITIES[k] %}
+  <div class="card"><div style="font-size:1.8rem">{{ a.icon }}</div><b>{{ a.title }}</b><div class="mut small">{{ a.blurb }}</div></div>
+{% endfor %}
+</div>
+<div class="card"><b>Built by a parent for his own four children.</b> <span class="mut">No adverts, no chat, nothing shared with other families. Children sign in with a PIN on your device; you see everything they do.</span></div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Privacy · Quizocracy{% endblock %}
+{% block body %}
+<h1>Privacy notice</h1>
+<p class="mut small">Beta draft — to be reviewed before paid launch.</p>
+<h2>Who we are</h2><p>Quizocracy is run by Abdelaali Hassaine. Contact: {{ cfg.SUPPORT_EMAIL }}.</p>
+<h2>What we keep</h2>
+<ul><li><b>Parent:</b> email address and a scrambled (hashed) password.</li>
+<li><b>Children:</b> a first name or nickname, school year and a hashed 4-digit PIN. No surname, date of birth, photo, school or location.</li>
+<li><b>Practice:</b> each answer, whether it was right, and how long it took, so we can choose the next question and show you progress.</li></ul>
+<h2>What we do not do</h2>
+<p>No adverts, no tracking scripts, no selling or sharing data, no chat between users, and no AI processing of your child's work. Children's data is visible only to their own family.</p>
+<h2>Why we may use it</h2><p>To provide the service you signed up for (our contract with you, the parent). Children cannot create accounts; a parent adds them.</p>
+<h2>Your child should know</h2><p>We show children that their parent can see their answers and progress.</p>
+<h2>How long</h2><p>Until you delete a child or your account. Deletion is immediate and covers all practice data. You can download everything we hold from Settings.</p>
+<h2>Where</h2><p>On servers in the European Union (Hetzner, Germany). Email is sent from our own server.</p>
+<h2>Your rights</h2><p>You can access, correct, download or delete your family's data at any time in Settings, or by writing to us. You can complain to the Information Commission (ico.org.uk).</p>
+{% endblock %}
