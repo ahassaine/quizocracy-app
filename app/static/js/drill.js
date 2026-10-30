@@ -32,6 +32,7 @@
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
       token = q.token; setDay(q.day);
       opts.render(q);
+      document.body.dataset.qtoken = q.token;      // which question is on screen (used by the tests)
       shownAt = Date.now();
     }
     async function check() {

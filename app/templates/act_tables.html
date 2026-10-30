@@ -5,7 +5,7 @@
   <input class="answer" id="answer" type="text" inputmode="numeric" autocomplete="off" aria-label="Your answer">
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=2"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=3"></script><script>
 Drill({ activity: 'tables', autoNext: 700,
   render(q) { document.getElementById('q').textContent = q.prompt + ' ?'; const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },

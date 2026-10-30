@@ -4,7 +4,7 @@ import re
 import pytest
 import requests
 
-from conftest import (BASE, DB, PASSWORD, add_child, enter_child, last_mail, new_email, signup, unlock_parent,
+from conftest import (BASE, DB, INVITE, PASSWORD, add_child, enter_child, last_mail, new_email, signup, unlock_parent,
                       wait_question)
 
 
@@ -47,7 +47,7 @@ def test_signup_verify_login_logout(page):
     # the same email cannot sign up twice
     page.context.clear_cookies()
     page.goto("/signup")
-    page.fill("#email", email); page.fill("#password", PASSWORD); page.fill("#invite", "BETA2026"); page.check("#consent")
+    page.fill("#email", email); page.fill("#password", PASSWORD); page.fill("#invite", INVITE); page.check("#consent")
     page.click("button[type=submit]")
     assert "already exists" in page.content()
     # sign in, wrong then right
@@ -67,7 +67,7 @@ def test_signup_verify_login_logout(page):
 def test_wrong_verification_code_and_resend(page):
     email = new_email()
     page.goto("/signup")
-    page.fill("#email", email); page.fill("#password", PASSWORD); page.fill("#invite", "BETA2026"); page.check("#consent")
+    page.fill("#email", email); page.fill("#password", PASSWORD); page.fill("#invite", INVITE); page.check("#consent")
     page.click("button[type=submit]")
     page.wait_for_url("**/verify")
     page.fill("#code", "000000")

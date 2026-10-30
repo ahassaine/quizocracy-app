@@ -106,14 +106,10 @@ def pending_item(pupil_id, activity):
 
 
 def wait_question(page, activity, pupil_id, previous=None):
-    """Wait until the page shows a new question, and return its stored item."""
-    for _ in range(100):
-        if activity == "maths":
-            doc = DB.maths_lab_q.find_one({"pupil": pupil_id, "done": {"$ne": True}}, sort=[("created", -1)])
-        else:
-            doc = DB.items.find_one({"pupil_id": pupil_id, "activity": activity, "done": False}, sort=[("created", -1)])
-        if doc and doc["_id"] != previous:
-            page.wait_for_function("() => document.getElementById('check') && !document.getElementById('check').disabled")
-            return doc
-        page.wait_for_timeout(100)
-    raise AssertionError("no new question appeared")
+    """Wait until the page shows a new question, and return its stored record."""
+    page.wait_for_function("""prev => document.body.dataset.qtoken && document.body.dataset.qtoken !== prev
+                              && !document.getElementById('check').disabled""", arg=previous)
+    tok = page.evaluate("document.body.dataset.qtoken")
+    doc = (DB.maths_lab_q if activity == "maths" else DB.items).find_one({"_id": tok})
+    assert doc, f"question {tok} not in the database"
+    return doc
