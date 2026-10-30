@@ -69,9 +69,12 @@ class Page:
         raise AssertionError(f"timed out waiting for: {js} {arg or ''}")
 
     def goto(self, path):
+        try:
+            self.ev("() => { window.__qzOld = true; return true; }")      # marks the old document
+        except Exception:
+            pass
         self.cmd("Page.navigate", url=BASE + path)
-        time.sleep(0.5)
-        self.wait("() => document.readyState === 'complete'")
+        self.wait("() => !window.__qzOld && document.readyState === 'complete'")
 
     def url(self):
         return self.ev("() => location.href")
@@ -121,6 +124,7 @@ def wait_item(pg, activity, pid, prev=None):
 
 
 pg = Page()
+pg.cmd("Network.enable"); pg.cmd("Network.clearBrowserCookies")     # start signed out
 pg.goto("/")
 assert pg.ev("() => !!(window.Capacitor && window.Capacitor.isNativePlatform())"), "not inside the native app"
 assert pg.ev("() => window.Capacitor.getPlatform()") == "android"
@@ -133,7 +137,7 @@ pg.goto("/signup")
 pg.fill("#email", email); pg.fill("#password", PASSWORD); pg.fill("#family_name", "Android test"); pg.fill("#invite", INVITE)
 pg.ev("() => { document.getElementById('consent').checked = true; return true; }")
 pg.tap("form button[type=submit]")
-pg.wait("() => location.pathname === '/verify'")
+pg.wait("() => location.pathname === '/verify' && document.readyState === 'complete'")
 code = re.search(r"\b(\d{6})\b", last_mail(email, "code")["subject"]).group(1)
 pg.fill("#code", code); pg.tap("form[action='/verify'] button")
 pg.wait("() => location.search.includes('welcome=1')")
@@ -170,8 +174,15 @@ for act in ("tables", "tables", "spelling", "numbers", "verbs", "maths"):
             assert st == "200 audio/mpeg", st
         pg.fill("#answer", d["answer"])
     pg.tap("#check")
-    pg.wait("() => document.querySelector('#feedback.yes, #feedback.no')")
-    assert pg.ev("() => !!document.querySelector('#feedback.yes')"), (act, pg.text("#feedback"))
+    coll = DB.maths_lab_q if act == "maths" else DB.items
+    for _ in range(120):                       # the answer reached the server ...
+        if coll.find_one({"_id": d["_id"], "done": True}):
+            break
+        time.sleep(0.25)
+    else:
+        raise AssertionError(f"{act}: the tap did not submit an answer")
+    last = DB.attempts.find_one({"pupil_id": pid, "activity": act}, sort=[("ts", -1)])
+    assert last and last["correct"], (act, last)   # ... and was marked right
     step(f"{act}: answered correctly in the app")
 
 pg.goto("/me")
