@@ -53,11 +53,15 @@ def test_team_board_end_to_end(page, tmp_path):
     page.goto(f"/team/{ali}")
     assert "Spelling page feedback" in page.inner_text("[data-testid=thread]")
     page.goto(f"/team/{ali}/{tid}")
-    page.fill("textarea[name=text]", "Agreed — Claude, can you make it bigger?")
+    page.fill("textarea[name=text]", "Agreed — Claude, can you make it bigger? See https://quizocracy.com/learn. <marquee>x</marquee>")
     page.click("form[action$='/send'] button")
     page.wait_for_url(f"**/team/{ali}/{tid}*")
     msgs = page.locator("[data-testid=msg]").all_inner_texts()
     assert msgs[0].startswith("Meriem") and msgs[1].startswith("Ali")
+    # links in messages are clickable; any other markup stays text
+    link = page.locator("[data-testid=msg] a[href='https://quizocracy.com/learn']")
+    assert link.count() == 1 and link.get_attribute("target") == "_blank"
+    assert "<marquee>x</marquee>" in msgs[1] and page.locator("[data-testid=msg] marquee").count() == 0
     # the bot replies through its own link; that must not wake anyone
     page.goto(f"/team/{bot}/{tid}")
     page.fill("textarea[name=text]", "On it.")

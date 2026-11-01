@@ -5,7 +5,7 @@
 {% for m in msgs %}{% set a = names.get(m.author) %}
 <div class="card" {% if m.kind == 'system' %}style="background:transparent;border-style:dashed"{% endif %} data-testid="msg">
   <div class="mut small"><b style="color:var(--ink)">{{ a.name if a else m.author }}</b>{% if a and a.role == 'bot' %} 🤖{% endif %} · {{ m.time.strftime('%d %b %H:%M') }} UTC</div>
-  <div dir="auto" style="white-space:pre-wrap;margin-top:6px">{{ m.text }}</div>
+  <div dir="auto" style="white-space:pre-wrap;margin-top:6px">{{ m.text|urlize(target="_blank") }}</div>
   {% for f in m.attachments %}{% set url = '/team/' ~ me._id ~ '/' ~ t._id ~ '/files/' ~ m._id ~ '/' ~ f %}
     {% if f.lower().endswith(('.png','.jpg','.jpeg','.gif','.webp')) %}<a href="{{ url }}"><img src="{{ url }}" alt="{{ f }}" style="max-width:100%;max-height:360px;border-radius:8px;margin-top:8px"></a>
     {% else %}<div><a href="{{ url }}">📎 {{ f }}</a></div>{% endif %}
