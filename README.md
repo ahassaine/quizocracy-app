@@ -17,7 +17,7 @@ data export and deletion. No AI runs at serve time.
 
     rsync -a --delete --exclude .git --exclude src --exclude tests --exclude venv --exclude .env \
           --exclude mobile --exclude __pycache__ ./ quizocracy.com:projects/qz/
-    ssh quizocracy.com 'cd ~/projects/qz && venv/bin/pip install -q -r requirements.txt && pm2 restart qzprod && pm2 save'
+    ssh quizocracy.com 'export PATH=~/.nvm/versions/node/v20.13.1/bin:$PATH; cd ~/projects/qz && venv/bin/pip install -q -r requirements.txt && pm2 restart qzprod && pm2 save'
 
 Settings live in `~/projects/qz/.env` (mode 600; see `.env.example`). Nightly dump: `deploy/backup.sh` (cron 02:30).
 nginx (`/etc/nginx/sites-enabled/quizocracy.com`) sends the product paths to :8300, keeps `/f/`, `/fb/`,
