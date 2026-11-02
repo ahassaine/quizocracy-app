@@ -1,12 +1,12 @@
-"""Maths: generator banks for Years 1 to 8 with per-child mastery."""
+"""Maths: generator banks for Years 1 to 9 with per-child mastery."""
 from ..maths import maths_engine, maths_mastery
 from .. import progress
 
-ENGINE_YEARS = (1, 2, 3, 4, 5, 6, 7, 8)
+ENGINE_YEARS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
 
 def engine_year(year: int) -> int:
-    """The child's own year; Year 9 works the Year 8 bank until it has its own."""
+    """The child's own year (every year from 1 to 9 has its own bank)."""
     return max([y for y in ENGINE_YEARS if y <= max(int(year or 1), 1)])
 
 

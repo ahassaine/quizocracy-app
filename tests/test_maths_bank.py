@@ -27,6 +27,10 @@ def test_every_skill_generates_checkable_questions():
                 if not e.check_answer(q.get("answer_type", "num"), str(a), a, q.get("tolerance", 0)):
                     bad.append(f"{s['key']} d{d} rejects its own answer {a!r}")
                     break
+                typed = q.get("component", "number") != "number_line"          # a marker is placed, not typed
+                if typed and q.get("answer_type") in ("num", "int") and "." in str(a) and len(str(a).split(".")[1]) > 9:
+                    bad.append(f"{s['key']} d{d} answer {a!r} cannot be typed exactly")
+                    break
                 spec = e.hide_missing_cell(q.get("component"), q.get("spec") or {})
                 m = spec.get("missing")
                 if q.get("component") == "data_table" and isinstance(m, list) and spec["rows"][m[0]][m[1]] != "":

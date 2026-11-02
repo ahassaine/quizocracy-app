@@ -120,3 +120,23 @@ Maths now starts at Year 1 (it used to start at Year 3). Short prompts, pictures
   3-D shapes, patterns, turns and direction; pictograms, tally charts, block diagrams and tables.
 
 Not testable on screen: *drawing* clock hands is replaced by setting the clock; making 3-D models.
+
+## Year 9 bank (built 2 Nov 2026)
+
+The upper KS3 layer above the Year 8 bank. 40 skills in 10 strands (`y9_gen_a`–`e`):
+zero/negative indices and standard form with negative powers and calculations, roots and surds;
+expanding double brackets, factorising quadratics and the difference of two squares, changing
+the subject, indices in algebra, algebraic fractions; unknowns on both sides, fractional equations
+and x² = k, simultaneous equations, inequalities with negatives; gradients, equations of lines,
+quadratic graphs, distance–time and real-life graphs; ratio with differences/totals, direct and
+inverse proportion, speed/density/pressure; compound interest and repeated change, reverse
+percentages; trigonometry (sides and angles), Pythagoras problems, similar shapes, congruence and
+angle reasoning, loci; circles and parts of circles, surface area and volume of prisms and
+cylinders, area/volume unit conversion; mutually exclusive events, expected and relative frequency,
+Venn and two-way-table probability, independent events; frequency tables, grouped data, comparing
+distributions, choosing and criticising charts.
+
+The bank test now also rejects typed numeric answers that cannot be typed exactly (float
+artefacts such as 16.666…); one speed question had that defect and is fixed.
+
+**Every year from 1 to 9 now has its own maths bank.**

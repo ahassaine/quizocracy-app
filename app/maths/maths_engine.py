@@ -98,7 +98,7 @@ def _sn(s):
     a stored "6x+8". A hyphen between two words ("forty-two", "north-east") counts as a
     space; any other '-' is a minus sign and is kept, so "x>=2" never matches "x>=-2".
     """
-    s = str(s).strip().lower().replace("−", "-").replace("–", "-")
+    s = str(s).strip().lower().replace("−", "-").replace("–", "-").replace("²", "^2").replace("³", "^3")
     for ch in ".,!?":
         s = s.replace(ch, " ")
     s = re.sub(r"(?<=[a-z])\s*-\s*(?=[a-z])", " ", s)   # word hyphens
@@ -256,3 +256,4 @@ from . import y5_gen_a, y5_gen_b, y5_gen_c, y5_gen_d, y5_gen_e   # noqa: E402,F4
 from . import y6_gen_a, y6_gen_b, y6_gen_c, y6_gen_d, y6_gen_e, y6_gen_f   # noqa: E402,F401
 from . import y7_gen_a, y7_gen_b, y7_gen_c, y7_gen_d, y7_gen_e, y7_gen_f   # noqa: E402,F401
 from . import y8_gen_a, y8_gen_b, y8_gen_c, y8_gen_d, y8_gen_e   # noqa: E402,F401
+from . import y9_gen_a, y9_gen_b, y9_gen_c, y9_gen_d, y9_gen_e   # noqa: E402,F401
