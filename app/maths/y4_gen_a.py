@@ -83,8 +83,8 @@ def _thousands(d):
 
 def _num_for(d):
     """A number of the right size: 3-digit at d=0, 4-digit above."""
-    if d == 0:
-        return random.randint(101, 999)
+    if d == 0:                               # no zero digits: "800 = ___ + 0 + 0" teaches nothing
+        return random.randint(1, 9) * 100 + random.randint(1, 9) * 10 + random.randint(1, 9)
     return _thousands(d)
 
 
@@ -2098,8 +2098,7 @@ def _(d=1):
         v = random.randint(4, 9)
         q = random.randint(2, 9) * 10
         exact = v * q
-        off = pick([-2, -1, 1, 2])
-        n = exact + off
+        n = exact + (pick([-1, 1]) if v == 4 else pick([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
         return _tb("Estimate %s ÷ %d. Use the number closest to %s that divides exactly by %d."
                    % (_c(n), v, _c(n), v), q, "int", {},
                    ["%s is the closest number to %s that divides exactly by %d."
@@ -2118,7 +2117,7 @@ def _(d=1):
     def t_word_quotient():
         v = random.randint(4, 9)
         q = random.randint(2, 9) * 10
-        n = v * q + pick([-2, -1, 1, 2])
+        n = v * q + (pick([-1, 1]) if v == 4 else pick([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
         who = pick(NAMES)
         return _tb("%s shares %s marbles equally between %d friends. Estimate how many "
                    "marbles each friend gets. Use the number closest to %s that divides "

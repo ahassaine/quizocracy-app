@@ -175,6 +175,25 @@ def call_generator(fn, difficulty=1):
     return fn()
 
 
+def hide_missing_cell(component, spec):
+    """Tables mark the cell the pupil must fill with `missing`, but generators leave its true
+    value in `rows`. Blank it here so the answer never travels to the browser."""
+    m, rows = spec.get("missing"), spec.get("rows")
+    if not isinstance(rows, list):
+        return spec
+    if component == "data_table" and isinstance(m, (list, tuple)) and len(m) == 2:
+        r, c = m
+    elif component == "io_table" and isinstance(m, int):
+        r, c = m, 1
+    else:
+        return spec
+    if not (0 <= r < len(rows) and isinstance(rows[r], (list, tuple)) and 0 <= c < len(rows[r])):
+        return spec
+    rows = [list(x) if isinstance(x, (list, tuple)) else x for x in rows]
+    rows[r][c] = ""
+    return {**spec, "rows": rows}
+
+
 async def new_question(skill_key, difficulty=1, pupil=None):
     fn = GENERATORS.get(skill_key)
     if not fn:
@@ -194,6 +213,7 @@ async def new_question(skill_key, difficulty=1, pupil=None):
     _ans = q.get("answer")
     if not isinstance(_ans, (str, int, float, bool, type(None))):
         q["answer"] = str(_ans)
+    q["spec"] = hide_missing_cell(q.get("component"), q.get("spec") or {})
     token = secrets.token_urlsafe(16)
     await db.maths_lab_q.update_one(
         {"_id": token},

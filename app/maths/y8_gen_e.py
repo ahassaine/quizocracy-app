@@ -1837,9 +1837,9 @@ def _(d=1):
                                 "%d − %d = %d°." % (b2, b1, turn)])
 
     if t == 5:                                        # bearing from a clockwise angle from north
-        ang = random.randint(_by_d(d, 20, 15, 5), 350)
+        ang = random.randint(_by_d(d, 10, 5, 1), 99)
         return _num_q("A lighthouse is seen at an angle of %d° measured clockwise from "
-                      "north. Write this as a three-figure bearing." % ang, ang, "int",
+                      "north. Write this as a three-figure bearing." % ang, _bear(ang), "str", text=True, placeholder="e.g. 072",
                       solution=["The bearing IS the clockwise angle from north.",
                                 "As three figures: %s°." % _bear(ang)])
 
@@ -2143,8 +2143,10 @@ def _(d=1):
                                 "%s rounds to %s." % (_f(v), _f(res))])
 
     if t == 6:                                        # round to significant figures
-        v = random.randint(1000, 99999)
         sf = pick([1, 2, 3])
+        v = random.randint(1000, 99999)
+        while v % (10 ** (len(str(v)) - sf)) == 0:     # already at that accuracy: nothing to do
+            v = random.randint(1000, 99999)
         # round v to sf significant figures
         from math import log10, floor
         digits = int(floor(log10(v)))
@@ -3378,12 +3380,23 @@ def _(d=1):
     d = _tier(d)
     t = _pick_t([3, 3, 2, 2, 2, 2, 2, 1, 2, 2])
     kind = pick(["positive", "negative", "none"])
-    xlab, ylab, ctx = pick([
-        ("Height (cm)", "Mass (kg)", "height and mass"),
-        ("Hours revised", "Test score", "revision time and test score"),
-        ("Temperature (°C)", "Ice creams sold", "temperature and ice creams sold"),
-        ("Age of car (years)", "Value (£1000s)", "a car's age and its value"),
-    ])
+    # each context is paired with the correlation it really has
+    _CTX = {
+        "positive": [("Height (cm)", "Mass (kg)", "height and mass"),
+                     ("Hours revised", "Test score", "revision time and test score"),
+                     ("Temperature (°C)", "Ice creams sold", "temperature and ice creams sold")],
+        "negative": [("Age of car (years)", "Value (£1000s)", "a car's age and its value"),
+                     ("Temperature (°C)", "Hot drinks sold", "temperature and hot drinks sold"),
+                     ("Hours of TV a week", "Test score", "hours of TV watched and test score")],
+        "none": [("Shoe size", "Test score", "shoe size and test score"),
+                 ("House number", "Height (cm)", "house number and height"),
+                 ("Day of birth in the month", "Hours of sleep", "day of birth and hours of sleep")],
+    }
+
+    def _ctx(k):
+        return pick(_CTX[k])
+
+    xlab, ylab, ctx = _ctx(kind)
 
     def _pts(kind):
         xs = sorted(random.sample(range(1, 20), 7))
@@ -3459,6 +3472,7 @@ def _(d=1):
                              "At x = %d, y = %d × %d + %d = %d." % (xq, m, xq, c, pred)]}
 
     if t == 2:                                        # identify outlier x-value (visual)
+        xlab, ylab, ctx = _ctx("positive")
         pts = _pts("positive")
         ox = random.randint(6, 15)
         oy = random.randint(1, 4)                       # low y where trend is high
@@ -3504,6 +3518,7 @@ def _(d=1):
                                 "The score tends to %s." % ans])
 
     if t == 6:                                        # describe correlation, downhill (visual)
+        xlab, ylab, ctx = _ctx("negative")
         pts = _pts("negative")
         return {"prompt": "This scatter graph shows %s. The points go downhill from "
                           "top-left to bottom-right. What type of correlation is this? "

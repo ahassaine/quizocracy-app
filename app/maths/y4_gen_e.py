@@ -2235,15 +2235,17 @@ def _(d=1):
     if t == 7:                                        # grouped: last two groups
         cats2 = list(pick(_GROUPS))
         vals2 = _distinct(4, 3, 18)
-        return {"prompt": "This bar chart shows grouped data. Use it to find how many are "
-                          "in the two largest groups (%s and %s) altogether."
-                          % (cats2[2], cats2[3]),
+        # the two TALLEST bars, named so the pupil still has to read their heights
+        a, b = sorted(sorted(range(4), key=lambda k: -vals2[k])[:2])
+        return {"prompt": "This bar chart shows grouped data. The two tallest bars are "
+                          "%s and %s. How many are in those two groups altogether?"
+                          % (cats2[a], cats2[b]),
                 "component": "bar_chart",
                 "spec": {"categories": cats2, "values": vals2, "mode": "read"},
-                "answer": vals2[2] + vals2[3], "answer_type": "int",
+                "answer": vals2[a] + vals2[b], "answer_type": "int",
                 "solution": ["%s = %d and %s = %d."
-                             % (cats2[2], vals2[2], cats2[3], vals2[3]),
-                             "%d + %d = %d." % (vals2[2], vals2[3], vals2[2] + vals2[3])]}
+                             % (cats2[a], vals2[a], cats2[b], vals2[b]),
+                             "%d + %d = %d." % (vals2[a], vals2[b], vals2[a] + vals2[b])]}
 
     if t == 8:                                        # grouped: how many NOT in one group
         return {"prompt": "Use the bar chart. How many are NOT in the %s bar?" % cats[i],

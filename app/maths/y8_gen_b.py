@@ -824,7 +824,10 @@ def _(d=1):
                                        _lb(change))])
 
     def mean_of():
-        vals = [_mk(1, 12, 88) for _ in range(_by_d(d, 2, 3, 4))]
+        n = _by_d(d, 3, 4, 5)
+        vals = [_mk(1, 12, 88) for _ in range(n)]
+        while len(set(vals)) < n:               # repeated values make the mean trivial
+            vals = [_mk(1, 12, 88) for _ in range(n)]
         # ensure exact mean at 1-2 dp
         n = len(vals)
         tot = sum(vals)

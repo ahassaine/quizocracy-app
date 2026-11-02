@@ -41,13 +41,29 @@ def penalty(score):
     return max(3, int(round(score * 0.12)))
 
 
+# Skills whose content the National Curriculum puts in a later year. They stay registered
+# (old attempts still resolve) but are not part of their year's ladder; the later year
+# teaches the same content in its own bank.
+OUT_OF_YEAR = {
+    "Y3.9.f",   # likelihood: probability is KS3
+    "Y4.4.j",   # algebraic expressions: Year 6
+    "Y4.5.f",   # simplifying fractions: Year 6
+    "Y4.6.i",   # adding and subtracting decimals: Year 5
+    "Y4.7.e",   # imperial units: Year 5
+    "Y4.9.h",   # probability: KS3
+    "Y4.9.i",   # mean: Year 6
+    "Y6.9.i",   # mode and median: KS3
+    "Y6.9.j",   # probability: KS3
+}
+
+
 def _year_skills(year=None):
     """Every skill, or only those of one year (year=4 -> keys starting 'Y4.')."""
     skills = skill_list()
     if year in (None, "", 0):
         return skills
     pref = "Y%s." % year
-    return [s for s in skills if s["key"].startswith(pref)] or skills
+    return [s for s in skills if s["key"].startswith(pref) and s["key"] not in OUT_OF_YEAR] or skills
 
 
 async def record_attempt(pupil, skill_key, correct, value=None):
