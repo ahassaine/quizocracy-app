@@ -95,16 +95,15 @@ def _sn(s):
     """normalise free text: case, punctuation, UK 'and', hyphens.
 
     Also makes ALGEBRAIC whitespace insensitive: a pupil who types "6x + 8" must match
-    a stored "6x+8" (the raw normaliser turns '-' into a space so subtraction is already
-    space-robust, but '+', '=', '^', '*', '/', '<', '>' were not). Word answers contain
-    none of these characters, so this only affects expression/equation/inequality answers.
+    a stored "6x+8". A hyphen between two words ("forty-two", "north-east") counts as a
+    space; any other '-' is a minus sign and is kept, so "x>=2" never matches "x>=-2".
     """
-    s = str(s).strip().lower()
+    s = str(s).strip().lower().replace("−", "-").replace("–", "-")
     for ch in ".,!?":
         s = s.replace(ch, " ")
-    s = s.replace("-", " ")
+    s = re.sub(r"(?<=[a-z])\s*-\s*(?=[a-z])", " ", s)   # word hyphens
     s = " ".join(s.split())
-    s = re.sub(r"\s*([+*/=^<>()])\s*", r"\1", s)  # drop spaces around algebra operators/brackets
+    s = re.sub(r"\s*([-+*/=^<>()])\s*", r"\1", s)  # drop spaces around algebra operators/brackets
     return s
 
 def check_answer(answer_type, expected, value, tolerance=0):
@@ -254,4 +253,5 @@ from . import y3_gen_a, y3_gen_b, y3_gen_c, y3_gen_d   # noqa: E402,F401
 from . import y4_gen_a, y4_gen_b, y4_gen_c, y4_gen_d, y4_gen_e   # noqa: E402,F401
 from . import y5_gen_a, y5_gen_b, y5_gen_c, y5_gen_d, y5_gen_e   # noqa: E402,F401
 from . import y6_gen_a, y6_gen_b, y6_gen_c, y6_gen_d, y6_gen_e, y6_gen_f   # noqa: E402,F401
+from . import y7_gen_a, y7_gen_b, y7_gen_c, y7_gen_d, y7_gen_e, y7_gen_f   # noqa: E402,F401
 from . import y8_gen_a, y8_gen_b, y8_gen_c, y8_gen_d, y8_gen_e   # noqa: E402,F401

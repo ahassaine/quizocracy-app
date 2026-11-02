@@ -80,3 +80,24 @@ Coverage against the Year 5 statutory programme:
 Not testable on screen: *draw* given angles (measuring with a protractor is covered).
 Also fixed while building: the area grid printed the shaded count on "what fraction is shaded"
 questions (all years), and numeric angle questions showed an "acute / right / obtuse" hint.
+
+## Year 7 bank (built 2 Nov 2026)
+
+KS3 is a single statutory stage, so Year 7 is the entry layer used by common KS3 schemes; the
+existing Year 8 bank carries the deeper KS3 content. 58 skills in 10 strands (`y7_gen_a`–`f`):
+
+| Strand | Skills |
+|---|---|
+| 7.0 Sequences: term-to-term, position-to-term, nth term, linear/geometric/special, patterns | 5 |
+| 7.1 Algebraic notation: writing and reading expressions, substitution, function machines, formulae, vocabulary, × and ÷ of terms | 7 |
+| 7.2 Equality & equivalence: one- and two-step equations, forming equations, like terms, single brackets, inequality notation | 6 |
+| 7.3 Place value & ordering: any size, =, ≠, <, >, ≤, ≥, decimal places, 1 s.f. and estimation, range and median, standard units | 6 |
+| 7.4 Fractions, decimals & percentages: conversion, ordering, one quantity of another, fractions/percentages of amounts, over 100% and change | 5 |
+| 7.5 Applications of number: four operations with integers and decimals, priority of operations, mental methods, two-way tables and frequency trees, perimeter/area with decimals | 6 |
+| 7.6 Directed number: ordering, four operations, substitution and priority | 4 |
+| 7.7 Fractional thinking: add/subtract any fractions and mixed numbers, multiply, divide, problems | 5 |
+| 7.8 Lines & angles: notation, angle facts, triangles, quadrilaterals, polygons, parallel/perpendicular and constructions, area of triangles/parallelograms/trapezia, four-quadrant coordinates | 8 |
+| 7.9 Sets, probability & data: Venn diagrams, probability scale, sample spaces, primes/HCF/LCM, averages, charts | 6 |
+
+Fixed while building: text answers dropped minus signs ("x>=2" was accepted for "x>=-2", "3n-1" for
+"-3n-1"); the normaliser now treats a hyphen as a space only between words.
