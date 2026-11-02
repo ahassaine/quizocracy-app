@@ -40,10 +40,11 @@ Y3.9.f likelihood · Y4.4.j algebraic expressions · Y4.5.f simplest form · Y4.
 decimals · Y4.7.e imperial units · Y4.9.h probability · Y4.9.i mean · Y6.9.i mode/median ·
 Y6.9.j probability.
 
-Statutory items thin or missing in the existing years (to be added):
+Statutory items that were missing in the existing years, now added (`y3_gen_d`, `y6_gen_f`):
 
-* Y3: days in each month / leap years; tenths from dividing by 10; horizontal and vertical lines.
-* Y6: shapes with the same area but different perimeters; volume in mm³/km³.
+* Y3.6.k tenths from dividing by 10 · Y3.8.m days in each month, leap years, seconds in a minute ·
+  Y3.8.n horizontal and vertical lines.
+* Y6.8.r same area, different perimeter · Y6.8.s volume in cm³/m³, extending to mm³/km³.
 
 Other notes: several prompts reuse skill names from the family app's original source as
 lead-ins ("Percent of change word problem: …", "Nets of three-dimensional figures: …"); they
