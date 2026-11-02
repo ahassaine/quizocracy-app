@@ -140,3 +140,13 @@ The bank test now also rejects typed numeric answers that cannot be typed exactl
 artefacts such as 16.666…); one speed question had that defect and is fixed.
 
 **Every year from 1 to 9 now has its own maths bank.**
+
+## KS3 spelling (built 2 Nov 2026)
+
+England has no statutory spelling list after Year 6, so Years 7–9 used to repeat the Year 5–6 list.
+`app/data/ks3_spelling.json` now holds three hand-chosen lists — Year 7: 116 words, Year 8: 91,
+Year 9: 100 — of commonly misspelt words and subject vocabulary from the KS3 programmes of study
+(English, maths, science, geography, history, music, art), UK spellings, none repeating a word from
+the NC lists. Homophones (whether, advice/advise, affect/effect, except, stationary/stationery,
+licence, personnel, wholly, quiet) get a gap sentence. Audio: Google TTS en-GB Neural2, as for the NC
+words (307 clips). `tests/test_spelling_lists.py` checks every year has a list and every word a clip.

@@ -9,6 +9,8 @@ from ..db import db
 from .. import items, progress
 
 LISTS = json.load(open(BASE_DIR / "data" / "nc_spelling.json", encoding="utf-8"))["lists"]
+# Years 7-9: no statutory list exists; these are hand-chosen KS3 lists (see the file's "source").
+KS3 = json.load(open(BASE_DIR / "data" / "ks3_spelling.json", encoding="utf-8"))["lists"]
 INTERVALS = [0, 1, 3, 7, 21]          # days until the next review, by box
 LEARNED_BOX = 3                       # three correct answers on separate days
 
@@ -31,6 +33,13 @@ CUES = {
     "past": "We walked ___ the shop.", "dessert": "We had ice cream for ___.",
     "muscle": "Your heart is a ___.", "rhyme": "Cat and hat ___.", "queue": "Wait in the ___.",
     "programme": "We watched a TV ___.", "practise": "I ___ the piano every day.",
+    # KS3 lists
+    "whether": "I don't know ___ it will rain.", "advice": "Can you give me some ___?",
+    "advise": "I ___ you to wear a coat.", "affect": "Will the rain ___ the match?",
+    "effect": "The film had a scary ___.", "except": "Everyone came ___ Tom.",
+    "stationary": "The car was ___ at the lights.", "stationery": "Pens and paper are ___.",
+    "licence": "You need a driving ___.", "personnel": "Hospital ___ wear badges.",
+    "wholly": "I am ___ sure.", "quiet": "Please be ___ in the library.",
 }
 
 
@@ -41,7 +50,9 @@ def list_for_year(year: int) -> list:
         return LISTS["Y1"] + LISTS["Y2"]
     if year in (3, 4):
         return LISTS["Y3-4"]
-    return LISTS["Y5-6"]
+    if year in (5, 6):
+        return LISTS["Y5-6"]
+    return KS3["Y%d" % min(int(year), 9)]
 
 
 def audio_file(word: str) -> str:
