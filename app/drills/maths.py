@@ -1,13 +1,13 @@
-"""Maths: generator banks for Years 3 to 8 with per-child mastery."""
+"""Maths: generator banks for Years 1 to 8 with per-child mastery."""
 from ..maths import maths_engine, maths_mastery
 from .. import progress
 
-ENGINE_YEARS = (3, 4, 5, 6, 7, 8)
+ENGINE_YEARS = (1, 2, 3, 4, 5, 6, 7, 8)
 
 
 def engine_year(year: int) -> int:
-    """The nearest year with generators at or below the child's year (Year 5 works Year 4, and so on)."""
-    return max([y for y in ENGINE_YEARS if y <= max(year, 3)])
+    """The child's own year; Year 9 works the Year 8 bank until it has its own."""
+    return max([y for y in ENGINE_YEARS if y <= max(int(year or 1), 1)])
 
 
 async def next_question(pupil: dict) -> dict | None:

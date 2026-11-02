@@ -2,7 +2,7 @@
 from . import config
 
 ACTIVITIES = {
-    "maths":    {"title": "Maths", "icon": "🧮", "target": 10, "min_year": 3, "free": True,
+    "maths":    {"title": "Maths", "icon": "🧮", "target": 10, "min_year": 1, "free": True,
                  "blurb": "Questions from the national curriculum, at your level.", "img": "/static/img/maths.png"},
     "tables":   {"title": "Times tables", "icon": "✖️", "target": 20, "min_year": 2, "free": True,
                  "blurb": "Multiplication and division facts, quick-fire.", "img": "/static/img/tables.png"},

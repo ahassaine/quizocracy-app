@@ -249,6 +249,7 @@ async def check(token, value, pupil):
             "skill": doc.get("skill")}
 
 # ------------------------------------------------ register Y3 generators ------
+from . import y1_gen_a, y2_gen_a   # noqa: E402,F401
 from . import y3_gen_a, y3_gen_b, y3_gen_c, y3_gen_d   # noqa: E402,F401
 from . import y4_gen_a, y4_gen_b, y4_gen_c, y4_gen_d, y4_gen_e   # noqa: E402,F401
 from . import y5_gen_a, y5_gen_b, y5_gen_c, y5_gen_d, y5_gen_e   # noqa: E402,F401

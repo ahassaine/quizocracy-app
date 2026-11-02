@@ -101,3 +101,22 @@ existing Year 8 bank carries the deeper KS3 content. 58 skills in 10 strands (`y
 
 Fixed while building: text answers dropped minus signs ("x>=2" was accepted for "x>=-2", "3n-1" for
 "-3n-1"); the normaliser now treats a hyphen as a space only between words.
+
+## Years 1 and 2 (built 2 Nov 2026)
+
+Maths now starts at Year 1 (it used to start at Year 3). Short prompts, pictures first.
+
+* **Year 1** (`y1_gen_a`, 20 skills): counting to 100 forwards and back, numbers to 20 in words,
+  counting in 2s/5s/10s, one more/one less, comparing, tens and ones; bonds to 10 and within 20,
+  adding/subtracting within 20, missing numbers and the = sign, word problems; equal groups, arrays,
+  sharing; halves and quarters; comparing and measuring length, mass, capacity and time, coins and
+  notes, days/months/order of events, o'clock and half past; naming 2-D and 3-D shapes, turns and
+  position.
+* **Year 2** (`y2_gen_a`, 25 skills): counting in 2s/3s/5s/10s, tens and ones, <, > and =, numbers in
+  words, odd and even; facts to 20 and related facts to 100, two-digit ± ones/tens/two-digit, three
+  one-digit numbers, any order and inverses, problems including change; the 2, 5 and 10 tables,
+  × and ÷ statements, problems; 1/3, 1/4, 2/4, 3/4 of shapes and quantities; units and scales,
+  comparing measures, money and change, time to five minutes, minutes/hours; properties of 2-D and
+  3-D shapes, patterns, turns and direction; pictograms, tally charts, block diagrams and tables.
+
+Not testable on screen: *drawing* clock hands is replaced by setting the clock; making 3-D models.
