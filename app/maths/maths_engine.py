@@ -79,6 +79,10 @@ def _num(x):
         return None
 
 def _frac(x):
+    m = re.fullmatch(r"\s*(-?)(\d+)\s+(\d+)\s*/\s*(\d+)\s*", str(x))     # mixed number "2 1/3"
+    if m and int(m.group(4)):
+        v = int(m.group(2)) + Fraction(int(m.group(3)), int(m.group(4)))
+        return -v if m.group(1) else v
     s = str(x).strip().replace(" ", "")
     try:
         if "/" in s:
@@ -214,6 +218,8 @@ async def new_question(skill_key, difficulty=1, pupil=None):
     if not isinstance(_ans, (str, int, float, bool, type(None))):
         q["answer"] = str(_ans)
     q["spec"] = hide_missing_cell(q.get("component"), q.get("spec") or {})
+    if q.get("component") == "angle" and q.get("answer_type", "num") in ("int", "num"):
+        q["spec"] = {**q["spec"], "numeric": True}     # a number answer gets a "degrees" box, not "acute / ..."
     token = secrets.token_urlsafe(16)
     await db.maths_lab_q.update_one(
         {"_id": token},
@@ -246,5 +252,6 @@ async def check(token, value, pupil):
 # ------------------------------------------------ register Y3 generators ------
 from . import y3_gen_a, y3_gen_b, y3_gen_c   # noqa: E402,F401
 from . import y4_gen_a, y4_gen_b, y4_gen_c, y4_gen_d, y4_gen_e   # noqa: E402,F401
+from . import y5_gen_a, y5_gen_b, y5_gen_c, y5_gen_d, y5_gen_e   # noqa: E402,F401
 from . import y6_gen_a, y6_gen_b, y6_gen_c, y6_gen_d, y6_gen_e   # noqa: E402,F401
 from . import y8_gen_a, y8_gen_b, y8_gen_c, y8_gen_d, y8_gen_e   # noqa: E402,F401

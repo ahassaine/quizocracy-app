@@ -57,3 +57,25 @@ read awkwardly and should be rewritten in plain wording as each year is revised.
 4. Year 9 and a KS3 spelling list.
 
 All content is hand-written generators: no model calls at build or serve time.
+
+## Year 5 bank (built 2 Nov 2026)
+
+85 skills in 10 strands (`y5_gen_a`–`e`), each with 4–9 question framings and three tiers.
+Coverage against the Year 5 statutory programme:
+
+| Statutory area | Skills |
+|---|---|
+| Numbers to 1,000,000, powers of 10, negatives, Roman numerals to M and years | 5.0.a–i |
+| Compare, order, round to 100,000, estimate and check | 5.1.a–g |
+| Add/subtract > 4 digits (written, mental), inverse, multi-step, the equals sign | 5.2.a–f |
+| Multiples, factor pairs, common factors, primes to 100, prime factors, squares, cubes | 5.3.a–h |
+| Mental ×/÷, short and long multiplication, short division, remainders, ×/÷ 10/100/1000 (whole and decimal), scaling, rates, four operations | 5.4.a–k |
+| Equivalent fractions, related denominators, mixed/improper, add/subtract, × whole numbers, fractions of amounts | 5.5.a–j |
+| Thousandths, decimals ↔ fractions, rounding, ordering to 3 d.p., decimal problems, per cent and equivalences | 5.6.a–j |
+| Metric and imperial units, composite perimeter, area (rectangles, irregular), volume, capacity, time, measure and money problems | 5.7.a–j |
+| 3-D from 2-D, estimating/measuring angles, 360°/180°/90° facts, rectangles, regular polygons, reflection, translation | 5.8.a–j |
+| Line graphs, tables, timetables | 5.9.a–d |
+
+Not testable on screen: *draw* given angles (measuring with a protractor is covered).
+Also fixed while building: the area grid printed the shaded count on "what fraction is shaded"
+questions (all years), and numeric angle questions showed an "acute / right / obtuse" hint.

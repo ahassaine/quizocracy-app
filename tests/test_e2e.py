@@ -276,7 +276,7 @@ def _answer_maths(page, doc, value):
     page.wait_for_selector("#feedback.yes, #feedback.no")
 
 
-@pytest.mark.parametrize("year", [3, 4, 6, 8])
+@pytest.mark.parametrize("year", [3, 4, 5, 6, 8])
 def test_maths_drill_each_year(page, year):
     signup(page)
     pid = add_child(page, "Zak", year, targets={"maths": 3})

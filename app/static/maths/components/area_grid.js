@@ -153,7 +153,7 @@
 
       // ---- readout ---------------------------------------------------------
       let readout = null;
-      if (interactive || isFraction) {
+      if (interactive || mode === 'fraction') {   // never on fraction_read: the count IS the answer
         readout = mk('text', { x: W / 2, y: 20, fill: INK, 'font-size': 15, 'text-anchor': 'middle', 'font-weight': 700 });
         svg.appendChild(readout);
       }
@@ -230,7 +230,7 @@
         input.inputMode = (mode === 'fraction_read') ? 'text' : 'numeric';
         input.className = 'm-input';
         input.autocomplete = 'off';
-        input.placeholder = (mode === 'fraction_read') ? 'e.g. 3/8' : '';
+        input.placeholder = spec.placeholder || ((mode === 'fraction_read') ? 'e.g. 3/8' : '');
         input.setAttribute('aria-label', 'Your answer');
         input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:140px;background:' + BG + ';color:' + INK +
           ';border:2px solid ' + BORDER + ';border-radius:8px;text-align:center;outline:none';

@@ -1,8 +1,8 @@
-"""Maths: the family app's generator engine (Years 3, 4, 6, 8) with per-child mastery."""
+"""Maths: generator banks for Years 3, 4, 5, 6 and 8 with per-child mastery."""
 from ..maths import maths_engine, maths_mastery
 from .. import progress
 
-ENGINE_YEARS = (3, 4, 6, 8)
+ENGINE_YEARS = (3, 4, 5, 6, 8)
 
 
 def engine_year(year: int) -> int:

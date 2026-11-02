@@ -237,7 +237,7 @@
       input.className = 'm-input';
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');
-      if (mode === 'classify') {
+      if (mode === 'classify' && !spec.numeric) {
         input.inputMode = 'text';
         input.placeholder = 'acute / right / obtuse …';
         input.style.width = '210px';
