@@ -28,6 +28,12 @@ def _poly(b, c, var="x"):
     return s
 
 
+def _a(n):
+    """'a' or 'an' before a number as it is read aloud: an 8, an 11, an 18, an 80, an 8.5 — but a 110."""
+    s = str(n).replace(",", "").lstrip("-").split(".")[0]
+    return "an" if s.startswith("8") or (s[:2] in ("11", "18") and len(s) % 3 == 2) else "a"
+
+
 def _bracket(p, var="x"):
     return "(%s%s%d)" % (var, "+" if p >= 0 else "-", abs(p))
 
@@ -62,7 +68,53 @@ def _(d=1):
         a1, a2 = random.randint(-4, 6), random.randint(-6, 4)
         return _tb("Simplify x^%d × x^%d. What is the power of x?" % (a1, a2), a1 + a2, "int", {}, ["Add the powers: %d + (%d) = %d." % (a1, a2, a1 + a2)])
 
-    return _pick_t([t_zero, t_neg, t_neg_decimal, t_frac_neg, t_which_power, t_laws])
+    def t_frac_neg_sq():
+        p, q = pick([(2, 3), (3, 4), (2, 5), (3, 5), (1, 2), (1, 3)])
+        return _fq("Work out (%d/%d)^-2 as a fraction." % (p, q), Fraction(q * q, p * p),
+                   ["Flip the fraction: (%d/%d)^2." % (q, p), "= %d/%d." % (q * q, p * p)])
+
+    def t_sum():
+        k = pick([2, 3])
+        return _fq("Work out %d^-1 + %d^-2 as a single fraction." % (k, k), Fraction(1, k) + Fraction(1, k * k),
+                   ["1/%d + 1/%d." % (k, k * k), "= %s." % _fs(Fraction(1, k) + Fraction(1, k * k))])
+
+    def t_power_of_ten():
+        k = random.randint(1, 5)
+        return _tb("Write %s as a power of 10. What is the power?" % _ds(Decimal(1) / 10 ** k), -k, "int", {},
+                   ["%s = 1/%s = 10^-%d." % (_ds(Decimal(1) / 10 ** k), _c(10 ** k), k)])
+
+    def t_decimal_base():
+        bb = pick([2, 4, 5, 8])
+        return _tb("Work out %d^-1 as a decimal." % bb, _ds(Fraction(1, bb)), "num", {}, ["1/%d = %s." % (bb, _ds(Fraction(1, bb)))])
+
+    def t_spot():
+        return _fq("Sam says %d^-%d = −%d. What is the correct value, as a fraction?" % (b, n, b ** n), Fraction(1, b ** n),
+                   ["A negative power means a reciprocal, not a negative number.", "%d^-%d = 1/%d." % (b, n, b ** n)])
+
+    def t_mixed_laws():
+        bb = pick([2, 3, 5])
+        p, q = random.randint(-4, -1), random.randint(2, 5)
+        v = Fraction(bb) ** (p + q)
+        return _fq("Work out %d^%d × %d^%d. Give a whole number or a fraction." % (bb, p, bb, q), v,
+                   ["Add the powers: %d + %d = %d." % (p, q, p + q), "%d^%d = %s." % (bb, p + q, _fs(v))])
+
+    def t_divide_powers():
+        bb = pick([2, 3, 10])
+        p, q = random.randint(1, 4), random.randint(5, 7)
+        return _fq("Work out %d^%d ÷ %d^%d as a fraction." % (bb, p, bb, q), Fraction(1, bb ** (q - p)),
+                   ["Subtract the powers: %d − %d = %d." % (p, q, p - q), "%d^%d = 1/%d." % (bb, p - q, bb ** (q - p))])
+
+    def t_pattern():
+        bb = pick([2, 3, 10])
+        pw = [3, 2, 1, 0, -1, -2]
+        rows = [["%d^%d" % (bb, k), _fs(Fraction(bb) ** k)] for k in pw]
+        i = random.randint(3, 5)
+        return _dt("Each row is the one above divided by %d. Complete the table." % bb, ["Power", "Value"], rows,
+                   _fs(Fraction(bb) ** pw[i]), ["Keep dividing by %d: %s = %s." % (bb, rows[i][0], rows[i][1])],
+                   missing=[i, 1], atype="frac", placeholder="e.g. 1/4")
+
+    return _pick_t([t_zero, t_neg, t_neg_decimal, t_frac_neg, t_which_power, t_laws, t_frac_neg_sq, t_sum, t_power_of_ten,
+                    t_decimal_base, t_spot, t_mixed_laws, t_divide_powers], [t_pattern])
 
 
 @skill("Y9.0.b", "Standard form with negative powers", S0)
@@ -112,9 +164,11 @@ def _(d=1):
                    ["%d × %d = %d; powers %d + %d = %d." % (a, b, a * b, m, n, m + n), "= %s." % _sf(p)[0]], "e.g. 1.2x10^5")
 
     def t_div():
-        q = Decimal(a * b) * Decimal(10) ** m / (Decimal(b) * Decimal(10) ** n)
-        return _wq("Work out (%dx10^%d) ÷ (%dx10^%d). Give your answer in standard form." % (a * b, m, b, n), _sf(q)[0],
-                   ["%d ÷ %d = %d; powers %d − %d = %d." % (a * b, b, a, m, n, m - n)], "e.g. 4x10^3")
+        top = Decimal(a * b) * Decimal(10) ** m
+        q = top / (Decimal(b) * Decimal(10) ** n)
+        return _wq("Work out (%s) ÷ (%dx10^%d). Give your answer in standard form." % (_sf(top)[0], b, n), _sf(q)[0],
+                   ["%s = %dx10^%d." % (_sf(top)[0], a * b, m), "%d ÷ %d = %d; powers %d − %d = %d." % (a * b, b, a, m, n, m - n),
+                    "= %s." % _sf(q)[0]], "e.g. 4x10^3")
 
     def t_add():
         e = random.randint(3, 6)
@@ -129,7 +183,45 @@ def _(d=1):
         return _wq("Work out (%dx10^%d)². Give your answer in standard form." % (k, e), _sf(p)[0], ["%d² = %d; power × 2." % (k, k * k)],
                    "e.g. 9x10^6")
 
-    return _pick_t([t_mult, t_div, t_add, t_square])
+    def t_subtract():
+        e = random.randint(3, 6)
+        x, y = Decimal(max(a, b)) * 10 ** e, Decimal(min(a, b)) * 10 ** (e - 1)
+        return _wq("Work out %s − %s. Give your answer in standard form." % (_sf(x)[0], _sf(y)[0]), _sf(x - y)[0],
+                   ["As ordinary numbers: %s − %s = %s." % (_c(int(x)), _c(int(y)), _c(int(x - y)))], "e.g. 4.3x10^5")
+
+    def t_times_bigger():
+        e1, e2 = random.randint(5, 9), random.randint(1, 4)
+        big, small = a * b, b
+        return _tb("How many times bigger is %dx10^%d than %dx10^%d?" % (big, e1, small, e2) if big < 10 else
+                   "How many times bigger is %s than %dx10^%d?" % (_sf(Decimal(big) * 10 ** e1)[0], small, e2),
+                   a * 10 ** (e1 - e2), "int", {}, ["Divide: %d × 10^%d = %s." % (a, e1 - e2, _c(a * 10 ** (e1 - e2)))])
+
+    def t_power_n():
+        p = Decimal(a * b) * Decimal(10) ** (m + n)
+        return _tb("(%dx10^%d) × (%dx10^%d) = A × 10^n in standard form. What is n?" % (a, m, b, n), _sf(p)[2], "int", {},
+                   ["%d × %d = %d, and 10^%d × 10^%d = 10^%d." % (a, b, a * b, m, n, m + n), "%s, so n = %d." % (_sf(p)[0], _sf(p)[2])])
+
+    def t_context_grains():
+        mass = random.randint(2, 9)
+        cnt = random.randint(2, 9)
+        p = Decimal(mass * cnt) * Decimal(10) ** (-4 + 6)
+        return _wq("A grain of rice has a mass of %dx10^-4 kg. What is the mass of %dx10^6 grains, in kg? Give your answer in standard form."
+                   % (mass, cnt), _sf(p)[0], ["%d × %d = %d; powers −4 + 6 = 2." % (mass, cnt, mass * cnt), "= %s kg." % _sf(p)[0]],
+                   "e.g. 1.2x10^3")
+
+    def t_light():
+        dist = pick([(Decimal("1.5"), 8, 500), (Decimal("3.9"), 8, 1300), (Decimal("6"), 7, 200), (Decimal("4.5"), 8, 1500)])
+        return _tb("Light travels 3x10^5 km every second. A distance is %sx10^%d km. How many seconds does light take to cover it?"
+                   % (_ds(dist[0]), dist[1]), dist[2], "int", {"unit": "seconds"},
+                   ["%sx10^%d ÷ 3x10^5 = %d." % (_ds(dist[0]), dist[1], dist[2])])
+
+    def t_sqrt():
+        k = random.randint(2, 9)
+        e = random.randint(1, 5) * 2
+        return _wq("Work out √(%dx10^%d). Give your answer in standard form." % (k * k, e), "%dx10^%d" % (k, e // 2),
+                   ["√%d = %d and √10^%d = 10^%d." % (k * k, k, e, e // 2)], "e.g. 3x10^4")
+
+    return _pick_t([t_mult, t_div, t_add, t_square, t_subtract, t_times_bigger, t_power_n, t_context_grains, t_light, t_sqrt])
 
 
 @skill("Y9.0.d", "Roots, surds and estimating roots", S0)
@@ -139,8 +231,9 @@ def _(d=1):
     def t_between():
         n = random.choice([x for x in range(2, 150) if int(x ** 0.5) ** 2 != x])
         lo = int(n ** 0.5)
-        return _wq("√%d lies between which two whole numbers? Write them like 4 and 5." % n, "%d and %d" % (lo, lo + 1),
-                   ["%d² = %d and %d² = %d." % (lo, lo * lo, lo + 1, (lo + 1) ** 2)], "e.g. 4 and 5")
+        return {"prompt": "√%d lies between which two whole numbers? Type them like 4, 5." % n, "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. 4, 5"}, "answer": "%d, %d" % (lo, lo + 1), "answer_type": "set",
+                "solution": ["%d² = %d and %d² = %d." % (lo, lo * lo, lo + 1, (lo + 1) ** 2)]}
 
     def t_simplify():
         k, r = random.randint(2, 6), pick([2, 3, 5, 6, 7])
@@ -162,14 +255,55 @@ def _(d=1):
         n = random.choice([x for x in range(2, 60) if int(x ** 0.5) ** 2 != x])
         return _tb("Give √%d correct to 1 decimal place." % n, round(n ** 0.5 + 1e-12, 1), "num", {}, ["√%d ≈ %.3f." % (n, n ** 0.5)], tol=0.05)
 
-    return _pick_t([t_between, t_simplify, t_cube_root, t_higher, t_root_power, t_exact])
+    def t_surd_mult():
+        r, k = pick([2, 3, 5, 7]), random.randint(2, 4)
+        return _tb("Work out √%d × √%d." % (r, r * k * k), r * k, "int", {}, ["√%d = √%d × √%d = %d." % (r * r * k * k, r * r, k * k, r * k)])
+
+    def t_surd_add():
+        r = pick([2, 3, 5])
+        p, q = random.randint(1, 4), random.randint(2, 5)
+        return _tb("√%d + √%d = k√%d. What is k?" % (p * p * r, q * q * r, r), p + q, "int", {},
+                   ["√%d = %s√%d and √%d = %d√%d." % (p * p * r, "" if p == 1 else p, r, q * q * r, q, r), "%d + %d = %d." % (p, q, p + q)])
+
+    def t_surd_square():
+        k, r = random.randint(2, 6), pick([2, 3, 5, 7])
+        return _tb("Work out (%d√%d)²." % (k, r), k * k * r, "int", {}, ["%d² × (√%d)² = %d × %d = %d." % (k, r, k * k, r, k * k * r)])
+
+    def t_nearest():
+        n = random.choice([x for x in range(10, 200) if int(x ** 0.5) ** 2 != x])
+        return _tb("Estimate √%d to the nearest whole number." % n, int(n ** 0.5 + 0.5), "int", {},
+                   ["%d² = %d and %d² = %d; %d is nearer %d." % (int(n ** 0.5), int(n ** 0.5) ** 2, int(n ** 0.5) + 1,
+                                                               (int(n ** 0.5) + 1) ** 2, n, int(n ** 0.5 + 0.5) ** 2)])
+
+    def t_cube_between():
+        n = random.choice([x for x in range(10, 400) if round(x ** (1 / 3)) ** 3 != x])
+        lo = int(round(n ** (1 / 3)))
+        if lo ** 3 > n:
+            lo -= 1
+        return {"prompt": "The cube root of %d lies between which two whole numbers? Type them like 4, 5." % n, "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. 4, 5"}, "answer": "%d, %d" % (lo, lo + 1), "answer_type": "set",
+                "solution": ["%d³ = %d and %d³ = %d." % (lo, lo ** 3, lo + 1, (lo + 1) ** 3)]}
+
+    def t_on_line():
+        n = random.choice([x for x in range(2, 30) if int(x ** 0.5) ** 2 != x])
+        lo = int(n ** 0.5)
+        return _nld("Mark √%d on the number line (to the nearest tenth)." % n, round(n ** 0.5 + 1e-12, 1), lo, lo + 1, 0.1, 0.5,
+                    ["√%d ≈ %.2f." % (n, n ** 0.5)])
+
+    def t_mixed():
+        k = random.randint(2, 6)
+        return _tb("Work out √%d + ∛%d." % ((k + 1) ** 2, k ** 3), k + 1 + k, "int", {}, ["√%d = %d, ∛%d = %d." % ((k + 1) ** 2, k + 1, k ** 3, k)])
+
+    return _pick_t([t_between, t_simplify, t_cube_root, t_higher, t_root_power, t_exact, t_surd_mult, t_surd_add, t_surd_square,
+                    t_nearest, t_cube_between, t_mixed], [t_on_line])
 
 
 # ================================================================== 9.1 ======
 @skill("Y9.1.a", "Expand double brackets", S1)
 def _(d=1):
     d = _d(d)
-    p, q = random.randint(_by(d, 1, -9, -12), _by(d, 9, 9, 12)), random.randint(_by(d, 1, -9, -12), _by(d, 9, 9, 12))
+    lo, hi = _by(d, 1, -9, -12), _by(d, 9, 9, 12)
+    p, q = [random.choice([v for v in range(lo, hi + 1) if v]) for _ in range(2)]
 
     def t_expand():
         return _wq("Expand and simplify %s%s (like x^2+5x+6)." % (_bracket(p), _bracket(q)), _poly(p + q, p * q),
@@ -203,7 +337,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     p, q = random.randint(_by(d, 1, -8, -10), 9), random.randint(_by(d, 1, -8, -10), 9)
-    while p == 0 or q == 0:
+    while p == 0 or q == 0 or p == -q:          # x² − k² belongs to the difference-of-two-squares template
         p, q = random.randint(1, 9), random.randint(-8, 9)
 
     def t_factorise():
@@ -213,8 +347,9 @@ def _(d=1):
                    "e.g. (x+2)(x+3)")
 
     def t_pair():
-        return _wq("Find two numbers that multiply to %d and add to %d. Write the smaller first, like -2, 5." % (p * q, p + q),
-                   "%d, %d" % tuple(sorted([p, q])), ["%d × %d = %d; %d + %d = %d." % (p, q, p * q, p, q, p + q)], "e.g. -2, 5")
+        return {"prompt": "Find two numbers that multiply to %d and add to %d. Type them like -2, 5." % (p * q, p + q), "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. -2, 5"}, "answer": "%d, %d" % tuple(sorted([p, q])), "answer_type": "set",
+                "solution": ["%d × %d = %d; %d + %d = %d." % (p, q, p * q, p, q, p + q)]}
 
     def t_dots():
         k = random.randint(2, 12)
@@ -224,8 +359,9 @@ def _(d=1):
     def t_solve():
         lo, hi = sorted([p, q])
         roots = sorted([-p, -q])
-        return _wq("Solve %s = 0. Write both answers, smaller first, like -3, 2." % _poly(p + q, p * q), "%d, %d" % tuple(roots),
-                   ["%s%s = 0." % (_bracket(lo), _bracket(hi)), "x = %d or x = %d." % tuple(roots)], "e.g. -3, 2")
+        return {"prompt": "Solve %s = 0. Type both answers like -3, 2." % _poly(p + q, p * q), "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. -3, 2"}, "answer": "%d, %d" % tuple(roots), "answer_type": "set",
+                "solution": ["%s%s = 0." % (_bracket(lo), _bracket(hi)), "x = %d or x = %d." % tuple(roots)]}
 
     return _pick_t([t_factorise, t_pair, t_dots, t_solve, _common2])
 
@@ -278,7 +414,46 @@ def _(d=1):
         f = c * 9 // 5 + 32
         return _tb("F = 9C/5 + 32. Rearrange to find C when F = %d." % f, c, "int", {}, ["C = 5(F − 32)/9 = %d." % c])
 
-    return _pick_t([t_linear, t_form, t_speed, t_square, t_temp])
+    def t_volume():
+        l, w, h = random.randint(2, 9), random.randint(2, 9), random.randint(2, 12)
+        return _tb("V = lwh. Make h the subject, then find h when V = %d, l = %d and w = %d." % (l * w * h, l, w), h, "int", {},
+                   ["h = V / (lw).", "%d ÷ %d = %d." % (l * w * h, l * w, h)])
+
+    def t_circle():
+        r = random.randint(2, 20)
+        return _tb("C = 2πr. Make r the subject, then find r when C = %dπ." % (2 * r), r, "int", {}, ["r = C / (2π).", "%dπ ÷ 2π = %d." % (2 * r, r)])
+
+    def t_which():
+        a, b = random.randint(2, 9), random.randint(2, 9)
+        right = "x = (y − %d) / %d" % (a, b)
+        wrong = pick(["x = y/%d − %d" % (b, a), "x = %dy − %d" % (b, a), "x = (y + %d) / %d" % (a, b)])
+        opts = [right, wrong]
+        random.shuffle(opts)
+        return _wq("Make x the subject of y = %dx + %d. Which is correct?  A: %s   B: %s  (type A or B)" % (b, a, opts[0], opts[1]),
+                   "A" if opts[0] == right else "B", ["Subtract %d, then divide by %d: %s." % (a, b, right)], "A / B")
+
+    def t_suvat():
+        u, a = random.randint(0, 6), random.randint(1, 4)
+        s = random.randint(1, 12)
+        v2 = u * u + 2 * a * s
+        return _tb("v² = u² + 2as. Make s the subject, then find s when v² = %d, u = %d and a = %d." % (v2, u, a), s, "int", {},
+                   ["s = (v² − u²) / 2a.", "(%d − %d) ÷ %d = %d." % (v2, u * u, 2 * a, s)])
+
+    def t_interest():
+        P, R, T = random.randint(2, 20) * 100, pick([2, 4, 5, 10]), random.randint(2, 6)
+        return _tb("Simple interest I = PRT/100. Make T the subject, then find T when I = %d, P = %d and R = %d." % (P * R * T // 100, P, R), T,
+                   "int", {"unit": "years"}, ["T = 100I / (PR).", "100 × %d ÷ (%d × %d) = %d." % (P * R * T // 100, P, R, T)])
+
+    def t_fraction_form():
+        k, c = random.randint(2, 6), random.randint(1, 9)
+        x = random.randint(1, 12)
+        return _tb("y = x/%d − %d. Make x the subject, then find x when y = %s." % (k, c, _ds(Fraction(x, k) - c)), x, "int", {},
+                   ["x = %d(y + %d)." % (k, c), "%d × (%s + %d) = %d." % (k, _ds(Fraction(x, k) - c), c, x)]) \
+            if Fraction(x, k).denominator == 1 else \
+            _tb("y = x/%d − %d. Make x the subject, then find x when y = %d." % (k, c, x), k * (x + c), "int", {},
+                ["x = %d(y + %d)." % (k, c), "%d × (%d + %d) = %d." % (k, x, c, k * (x + c))])
+
+    return _pick_t([t_linear, t_form, t_speed, t_square, t_temp, t_volume, t_circle, t_which, t_suvat, t_interest, t_fraction_form])
 
 
 @skill("Y9.1.d", "Indices in algebra", S1)
@@ -308,7 +483,40 @@ def _(d=1):
         return _wq("Simplify %dx^%d ÷ %dx^%d (like 3x^2)." % (p * q, a + b, q, b), "%dx^%d" % (p, a) if a != 1 else "%dx" % p,
                    ["Divide numbers, subtract powers."], "e.g. 3x^2")
 
-    return _pick_t([t_mult, t_div, t_pow, t_coef, t_bracket_pow, t_divide_terms])
+    def t_neg_result():
+        return _tb("Simplify x^%d ÷ x^%d. What is the power of x?" % (b, a + b), -a, "int", {}, ["%d − %d = %d." % (b, a + b, -a)])
+
+    def t_zero():
+        return _tb("Simplify y^%d ÷ y^%d. What is the power of y?" % (a, a), 0, "int", {}, ["%d − %d = 0, and y^0 = 1." % (a, a)])
+
+    def t_two_letters():
+        p, q, r, s = random.randint(2, 6), random.randint(2, 6), random.randint(2, 6), random.randint(2, 6)
+        return _tb("Simplify a^%d b^%d × a^%d b^%d. What is the power of b?" % (p, q, r, s), q + s, "int", {},
+                   ["Add the powers of each letter separately: b^%d." % (q + s)])
+
+    def t_solve():
+        bb = pick([2, 3, 5])
+        k = random.randint(1, 3)
+        x = random.randint(2, 6)
+        return _tb("%d^x × %d^%d = %d^%d. Find x." % (bb, bb, k, bb, x + k), x, "int", {}, ["x + %d = %d." % (k, x + k), "x = %d." % x])
+
+    def t_evaluate():
+        v = random.randint(2, 5)
+        return _tb("Simplify x^%d ÷ x^%d, then find its value when x = %d." % (a + 2, a, v), v * v, "int", {},
+                   ["x^%d ÷ x^%d = x²." % (a + 2, a), "%d² = %d." % (v, v * v)])
+
+    def t_neg_coef():
+        p, n = random.randint(2, 3), pick([2, 3])
+        return _tb("Expand (−%dx^%d)^%d. What is the number in front of x?" % (p, a, n), (-p) ** n, "int", {},
+                   ["(−%d)^%d = %d." % (p, n, (-p) ** n), "The power of x becomes %d." % (a * n)])
+
+    def t_quotient_two():
+        p, q = random.randint(2, 5), random.randint(1, 4)
+        return _tb("Simplify %dx^%dy^%d ÷ %dx^%dy. What is the power of x?" % (6 * p, a + 3, q + 1, 3 * p, 3), a, "int", {},
+                   ["%d ÷ %d = 2; x^%d ÷ x^3 = x^%d; y^%d ÷ y = y^%d." % (6 * p, 3 * p, a + 3, a, q + 1, q)])
+
+    return _pick_t([t_mult, t_div, t_pow, t_coef, t_bracket_pow, t_divide_terms, t_neg_result, t_zero, t_two_letters, t_solve, t_evaluate,
+                    t_neg_coef, t_quotient_two])
 
 
 @skill("Y9.1.e", "Algebraic fractions and expressions with fractions", S1)
@@ -327,7 +535,54 @@ def _(d=1):
         k, p = random.randint(2, 6), random.randint(2, 9)
         return _wq("Simplify %dx/%d (like 3x)." % (k * p, k), "%dx" % p, ["%d ÷ %d = %d." % (k * p, k, p)], "e.g. 3x")
 
-    return _pick_t([_solve_frac, t_add, t_cancel])
+    def t_sub_k():
+        a, b = sorted(random.sample([2, 3, 4, 5, 6, 8], 2))
+        return _fq("x/%d − x/%d = kx. What is k, as a fraction?" % (a, b), Fraction(1, a) - Fraction(1, b),
+                   ["Common denominator %d: %dx/%d − %dx/%d." % (a * b // _g(a, b), b // _g(a, b), a * b // _g(a, b), a // _g(a, b), a * b // _g(a, b)),
+                    "k = %s." % _fs(Fraction(1, a) - Fraction(1, b))])
+
+    def t_add_k():
+        a, b = random.sample([2, 3, 4, 5, 7], 2)
+        p = random.randint(1, 3)
+        return _fq("%s/%d + x/%d = kx. What is k, as a fraction?" % ("x" if p == 1 else "%dx" % p, a, b), Fraction(p, a) + Fraction(1, b),
+                   ["k = %d/%d + 1/%d = %s." % (p, a, b, _fs(Fraction(p, a) + Fraction(1, b)))])
+
+    def t_multiply():
+        p, q = random.randint(2, 6), random.randint(2, 6)
+        return _tb("Simplify (%dx/%d) × (%d/x)." % (p, q, 2 * q), 2 * p, "int", {}, ["The x's cancel: %d × %d ÷ %d = %d." % (p, 2 * q, q, 2 * p)])
+
+    def t_divide():
+        a = pick([2, 3, 4, 5])
+        k = random.randint(2, 5)
+        return _tb("Simplify (x/%d) ÷ (x/%d)." % (a, a * k), k, "int", {}, ["Multiply by the reciprocal: x/%d × %d/x = %d." % (a, a * k, k)])
+
+    def t_factor_cancel():
+        k = random.randint(2, 9)
+        return _tb("(x² + %dx)/x simplifies to x + k. What is k?" % k, k, "int", {}, ["Factorise the top: x(x + %d)." % k, "Cancel x: x + %d." % k])
+
+    def t_quad_cancel():
+        p, q = random.sample(range(1, 9), 2)
+        return _tb("(x² + %dx + %d)/(x + %d) simplifies to x + k. What is k?" % (p + q, p * q, p), q, "int", {},
+                   ["x² + %dx + %d = (x + %d)(x + %d)." % (p + q, p * q, p, q), "Cancel (x + %d): x + %d." % (p, q)])
+
+    def t_solve_linear_frac():
+        a, k = random.randint(1, 3), random.randint(4, 6)
+        x, c = random.randint(1, 12), random.randint(-4, 4)
+        b = k * (x + c) - a * x
+        return _tb("Solve (%sx %s)/%d = x %s." % ("" if a == 1 else a, ("+ %d" % b) if b >= 0 else ("− %d" % -b), k,
+                                                   ("+ %d" % c) if c >= 0 else ("− %d" % -c)), x, "int", {},
+                   ["Multiply by %d: %sx %s %d = %dx %s %d." % (k, "" if a == 1 else a, "+" if b >= 0 else "−", abs(b), k,
+                                                                 "+" if k * c >= 0 else "−", abs(k * c)),
+                    "x = %d." % x])
+
+    def t_substitute():
+        x = random.randint(3, 12)
+        k = random.choice([v for v in range(1, x) if (x + 6) % v == 0 and v != x])
+        return _tb("Find the value of (x + 6)/(x − %d) when x = %d." % (x - k, x), (x + 6) // k, "int", {},
+                   ["(%d + 6) ÷ (%d − %d) = %d ÷ %d = %d." % (x, x, x - k, x + 6, k, (x + 6) // k)])
+
+    return _pick_t([_solve_frac, t_add, t_cancel, t_sub_k, t_add_k, t_multiply, t_divide, t_factor_cancel, t_quad_cancel,
+                    t_solve_linear_frac, t_substitute])
 
 
 def _g(a, b):

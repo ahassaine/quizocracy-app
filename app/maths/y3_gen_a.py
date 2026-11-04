@@ -47,13 +47,18 @@ def _n(d):
     return random.randint(101, 999)
 
 
+def _u(k, place):
+    """'1 ten' / '3 tens', '1 one' / '0 ones' for place = 'hundreds', 'tens' or 'ones'."""
+    return "%d %s" % (k, place[:-1] if k == 1 else place)
+
+
 def _hto(n):
     """'3 hundreds, 4 tens and 2 ones' (drops hundreds for 2-digit numbers)."""
     n = int(n)
     h, t, o = n // 100, (n // 10) % 10, n % 10
     if h:
-        return "%d hundreds, %d tens and %d ones" % (h, t, o)
-    return "%d tens and %d ones" % (t, o)
+        return "%s, %s and %s" % (_u(h, "hundreds"), _u(t, "tens"), _u(o, "ones"))
+    return "%s and %s" % (_u(t, "tens"), _u(o, "ones"))
 
 
 def _places(d):
@@ -383,11 +388,11 @@ def _(d=1):
             return _tb("Guess the number: it is a 2-digit number, its tens digit is %d "
                        "and its ones digit is %d. What is the number?" % (t, o),
                        n, "int", {},
-                       ["%d tens and %d ones." % (t, o), "The number is %d." % n])
+                       ["%s and %s." % (_u(t, "tens"), _u(o, "ones")), "The number is %d." % n])
         return _tb("Guess the number: it is a 3-digit number between %d and %d, its tens "
                    "digit is %d and its ones digit is %d. What is the number?"
                    % (h * 100, h * 100 + 100, t, o), n, "int", {},
-                   ["It has %d hundreds, %d tens and %d ones." % (h, t, o),
+                   ["It has %s." % _hto(h * 100 + t * 10 + o),
                     "The number is %d." % n])
 
     def t_odd_one_out():
@@ -405,7 +410,7 @@ def _(d=1):
             if m not in opts:
                 opts.append(m)
         random.shuffle(opts)
-        return _tb("Which of these numbers has a %d in the %s place?   %s"
+        return _tb("Which of these numbers has the digit %d in the %s place?   %s"
                    % (dig, place, _lst(opts)), target, "int", {},
                    ["Check the %s digit of each number." % place,
                     "%d has %d in the %s place." % (target, dig, place)])
@@ -564,7 +569,7 @@ def _(d=1):
                     "%s = %d." % (expr, n)])
 
     def t_flexible():
-        if d == 0 or h == 0:
+        if d == 0 or h < 2:
             return t_missing_part()
         return _tb("Complete this partition:  %d = %d + ___ + %d" % (n, (h - 1) * 100, o),
                    100 + t * 10, "int", {},
@@ -594,8 +599,8 @@ def _(d=1):
         oo = random.randint(0, 9)
         val = hh * 100 + tt * 10 + oo
         who = pick(NAMES)
-        desc = ("%d hundreds, %d tens and %d ones" % (hh, tt, oo)) if hh else \
-               ("%d tens and %d ones" % (tt, oo))
+        desc = ("%s, %s and %s" % (_u(hh, "hundreds"), _u(tt, "tens"), _u(oo, "ones"))) if hh else \
+               ("%s and %s" % (_u(tt, "tens"), _u(oo, "ones")))
         return _bt("%s has %s. Build that number with the blocks." % (who, desc), val,
                    ["%d tens is %d, so ten of them make an extra hundred." % (tt, tt * 10),
                     "%s = %d." % (desc.capitalize(), val)])
@@ -1023,7 +1028,8 @@ def _(d=1):
     def num():
         if d == 2 and random.random() < 0.4:
             return random.randint(lo // 10, hi // 10) * 10 + 5   # exact halfway
-        return random.randint(lo, hi)
+        n = random.randint(lo, hi)
+        return n if n % 10 else n + random.randint(1, 9)
 
     def t_bare():
         n = num()
@@ -1088,7 +1094,8 @@ def _(d=1):
     def num():
         if d == 2 and random.random() < 0.4:
             return random.randint(lo // 100, (hi - 50) // 100) * 100 + 50   # exact halfway
-        return random.randint(lo, hi)
+        n = random.randint(lo, hi)
+        return n if n % 100 else n + random.randint(1, 49)
 
     def t_bare():
         n = num()

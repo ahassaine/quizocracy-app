@@ -917,7 +917,7 @@ def _(d=1):
     R = _by_d(d, 9, 15, 20)
 
     def add_neg():
-        a = random.randint(-R, R)
+        a = pick([x for x in range(-R, R + 1) if x])
         b = -random.randint(1, R)
         s = a + b
         return _iq("Work out %d + (%d)" % (a, b), s,
@@ -926,10 +926,8 @@ def _(d=1):
                     "%d + (%d) = %d." % (a, b, s)])
 
     def sub_to_neg():
-        a = random.randint(-R, R)
-        b = random.randint(a + 1, a + R) if a + 1 <= a + R else a + 1
-        b = random.randint(1, R)
-        # force a - b to be negative sometimes; allow any sign (directed)
+        a = pick([x for x in range(-R, R + 1) if x])
+        b = random.randint(1, R)        # a − b may be negative or positive
         r = a - b
         return _iq("Work out %d − %d" % (a, b), r,
                    ["Start at %d and count back %d." % (a, b),
@@ -1424,6 +1422,8 @@ def _(d=1):
     def mass_leftover():
         bag = _mk(1, 45, 95)
         used = _mk(1, 12, 40)
+        while used * 2 == bag:                        # half used would leave the shown number
+            used = _mk(1, 12, 40)
         left = bag - used
         return _nq("A bag holds %s kg of flour. %s kg is used. How much is "
                    "left, in kg?" % (_txt(bag), _txt(used)), left, unit="kg",
@@ -1688,8 +1688,8 @@ def _(d=1):
         imp = w * dd + n
         return _iq("How many %s are there in %s altogether?"
                    % (_ths(dd), _mixed_str(w, n, dd)), imp,
-                   ["Each whole is %d %s, so %d wholes are %d."
-                    % (dd, _ths(dd), w, w * dd),
+                   ["Each whole is %d %s, so %d %s %d."
+                    % (dd, _ths(dd), w, "whole is" if w == 1 else "wholes are", w * dd),
                     "%d + %d = %d %s." % (w * dd, n, imp, _ths(dd))])
 
     return _pick_opts({

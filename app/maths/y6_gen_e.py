@@ -837,7 +837,8 @@ def _(d=1):
                  if ask == "faces" and nm in ("cylinder", "cone", "sphere") else "")
         return _num_q("How many %s does %s have?%s" % (ask, _a(nm), extra),
                       ans, "int", unit=ask,
-                      solution=["%s has %d %s." % (_a(nm).capitalize(), ans, ask)])
+                      solution=["%s has %d %s." % (_a(nm).capitalize(), ans,
+                                                   {"faces": "face", "edges": "edge", "vertices": "vertex"}[ask] if ans == 1 else ask)])
 
     if t == 6:                                        # Euler's rule
         nm, f, e, v = pick([s for s in _SOLIDS_ALL if s[0] not in
@@ -904,7 +905,34 @@ def _(d=1):
 @skill("Y6.8.e", "Measure and classify angles", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([3, 3, 2, 1, 1, 1, 1, 1, 1, 1])
+    t = _pick_t([3, 3, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1])
+
+    if t == 10:                                       # estimate without a protractor
+        deg = random.choice([20, 30, 40, 50, 60, 70, 80, 100, 110, 120, 130, 140, 150, 160])
+        return {"prompt": "Estimate the size of this angle in degrees, without a protractor. "
+                          "(Your estimate must be within 10° of the real size.)",
+                "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True},
+                "answer": deg, "answer_type": "int", "tolerance": 10,
+                "solution": ["Compare it with a right angle (90°) and a straight line (180°).",
+                             "The angle is %d°." % deg]}
+
+    if t == 11:                                       # fractions of a turn
+        num, den = pick([(1, 3), (2, 3), (1, 6), (1, 8), (3, 8), (5, 6), (1, 12), (5, 12), (1, 5), (2, 5)])
+        return _num_q("A full turn is 360°. How many degrees is %d/%d of a turn?" % (num, den), 360 * num // den, "int",
+                      unit="degrees", solution=["360 ÷ %d = %d." % (den, 360 // den),
+                                                "%d × %d = %d°." % (num, 360 // den, 360 * num // den)])
+
+    if t == 12:                                       # compass turns
+        dirs = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
+        s0 = random.randrange(8)
+        k = random.randint(1, 7)
+        cw = random.random() < 0.5
+        end = dirs[(s0 + (k if cw else -k)) % 8]
+        return _num_q("You face %s and turn %d° %s. Which direction do you face now?"
+                      % (dirs[s0], 45 * k, "clockwise" if cw else "anticlockwise"), end, "str", text=True,
+                      placeholder="e.g. south-west",
+                      solution=["Each 45° turn moves one compass point.",
+                                "%d ÷ 45 = %s %s, so you face %s." % (45 * k, _pl(k, "point"), "clockwise" if cw else "anticlockwise", end)])
 
     if t == 0:                                        # measure with a protractor
         deg = random.choice(_by_d(d, [30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
@@ -1002,7 +1030,7 @@ def _(d=1):
                       cnt, "int", unit="angles",
                       solution=["An acute angle is less than 90°.",
                                 "%s %s under 90°, so the answer is %d."
-                                % (", ".join("%d" % a for a in angs if a < 90) or "None",
+                                % (", ".join("%d" % a for a in angs if a < 90) or "No angles",
                                    "are" if cnt != 1 else "is", cnt)])
 
     if t == 7:                                        # turn
@@ -2071,8 +2099,8 @@ def _(d=1):
                   "grid lines, how many squares does the counter travel altogether?"
                   % _desc(dx, dy),
                   abs(dx) + abs(dy), "int", unit="squares",
-                  solution=["%d squares across and %d squares up or down."
-                            % (abs(dx), abs(dy)),
+                  solution=["%s across and %s up or down."
+                            % (_pl(abs(dx), "square"), _pl(abs(dy), "square")),
                             "%d + %d = %d squares." % (abs(dx), abs(dy),
                                                        abs(dx) + abs(dy))])
 
@@ -2258,8 +2286,8 @@ def _(d=1):
                 "component": "area_grid",
                 "spec": {"mode": "read_perimeter", "cells": _L_cells(R, C, r_, c_)},
                 "answer": 2 * (R + C), "answer_type": "int",
-                "solution": ["The L-shape fits exactly inside a %d cm by %d cm rectangle."
-                             % (C, R),
+                "solution": ["The L-shape fits exactly inside %s %d cm by %d cm rectangle."
+                             % (_an(C), C, R),
                              "The steps in the L add up to the same distance as the "
                              "rectangle's sides: 2 × (%d + %d) = %d cm."
                              % (C, R, 2 * (R + C))]}
@@ -2369,8 +2397,44 @@ def _(d=1):
 @skill("Y6.8.m", "Area of rectangles and squares", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 2, 1, 1, 1, 1, 1, 1, 1])
+    t = _pick_t([2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1])
     lo, hi = _by_d(d, (2, 9), (3, 15), (4, 40))
+
+    if t == 10:                                       # visual: L-shape split into rectangles
+        R, C = random.randint(3, _by_d(d, 5, 7, 8)), random.randint(4, _by_d(d, 6, 9, 10))
+        r, c = random.randint(1, R - 2), random.randint(1, C - 2)
+        area = R * C - r * c
+        return {"prompt": "Each square is 1 cm². Find the area of this compound shape, in cm². "
+                          "(Split it into rectangles or subtract the missing corner.)",
+                "component": "area_grid", "spec": {"mode": "read_area", "cells": _L_cells(R, C, r, c)},
+                "answer": area, "answer_type": "int",
+                "solution": ["The whole rectangle would be %d × %d = %d cm²." % (R, C, R * C),
+                             "The missing corner is %d × %d = %d cm², so %d − %d = %d cm²."
+                             % (r, c, r * c, R * C, r * c, area)]}
+
+    if t == 11:                                       # a half-metre side
+        w = random.randint(1, _by_d(d, 6, 9, 15))
+        h = 2 * random.randint(1, _by_d(d, 4, 6, 10))
+        return _num_q("A rectangle measures %d.5 m by %d m. What is its area, in m²?" % (w, h),
+                      (2 * w + 1) * h // 2, "int", unit="m²",
+                      solution=["Area = %d.5 × %d." % (w, h),
+                                "%d × %d = %d and 0.5 × %d = %d, so %d m²." % (w, h, w * h, h, h // 2, (2 * w + 1) * h // 2)])
+
+    if t == 12:                                       # from the perimeter to the area
+        w = random.randint(lo, hi)
+        h = random.randint(lo, hi)
+        return _num_q("A rectangle has a perimeter of %d cm. Its length is %d cm. What is its area, in cm²?"
+                      % (2 * (w + h), w), w * h, "int", unit="cm²",
+                      solution=["Half the perimeter is %d cm, so the width is %d − %d = %d cm." % (w + h, w + h, w, h),
+                                "Area = %d × %d = %d cm²." % (w, h, w * h)])
+
+    if t == 13:                                       # how many small rectangles fit
+        a, b = random.randint(2, 5), random.randint(2, 5)
+        m, n = random.randint(2, 6), random.randint(2, 6)
+        return _num_q("Cards measure %d cm by %d cm. How many cards fit on a board %d cm by %d cm, laid the same way "
+                      "with no gaps or overlaps?" % (a, b, a * m, b * n), m * n, "int", unit="cards",
+                      solution=["%d ÷ %d = %d cards along one side and %d ÷ %d = %d along the other." % (a * m, a, m, b * n, b, n),
+                                "%d × %d = %d cards." % (m, n, m * n)])
 
     if t == 0:                                        # visual: count squares
         rows = random.randint(2, _by_d(d, 5, 7, 9))
@@ -2473,9 +2537,9 @@ def _(d=1):
                                                        abs(w1 * h1 - w2 * h2))])
 
     # tiles needed
-    w = random.randint(2, 8) * 10
-    h = random.randint(2, 8) * 10
     tile = pick([10, 20])
+    w = random.randint(2, 80 // tile) * tile
+    h = random.randint(2, 80 // tile) * tile
     n = (w // tile) * (h // tile)
     return _num_q("A wall measures %d cm by %d cm. It is covered with square tiles of "
                   "side %d cm, with no gaps. How many tiles are needed?" % (w, h, tile),
@@ -2488,10 +2552,49 @@ def _(d=1):
 @skill("Y6.8.n", "Area of parallelograms", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3])
+    t = _pick_t([2, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3, 1, 3, 1, 1])
     lo, hi = _by_d(d, (2, 9), (3, 15), (4, 30))
     b = random.randint(lo, hi)
     h = random.randint(lo, hi)
+
+    if t == 14:                                       # two steps: area, then cost
+        who = pick(NAMES)
+        cost = pick([2, 3, 4, 5])
+        return _num_q("%s sows grass seed on a field shaped like a parallelogram, with a base of %d m and a perpendicular "
+                      "height of %d m. Seed costs £%d for each square metre. How much does the seed cost, in pounds?"
+                      % (who, b, h, cost), b * h * cost, "int", unit="pounds",
+                      solution=["Area = %d × %d = %d m²." % (b, h, b * h), "%d × £%d = £%d." % (b * h, cost, b * h * cost)])
+
+    if t == 11:                                       # a half-centimetre base
+        bb = random.randint(2, _by_d(d, 8, 12, 20))
+        hh = 2 * random.randint(1, _by_d(d, 4, 6, 10))
+        return _num_q("A parallelogram has a base of %d.5 cm and a perpendicular height of %d cm. What is its area, in cm²?"
+                      % (bb, hh), (2 * bb + 1) * hh // 2, "int", unit="cm²",
+                      solution=["Area = base × perpendicular height = %d.5 × %d." % (bb, hh),
+                                "%d × %d = %d and 0.5 × %d = %d, so %d cm²." % (bb, hh, bb * hh, hh, hh // 2, (2 * bb + 1) * hh // 2)])
+
+    if t == 12:                                       # drawn on a grid
+        bb = random.randint(2, 5)
+        hh = random.randint(2, 5)
+        sh = random.randint(1, 3)
+        x0, y0 = random.randint(0, 2), random.randint(0, 2)
+        poly = [[x0, y0], [x0 + bb, y0], [x0 + bb + sh, y0 + hh], [x0 + sh, y0 + hh]]
+        return {"prompt": "The parallelogram is drawn on a centimetre grid. What is its area, in cm²?",
+                "component": "coordinate_grid",
+                "spec": {"mode": "plot", "size": 10, "polygon": poly, "typed": True, "placeholder": "cm²"},
+                "answer": bb * hh, "answer_type": "int",
+                "solution": ["The base runs along the bottom: %d cm. The perpendicular height is %d cm." % (bb, hh),
+                             "Area = %d × %d = %d cm²." % (bb, hh, bb * hh)]}
+
+    if t == 13:                                       # mixed units
+        m = pick([1, 2])
+        extra = pick([20, 40, 50, 60])
+        hh = random.randint(2, 9) * 10
+        base_cm = 100 * m + extra
+        return _num_q("A parallelogram has a base of %d.%d m and a perpendicular height of %d cm. What is its area, in cm²?"
+                      % (m, extra // 10, hh), base_cm * hh, "int", unit="cm²",
+                      solution=["%d.%d m = %d cm." % (m, extra // 10, base_cm),
+                                "%d × %d = %s cm²." % (base_cm, hh, "{:,}".format(base_cm * hh))])
 
     if t == 9:                                        # visual: the rearranged rectangle
         rows = random.randint(2, _by_d(d, 5, 7, 8))
@@ -2759,8 +2862,8 @@ def _(d=1):
                 "spec": {"mode": "read_perimeter", "cells": _L_cells(R, C, r_, c_)},
                 "answer": 2 * (R + C), "answer_type": "int",
                 "solution": ["Follow the outline all the way round.",
-                             "The steps fit exactly into a %d cm by %d cm rectangle: "
-                             "2 × (%d + %d) = %d cm." % (C, R, C, R, 2 * (R + C))]}
+                             "The steps fit exactly into %s %d cm by %d cm rectangle: "
+                             "2 × (%d + %d) = %d cm." % (_an(C), C, R, C, R, 2 * (R + C))]}
 
     if t == 2:                                        # L-shape from dimensions
         W = random.randint(6, _by_d(d, 12, 20, 30))
@@ -3026,7 +3129,7 @@ def _(d=1):
                       "full?" % (L, W, H),
                       cm3 / 1000.0, "num", unit="litres", tolerance=0.001,
                       solution=["Volume = %d × %d × %d = %d cm³." % (L, W, H, cm3),
-                                "%d ÷ 1000 = %s litres." % (cm3, _f(cm3 / 1000.0))])
+                                "%d ÷ 1000 = %s %s." % (cm3, _f(cm3 / 1000.0), "litre" if cm3 == 1000 else "litres")])
 
     if t == 7:                                        # cubes in a box
         L, W, H = random.randint(2, 6), random.randint(2, 6), random.randint(2, 6)
@@ -3169,7 +3272,7 @@ def _(d=1):
                       "are poured out. How many millilitres of juice are left in the jug?"
                       % (litres, n, each),
                       litres * 1000 - poured, "int", unit="ml",
-                      solution=["%d litres = %d ml." % (litres, litres * 1000),
+                      solution=["%s = %d ml." % (_pl(litres, "litre"), litres * 1000),
                                 "%d × %d = %d ml are poured out." % (n, each, poured),
                                 "%d − %d = %d ml." % (litres * 1000, poured,
                                                       litres * 1000 - poured)])
@@ -3231,7 +3334,7 @@ def _(d=1):
                 "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"},
                 "answer": v / 1000.0, "answer_type": "num", "tolerance": 0.0005,
                 "solution": ["The liquid reaches the %d ml mark." % v,
-                             "%d ÷ 1000 = %s litres." % (v, _f(v / 1000.0))]}
+                             "%d ÷ 1000 = %s %s." % (v, _f(v / 1000.0), "litre" if v == 1000 else "litres")]}
 
     def _small_val():
         if d == 0:
@@ -3324,7 +3427,7 @@ def _(d=1):
                       "How many millilitres are left?"
                       % (cap, "" if cap == 1 else "s", used),
                       left, "int", unit="ml",
-                      solution=["%d litres = %d ml." % (cap, cap * 1000),
+                      solution=["%s = %d ml." % (_pl(cap, "litre"), cap * 1000),
                                 "%d − %d = %d ml." % (cap * 1000, used, left)])
 
     if t == 7:                                        # order three measures
@@ -3465,14 +3568,14 @@ def _(d=1):
         return _num_q("5 miles is about 8 km. About how many kilometres is %d miles?"
                       % miles,
                       miles // 5 * 8, "int", unit="km",
-                      solution=["%d ÷ 5 = %d lots of 5 miles." % (miles, miles // 5),
+                      solution=["%d ÷ 5 = %s of 5 miles." % (miles, _pl(miles // 5, "lot")),
                                 "%d × 8 = %d km." % (miles // 5, miles // 5 * 8)])
 
     if t == 1:                                        # km -> miles
         km = 8 * random.randint(1, _by_d(d, 6, 12, 30))
         return _num_q("8 km is about 5 miles. About how many miles is %d km?" % km,
                       km // 8 * 5, "int", unit="miles",
-                      solution=["%d ÷ 8 = %d lots of 8 km." % (km, km // 8),
+                      solution=["%d ÷ 8 = %s of 8 km." % (km, _pl(km // 8, "lot")),
                                 "%d × 5 = %d miles." % (km // 8, km // 8 * 5)])
 
     if t == 2:                                        # conversion table
@@ -3552,8 +3655,8 @@ def _(d=1):
     if t == 8:                                        # weight in stone and pounds
         st = random.randint(4, 14)
         lb = random.randint(0, 13)
-        return _num_q("1 stone = 14 pounds. How many pounds is %d stone %d pounds?"
-                      % (st, lb),
+        return _num_q("1 stone = 14 pounds. How many pounds is %d stone %s?"
+                      % (st, _pl(lb, "pound")),
                       st * 14 + lb, "int", unit="pounds",
                       solution=["%d × 14 = %d pounds." % (st, st * 14),
                                 "%d + %d = %d pounds." % (st * 14, lb, st * 14 + lb)])
@@ -3607,9 +3710,8 @@ def _(d=1):
                           % (who, place, event, _hm24(h1, m1), event, mins),
                           _hm24((end // 60) % 24, end % 60), "str", text=True,
                           placeholder="e.g. 14:30",
-                          solution=["%d minutes is %d hour%s and %d minutes."
-                                    % (mins, mins // 60,
-                                       "" if mins // 60 == 1 else "s", mins % 60),
+                          solution=["%d minutes is %s and %s."
+                                    % (mins, _pl(mins // 60, "hour"), _pl(mins % 60, "minute")),
                                     "%s + %d minutes = %s."
                                     % (_hm24(h1, m1), mins,
                                        _hm24((end // 60) % 24, end % 60))])
@@ -3630,8 +3732,8 @@ def _(d=1):
                 "answer": _hm(h24 - 12, m), "answer_type": "time",
                 "solution": ["%s in 12-hour time is %s."
                              % (_hm24(h24, m), _hm(h24 - 12, m)),
-                             "Put the hour hand just past %d and the minute hand on %d "
-                             "minutes." % (h24 - 12, m)]}
+                             "Put the hour hand %s %d and the minute hand on %d."
+                             % ("on" if m == 0 else "just past", h24 - 12, m // 5 or 12)]}
 
     if t == 11:                                       # clock: set the finish time
         h = random.randint(1, 11)
@@ -3646,8 +3748,8 @@ def _(d=1):
                 "component": "clock", "spec": {"mode": "set"},
                 "answer": _hm(eh, em), "answer_type": "time",
                 "solution": ["%s + %d minutes = %s." % (_hm(h, m), mins, _hm(eh, em)),
-                             "Set the hour hand just past %d and the minute hand on %d "
-                             "minutes." % (eh, em)]}
+                             "Set the hour hand %s %d and the minute hand on %d."
+                             % ("on" if em == 0 else "just past", eh, em // 5 or 12)]}
 
     if t == 0:                                        # journey length in minutes
         h1 = random.randint(6, 18)
@@ -3661,9 +3763,8 @@ def _(d=1):
                       mins, "int", unit="minutes",
                       solution=["From %s to %s." % (_hm24(h1, m1),
                                                     _hm24((end // 60) % 24, end % 60)),
-                                "That is %d hour%s and %d minutes = %d minutes."
-                                % (mins // 60, "" if mins // 60 == 1 else "s",
-                                   mins % 60, mins)])
+                                "That is %s and %s = %d minutes."
+                                % (_pl(mins // 60, "hour"), _pl(mins % 60, "minute"), mins)])
 
     if t == 1:                                        # 12h -> 24h
         h = random.randint(1, 11)
@@ -3699,9 +3800,8 @@ def _(d=1):
                       "14:30." % (_hm24(h1, m1), mins),
                       _hm24((end // 60) % 24, end % 60), "str", text=True,
                       placeholder="e.g. 14:30",
-                      solution=["%d minutes is %d hour%s and %d minutes."
-                                % (mins, mins // 60, "" if mins // 60 == 1 else "s",
-                                   mins % 60),
+                      solution=["%d minutes is %s and %s."
+                                % (mins, _pl(mins // 60, "hour"), _pl(mins % 60, "minute")),
                                 "%s + %d minutes = %s."
                                 % (_hm24(h1, m1), mins,
                                    _hm24((end // 60) % 24, end % 60))])
@@ -3801,8 +3901,8 @@ def _(d=1):
                   "the whole hours." % (who, n, ", ".join(str(x) for x in mins)),
                   total % 60, "int", unit="minutes",
                   solution=["%s = %d minutes." % (" + ".join(str(x) for x in mins), total),
-                            "%d minutes = %d hours and %d minutes."
-                            % (total, total // 60, total % 60)])
+                            "%d minutes = %s and %s."
+                            % (total, _pl(total // 60, "hour"), _pl(total % 60, "minute"))])
 
 
 _SHOP = [("pencil", 45), ("notebook", 185), ("ruler", 65), ("rubber", 35),
@@ -5494,5 +5594,5 @@ def _(d=1):
                   % (L, W, H, rate, instr_t),
                   ans_t, "num", unit="minutes", tolerance=tol_t,
                   solution=["Volume = %d × %d × %d = %d cm³." % (L, W, H, L * W * H),
-                            "That is %s litres." % _f(litres),
-                            "%s ÷ %d = %s minutes." % (_f(litres), rate, _f(mins))])
+                            "That is %s %s." % (_f(litres), "litre" if litres == 1 else "litres"),
+                            "%s ÷ %d = %s %s." % (_f(litres), rate, _f(mins), "minute" if mins == 1 else "minutes")])

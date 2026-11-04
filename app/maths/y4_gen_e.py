@@ -169,6 +169,23 @@ def _L_cells(R, C, r, c):
             if not (i < r and j >= C - c)]
 
 
+def _notch_cells(R, C, h, a, w):
+    """An R x C rectangle with an h-deep, w-wide notch cut into the middle of the top edge."""
+    return [[i, j] for i in range(R) for j in range(C)
+            if not (i < h and a <= j < a + w)]
+
+
+def _stair_cells(R, C):
+    """A staircase: the bottom row is C squares long and each row above is one shorter."""
+    return [[i, j] for i in range(R) for j in range(C - (R - 1 - i))]
+
+
+def _perim(cells):
+    """Unit edges on the boundary of a set of grid cells."""
+    cs = set(map(tuple, cells))
+    return sum(1 for (i, j) in cs for (di, dj) in ((1, 0), (-1, 0), (0, 1), (0, -1)) if (i + di, j + dj) not in cs)
+
+
 # ================================================================== 4.8 ======
 @skill("Y4.8.a", "Identify and classify polygons", S8)
 def _(d=1):
@@ -1136,8 +1153,8 @@ def _(d=1):
 
     if t == 3:                                        # typed coordinates
         x, y = random.randint(0, size), random.randint(0, size)
-        return _num_q("A point is %d squares to the right of the y-axis and %d squares "
-                      "above the x-axis. Write its coordinates." % (x, y),
+        return _num_q("A point is %s to the right of the y-axis and %s "
+                      "above the x-axis. Write its coordinates." % (_pl(x, "square"), _pl(y, "square")),
                       _coord(x, y), "coord", text=True, placeholder="e.g. (3,5)",
                       solution=["Coordinates are written (across, up).",
                                 "The point is %s." % _coord(x, y)])
@@ -1188,7 +1205,7 @@ def _(d=1):
                       "they?" % (_coord(x1, y), _coord(x2, y)),
                       x2 - x1, "int", unit="squares",
                       solution=["Both points have y-coordinate %d, so count along." % y,
-                                "%d − %d = %d squares." % (x2, x1, x2 - x1)])
+                                "%d − %d = %s." % (x2, x1, _pl(x2 - x1, "square"))])
 
     if t == 8:                                        # midpoint of a horizontal segment
         y = random.randint(0, size)
@@ -1461,7 +1478,46 @@ def _(d=1):
 @skill("Y4.8.j", "Perimeter of rectilinear shapes", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 1, 1, 1, 1, 1, 1, 1])
+    t = _pick_t([2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1])
+
+    if t == 9:                                        # visual: notch in the top edge
+        R, C = random.randint(3, _by_d(d, 4, 6, 8)), random.randint(5, _by_d(d, 6, 8, 9))
+        h, w = random.randint(1, R - 1), random.randint(1, C - 4)
+        a = random.randint(1, C - 1 - w)
+        cells = _notch_cells(R, C, h, a, w)
+        return {"prompt": "Find the perimeter of this shape. Count the unit sides all the way round the edge.",
+                "component": "area_grid", "spec": {"mode": "read_perimeter", "cells": cells},
+                "answer": _perim(cells), "answer_type": "int",
+                "solution": ["Without the notch the rectangle would have a perimeter of %d units." % (2 * (R + C)),
+                             "The notch adds its two inside edges of %d units each: %d + %d = %d units."
+                             % (h, 2 * (R + C), 2 * h, _perim(cells))]}
+
+    if t == 10:                                       # visual: staircase
+        R = random.randint(2, _by_d(d, 3, 4, 5))
+        C = random.randint(R + 1, R + _by_d(d, 2, 3, 4))
+        cells = _stair_cells(R, C)
+        return {"prompt": "Find the perimeter of this staircase shape, in units.",
+                "component": "area_grid", "spec": {"mode": "read_perimeter", "cells": cells},
+                "answer": _perim(cells), "answer_type": "int",
+                "solution": ["The steps add up to the same as the outside rectangle: %d across and %d up." % (C, R),
+                             "%d + %d + %d + %d = %d units." % (C, R, C, R, 2 * (R + C))]}
+
+    if t == 11:                                       # regular polygons
+        name, n = pick([("equilateral triangle", 3), ("regular pentagon", 5), ("regular hexagon", 6), ("regular octagon", 8)])
+        side = random.randint(2, _by_d(d, 10, 15, 25))
+        if random.random() < 0.5:
+            return _num_q("A %s has sides of %d cm. What is its perimeter?" % (name, side), n * side, "int", unit="cm",
+                          solution=["All %d sides are the same length." % n, "%d × %d = %d cm." % (n, side, n * side)])
+        return _num_q("A %s has a perimeter of %d cm. How long is each side?" % (name, n * side), side, "int", unit="cm",
+                      solution=["All %d sides are equal." % n, "%d ÷ %d = %d cm." % (n * side, n, side)])
+
+    if t == 12:                                       # mixed units
+        m = random.randint(1, 3)
+        cm = random.randint(2, 9) * 10
+        return _num_q("A rectangle is %d m long and %d cm wide. What is its perimeter, in centimetres?" % (m, cm),
+                      2 * (100 * m + cm), "int", unit="cm",
+                      solution=["%d m = %d cm." % (m, 100 * m),
+                                "%d + %d + %d + %d = %d cm." % (100 * m, cm, 100 * m, cm, 2 * (100 * m + cm))])
 
     if t == 0:                                        # visual: rectangle on a grid
         rows = random.randint(2, _by_d(d, 4, 6, 8))
@@ -1588,7 +1644,36 @@ def _(d=1):
 @skill("Y4.8.k", "Area by counting squares", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2])
+    t = _pick_t([2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 1])
+
+    if t == 12:                                       # visual: notch in the top edge
+        R, C = random.randint(3, _by_d(d, 4, 6, 8)), random.randint(5, _by_d(d, 6, 8, 9))
+        h, w = random.randint(1, R - 1), random.randint(1, C - 4)
+        a = random.randint(1, C - 1 - w)
+        cells = _notch_cells(R, C, h, a, w)
+        return {"prompt": "Find the area of this shape by counting the unit squares it covers.",
+                "component": "area_grid", "spec": {"mode": "read_area", "cells": cells},
+                "answer": len(cells), "answer_type": "int",
+                "solution": ["The full rectangle is %d × %d = %d squares." % (R, C, R * C),
+                             "The notch removes %d × %d = %d: %d − %d = %d square units." % (h, w, h * w, R * C, h * w, len(cells))]}
+
+    if t == 13:                                       # visual: staircase
+        R = random.randint(2, _by_d(d, 3, 4, 5))
+        C = random.randint(R + 1, R + _by_d(d, 2, 3, 4))
+        cells = _stair_cells(R, C)
+        rows_txt = " + ".join(str(C - (R - 1 - i)) for i in range(R))
+        return {"prompt": "Find the area of this staircase shape by counting squares.",
+                "component": "area_grid", "spec": {"mode": "read_area", "cells": cells},
+                "answer": len(cells), "answer_type": "int",
+                "solution": ["Count each row: %s." % rows_txt, "That is %d square units." % len(cells)]}
+
+    if t == 14:                                       # half the area
+        w = random.randint(2, _by_d(d, 6, 8, 10))
+        h = 2 * random.randint(1, _by_d(d, 3, 4, 5))
+        return _num_q("A rectangle %d squares by %d squares is cut in half along a straight line. What is the area of "
+                      "each half, in square units?" % (w, h), w * h // 2, "int", unit="square units",
+                      solution=["The whole rectangle is %d × %d = %d square units." % (w, h, w * h),
+                                "Half of %d is %d." % (w * h, w * h // 2)])
 
     if t == 0:                                        # visual: rectangle area
         rows = random.randint(2, _by_d(d, 4, 6, 8))
@@ -1613,8 +1698,8 @@ def _(d=1):
                 "answer": R * C - r * c, "answer_type": "int",
                 "solution": ["A full %d by %d rectangle would be %d squares."
                              % (R, C, R * C),
-                             "%d squares are missing from the corner: %d − %d = %d square "
-                             "units." % (r * c, R * C, r * c, R * C - r * c)]}
+                             "%s %s missing from the corner: %d − %d = %d square "
+                             "units." % (_pl(r * c, "square"), "is" if r * c == 1 else "are", R * C, r * c, R * C - r * c)]}
 
     if t == 2:                                        # build an area
         rows = random.randint(3, 6)
@@ -2049,12 +2134,12 @@ def _(d=1):
 
     if t == 7:                                        # tally -> number, typed
         v = random.randint(6, _by_d(d, 14, 24, 39))
-        return _num_q("A tally chart shows this tally for %s:  %s . "
+        return _num_q("A tally chart shows this tally for %s:   %s   "
                       "What number does it stand for?" % (cats[i], _tally(v)),
                       v, "int",
                       solution=["Each bundle ||||\\ stands for 5 and each single mark for 1.",
-                                "%d bundles and %d extra marks make %d."
-                                % (v // 5, v % 5, v)])
+                                "%s and %s make %d."
+                                % (_pl(v // 5, "bundle"), _pl(v % 5, "extra mark"), v)])
 
     # two-step: total of two rows
     return {"prompt": "Use the frequency table. How many %s were recorded for %s and %s "
@@ -2083,7 +2168,7 @@ def _(d=1):
                 "component": "pictogram", "spec": spec,
                 "answer": vals[i], "answer_type": "int",
                 "solution": ["Each symbol stands for %d." % key,
-                             "%d symbols × %d = %d." % (vals[i] // key, key, vals[i])]}
+                             "%s × %d = %d." % (_pl(vals[i] // key, "symbol"), key, vals[i])]}
 
     if t == 1:                                        # count symbols
         return {"prompt": "Use the pictogram. How many symbols are drawn in the %s row?"
@@ -2092,7 +2177,7 @@ def _(d=1):
                 "answer": vals[i] // key, "answer_type": "int",
                 "solution": ["%s is %d and each symbol stands for %d."
                              % (cats[i], vals[i], key),
-                             "%d ÷ %d = %d symbols." % (vals[i], key, vals[i] // key)]}
+                             "%d ÷ %d = %s." % (vals[i], key, _pl(vals[i] // key, "symbol"))]}
 
     if t == 2:                                        # total of two rows
         return {"prompt": "Use the pictogram. How many %s and %s are there altogether?"
@@ -2148,7 +2233,7 @@ def _(d=1):
                       % (key, pick(NAMES), _pl(vals[k] // key, "symbol"),
                          cats[k].lower(), cats[k].lower()),
                       vals[k], "int", unit=cats[k].lower(),
-                      solution=["%d symbols × %d = %d." % (vals[k] // key, key, vals[k])])
+                      solution=["%s × %d = %d." % (_pl(vals[k] // key, "symbol"), key, vals[k])])
 
     # two-step from the pictogram
     give = random.randint(1, min(vals) - 1) if min(vals) > 1 else 1
@@ -2379,7 +2464,7 @@ def _(d=1):
                 "answer": abs(change), "answer_type": "int",
                 "solution": ["%s = %d and %s = %d."
                              % (labels[k], vals[k], labels[k + 1], vals[k + 1]),
-                             "The change is %d %s." % (abs(change), ylab)]}
+                             "The change is %d %s." % (abs(change), ylab[:-1] if abs(change) == 1 and ylab.endswith("s") else ylab)]}
 
     if t == 6:                                        # rose or fell (typed)
         k = random.randrange(n - 1)
@@ -2433,11 +2518,11 @@ def _(d=1):
     plot = "; ".join("%s → %s" % (lw(lab), " ".join(["x"] * c))
                      for lab, c in zip(labels, counts))
     intro = ("A line plot shows how many %s each of some %s has. Each x stands for one "
-             "child.  %s ." % (plur, who, plot))
+             "child.   %s  " % (plur, who, plot))
     headers = ["Number of %s" % plur, "Number of %s" % who]
     rows = [[str(lab), str(c)] for lab, c in zip(labels, counts)]
     i, j = random.sample(range(len(labels)), 2)
-    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1])
+    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 2, 1, 2])
 
     if t == 0:                                        # read one column
         return _num_q("%s  How many %s have %s?" % (intro, who, lw(labels[i])),
@@ -2463,8 +2548,8 @@ def _(d=1):
         return _num_q("%s  How many MORE %s have %s than have %s?"
                       % (intro, who, lw(hi_lab), lw(lo_lab)),
                       abs(counts[i] - counts[j]), "int", unit=who,
-                      solution=["The columns have %d and %d crosses."
-                                % (max(counts[i], counts[j]), min(counts[i], counts[j])),
+                      solution=["The columns have %d and %s."
+                                % (max(counts[i], counts[j]), _pl(min(counts[i], counts[j]), "cross", "crosses")),
                                 "%d − %d = %d." % (max(counts[i], counts[j]),
                                                    min(counts[i], counts[j]),
                                                    abs(counts[i] - counts[j]))])
@@ -2504,6 +2589,48 @@ def _(d=1):
                                 "%s = %d."
                                 % (" + ".join("%d×%d" % (lab, c)
                                               for lab, c in zip(labels, counts)), total)])
+
+    if t == 9:                                        # the same data drawn as a chart
+        return {"prompt": "The chart shows how many %s each of some %s has. How many %s have %s?"
+                          % (plur, who, who, lw(labels[i])),
+                "component": "bar_chart",
+                "spec": {"categories": [str(lab) for lab in labels], "values": counts, "mode": "read"},
+                "answer": counts[i], "answer_type": "int",
+                "solution": ["Read the bar above %d." % labels[i], "It reaches %d." % counts[i]]}
+
+    if t == 10:                                       # fewer than a value
+        cut = labels[len(labels) // 2]
+        cnt = sum(c for lab, c in zip(labels, counts) if lab < cut)
+        return _num_q("%s  How many %s have FEWER than %s?" % (intro, who, lw(cut)), cnt, "int", unit=who,
+                      solution=["Add the crosses in every column below %d." % cut, "That gives %d." % cnt])
+
+    if t == 11:                                       # missing count from the total
+        k = random.randrange(len(labels))
+        r2 = [[lab, "" if n == k else c] for n, (lab, c) in enumerate(rows)]
+        return {"prompt": "%d %s were asked how many %s they have. The table shows the results, but one number is "
+                          "missing. What is it?" % (sum(counts), who, plur),
+                "component": "data_table",
+                "spec": {"headers": headers, "rows": r2, "missing": [k, 1]},
+                "answer": counts[k], "answer_type": "int",
+                "solution": ["The other numbers add to %d." % (sum(counts) - counts[k]),
+                             "%d − %d = %d." % (sum(counts), sum(counts) - counts[k], counts[k])]}
+
+    if t == 12:                                       # at least a value
+        cut = labels[len(labels) // 2]
+        cnt = sum(c for lab, c in zip(labels, counts) if lab >= cut)
+        return _num_q("%s  How many %s have %s or more?" % (intro, who, lw(cut)), cnt, "int", unit=who,
+                      solution=["Add the crosses for %d and every column above it." % cut, "That gives %d." % cnt])
+
+    if t == 13:                                       # least common value, from a chart
+        low = min(counts)
+        if counts.count(low) == 1:
+            ans = labels[counts.index(low)]
+            return {"prompt": "The chart shows how many %s each of some %s has. Which number of %s is the LEAST common?"
+                              % (plur, who, plur),
+                    "component": "bar_chart",
+                    "spec": {"categories": [str(lab) for lab in labels], "values": counts, "mode": "read"},
+                    "answer": ans, "answer_type": "int",
+                    "solution": ["The shortest bar is above %d." % ans, "Only %d %s that many." % (low, "child has" if low == 1 else "children have")]}
 
     # build a line plot: how many crosses to draw
     v = random.randint(2, 9)
@@ -2811,7 +2938,7 @@ def _(d=1):
         return _num_q("A spinner has %d equal sections and %d of them are green. Write the "
                       "fraction of the spinner that is green." % (parts, wins),
                       "%d/%d" % (wins, parts), "frac", text=True, placeholder="e.g. 3/8",
-                      solution=["%d sections out of %d are green." % (wins, parts),
+                      solution=["%s out of %d %s green." % (_pl(wins, "section"), parts, "is" if wins == 1 else "are"),
                                 "The fraction is %d/%d." % (wins, parts)])
 
     if t == 7:                                        # make it certain
@@ -3096,9 +3223,9 @@ def _(d=1):
         w = random.randint(2, _by_d(d, 6, 10, 15))
         h = random.randint(2, _by_d(d, 6, 10, 15))
         used = random.randint(1, w * h - 1)
-        return _num_q("A rectangular tray is %d tiles by %d tiles. %s has already laid %d "
-                      "tiles. How many more tiles are needed to fill the tray?"
-                      % (w, h, pick(NAMES), used),
+        return _num_q("A rectangular tray is %d tiles by %d tiles. %s has already laid %s. "
+                      "How many more tiles are needed to fill the tray?"
+                      % (w, h, pick(NAMES), _pl(used, "tile")),
                       w * h - used, "int", unit="tiles",
                       solution=["%d × %d = %d tiles fill the tray." % (w, h, w * h),
                                 "%d − %d = %d." % (w * h, used, w * h - used)])

@@ -47,7 +47,24 @@ def _(d=1):
                       {"mode": "equal_parts", "parts": k, "partLabel": "x", "totalLabel": str(k * x), "unknown": "part"},
                       x, ["%d ÷ %d = %d." % (k * x, k, x)])
 
-    return _pick_t([t_add, t_sub, t_mult, t_div, t_word], [t_bar])
+    def t_decimal():
+        a = Decimal(random.randint(11, 99)) / 10
+        b = Decimal(random.randint(11, 99)) / 10
+        return _tb("Solve  x + %s = %s" % (_ds(a), _ds(a + b)), _ds(b), "num", {},
+                   ["Subtract %s from both sides: x = %s." % (_ds(a), _ds(b))])
+
+    def t_from_left():
+        return _tb("Solve  %d − x = %d" % (c, c - x), x, "int", {}, ["x = %d − %d = %d." % (c, c - x, x)])
+
+    def t_square_perim():
+        s = abs(x) + 2
+        return _tb("A square has perimeter %d cm. Solve 4x = %d to find the side length x, in cm." % (4 * s, 4 * s), s, "int",
+                   {"unit": "cm"}, ["x = %d ÷ 4 = %d." % (4 * s, s)])
+
+    def t_rhs():
+        return _tb("Solve  %d = %dx" % (k * x, k), x, "int", {}, ["The unknown can be on either side: x = %d ÷ %d = %d." % (k * x, k, x)])
+
+    return _pick_t([t_add, t_sub, t_mult, t_div, t_word, t_decimal, t_from_left, t_square_perim, t_rhs], [t_bar])
 
 
 @skill("Y7.2.b", "Solve two-step equations", S2)
@@ -138,7 +155,55 @@ def _(d=1):
         return _tb("Ana has %d times as many stickers as Ben. They have %d stickers altogether. How many does Ben have?"
                    % (k, (k + 1) * x), x, "int", {}, ["b + %db = %db = %d." % (k, k + 1, (k + 1) * x), "b = %d." % x])
 
-    return _pick_t([t_perimeter, t_ages, t_angles, t_consecutive, t_write, t_share])
+    def t_line():
+        x = random.randint(15, 45)
+        a = random.randint(5, 40)
+        if 3 * x + a >= 180:
+            x = (180 - a) // 3 - 1
+        b = 180 - 2 * x - a - x
+        return _tb("Angles of 2x°, (x + %d)° and %d° lie on a straight line. What is x?" % (a, b), x, "int", {"unit": "°"},
+                   ["2x + x + %d + %d = 180." % (a, b), "3x = %d, x = %d." % (180 - a - b, x)])
+
+    def t_isosceles():
+        x, base = random.randint(5, 20), random.randint(3, 15)
+        return _tb("An isosceles triangle has two sides of x cm and a base of %d cm. Its perimeter is %d cm. What is x?"
+                   % (base, 2 * x + base), x, "int", {"unit": "cm"}, ["2x + %d = %d." % (base, 2 * x + base), "x = %d." % x])
+
+    def t_pens():
+        p = random.randint(15, 60)
+        extra = random.randint(5, 30)
+        a, b = random.randint(2, 4), random.randint(1, 3)
+        tot = a * p + b * (p + extra)
+        return _tb("A pen costs x pence and a ruler costs %d pence more than a pen. %d pens and %d ruler%s cost %d pence. What "
+                   "is x?" % (extra, a, b, "" if b == 1 else "s", tot), p, "int", {"unit": "p"},
+                   ["%dx + %d(x + %d) = %d." % (a, b, extra, tot), "%dx = %d, x = %d." % (a + b, tot - b * extra, p)])
+
+    def t_think():
+        n, k, c = random.randint(3, 20), random.randint(2, 5), random.randint(1, 15)
+        return _tb("I think of a number, multiply it by %d and subtract %d. The answer is %d. What was my number?"
+                   % (k, c, k * n - c), n, "int", {}, ["%dn − %d = %d." % (k, c, k * n - c), "%dn = %d, n = %d." % (k, k * n, n)])
+
+    def t_quad():
+        x = random.randint(45, 60)
+        a = random.randint(5, 20)
+        rest = 360 - (x + x + a + 2 * x)          # 100 to 175: every angle of the quadrilateral is under 180°
+        return _tb("The four angles of a quadrilateral are x°, (x + %d)°, 2x° and %d°. What is x?" % (a, rest), x, "int",
+                   {"unit": "°"}, ["4x + %d + %d = 360." % (a, rest), "4x = %d, x = %d." % (360 - a - rest, x)])
+
+    def t_area():
+        w = random.randint(3, 9)
+        x, c = random.randint(2, 12), random.randint(1, 6)
+        return _tb("A rectangle is %d cm wide and (x + %d) cm long. Its area is %d cm². What is x?" % (w, c, w * (x + c)), x,
+                   "int", {"unit": "cm"}, ["%d(x + %d) = %d." % (w, c, w * (x + c)), "x + %d = %d, x = %d." % (c, x + c, x)])
+
+    def t_bags():
+        x, diff = random.randint(5, 40), random.randint(3, 20)
+        return _tb("Two bags hold x and (x + %d) marbles. There are %d marbles altogether. How many are in the smaller bag?"
+                   % (diff, 2 * x + diff), x, "int", {"unit": "marbles"},
+                   ["2x + %d = %d." % (diff, 2 * x + diff), "x = %d." % x])
+
+    return _pick_t([t_perimeter, t_ages, t_angles, t_consecutive, t_write, t_share, t_line, t_isosceles, t_pens, t_think,
+                    t_quad, t_area, t_bags])
 
 
 @skill("Y7.2.d", "Collect like terms", S2)
@@ -225,7 +290,41 @@ def _(d=1):
         return _wq("A rectangle is %d cm by (x + %d) cm. Write its area as an expanded expression (like 3x+12)." % (k, c),
                    "%dx+%d" % (k, k * c), ["%d(x + %d) = %dx + %d." % (k, c, k, k * c)], "e.g. 3x+12")
 
-    return _pick_t([t_expand, t_expand_minus, t_which, t_true, t_missing, t_area])
+    def t_two_vars():
+        p, q = random.randint(2, 6), random.randint(2, 9)
+        return _wq("Expand  %d(%da + %db)  (like 6a+9b)" % (k, p, q), "%da+%db" % (k * p, k * q),
+                   ["%d × %da + %d × %db." % (k, p, k, q)], "e.g. 6a+9b")
+
+    def t_expand_add():
+        e = random.randint(1, 15)
+        return _wq("Expand and simplify  %d(x + %d) + %d  (like 3x+17)" % (k, c, e), "%dx+%d" % (k, k * c + e),
+                   ["%dx + %d + %d = %dx + %d." % (k, k * c, e, k, k * c + e)], "e.g. 3x+17")
+
+    def t_factor_back():
+        p = random.randint(1, 9)
+        while _g(p, c) != 1:
+            p = random.randint(1, 9)
+        inner = ("x" if p == 1 else "%dx" % p) + "+%d" % c
+        return _wq("Complete:  %dx + %d = %d( ___ ). Type what goes in the bracket (like 2x+3)." % (k * p, k * c, k), inner,
+                   ["Divide each term by %d." % k], "e.g. 2x+3")
+
+    def t_value_check():
+        x = random.randint(2, 9)
+        return _tb("Show that %d(x + %d) and %dx + %d are equal when x = %d: what value do both give?" % (k, c, k, k * c, x),
+                   k * (x + c), "int", {}, ["%d × %d = %d and %d × %d + %d = %d." % (k, x + c, k * (x + c), k, x, k * c, k * (x + c))])
+
+    def t_error():
+        return _wq("%s expanded %d(x + %d) and wrote %dx + %d. Write the correct expansion (like 3x+12)." % (_who(), k, c, k, c),
+                   "%dx+%d" % (k, k * c), ["Multiply %d by both terms: %d × %d = %d." % (k, k, c, k * c)], "e.g. 3x+12")
+
+    return _pick_t([t_expand, t_expand_minus, t_which, t_true, t_missing, t_area, t_two_vars, t_expand_add, t_factor_back,
+                    t_value_check, t_error])
+
+
+def _g(a, b):
+    while b:
+        a, b = b, a % b
+    return a
 
 
 # ================================================================== 7.3 ======
@@ -242,7 +341,7 @@ def _(d=1):
                    ["It is worth %s." % _c(int(s[i]) * place)])
 
     def t_value_small():
-        x = Decimal(random.randint(1, 99999)) / 10 ** random.randint(3, 4)
+        x = Decimal(random.randint(0, 9999) * 10 + random.randint(1, 9)) / 10 ** random.randint(3, 4)   # last digit not 0
         s = format(x, "f").split(".")[1]
         i = max(k for k in range(len(s)) if s[k] != "0")
         return _tb("What is the value of the digit %s in %s? Write it as a decimal." % (s[i], _ds(x)),
@@ -270,7 +369,56 @@ def _(d=1):
         a, b, f = pick([("km", "m", 1000), ("m", "cm", 100), ("kg", "g", 1000), ("cm", "mm", 10)])
         return _tb("Convert %s %s to %s." % (_ds(x), a, b), _ds(x * f), "num", {"unit": b}, ["× %d." % f])
 
-    return _pick_t([t_value_big, t_value_small, t_million, t_times, t_divide, t_units])
+    def t_times_bigger():
+        dg = random.randint(1, 9)
+        p1, p2 = sorted(random.sample(range(0, 7), 2))
+
+        def holder(p):                      # a number whose only digit dg sits in place 10^p
+            while True:
+                n = dg * 10 ** p + random.randint(0, 10 ** p - 1)
+                if str(n).count(str(dg)) == 1:
+                    return n
+        a, b = holder(p2), holder(p1)
+        return _tb("How many times bigger is the value of the %d in %s than the value of the %d in %s?" % (dg, _c(a), dg, _c(b)),
+                   10 ** (p2 - p1), "int", {}, ["The values are %s and %s." % (_c(dg * 10 ** p2), _c(dg * 10 ** p1)),
+                                                "%s ÷ %s = %s." % (_c(dg * 10 ** p2), _c(dg * 10 ** p1), _c(10 ** (p2 - p1)))])
+
+    def t_figures():
+        n = random.randint(1_000_000, 9_999_999)
+        if random.random() < 0.5:
+            n = n // 1000 * 1000 + random.randint(0, 99)
+        return _tb("Write in figures: %s." % _words(n), n, "int", {}, ["= %s." % _c(n)])
+
+    def t_line_big():
+        m = random.randint(1, 9)
+        k = random.randint(1, 9)
+        v = m * 1_000_000 + k * 100_000
+        return _nl("Place %s on the number line." % _c(v), v, 100_000, 1_000_000, ["%s is between %d million and %d million."
+                                                                                 % (_c(v), m, m + 1)], lo=0, hi=10_000_000)
+
+    def t_bigger_decimal():
+        a = Decimal(random.randint(1, 9)) / 10 + Decimal(random.randint(1, 9)) / 100
+        b = a - Decimal(random.randint(1, 9)) / 1000 * pick([1, -1]) - Decimal(random.randint(0, 1)) / 100
+        b = b.quantize(Decimal("0.001"))
+        if a == b:
+            b += Decimal("0.001")
+        return _tb("Which is larger: %s or %s?" % (_ds(a), _ds(b)), _ds(max(a, b)), "num", {},
+                   ["Compare digit by digit: %s and %s." % (format(a, ".3f"), format(b, ".3f"))])
+
+    def t_partition():
+        x = Decimal(random.randint(1001, 99999)) / 1000
+        s = format(x, "f")
+        w, f = s.split(".")
+        parts = [int(w)] + [Decimal(int(ch)) / 10 ** (i + 1) for i, ch in enumerate(f)]
+        k = random.randrange(1, len(parts))
+        if parts[k] == 0:
+            k = 1 if parts[1] else 0
+        shown = " + ".join("___" if i == k else _ds(p) for i, p in enumerate(parts) if p or i == k)
+        return _tb("Complete:  %s = %s" % (_ds(x), shown), _ds(parts[k]), "num", {},
+                   ["%s = %s." % (_ds(x), " + ".join(_ds(p) for p in parts if p))])
+
+    return _pick_t([t_value_big, t_value_small, t_million, t_times, t_divide, t_units, t_times_bigger, t_figures,
+                    t_bigger_decimal, t_partition], [t_line_big])
 
 
 @skill("Y7.3.b", "Order integers, decimals and fractions with =, ≠, <, >, ≤, ≥", S3)
@@ -356,7 +504,62 @@ def _(d=1):
         return _tb("A number rounds to %s to 1 decimal place. What is the smallest it could be?" % _ds(lo),
                    _ds(lo - Decimal("0.05")), "num", {}, ["Halfway down: %s." % _ds(lo - Decimal("0.05"))])
 
-    return _pick_t([t_plain, t_plain, t_money, t_trap_nine, t_between])
+    def t_measure():
+        what, unit, lo, hi = pick([("A runner's time", "seconds", 9000, 99999), ("A baby's mass", "kg", 2000, 5000),
+                                   ("The length of a leaf", "cm", 1000, 25000), ("A bottle holds", "litres", 500, 3000)])
+        v = Decimal(random.randint(lo, hi)) / 1000
+        k = random.randint(1, 2)
+        r1 = v.quantize(Decimal(1).scaleb(-k), rounding="ROUND_HALF_UP")
+        return _tb("%s is %s %s. Round this to %d decimal place%s." % (what, _ds(v), unit, k, "" if k == 1 else "s"), _ds(r1),
+                   "num", {"unit": unit}, ["%s → %s." % (_ds(v), format(r1, "f"))])
+
+    def t_divide_round():
+        a, b = random.randint(10, 99), pick([3, 6, 7, 9, 11, 12])
+        if a % b == 0:
+            a += 1
+        q = (Decimal(a) / Decimal(b)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        return _tb("Work out %d ÷ %d on a calculator and round the answer to 2 decimal places." % (a, b), _ds(q), "num", {},
+                   ["%d ÷ %d = %s…" % (a, b, format(Decimal(a) / Decimal(b), ".5f")), "To 2 d.p.: %s." % format(q, "f")])
+
+    def t_largest_2dp():
+        r1 = Decimal(random.randint(11, 99)) / 10
+        return _tb("What is the largest number with 2 decimal places that rounds to %s to 1 decimal place?" % _ds(r1),
+                   _ds(r1 + Decimal("0.04")), "num", {},
+                   ["%s rounds up to %s, so the largest is %s." % (_ds(r1 + Decimal("0.05")), _ds(r1 + Decimal("0.1")),
+                                                                  _ds(r1 + Decimal("0.04")))])
+
+    def t_error():
+        w = random.randint(1, 20)
+        v = Decimal(w) + Decimal(random.randint(95, 99)) / 100
+        r1 = v.quantize(Decimal("0.1"), rounding="ROUND_HALF_UP")
+        return _tb("%s rounded %s to 1 decimal place and wrote %d.10. What is the correct answer?" % (_who(), _ds(v), w),
+                   _ds(r1), "num", {}, ["The 9 tenths round up to a whole one: %s (written %s)." % (_ds(r1), format(r1, "f"))])
+
+    def t_whole():
+        v = Decimal(random.randint(1001, 99999)) / 100
+        r1 = v.quantize(Decimal(1), rounding="ROUND_HALF_UP")
+        return _tb("Round %s to the nearest whole number." % _ds(v), _ds(r1), "num", {}, ["Look at the tenths digit: %s." % _ds(r1)])
+
+    def t_which():
+        r1 = Decimal(random.randint(11, 99)) / 10
+        good = r1 + Decimal(random.randint(-5, 4)) / 100
+        bads = [r1 - Decimal("0.06"), r1 + Decimal("0.05"), r1 + Decimal("0.11"), r1 - Decimal("0.1")]
+        shown = [good] + random.sample(bads, 3)
+        random.shuffle(shown)
+        return _tb("Which of these rounds to %s to 1 decimal place?  %s" % (_ds(r1), ", ".join(format(s, ".2f") for s in shown)),
+                   _ds(good), "num", {}, ["Numbers from %s up to (not including) %s round to %s." % (_ds(r1 - Decimal("0.05")),
+                                                                                                   _ds(r1 + Decimal("0.05")), _ds(r1))])
+
+    def t_table():
+        names = random.sample(["Ava", "Ben", "Cal", "Dee", "Eli"], 3)
+        vals = [Decimal(random.randint(1100, 1999)) / 1000 for _ in names]
+        k = random.randrange(3)
+        r1 = vals[k].quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        return _dt("The table shows jump heights in metres. Round %s's jump to 2 decimal places." % names[k], ["Name", "Height (m)"],
+                   [[n, _ds(v)] for n, v in zip(names, vals)], _ds(r1), ["%s → %s." % (_ds(vals[k]), format(r1, "f"))], atype="num")
+
+    return _pick_t([t_plain, t_money, t_trap_nine, t_between, t_measure, t_divide_round, t_largest_2dp, t_error, t_whole,
+                    t_which], [t_table])
 
 
 @skill("Y7.3.d", "Round to 1 significant figure and estimate", S3)
@@ -404,7 +607,54 @@ def _(d=1):
         return _tb("Estimate %s × %d by rounding each number to 1 significant figure." % (_ds(a), b),
                    _ds(_sf1(a) * _sf1(b)), "num", {}, ["%s × %s = %s." % (_ds(_sf1(a)), _ds(_sf1(b)), _ds(_sf1(a) * _sf1(b)))])
 
-    return _pick_t([t_round, t_round, t_estimate_mult, t_estimate_div, t_sensible, t_decimal_est])
+    def t_est_add():
+        a, b = random.randint(1100, 9499), random.randint(1100, 9499)
+        return _tb("Estimate %s + %s by rounding each number to 1 significant figure." % (_c(a), _c(b)), int(_sf1(a) + _sf1(b)),
+                   "int", {}, ["%s + %s = %s." % (_c(int(_sf1(a))), _c(int(_sf1(b))), _c(int(_sf1(a) + _sf1(b))))])
+
+    def t_est_money():
+        n = random.randint(11, 49)
+        p = Decimal(random.randint(150, 950)) / 100 - Decimal("0.01") * pick([0, 1, 5])
+        return _tb("%d tickets cost £%s each. Estimate the total cost by rounding each number to 1 significant figure, in pounds."
+                   % (n, format(p, ".2f")), _ds(_sf1(n) * _sf1(p)), "num", {"unit": "£"},
+                   ["%s × %s = %s." % (_ds(_sf1(n)), _ds(_sf1(p)), _ds(_sf1(n) * _sf1(p)))])
+
+    def t_est_frac():
+        a, b = random.randint(21, 89), random.randint(21, 89)
+        c = pick([Decimal("4.8"), Decimal("5.2"), Decimal("1.9"), Decimal("2.1"), Decimal("9.7"), Decimal("10.3")])
+        top = _sf1(a) * _sf1(b)
+        if top % _sf1(c):
+            return t_est_add()
+        return _tb("Estimate (%d × %d) ÷ %s by rounding each number to 1 significant figure." % (a, b, _ds(c)),
+                   _ds(top / _sf1(c)), "num", {}, ["(%s × %s) ÷ %s = %s ÷ %s = %s." % (_ds(_sf1(a)), _ds(_sf1(b)), _ds(_sf1(c)),
+                                                                                     _ds(top), _ds(_sf1(c)), _ds(top / _sf1(c)))])
+
+    def t_count_sf():
+        v = pick(["0.0305", "4,025", "0.70", "12.05", "0.004", "360.1", "5.002", "0.0089", "7.0"])
+        n = {"0.0305": 3, "4,025": 4, "0.70": 2, "12.05": 4, "0.004": 1, "360.1": 4, "5.002": 4, "0.0089": 2, "7.0": 2}[v]
+        return _tb("How many significant figures does %s have, as written?" % v, n, "int", {},
+                   ["Start counting at the first non-zero digit; zeros between or after (after the point) count."])
+
+    def t_est_area():
+        a = Decimal(random.randint(51, 94)) / 10
+        b = Decimal(random.randint(21, 49)) / 10
+        return _tb("A room is %s m by %s m. Estimate its area by rounding each length to 1 significant figure, in m²."
+                   % (_ds(a), _ds(b)), _ds(_sf1(a) * _sf1(b)), "num", {"unit": "m²"},
+                   ["%s × %s = %s." % (_ds(_sf1(a)), _ds(_sf1(b)), _ds(_sf1(a) * _sf1(b)))])
+
+    def t_over_under():
+        a, b = random.randint(21, 99), random.randint(21, 99)
+        ea, eb = _sf1(a), _sf1(b)
+        if (ea - a) * (eb - b) < 0 or ea == a or eb == b:
+            a, b = 10 * random.randint(2, 4) + random.randint(1, 3), 10 * random.randint(2, 4) + random.randint(1, 3)
+            ea, eb = _sf1(a), _sf1(b)
+        over = ea > a
+        return _wq("You estimate %d × %d as %s × %s. Is the estimate bigger or smaller than the exact answer? (type bigger or "
+                   "smaller)" % (a, b, _ds(ea), _ds(eb)), "bigger" if over else "smaller",
+                   ["Both numbers were rounded %s." % ("up" if over else "down")], "bigger / smaller")
+
+    return _pick_t([t_round, t_estimate_mult, t_estimate_div, t_sensible, t_decimal_est, t_est_add, t_est_money, t_est_frac,
+                    t_count_sf, t_est_area, t_over_under])
 
 
 @skill("Y7.3.e", "Range and median of a list", S3)

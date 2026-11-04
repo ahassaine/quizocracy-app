@@ -7,9 +7,12 @@ Mastery score 0-100 per (pupil, skill):
                  so the last stretch demands consistency (as IXL's does).
   * 100 = mastered.
 
-Adaptive selection walks the Year-3 ladder (3.0 -> 3.9): it works the lowest level
-that is not yet ~mastered, preferring skills already in progress, and periodically
-resurfaces a mastered skill for spaced retention review (which IXL does not do).
+Adaptive selection walks the pupil's year ladder (Yn.0 -> Yn.9, OUT_OF_YEAR skills left out):
+it works the lowest level that is not yet ~mastered, preferring skills that are still moving,
+spreads practice when skills plateau (PLATEAU_ATTEMPTS) or stall, finishes the skills each level
+left behind once every level has passed, and periodically resurfaces a mastered skill for spaced
+retention review (which IXL does not do). Years 8 and 9 also mix in earlier KS3 skills
+(KS3_MIX_CHANCE).
 """
 import datetime
 import random
@@ -22,6 +25,7 @@ LEVEL_PASS_RATIO = 0.8      # fraction of a level's skills mastered before movin
 REVIEW_CHANCE = 0.18        # chance of a spaced-review question
 REVIEW_AFTER_DAYS = 3
 STUCK_ATTEMPTS = 6        # rotate away after this many failed attempts on one skill
+PLATEAU_ATTEMPTS = 20     # ... and spread practice once a skill has this many without nearing mastery
 
 
 def _now():
@@ -55,6 +59,16 @@ OUT_OF_YEAR = {
     "Y6.9.i",   # mode and median: KS3
     "Y6.9.j",   # probability: KS3
 }
+
+
+# KS3 is one key stage: Years 8 and 9 keep earlier KS3 skills alive by mixing some in.
+KS3_EARLIER = {8: (7,), 9: (7, 8)}
+KS3_MIX_CHANCE = 0.15
+
+
+def _earlier_ks3(year):
+    pref = tuple("Y%d." % y for y in KS3_EARLIER.get(int(year or 0), ()))
+    return [s for s in skill_list() if pref and s["key"].startswith(pref) and s["key"] not in OUT_OF_YEAR]
 
 
 def _year_skills(year=None):
@@ -125,6 +139,12 @@ async def next_skill(pupil, year=None):
     if due and random.random() < REVIEW_CHANCE:
         return random.choice(due), "review"
 
+    # earlier KS3 skills, unmastered first
+    earlier = _earlier_ks3(year) if year not in (None, "", 0) else []
+    if earlier and random.random() < KS3_MIX_CHANCE:
+        open_ = [s["key"] for s in earlier if mm.get(s["key"], {}).get("score", 0) < MASTERED]
+        return random.choice(open_ or [s["key"] for s in earlier]), "review"
+
     # walk the ladder by strand (3.0 -> 3.9)
     strands = []
     for s in skills:
@@ -149,14 +169,29 @@ async def next_skill(pupil, year=None):
             fresh = [s for s in unstarted if s not in stuck]
             if fresh:
                 return fresh[0]["key"], "new"
-        if started:
-            started.sort(key=lambda s: mm[s["key"]]["score"])
-            return started[0]["key"], "practice"
-        if stuck and len(stuck) < len(unfinished):
-            other = [s for s in unfinished if s not in stuck]
-            if other:
-                return other[0]["key"], "new"
-        return unfinished[0]["key"], "new"
+        # plateau: long practice without reaching the challenge zone; spread practice
+        # across the level instead of holding a struggling pupil on one skill
+        plateau = [s for s in started if mm[s["key"]].get("attempts", 0) >= PLATEAU_ATTEMPTS
+                   and mm[s["key"]]["score"] < CHALLENGE_ZONE]
+        moving = [s for s in started if s not in plateau]
+        if moving:
+            moving.sort(key=lambda s: mm[s["key"]]["score"])
+            return moving[0]["key"], "practice"
+        fresh = [s for s in unstarted if s not in stuck]
+        if fresh:
+            return fresh[0]["key"], "new"
+        # every skill here is on a plateau or stuck: rotate, least recently practised first
+        unfinished.sort(key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
+        s = unfinished[0]
+        return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
+
+    # every level passed: finish the skills each level left behind, in ladder order
+    left = [s for s in skills if mm.get(s["key"], {}).get("score", 0) < MASTERED]
+    if left:
+        fresh = [s for s in left if mm.get(s["key"], {}).get("attempts", 0) < STUCK_ATTEMPTS
+                 or mm[s["key"]].get("score", 0) > 0]
+        s = (fresh or left)[0]
+        return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
 
     # everything mastered — free review
     return random.choice(skills)["key"], "review"

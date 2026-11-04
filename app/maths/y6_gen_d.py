@@ -601,8 +601,8 @@ def _(d=1):
     def smaller_share():
         one, two = _two_names()
         return _numq("%s and %s share %d sweets in the ratio %d : %d, with %s "
-                     "taking the %d parts. How many sweets does %s get?"
-                     % (one, two, total, a, b, two, b, two), b * unit,
+                     "taking the %s. How many sweets does %s get?"
+                     % (one, two, total, a, b, two, "1 part" if b == 1 else "%d parts" % b, two), b * unit,
                      ["%d + %d = %d equal parts." % (a, b, a + b),
                       "%d ÷ %d = %d sweets in one part." % (total, a + b, unit),
                       "%d × %d = %d sweets." % (b, unit, b * unit)],
@@ -625,9 +625,9 @@ def _(d=1):
     def total_from_one_share():
         one, two = _two_names()
         return _numq("%s and %s share some stickers in the ratio %d : %d. %s "
-                     "gets the %d parts and receives %d stickers. How many "
+                     "gets %s and receives %d stickers. How many "
                      "stickers were shared altogether?"
-                     % (one, two, a, b, one, a, a * unit), total,
+                     % (one, two, a, b, one, "1 part" if a == 1 else "the %d parts" % a, a * unit), total,
                      ["%d ÷ %d = %d stickers in one part." % (a * unit, a, unit),
                       "There are %d parts altogether, so %d × %d = %d stickers."
                       % (a + b, a + b, unit, total)], unit="stickers")
@@ -648,8 +648,8 @@ def _(d=1):
         return _numq("A prize is shared in the ratio %d : %d. The larger share "
                      "is %s more than the smaller share. What is the total "
                      "prize, in pounds?" % (a, b, _pounds(diff)), total,
-                     ["The difference is %d − %d = %d parts."
-                      % (max(a, b), min(a, b), abs(a - b)),
+                     ["The difference is %d − %d = %s."
+                      % (max(a, b), min(a, b), _pl(abs(a - b), "part")),
                       "%d ÷ %d = %d, so one part is %s."
                       % (diff, abs(a - b), unit, _pounds(unit)),
                       "%d parts altogether: %d × %d = %s."
@@ -714,8 +714,8 @@ def _(d=1):
                     "beads does %s get?" % (one, two, total, a, b, one),
                     ["Name", "Share", "Beads"], rows, a * unit,
                     ["%d ÷ %d = %d beads in one part." % (total, a + b, unit),
-                     "%s has %d parts: %d × %d = %d beads."
-                     % (one, a, a, unit, a * unit)],
+                     "%s has %s: %d × %d = %d beads."
+                     % (one, _pl(a, "part"), a, unit, a * unit)],
                     missing=(0, 2), caption="Sharing %d beads" % total)
 
     def fraction_of_total():
@@ -730,9 +730,9 @@ def _(d=1):
         one, two = _two_names()
         spend = random.randint(1, max(1, a * unit - 1))
         return _numq("%s and %s share %s in the ratio %d : %d, with %s taking "
-                     "the %d parts. %s then spends %s. How much does %s have "
+                     "%s. %s then spends %s. How much does %s have "
                      "left, in pounds?"
-                     % (one, two, _pounds(total), a, b, one, a, one,
+                     % (one, two, _pounds(total), a, b, one, "1 part" if a == 1 else "the %d parts" % a, one,
                         _pounds(spend), one), a * unit - spend,
                      ["One part is %d ÷ %d = %s."
                       % (total, a + b, _pounds(unit)),
@@ -2194,7 +2194,7 @@ def _(d=1):
                      % (a, b, tot), cnt,
                      ["Try x = 1, 2, 3, … and check whether %d − %dx divides "
                       "exactly by %d." % (tot, a, b),
-                      "There are %d pairs that work." % cnt],
+                      "There %s %s that %s." % ("is" if cnt == 1 else "are", _pl(cnt, "pair"), "works" if cnt == 1 else "work")],
                      placeholder="how many pairs")
 
     def list_y_values():
@@ -2246,7 +2246,7 @@ def _(d=1):
                      "each coin can be zero or more?" % (a, b, target), cnt,
                      ["Try each possible number of %dp coins and check whether "
                       "the amount left divides exactly by %dp." % (a, b),
-                      "There are %d ways." % cnt],
+                      "There %s %s." % ("is" if cnt == 1 else "are", _pl(cnt, "way"))],
                      placeholder="how many ways")
 
     def pairs_table():

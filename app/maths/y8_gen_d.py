@@ -261,7 +261,7 @@ def _(d=1):
     def age():
         name = pick(NAMES)
         return _exprq("%s is %s years old now. Write an expression for %s's age in %d "
-                      "years' time." % (name, v, name, j), _lin_str(1, j, v),
+                      "%s time." % (name, v, name, j, "year's" if j == 1 else "years'"), _lin_str(1, j, v),
                       ["In %d years %s will be %s." % (j, name, _lin_str(1, j, v))], ex)
 
     def consecutive():
@@ -708,7 +708,7 @@ def _(d=1):
     def basic():
         k = _by_d(d, random.randint(2, 4), random.randint(2, 6), random.randint(3, 9))
         b = random.randint(2, _by_d(d, 5, 8, 10))
-        c = random.randint(1, _by_d(d, 5, 8, 10))
+        c = _coprime_c(b, _by_d(d, 5, 8, 10))
         return _exprq("Factorise %s by taking out the highest common factor."
                       % _lin_str(k * b, k * c), _fac_str(k, b, c),
                       ["The highest common factor of %d and %d is %d."
@@ -727,7 +727,7 @@ def _(d=1):
     def find_hcf():
         k = random.randint(2, 8)
         b = random.randint(2, 6)
-        c = random.randint(1, 6)
+        c = _coprime_c(b, 6)
         return _numq("To factorise %s you take out the highest common factor. What is "
                      "that highest common factor?" % _lin_str(k * b, k * c), k,
                      ["%d and %d both divide by %d." % (k * b, k * c, k)],
@@ -736,7 +736,7 @@ def _(d=1):
     def inside_first():
         k = random.randint(2, 8)
         b = random.randint(2, 6)
-        c = random.randint(1, 6)
+        c = _coprime_c(b, 6)
         return _numq("%s factorises to %d(ax + b). What is the coefficient of x inside "
                      "the bracket (the value of a)?" % (_lin_str(k * b, k * c), k), b,
                      ["%d divided by %d is %d." % (k * b, k, b)], placeholder="a number")
@@ -744,15 +744,15 @@ def _(d=1):
     def inside_const():
         k = random.randint(2, 8)
         b = random.randint(2, 6)
-        c = random.randint(1, 6)
+        c = _coprime_c(b, 6)
         return _numq("%s factorises to %d(%s + b). What is the number b inside the "
                      "bracket?" % (_lin_str(k * b, k * c), k, _coef(b, "x")), c,
                      ["%d divided by %d is %d." % (k * c, k, c)], placeholder="a number")
 
     def x_factor():
         b = random.randint(2, 8)
-        c = random.randint(2, 8)
-        # bx^2 + cx  -> x(bx + c)
+        c = _coprime_c(b, 8)
+        # bx^2 + cx  -> x(bx + c); b and c coprime so x is the whole common factor
         expr = "%s+%s" % (_coef(b, "x^2"), _coef(c, "x"))
         return _exprq("Factorise %s by taking out the common factor x." % expr,
                       "x(%s)" % _lin_str(b, c),
@@ -762,7 +762,7 @@ def _(d=1):
     def check_factor():
         k = random.randint(2, 6)
         b = random.randint(2, 6)
-        c = random.randint(1, 6)
+        c = _coprime_c(b, 6)
         return _wordq("Is %d(%s) the fully factorised form of %s? Type yes or no."
                       % (k, _lin_str(b, c), _lin_str(k * b, k * c)), "yes",
                       ["Expanding %d(%s) gives %s, so yes."
@@ -772,7 +772,7 @@ def _(d=1):
     def not_fully():
         # 2(2x+4) should be 4(x+2); ask for the HIGHEST common factor
         b = random.randint(1, 4)
-        c = random.randint(1, 4)
+        c = _coprime_c(b, 4)
         k = random.randint(2, 4) * 2
         return _numq("A pupil writes %s = 2(%s), but this is not fully factorised. What "
                      "is the highest common factor that should be taken out instead?"
@@ -2043,8 +2043,8 @@ def _(d=1):
         fixed = random.randint(3, 20)
         n = random.randint(2, hi)
         total = each * n + fixed
-        return _numq("A taxi charges a fixed %d pounds plus %d pounds per mile. A journey "
-                     "costs %d pounds. How many miles was the journey?"
+        return _numq("A taxi charges a fixed £%d plus £%d per mile. A journey "
+                     "costs £%d. How many miles was the journey?"
                      % (fixed, each, total), n,
                      ["%dn + %d = %d, so %dn = %d and n = %d."
                       % (each, fixed, total, each, total - fixed, n)],
@@ -2293,7 +2293,7 @@ def _(d=1):
         fixed = random.randint(1, 10)
         v = random.randint(3, hi)
         budget = each * v + fixed
-        return _numq("Rides cost %d pounds each plus a %d pound entry fee. With %d pounds "
+        return _numq("Rides cost £%d each plus an entry fee of £%d. With £%d "
                      "you can afford at most how many rides? (Solve %dn + %d <= %d.)"
                      % (each, fixed, budget, each, fixed, budget), v,
                      ["%dn + %d <= %d, so %dn <= %d and n <= %d."
@@ -2683,29 +2683,29 @@ def _(d=1):
         fixed = random.randint(2, 6)
         rate = random.randint(1, 5)
         miles = random.randint(3, 12)
-        return _numq("A taxi graph is a straight line. The fare starts at %d pounds "
-                     "(the y-intercept) and rises by %d pounds per mile (the gradient). "
+        return _numq("A taxi graph is a straight line. The fare starts at £%d "
+                     "(the y-intercept) and rises by £%d per mile (the gradient). "
                      "What is the fare for %d miles, in pounds?" % (fixed, rate, miles),
                      fixed + rate * miles,
-                     ["Fare = %d + %d x %d = %d pounds."
+                     ["Fare = %d + %d × %d = £%d."
                       % (fixed, rate, miles, fixed + rate * miles)], placeholder="pounds")
 
     def taxi_rate_gradient():
         fixed = random.randint(2, 6)
         rate = random.randint(1, 5)
-        return _numq("A taxi charges a fixed fee of %d pounds plus %d pounds per mile. On "
+        return _numq("A taxi charges a fixed fee of £%d plus £%d per mile. On "
                      "a distance-cost graph, what is the gradient of the line?"
                      % (fixed, rate), rate,
-                     ["The gradient is the cost per mile, %d pounds." % rate],
+                     ["The gradient is the cost per mile, £%d." % rate],
                      placeholder="gradient")
 
     def taxi_intercept():
         fixed = random.randint(2, 8)
         rate = random.randint(1, 5)
-        return _numq("A taxi charges a fixed fee of %d pounds plus %d pounds per mile. On "
+        return _numq("A taxi charges a fixed fee of £%d plus £%d per mile. On "
                      "a distance-cost graph, what is the y-intercept (the cost of a "
                      "0-mile journey), in pounds?" % (fixed, rate), fixed,
-                     ["The y-intercept is the fixed starting fee, %d pounds." % fixed],
+                     ["The y-intercept is the fixed starting fee, £%d." % fixed],
                      placeholder="pounds")
 
     def tank_fill():

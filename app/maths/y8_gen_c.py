@@ -67,6 +67,14 @@ def _coprime_pair(lo=2, hi=9):
     return 2, 3
 
 
+def _pl(n, word):
+    return "%d %s" % (n, word if n == 1 else word + "s")
+
+
+def _hrs(n):
+    return "1 hour" if n == 1 else "%d hours" % n
+
+
 def _pounds(n):
     return "£%d" % int(n)
 
@@ -426,7 +434,7 @@ def _(d=1):
                     "beads does %s get?" % (one, two, total, a, b, one),
                     ["Name", "Share", "Beads"], rows, a * unit,
                     ["One part is %d ÷ %d = %d beads." % (total, a + b, unit),
-                     "%s has %d parts: %d beads." % (one, a, a * unit)],
+                     "%s has %d %s: %d beads." % (one, a, "part" if a == 1 else "parts", a * unit)],
                     missing=(0, 2), caption="Sharing %d beads" % total)
 
     opts = [strip_one_part, strip_total, larger_share, smaller_share,
@@ -594,8 +602,8 @@ def _(d=1):
         ans = ["A", "B", "C"][order.index(0)]
         return _wordq(
             "Multi-step word problem: a group of %d %s. Which of these is the "
-            "most reasonable answer for the total cost?  A) £%d   B) £%d   "
-            "C) £%d.  Type the letter of the reasonable answer."
+            "most reasonable answer for the total cost?  A: £%d   B: £%d   "
+            "C: £%d.  Type the letter of the reasonable answer."
             % (people, scene, shown[0], shown[1], shown[2]), ans,
             ["Estimate: about %d × £%d = £%d, plus £%d, giving about £%d."
              % (people, each, people * each, extra, exact),
@@ -808,9 +816,9 @@ def _(d=1):
         h1 = random.randint(1, 3)
         s2 = random.randint(30, 60)
         h2 = random.randint(1, 3)
-        return _numq("A journey has two parts: %d hours at %d km/h, then %d hours "
+        return _numq("A journey has two parts: %s at %d km/h, then %s "
                      "at %d km/h. What is the total distance, in kilometres?"
-                     % (h1, s1, h2, s2), s1 * h1 + s2 * h2,
+                     % (_hrs(h1), s1, _hrs(h2), s2), s1 * h1 + s2 * h2,
                      ["Part 1: %d × %d = %d km." % (s1, h1, s1 * h1),
                       "Part 2: %d × %d = %d km." % (s2, h2, s2 * h2),
                       "Total = %d km." % (s1 * h1 + s2 * h2)], unit="km")
@@ -888,13 +896,13 @@ def _(d=1):
         workers2 = pick([x for x in range(1, 13)
                          if x != workers1 and (workers1 * days) % x == 0])
         return _numq("%d workers take %d days to finish a job. Working at the same "
-                     "rate, how many days would %d workers take?"
-                     % (workers1, days, workers2),
+                     "rate, how many days would %s take?"
+                     % (workers1, days, "1 worker" if workers2 == 1 else "%d workers" % workers2),
                      workers1 * days // workers2,
                      ["Total work = %d × %d = %d worker-days."
                       % (workers1, days, workers1 * days),
-                      "%d ÷ %d = %d days."
-                      % (workers1 * days, workers2, workers1 * days // workers2)],
+                      "%d ÷ %d = %s." % (workers1 * days, workers2,
+                                         _pl(workers1 * days // workers2, "day"))],
                      unit="days")
 
     def is_proportional():
@@ -921,7 +929,7 @@ def _(d=1):
     def unitary():
         n = random.randint(3, 8)
         each = random.randint(3, 12)
-        want = random.randint(2, 15)
+        want = pick([w for w in range(2, 16) if w != n])
         return _numq("%d pencils cost %dp. Using the unitary method, how much do "
                      "%d pencils cost, in pence?" % (n, n * each, want),
                      want * each,
@@ -948,8 +956,8 @@ def _(d=1):
         return _numq("A recipe for %d people needs %d eggs. How many eggs are "
                      "needed for %d people?" % (people, per * people, want),
                      per * want,
-                     ["One person needs %d ÷ %d = %d eggs."
-                      % (per * people, people, per),
+                     ["One person needs %d ÷ %d = %d %s."
+                      % (per * people, people, per, "egg" if per == 1 else "eggs"),
                       "%d × %d = %d eggs." % (per, want, per * want)], unit="eggs")
 
     opts = [solve_proportion, solve_cross, word_proportion, is_proportional,
@@ -1409,7 +1417,7 @@ def _(d=1):
     def pct_to_fraction():
         pct = pick([10, 20, 25, 40, 50, 60, 75, 80, 5, 15])
         return _fracq("Write %d%% as a fraction in its simplest form." % pct,
-                      pct, 100,
+                      *_simp(pct, 100),
                       ["%d%% = %d/100." % (pct, pct),
                        "%d/100 simplifies to %d/%d."
                        % (pct, *_simp(pct, 100))])
@@ -2030,7 +2038,7 @@ def _(d=1):
             b = (100 // g2) * random.randint(2, 10)
             v2 = b * p2 // 100
         ans = "A" if v1 > v2 else "B"
-        return _wordq("Which is larger:  A) %d%% of %d   or   B) %d%% of %d ? "
+        return _wordq("Which is larger:  A: %d%% of %d   or   B: %d%% of %d ? "
                       "Type A or B." % (p1, a, p2, b), ans,
                       ["A: %d%% of %d = %d." % (p1, a, v1),
                        "B: %d%% of %d = %d." % (p2, b, v2),
@@ -2157,17 +2165,24 @@ def _(d=1):
                      unit="£")
 
     def two_step_sale():
-        pct = pick([10, 20, 25])
-        g = _hcf(pct, 100)
-        price = (100 // g) * random.randint(4, 15)
-        sale = price - price * pct // 100
-        # then add nothing; ask sale price with a further comparison
-        return _numq("A shop reduces a %s coat by %d%%, then charges 0%% extra. "
-                     "What is the final price, in pounds?"
-                     % (_pounds(price), pct), sale,
+        pct, more = pick([(10, 10), (20, 10), (25, 20), (50, 10), (20, 25), (10, 50)])
+        while True:
+            price = random.randint(4, 40) * 10
+            sale = price * (100 - pct) / 100.0
+            final = sale * (100 - more) / 100.0
+            if sale == int(sale) and final == int(final):
+                sale, final = int(sale), int(final)
+                break
+        return _numq("A shop reduces a %s coat by %d%%. Later it takes a further %d%% off "
+                     "the sale price. What is the final price, in pounds?"
+                     % (_pounds(price), pct, more), final,
                      ["Reduced by %d%%: %s − %s = %s."
-                      % (pct, _pounds(price), _pounds(price * pct // 100),
-                         _pounds(sale))], unit="£")
+                      % (pct, _pounds(price), _pounds(price - sale), _pounds(sale)),
+                      "A further %d%% off %s: %s − %s = %s."
+                      % (more, _pounds(sale), _pounds(sale), _pounds(sale - final),
+                         _pounds(final)),
+                      "That is not the same as %d%% off the original price."
+                      % (pct + more)], unit="£")
 
     def table_prices():
         pct = pick([10, 20, 25, 50])
@@ -2431,8 +2446,8 @@ def _(d=1):
                     "total interest earned. What is the missing amount, in "
                     "pounds?" % (_pounds(principal), rate),
                     ["Years", "Interest"], rows, ans,
-                    ["One year = %s, so %d years = %s."
-                     % (_pounds(principal * rate // 100), i + 1,
+                    ["One year = %s, so %s = %s."
+                     % (_pounds(principal * rate // 100), "1 year" if i == 0 else "%d years" % (i + 1),
                         _pounds(ans))],
                     missing=(i, 1), caption="Simple interest at %d%%" % rate)
 

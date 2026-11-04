@@ -484,7 +484,7 @@ def _(d=1):
         return _btq("Use the base ten model to subtract the one-digit number %d from "
                     "the two-digit number %d. No regrouping is needed — build the "
                     "answer." % (s, n), n - s,
-                    ["There are %d ones, so take %d ones away: %d − %d = %d ones."
+                    ["There are %d ones, so take %d away: %d − %d = %d."
                      % (ones, s, ones, s, ones - s),
                      "The %d tens do not change, so %d − %d = %d."
                      % (tens, n, s, n - s)])
@@ -729,7 +729,7 @@ def _(d=1):
         who = pick(NAMES); thing = pick(_OBJ)
         return _numq("%s had %d %s and gave away %d. How many are left?"
                      % (who, a, thing, b), a - b,
-                     ["%d − %d = %d %s." % (a, b, a - b, thing)], unit=thing)
+                     ["%d − %d = %d." % (a, b, a - b)], unit=thing)
 
     def money_word():
         who = pick(NAMES)
@@ -1323,14 +1323,15 @@ def _table_q(t, d):
                      ["%d × %d = %d, so %d ÷ %d = %d." % (t, k, p, p, t, k)])
 
     def count_line():
-        return _lineq("Count in %ds. Start at 0 and make %d jumps of %d. Mark where "
-                      "you land." % (t, k, t), p, [0],
-                      ["%d jumps of %d is %d × %d = %d." % (k, t, k, t, p)])
+        jumps = "jump" if k == 1 else "jumps"
+        return _lineq("Count in %ds. Start at 0 and make %d %s of %d. Mark where "
+                      "you land." % (t, k, jumps, t), p, [0],
+                      ["%d %s of %d is %d × %d = %d." % (k, jumps, t, k, t, p)])
 
     def word():
         who = pick(NAMES)
-        return _numq("%s has %d bags with %d apples in each bag. How many apples "
-                     "altogether?" % (who, k, t), p,
+        return _numq("%s has %d %s with %d apples in each bag. How many apples "
+                     "altogether?" % (who, k, "bag" if k == 1 else "bags", t), p,
                      ["%d × %d = %d apples." % (k, t, p)], unit="apples")
 
     def compare():

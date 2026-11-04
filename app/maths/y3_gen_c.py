@@ -393,7 +393,7 @@ def _(d=1):
                 "answer": round(n / float(den), 6), "answer_type": "num",
                 "tolerance": step / 2.0,
                 "solution": ["The line from 0 to 1 is split into %d equal steps." % den,
-                             "Count %d steps from 0." % n]}
+                             "Count %s from 0." % _pl(n, "step")]}
 
     if t == 2:                                          # tenths beyond 1
         n = random.randint(1, _by_d(d, 9, 10, 19))
@@ -402,7 +402,7 @@ def _(d=1):
                 "spec": {"min": 0, "max": 2, "step": 0.1, "major": 0.5},
                 "answer": round(n / 10.0, 6), "answer_type": "num",
                 "tolerance": 0.05,
-                "solution": ["Each small step is 1/10.", "Count %d steps from 0." % n]}
+                "solution": ["Each small step is 1/10.", "Count %s from 0." % _pl(n, "step")]}
 
     if t == 3:                                          # typed: which fraction is at a mark
         den = pick(_dens(d))
@@ -430,8 +430,8 @@ def _(d=1):
                 "answer": round(k / float(den), 6), "answer_type": "num",
                 "tolerance": step / 2.0,
                 "solution": ["The denominators match, so compare the numerators.",
-                             "The %s fraction is %d/%d — count %d steps from 0."
-                             % ("larger" if want_larger else "smaller", k, den, k)]}
+                             "The %s fraction is %d/%d — count %s from 0."
+                             % ("larger" if want_larger else "smaller", k, den, _pl(k, "step"))]}
 
     if t == 6:                    # NEW: identify the fraction at a point on the line
         den = pick(_dens(d))
@@ -458,7 +458,7 @@ def _(d=1):
             "tolerance": step / 2.0,
             "solution": ["%s = %d/%d." % (_frac_words(bn, bd).capitalize(),
                                           bn * den // bd, den),
-                         "Count %d steps from 0." % (bn * den // bd)]}
+                         "Count %s from 0." % _pl(bn * den // bd, "step")]}
 
 
 @skill("Y3.6.e", "Count in tenths", S6)
@@ -495,7 +495,7 @@ def _(d=1):
         return _num_q("What comes next? %s, ___"
                       % ", ".join("%d/10" % v for v in seq),
                       "%d/10" % (seq[-1] + stepn), "frac", text=True, placeholder="e.g. 7/10",
-                      solution=["The count goes up in %d tenths each time." % stepn,
+                      solution=["The count goes up by %s each time." % _pl(stepn, "tenth"),
                                 "%d/10 + %d/10 = %d/10." % (seq[-1], stepn, seq[-1] + stepn)])
 
     if t == 4:                                          # tenths to make a whole
@@ -516,8 +516,8 @@ def _(d=1):
                 "answer": round(n / 10.0, 6), "answer_type": "num",
                 "tolerance": 0.05,
                 "solution": ["Each step is one tenth, or 0.1.",
-                             "%d tenths is %s, so count %d steps from 0."
-                             % (n, "%.1f" % (n / 10.0), n)]}
+                             "%s is %s, so count %s from 0."
+                             % (_pl(n, "tenth"), "%.1f" % (n / 10.0), _pl(n, "step"))]}
 
     # visual: shade tenths
     n = random.randint(1, 9)
@@ -581,7 +581,7 @@ def _(d=1):
                 "answer": round(en / float(ed), 6), "answer_type": "num",
                 "tolerance": step / 2.0,
                 "solution": ["%d/%d = %d/%d." % (en, ed, en * line_den // ed, line_den),
-                             "Count %d steps from 0." % (en * line_den // ed)]}
+                             "Count %s from 0." % _pl(en * line_den // ed, "step")]}
 
     if t == 6:                    # NEW: equivalent fractions using one area model
         options = [m for m in (2, 3, 4) if den * m <= 12]
@@ -1000,7 +1000,7 @@ def _(d=1):
         who = pick(NAMES)
         cm = random.randint(5, _by_d(d, 12, 25, 40))
         mm = random.randrange(20, _by_d(d, 90, 150, 250), 5)
-        return _num_q("%s joins a %d cm pencil and a %d mm crayon end to end. "
+        return _num_q("%s joins a pencil %d cm long and a crayon %d mm long end to end. "
                       "How long are they altogether, in millimetres?" % (who, cm, mm),
                       cm * 10 + mm, "int", unit="mm",
                       solution=["1 cm = 10 mm, so %d cm = %d mm." % (cm, cm * 10),
@@ -2030,7 +2030,7 @@ def _(d=1):
             ("a football's black patch", "pentagon", 5),
         ])
         return _num_q("In the real world, %s is shaped like the two-dimensional shape "
-                      "called a %s. How many sides does it have?" % (thing, nm),
+                      "called %s. How many sides does it have?" % (thing, _a(nm)),
                       sd, "int", unit="sides",
                       solution=["%s has %d straight sides." % (_a(nm).capitalize(), sd)])
 
@@ -2081,7 +2081,7 @@ def _(d=1):
                       solution=["The overlap holds shapes with 4 sides AND all sides equal.",
                                 "%s." % (", ".join(nm for nm, sd, eq in chosen
                                                    if sd == 4 and eq) or "None of them"),
-                                "That is %d shapes." % overlap])
+                                "That is %s." % _pl(overlap, "shape")])
 
     # right angles (visual, real-life)
     return {"prompt": "This shape has square corners. How many sides does it have?",
@@ -2420,7 +2420,7 @@ def _(d=1):
                 "solution": ["%s has %s of symmetry." % (_a(_SYM_LABEL[nm]).capitalize(), _pl(ln, "line"))]}
 
     if t == 2:                                          # bare recall
-        return _num_q("How many lines of symmetry does a %s have?" % _SYM_LABEL[name],
+        return _num_q("How many lines of symmetry does %s have?" % _a(_SYM_LABEL[name]),
                       lines, "int", unit="lines",
                       solution=["%s has %s of symmetry." % (_a(_SYM_LABEL[name]).capitalize(), _pl(lines, "line"))])
 
@@ -2520,7 +2520,7 @@ def _(d=1):
                       % (key, pick(NAMES), _pl(vals[k] // key, "symbol"),
                          cats[k].lower(), cats[k].lower()),
                       vals[k], "int", unit=cats[k].lower(),
-                      solution=["%d symbols × %d = %d." % (vals[k] // key, key, vals[k])])
+                      solution=["%s × %d = %d." % (_pl(vals[k] // key, "symbol"), key, vals[k])])
 
     # total of everything
     return {"prompt": "Use the pictogram. How many pieces of fruit are there in total?",
@@ -2640,8 +2640,8 @@ def _(d=1):
                       "stands for 5). %s. How many children chose %s?"
                       % (chart, fruits[k].lower()),
                       counts[k], "int", unit="children",
-                      solution=["%s has %d bundles of 5 and %d extra tally marks."
-                                % (fruits[k], counts[k] // 5, counts[k] % 5),
+                      solution=["%s has %s of 5 and %s."
+                                % (fruits[k], _pl(counts[k] // 5, "bundle"), _pl(counts[k] % 5, "extra tally mark")),
                                 "That is %d children." % counts[k]])
 
     if t == 6:                    # NEW: which tally chart is correct?
@@ -2655,8 +2655,8 @@ def _(d=1):
                       "(a bundle ||||\\ stands for 5)? A: %s. B: %s. (type A or B)"
                       % (n, n, _tally(a_val), _tally(b_val)),
                       "A" if correct_first else "B", "str", text=True, placeholder="A / B",
-                      solution=["%d = %d bundles of 5 and %d single marks."
-                                % (n, n // 5, n % 5),
+                      solution=["%d = %s of 5 and %s."
+                                % (n, _pl(n // 5, "bundle"), _pl(n % 5, "single mark")),
                                 "The correct tally chart is %s."
                                 % ("A" if correct_first else "B")])
 

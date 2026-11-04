@@ -23,10 +23,11 @@ def _(d=1):
 
     def t_object():
         return _tb("A ribbon is cut into 10 equal pieces. How many pieces make %d/10 of it?" % n, n, "int", {},
-                   ["Each piece is 1/10, so %d/10 is %d pieces." % (n, n)])
+                   ["Each piece is 1/10, so %d/10 is %s." % (n, "1 piece" if n == 1 else "%d pieces" % n)])
 
     def t_share():
-        return _fq("%d pizzas are shared equally between 10 people. What fraction of a pizza does each person get?" % n,
+        return _fq("%s shared equally between 10 people. What fraction of a pizza does each person get?"
+                   % ("1 pizza is" if n == 1 else "%d pizzas are" % n),
                    Fraction(n, 10), ["%d ÷ 10 = %d/10." % (n, n)], "e.g. 3/10")
 
     def t_how_many_tenths():

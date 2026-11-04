@@ -54,6 +54,18 @@ def _pl(n, word, plural=None):
     return "%d %s" % (n, word if abs(n) == 1 else (plural or word + "s"))
 
 
+def _plp(n, plural):
+    """_pl for a word given in the plural: (1, 'vertices') -> '1 vertex'."""
+    one = {"vertices": "vertex", "faces": "face", "edges": "edge"}.get(plural, plural[:-1])
+    return "%d %s" % (n, one if n == 1 else plural)
+
+
+def _an(n):
+    """'a 6' / 'an 8' / 'an 11' / 'an 18' — the article as the number is read aloud."""
+    s = str(int(n))
+    return ("an " if s[0] == "8" or s in ("11", "18") or (len(s) in (5, 6) and s[:2] in ("11", "18")) else "a ") + s
+
+
 def _a(word):
     return ("an " if word[:1].lower() in "aeiou" else "a ") + word
 
@@ -836,8 +848,8 @@ def _(d=1):
                       "%s has %d sides. Into how many triangles does it split?"
                       % (_a(nm).capitalize(), n), n - 2, "int", unit="triangles",
                       solution=["n − 2 with n = %d." % n,
-                                "%d − 2 = %d triangles (each 180°, total %d°)."
-                                % (n, n - 2, s)])
+                                "%d − 2 = %s (each 180°, total %d°)."
+                                % (n, _pl(n - 2, "triangle"), s)])
 
     # sum of exterior angles (always 360)
     return _num_q("What is the sum of ALL the exterior angles of %s, one at each "
@@ -1007,7 +1019,7 @@ def _(d=1):
                 "component": "net", "spec": {"solid": key},
                 "answer": faces, "answer_type": "int",
                 "solution": ["Each piece of the net becomes one face.",
-                             "%s has %d faces." % (_a(nm).capitalize(), faces)]}
+                             "%s has %s." % (_a(nm).capitalize(), _pl(faces, "face"))]}
 
     if t == 2:                                        # name a drawn solid (visual)
         nm = pick(["cube", "cuboid", "triangular prism", "square-based pyramid"])
@@ -1044,7 +1056,7 @@ def _(d=1):
         prop, val = pick([("faces", f), ("edges", e), ("vertices", v)])
         return _num_q("How many %s does %s have?" % (prop, _a(nm)), val, "int",
                       solution=["Count the %s of %s carefully." % (prop, _a(nm)),
-                                "%s has %d %s." % (_a(nm).capitalize(), val, prop)])
+                                "%s has %s." % (_a(nm).capitalize(), _plp(val, prop))])
 
     if t == 5:                                        # name solid from a description
         nm, desc = pick([
@@ -1078,7 +1090,7 @@ def _(d=1):
         return _num_q("A convex solid follows Euler's rule F + V − E = 2. %s" % q,
                       ans, "int",
                       solution=["Rearrange F + V − E = 2.",
-                                "%s has %d %s." % (_a(nm).capitalize(), ans, ask)])
+                                "%s has %s." % (_a(nm).capitalize(), _plp(ans, ask))])
 
     # net -> name, second framing (visual)
     key, nm, faces = pick(_NETS8)
@@ -1154,14 +1166,14 @@ def _(d=1):
             ("regular pentagon", 5, 5), ("regular hexagon", 6, 6),
         ])
         if random.random() < 0.5:
-            return _num_q("Symmetry: how many lines of symmetry does a %s have?" % shape,
+            return _num_q("Symmetry: how many lines of symmetry does %s have?" % _a(shape),
                           lines, "int", unit="lines",
                           solution=["A line of symmetry splits the shape into two "
                                     "matching halves.",
-                                    "A %s has %d line%s of symmetry."
-                                    % (shape, lines, "" if lines == 1 else "s")])
-        return _num_q("Symmetry: what is the order of rotational symmetry of a %s?"
-                      % shape, order, "int",
+                                    "%s has %d line%s of symmetry."
+                                    % (_a(shape).capitalize(), lines, "" if lines == 1 else "s")])
+        return _num_q("Symmetry: what is the order of rotational symmetry of %s?"
+                      % _a(shape), order, "int",
                       solution=["The order of rotational symmetry is how many times the "
                                 "shape looks the same in one full turn.",
                                 "A %s has rotational symmetry of order %d."
@@ -2459,9 +2471,9 @@ def _(d=1):
         w = random.randint(2, W - 3)
         h = random.randint(2, H - 3)
         area = W * H - w * h
-        return _num_q("An L-shape is a %d cm by %d cm rectangle with a %d cm by %d cm "
+        return _num_q("An L-shape is %s cm by %d cm rectangle with %s cm by %d cm "
                       "rectangle cut out of one corner. What is the area of the L-shape, "
-                      "in cm²?" % (W, H, w, h), area, "int", unit="cm²",
+                      "in cm²?" % (_an(W), H, _an(w), h), area, "int", unit="cm²",
                       solution=["Big rectangle = %d × %d = %d cm²." % (W, H, W * H),
                                 "Cut-out = %d × %d = %d cm²." % (w, h, w * h),
                                 "%d − %d = %d cm²." % (W * H, w * h, area)])
@@ -2470,9 +2482,9 @@ def _(d=1):
         W = random.randint(8, 20)
         H = random.randint(6, 16)
         return _num_q("An L-shape is made by cutting a small rectangle out of one corner "
-                      "of a %d cm by %d cm rectangle. The perimeter of an L-shape like "
+                      "of %s cm by %d cm rectangle. The perimeter of an L-shape like "
                       "this equals the perimeter of the whole rectangle. What is the "
-                      "perimeter, in cm?" % (W, H), 2 * (W + H), "int", unit="cm",
+                      "perimeter, in cm?" % (_an(W), H), 2 * (W + H), "int", unit="cm",
                       solution=["Perimeter = 2 × (%d + %d)." % (W, H),
                                 "= %d cm." % (2 * (W + H))])
 
@@ -2492,8 +2504,8 @@ def _(d=1):
         Wd = random.randint(3, 8)
         s = random.randint(2, 6)
         area = L * Wd + s * s
-        return _num_q("A shape is a %d cm by %d cm rectangle with a %d cm square attached "
-                      "to one side. What is the total area, in cm²?" % (L, Wd, s),
+        return _num_q("A shape is %s cm by %d cm rectangle with %s cm square attached "
+                      "to one side. What is the total area, in cm²?" % (_an(L), Wd, _an(s)),
                       area, "int", unit="cm²",
                       solution=["Rectangle = %d × %d = %d cm²." % (L, Wd, L * Wd),
                                 "Square = %d × %d = %d cm²." % (s, s, s * s),
@@ -2505,9 +2517,9 @@ def _(d=1):
         m = random.randint(1, 3)
         outer = W * H
         inner = (W - 2 * m) * (H - 2 * m)
-        return _num_q("A photo frame is a %d cm by %d cm rectangle with a rectangular "
+        return _num_q("A photo frame is %s cm by %d cm rectangle with a rectangular "
                       "hole cut out, leaving a border %d cm wide all the way round. "
-                      "What is the area of the border (the frame), in cm²?" % (W, H, m),
+                      "What is the area of the border (the frame), in cm²?" % (_an(W), H, m),
                       outer - inner, "int", unit="cm²",
                       solution=["Outer area = %d × %d = %d cm²." % (W, H, outer),
                                 "Inner hole = %d × %d = %d cm²."
@@ -2529,8 +2541,9 @@ def _(d=1):
         H = random.randint(8, 16)
         s = random.randint(2, min(W, H) - 3)
         area = W * H - s * s
-        return _num_q("A %d cm by %d cm rectangular sheet has a %d cm square hole cut out "
-                      "of the middle. What area of sheet is left, in cm²?" % (W, H, s),
+        return _num_q("%s cm by %d cm rectangular sheet has %s cm square hole cut out "
+                      "of the middle. What area of sheet is left, in cm²?"
+                      % (_an(W).capitalize(), H, _an(s)),
                       area, "int", unit="cm²",
                       solution=["Sheet = %d × %d = %d cm²." % (W, H, W * H),
                                 "Hole = %d × %d = %d cm²." % (s, s, s * s),
@@ -2541,8 +2554,8 @@ def _(d=1):
     a1, b1 = random.randint(6, 12), random.randint(2, 4)
     a2, b2 = random.randint(2, 4), random.randint(4, 8)
     area = a1 * b1 + a2 * b2
-    return _num_q("%s makes a T-shape from a %d cm by %d cm bar and a %d cm by %d cm bar. "
-                  "What is the total area, in cm²?" % (who, a1, b1, a2, b2), area, "int",
+    return _num_q("%s makes a T-shape from %s cm by %d cm bar and %s cm by %d cm bar. "
+                  "What is the total area, in cm²?" % (who, _an(a1), b1, _an(a2), b2), area, "int",
                   unit="cm²",
                   solution=["%d × %d = %d and %d × %d = %d."
                             % (a1, b1, a1 * b1, a2, b2, a2 * b2),
@@ -2796,7 +2809,7 @@ def _(d=1):
                       % (title, scale, unit, cats[i], v * scale, unit), v, "int",
                       unit="squares",
                       solution=["Each square stands for %d." % scale,
-                                "%d ÷ %d = %d squares." % (v * scale, scale, v)])
+                                "%d ÷ %d = %s." % (v * scale, scale, _pl(v, "square"))])
 
     if t == 10:                                        # create bar graph: grouped data
         groups = ["1–5", "6–10", "11–15", "16–20"]
@@ -2810,7 +2823,7 @@ def _(d=1):
                       "tall should that bar be?" % (scale, groups[gi], count), sq[gi],
                       "int", unit="squares",
                       solution=["Each square stands for %d." % scale,
-                                "%d ÷ %d = %d squares." % (count, scale, sq[gi])])
+                                "%d ÷ %d = %s." % (count, scale, _pl(sq[gi], "square"))])
 
     if t == 0:                                        # read one bar
         spec = {"categories": cats, "values": vals, "mode": "read"}
@@ -2877,8 +2890,8 @@ def _(d=1):
                           % (title, key, unit, unit, cats[i]),
                 "component": "pictogram", "spec": spec,
                 "answer": pv[i], "answer_type": "int",
-                "solution": ["Each symbol is %d %s and %s has %d symbols."
-                             % (key, unit, cats[i], pv[i] // key),
+                "solution": ["Each symbol is %d %s and %s has %s."
+                             % (key, unit, cats[i], _pl(pv[i] // key, "symbol")),
                              "%d × %d = %d." % (pv[i] // key, key, pv[i])]}
 
     if t == 6:                                        # pictogram: count symbols
@@ -2890,7 +2903,7 @@ def _(d=1):
                           % (title, key, unit, cats[i], pv[i]),
                 "component": "pictogram", "spec": spec,
                 "answer": pv[i] // key, "answer_type": "int",
-                "solution": ["%d ÷ %d = %d symbols." % (pv[i], key, pv[i] // key)]}
+                "solution": ["%d ÷ %d = %s." % (pv[i], key, _pl(pv[i] // key, "symbol"))]}
 
     if t == 7:                                        # line graph read
         labels = ["9 am", "10 am", "11 am", "12 pm", "1 pm"][:5]
@@ -2916,7 +2929,7 @@ def _(d=1):
                   % (title, scale, unit, cats[i], v * scale, cats[i]),
                   v, "int", unit="squares",
                   solution=["Each square is worth %d." % scale,
-                            "%d ÷ %d = %d squares." % (v * scale, scale, v)])
+                            "%d ÷ %d = %s." % (v * scale, scale, _pl(v, "square"))])
 
 
 @skill("Y8.9.i", "Stem-and-leaf diagrams and line plots", S9)
@@ -2931,8 +2944,8 @@ def _(d=1):
     cap = "Stem-and-leaf (%d | %d means %d)" % (stems[0], leaves[0][0], values[0])
 
     def _table(q, ans, atype="int", sol=None):
-        return {"prompt": "Interpret this stem-and-leaf diagram. The stem is the tens "
-                          "digit and each leaf is a units digit. %s" % q,
+        return {"prompt": "%s (In this stem-and-leaf diagram the stem is the tens digit "
+                          "and each leaf is a units digit.)" % q,
                 "component": "data_table",
                 "spec": {"caption": cap, "headers": ["Stem", "Leaves"], "rows": rows},
                 "answer": ans, "answer_type": atype,
@@ -3070,7 +3083,7 @@ def _(d=1):
                                                  fr.denominator)]}
 
     if t == 4:                                        # bare: angle from a share
-        share = random.randint(1, total - 1)
+        share = random.randint(2, total - 1)
         return _num_q("On a pie chart of %d %s, one category has %d %s. How many degrees "
                       "is its sector angle?" % (total, who, share, who),
                       unit * share, "int", unit="degrees",

@@ -5,7 +5,7 @@
 # Measurement: metric conversions, imperial approximations, perimeter of composite rectilinear
 # shapes, area of rectangles and irregular shapes, volume and capacity, time conversions, measure
 # and money problems with decimals.
-from .maths_engine import skill
+from .maths_engine import skill, n_words
 from .y5_common import *  # noqa: F401,F403
 
 S6 = "5.6 Decimals & percentages"
@@ -89,7 +89,7 @@ def _(d=1):
         lo = Decimal(w) + Decimal(random.randint(0, 8)) / 10
         x2 = lo + Decimal(random.randint(1, 9)) / 100
         return _nld("Place %s on the number line." % _ds(x2), x2, lo, lo + Decimal("0.1"), Decimal("0.01"),
-                    Decimal("0.05"), ["%s is %d hundredths after %s." % (_ds(x2), int((x2 - lo) * 100),
+                    Decimal("0.05"), ["%s is %s after %s." % (_ds(x2), _pl(int((x2 - lo) * 100), "hundredth"),
                                                                         _ds(lo))])
 
     return _pick_t([t_value, t_place, t_count, t_partition, t_thousandths, t_relate], [t_line])
@@ -106,7 +106,7 @@ def _(d=1):
 
     def t_over_power():
         return _tb("Complete:  %s = ___/%d" % (_ds(x), 10 ** dp), n, "int", {},
-                   ["%s means %d %s." % (_ds(x), n, DPLACE[dp])])
+                   ["%s means %s." % (_ds(x), _pl(n, DPLACE[dp][:-1]))])
 
     def t_fraction():
         return _fq("Write %s as a fraction." % _ds(x), Fraction(n, 10 ** dp),
@@ -133,7 +133,42 @@ def _(d=1):
                      {"mode": "fraction", "parts": 100}, "%d/100" % hund,
                      ["%s = %d/100." % (_ds(x), hund)], atype="frac")
 
-    return _pick_t([t_over_power, t_fraction, t_simplest, t_mixed], [t_grid])
+    def t_race():
+        return _fq("%s has run %s of a race. What fraction of the race is that?" % (_who(), _ds(x)), Fraction(n, 10 ** dp),
+                   ["%s = %d/%d." % (_ds(x), n, 10 ** dp)])
+
+    def t_yes_no():
+        right = random.random() < 0.5
+        den = 10 ** dp if right else 10 ** (dp + 1)
+        return _wq("Is %s equal to %d/%d? (yes or no)" % (_ds(x), n, den), "yes" if right else "no",
+                   ["%s = %d/%d." % (_ds(x), n, 10 ** dp)], "yes / no")
+
+    def t_money():
+        p = random.randint(1, 99)
+        return _fq("£%s is what fraction of £1?" % format(Decimal(p) / 100, ".2f"), Fraction(p, 100),
+                   ["£1 = 100p, so %dp is %d/100 of £1." % (p, p)])
+
+    def t_count():
+        name = DPLACE[dp]
+        return _tb("%s is how many %s?" % (_ds(x), name), n, "int", {},
+                   ["%s = %d/%d, which is %s." % (_ds(x), n, 10 ** dp, _pl(n, name[:-1]))])
+
+    def t_table():
+        vals = random.sample([v for v in range(1, 10 ** dp) if v % 10], 3)
+        rows = [[_ds(Decimal(v) / 10 ** dp), "%d/%d" % (v, 10 ** dp)] for v in vals]
+        k = random.randrange(3)
+        rows[k][1] = "?/%d" % 10 ** dp
+        return _dt("The table matches decimals to fractions. What is the missing numerator?", ["Decimal", "Fraction"],
+                   rows, vals[k], ["%s = %d/%d." % (rows[k][0], vals[k], 10 ** dp)])
+
+    def t_line():
+        if dp > 2:
+            return t_fraction()
+        return _nld("Place %d/%d on the number line from 0 to 1." % (n, 10 ** dp), Fraction(n, 10 ** dp), 0, 1,
+                    Fraction(1, 10 ** dp), Fraction(1, 10), ["%d/%d = %s." % (n, 10 ** dp, _ds(x))])
+
+    return _pick_t([t_over_power, t_fraction, t_simplest, t_mixed, t_race, t_yes_no, t_money, t_count],
+                   [t_grid, t_table, t_line])
 
 
 @skill("Y5.6.c", "Write fractions as decimals", S6)
@@ -180,13 +215,65 @@ def _(d=1):
         return _nld("Place %s on the number line marked in tenths." % _fs(f), f, 0, 1, Decimal("0.05"),
                     Decimal("0.1"), ["%s = %s." % (_fs(f), _ds(f))])
 
-    return _pick_t([t_power, t_key, t_scale, t_mixed], [t_table, t_line])
+    def t_distance():
+        f = pick([Fraction(1, 2), Fraction(1, 4), Fraction(3, 4), Fraction(2, 5), Fraction(3, 10), Fraction(7, 10)])
+        return _tb("A path is %s of a kilometre long. Write that length as a decimal, in km." % _fs(f), _ds(f), "num",
+                   {"unit": "km"}, ["%s = %s." % (_fs(f), _ds(f))])
+
+    def t_compare():
+        f = pick([Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5), Fraction(3, 5), Fraction(1, 2)])
+        x = _dec(f) + pick([Decimal("0.05"), Decimal("-0.05"), Decimal("0.1"), Decimal("-0.1")])
+        return _tb("Which is larger, %s or %s? Type the larger as a decimal." % (_fs(f), _ds(x)), _ds(max(_dec(f), x)),
+                   "num", {}, ["%s = %s." % (_fs(f), _ds(f))])
+
+    def t_largest():
+        fs = random.sample([Fraction(1, 2), Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5),
+                            Fraction(7, 10), Fraction(3, 100), Fraction(9, 20)], 3)
+        return _tb("Which is largest: %s? Type it as a decimal." % ", ".join(_fs(f) for f in fs), _ds(max(fs)), "num", {},
+                   ["As decimals: %s." % ", ".join(_ds(f) for f in fs)])
+
+    def t_money():
+        p = random.randint(1, 99)
+        return _tb("%d/100 of a pound is how many pounds? Write it as a decimal." % p, _ds(Decimal(p) / 100), "num",
+                   {"unit": "£"}, ["%d/100 = %s." % (p, _ds(Decimal(p) / 100))])
+
+    def t_read_grid():
+        s = random.randint(1, 99)
+        return _area("The square is split into 100 equal parts. Write the shaded part as a decimal.",
+                     {"mode": "fraction_read", "parts": 100, "shaded": s, "placeholder": "decimal"},
+                     _ds(Decimal(s) / 100), ["%d/100 = %s." % (s, _ds(Decimal(s) / 100))], atype="num")
+
+    def t_thousandths():
+        n = random.randint(1, 999)
+        return _tb("Write %d/1000 as a decimal." % n, _ds(Decimal(n) / 1000), "num", {},
+                   ["%d ÷ 1000 = %s." % (n, _ds(Decimal(n) / 1000))])
+
+    def t_words():
+        n = random.randint(1, 99)
+        word = n_words(n)
+        return _tb("Write '%s hundredth%s' as a decimal." % (word, "" if n == 1 else "s"), _ds(Decimal(n) / 100), "num",
+                   {}, ["%d/100 = %s." % (n, _ds(Decimal(n) / 100))])
+
+    def t_twentieths():
+        den, k = pick([(20, 5), (50, 2), (25, 4)])
+        n = random.randint(1, den - 1)
+        return _tb("Write %d/%d as a decimal by first making an equivalent fraction out of 100." % (n, den),
+                   _ds(Decimal(n * k) / 100), "num", {}, ["× %d: %d/100 = %s." % (k, n * k, _ds(Decimal(n * k) / 100))])
+
+    def t_tenths_in():
+        f = pick([Fraction(1, 2), Fraction(1, 5), Fraction(2, 5), Fraction(3, 5), Fraction(4, 5)])
+        return _tb("How many tenths are in %s?" % _fs(f), int(f * 10), "int", {},
+                   ["%s = %d/10 = %s." % (_fs(f), int(f * 10), _ds(f))])
+
+    return _pick_t([t_power, t_key, t_scale, t_mixed, t_distance, t_compare, t_largest, t_money, t_thousandths,
+                    t_words, t_twentieths, t_tenths_in],
+                   [t_table, t_line, t_read_grid])
 
 
 @skill("Y5.6.d", "Round decimals to the nearest whole number and to one decimal place", S6)
 def _(d=1):
     d = _d(d)
-    x = Decimal(random.randint(0, _by(d, 9, 30, 99))) + Decimal(random.randint(1, 99)) / 100
+    x = Decimal(random.randint(0, _by(d, 9, 30, 99))) + Decimal(random.choice([v for v in range(1, 100) if v % 10])) / 100
     if d == 2 and random.random() < 0.4:
         x = Decimal(random.randint(0, 20)) + Decimal(pick([95, 96, 97, 98, 99, 45, 55, 5, 51])) / 100
 
@@ -206,8 +293,9 @@ def _(d=1):
 
     def t_context():
         what, unit = pick([("A parcel weighs", "kg"), ("A long jump is", "m"), ("A bottle holds", "litres")])
-        return _tb("%s %s %s. Round this to the nearest whole %s." % (what, _ds(x), unit, unit.rstrip("s")),
-                   _ds(_r0(x)), "num", {"unit": unit}, ["%s → %s." % (_ds(x), _ds(_r0(x)))])
+        v = x if x >= 2 else x + 2
+        return _tb("%s %s %s. Round this to the nearest whole %s." % (what, _ds(v), unit, unit.rstrip("s")),
+                   _ds(_r0(v)), "num", {"unit": unit}, ["%s → %s." % (_ds(v), _ds(_r0(v)))])
 
     def t_which():
         target = random.randint(2, 9)
@@ -231,7 +319,38 @@ def _(d=1):
                     Decimal("0.1"), Decimal("0.5"), ["%s → %s." % (_ds(x), _ds(_r1(x)))]) \
             if _r1(x) <= lo + 1 else t_one_dp()
 
-    return _pick_t([t_whole, t_one_dp, t_context, t_which, t_money], [t_line])
+    def t_table():
+        xs = [Decimal(random.randint(0, 30)) + Decimal(random.randint(1, 99)) / 100 for _ in range(3)]
+        rows = [[_ds(v), _ds(_r0(v)), format(_r1(v), ".1f")] for v in xs]
+        r, c = random.randrange(3), pick([1, 2])
+        ans = _r0(xs[r]) if c == 1 else _r1(xs[r])
+        return _dt("Complete the rounding table. What belongs in the empty cell?",
+                   ["Number", "Nearest whole", "1 decimal place"], rows, _ds(ans),
+                   ["%s → %s." % (_ds(xs[r]), _ds(ans))], missing=[r, c], atype="num")
+
+    def t_smallest_to():
+        t = Decimal(random.randint(10, 99)) / 10
+        return _tb("A number with 2 decimal places rounds to %s to one decimal place. What is the SMALLEST it could be?"
+                   % _ds(t), _ds(t - Decimal("0.05")), "num", {},
+                   ["%s rounds up to %s." % (_ds(t - Decimal("0.05")), _ds(t))])
+
+    def t_estimate():
+        a = Decimal(random.randint(1, 20)) + Decimal(random.randint(1, 99)) / 100
+        b = Decimal(random.randint(1, 20)) + Decimal(random.randint(1, 99)) / 100
+        return _tb("Estimate %s + %s by rounding each number to the nearest whole number first." % (_ds(a), _ds(b)),
+                   _ds(_r0(a) + _r0(b)), "num", {}, ["%s + %s = %s." % (_ds(_r0(a)), _ds(_r0(b)), _ds(_r0(a) + _r0(b)))])
+
+    def t_check():
+        right = random.random() < 0.5
+        claimed = _r1(x) if right else _r1(x) + pick([Decimal("0.1"), Decimal("-0.1")])
+        if claimed < 0:
+            claimed, right = _r1(x), True
+        return _wq("%s rounds %s to one decimal place and gets %s. Is that right? (yes or no)"
+                   % (_who(), _ds(x), _ds(claimed)), "yes" if right else "no",
+                   ["%s → %s." % (_ds(x), _ds(_r1(x)))], "yes / no")
+
+    return _pick_t([t_whole, t_one_dp, t_context, t_which, t_money, t_smallest_to, t_estimate, t_check],
+                   [t_line, t_table])
 
 
 @skill("Y5.6.e", "Compare and order decimals to three places", S6)
@@ -323,7 +442,70 @@ def _(d=1):
         return _tb("Add: %s + %s + %s" % tuple(_ds(v) for v in xs), _ds(sum(xs)), "num", {},
                    ["= %s." % _ds(sum(xs))])
 
-    return _pick_t([t_add, t_sub, t_to_whole, t_missing, t_measure, t_three])
+    def t_strip():
+        return _strip("The bar model shows a whole of %s split into two parts. One part is %s. What is the other part?"
+                      % (_ds(a + b), _ds(a)), {"mode": "part_whole", "totalLabel": _ds(a + b), "partLabel": _ds(a),
+                                               "unknown": "part", "parts": 2}, _ds(b),
+                      ["%s − %s = %s." % (_ds(a + b), _ds(a), _ds(b))], atype="num")
+
+    def t_line():
+        s = Decimal(random.randint(10, 80)) / 10
+        k = Decimal(random.randint(1, 9)) / 10
+        return _nld("Start at %s and add %s. Mark where you land." % (_ds(s), _ds(k)), s + k, int(s), int(s) + 2,
+                    Decimal("0.1"), Decimal("0.5"), ["%s + %s = %s." % (_ds(s), _ds(k), _ds(s + k))])
+
+    def t_change():
+        cost = Decimal(random.randint(101, 1999)) / 100
+        pay = pick([5, 10, 20]) if cost < 5 else pick([10, 20]) if cost < 10 else 20
+        return _tb("Something costs £%s. You pay with a £%d note. How much change do you get, in pounds?"
+                   % (format(cost, ".2f"), pay), _ds(pay - cost), "num", {"unit": "£"},
+                   ["£%d − £%s = £%s." % (pay, format(cost, ".2f"), format(pay - cost, ".2f"))])
+
+    def t_check():
+        right = random.random() < 0.5
+        s = a + b
+        claimed = s if right else s + pick([Decimal("0.1"), Decimal("0.01"), Decimal("1")]) * pick([-1, 1])
+        if claimed <= 0:
+            claimed, right = s, True
+        return _wq("%s says %s + %s = %s. Is that correct? (yes or no)" % (_who(), _ds(a), _ds(b), _ds(claimed)),
+                   "yes" if right else "no", ["%s + %s = %s." % (_ds(a), _ds(b), _ds(s))], "yes / no")
+
+    def t_to_one():
+        y = Decimal(random.randint(1, 999)) / 1000
+        return _tb("What must be added to %s to make 1?" % _ds(y), _ds(1 - y), "num", {},
+                   ["1 − %s = %s." % (_ds(y), _ds(1 - y))])
+
+    def t_table():
+        xs = [Decimal(random.randint(11, 99)) / 10 for _ in range(3)]
+        ys = [Decimal(random.randint(11, 99)) / 100 for _ in range(3)]
+        rows = [[_ds(x), _ds(y), _ds(x + y)] for x, y in zip(xs, ys)]
+        r = random.randrange(3)
+        return _dt("In each row, first + second = total. What is the missing total?", ["First", "Second", "Total"], rows,
+                   _ds(xs[r] + ys[r]), ["%s + %s = %s." % (_ds(xs[r]), _ds(ys[r]), _ds(xs[r] + ys[r]))],
+                   missing=[r, 2], atype="num")
+
+    def t_basket():
+        a, b = Decimal(random.randint(55, 899)) / 100, Decimal(random.randint(55, 899)) / 100
+        return _tb("A book costs £%s and a pen costs £%s. How much do they cost together, in pounds?"
+                   % (format(a, ".2f"), format(b, ".2f")), _ds(a + b), "num", {"unit": "£"},
+                   ["£%s + £%s = £%s." % (format(a, ".2f"), format(b, ".2f"), format(a + b, ".2f"))])
+
+    def t_thousandths_sub():
+        x = Decimal(random.randint(1001, 9999)) / 1000
+        y = Decimal(random.randint(1, 999)) / 1000
+        return _tb("Work out %s − %s." % (_ds(x), _ds(y)), _ds(x - y), "num", {},
+                   ["Line up the thousandths.", "= %s." % _ds(x - y)])
+
+    def t_difference():
+        x, y = sorted([Decimal(random.randint(101, 999)) / 100, Decimal(random.randint(11, 99)) / 10])
+        if x == y:
+            y += Decimal("0.1")
+        return _tb("What is the difference between %s and %s?" % (_ds(y), _ds(x)), _ds(y - x), "num", {},
+                   ["%s − %s = %s." % (_ds(y), _ds(x), _ds(y - x))])
+
+    return _pick_t([t_add, t_sub, t_to_whole, t_missing, t_measure, t_three, t_change, t_check, t_to_one, t_basket,
+                    t_thousandths_sub, t_difference],
+                   [t_strip, t_line, t_table])
 
 
 @skill("Y5.6.g", "Problems with decimals to three places", S6)
@@ -371,7 +553,44 @@ def _(d=1):
                    ["Day", "Distance"], rows, _ds(sum(vals)),
                    ["%s = %s." % (" + ".join(_ds(v) for v in vals), _ds(sum(vals)))], atype="num")
 
-    return _pick_t([t_jumps, t_mass, t_race, t_fill], [t_table])
+    def t_rain():
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        vals = [Decimal(random.randint(0, 60)) / 10 for _ in days]
+        i, j = random.sample(range(5), 2)
+        return _lg("The graph shows rainfall each day, in cm. How much rain fell on %s and %s altogether, in cm?"
+                   % (days[i], days[j]), [(dd, float(v)) for dd, v in zip(days, vals)], _ds(vals[i] + vals[j]),
+                   ["%s + %s = %s." % (_ds(vals[i]), _ds(vals[j]), _ds(vals[i] + vals[j]))], "cm", "Day", atype="num")
+
+    def t_relay():
+        ts = [Decimal(random.randint(1150, 1590)) / 100 for _ in range(4)]
+        return _tb("Four runners in a relay take %s seconds. What is the team's total time, in seconds?"
+                   % ", ".join(_ds(t) for t in ts), _ds(sum(ts)), "num", {"unit": "seconds"},
+                   ["%s = %s." % (" + ".join(_ds(t) for t in ts), _ds(sum(ts)))])
+
+    def t_heights():
+        a = Decimal(random.randint(120, 175)) / 100
+        k = Decimal(random.randint(5, 40)) / 100
+        who = _who()
+        return _tb("%s is %s m tall. %s's brother is %s m shorter. How tall is the brother, in metres?"
+                   % (who, _ds(a), who, _ds(k)), _ds(a - k), "num", {"unit": "m"},
+                   ["%s − %s = %s." % (_ds(a), _ds(k), _ds(a - k))])
+
+    def t_parcel():
+        a = Decimal(random.randint(1100, 4900)) / 1000
+        g = random.randint(105, 950)
+        return _tb("A box weighs %s kg. A book weighing %d g is taken out. How heavy is the box now, in kg?" % (_ds(a), g),
+                   _ds(a - Decimal(g) / 1000), "num", {"unit": "kg"},
+                   ["%d g = %s kg." % (g, _ds(Decimal(g) / 1000)), "%s − %s = %s." % (_ds(a), _ds(Decimal(g) / 1000),
+                                                                                     _ds(a - Decimal(g) / 1000))])
+
+    def t_bar():
+        names = ["Ana", "Ben", "Cal", "Dev"]
+        vals = [Decimal(random.randint(150, 450)) / 100 for _ in names]
+        return _bar("The chart shows how far each child jumped, in metres. What is the difference between the longest "
+                    "and the shortest jump, in metres?", names, [float(v) for v in vals], _ds(max(vals) - min(vals)),
+                    ["%s − %s = %s." % (_ds(max(vals)), _ds(min(vals)), _ds(max(vals) - min(vals)))], atype="num")
+
+    return _pick_t([t_jumps, t_mass, t_race, t_fill, t_relay, t_heights, t_parcel], [t_table, t_rain, t_bar])
 
 
 @skill("Y5.6.h", "Per cent as parts per hundred", S6)
@@ -417,7 +636,43 @@ def _(d=1):
                                                                                    "Decimal"],
                    rows, ans, ["%d%% = %s." % (ps[r], ans)], missing=[r, 2], atype="num")
 
-    return _pick_t([t_to_fraction, t_to_decimal, t_from_decimal, t_rest], [t_grid, t_read_grid, t_table])
+    def t_compare():
+        x = Decimal(random.randint(1, 9)) / 10
+        if p == int(x * 100):
+            return t_to_decimal()
+        return _tb("Which is more, %d%% or %s? Type the larger as a decimal." % (p, _ds(x)),
+                   _ds(max(Decimal(p) / 100, x)), "num", {}, ["%d%% = %s." % (p, _ds(Decimal(p) / 100))])
+
+    def t_tiles():
+        colour = pick(["red", "blue", "green"])
+        return _tb("A wall has 100 tiles. %d of them are %s. What percentage of the tiles are %s? Give the number only."
+                   % (p, colour, colour), p, "int", {}, ["%d out of 100 = %d%%." % (p, p)])
+
+    def t_tenths():
+        t = random.randint(1, 9)
+        return _tb("Complete:  %d%% = ___/10" % (t * 10), t, "int", {}, ["%d%% = %d/100 = %d/10." % (t * 10, t * 10, t)])
+
+    def t_largest():
+        a_ = Decimal(random.randint(30, 70)) / 100
+        b_ = random.randint(30, 70)
+        c_ = random.randint(30, 70)
+        vals = {"%s" % _ds(a_): a_, "%d%%" % b_: Decimal(b_) / 100, "%d/100" % c_: Decimal(c_) / 100}
+        if len(set(vals.values())) < 3:
+            return t_rest()
+        best = max(vals.values())
+        return _tb("Which is the largest: %s? Type it as a decimal." % ", ".join(vals), _ds(best), "num", {},
+                   ["As decimals: %s." % ", ".join(_ds(v) for v in vals.values())])
+
+    def t_bar():
+        if p > 90 or p < 10:
+            return t_grid()
+        return {"prompt": "The bar is split into 10 equal parts. Shade %d%% of it." % (p // 10 * 10),
+                "component": "fraction_bar", "spec": {"parts": 10, "mode": "shade"},
+                "answer": "%d/10" % (p // 10), "answer_type": "frac",
+                "solution": ["%d%% = %d/100 = %d/10." % (p // 10 * 10, p // 10 * 10, p // 10)]}
+
+    return _pick_t([t_to_fraction, t_to_decimal, t_from_decimal, t_rest, t_compare, t_tiles, t_tenths, t_largest],
+                   [t_grid, t_read_grid, t_table, t_bar])
 
 
 @skill("Y5.6.i", "Percentage equivalents of halves, quarters, fifths, tenths and 25ths", S6)
@@ -462,7 +717,60 @@ def _(d=1):
                 "spec": {"slices": slices, "mode": "read", "highlight": 0}, "answer": a, "answer_type": "int",
                 "solution": ["Football is %s of the circle: %d%%." % (_fs(Fraction(a, 100)), a)]}
 
-    return _pick_t([t_to_pc, t_from_pc, t_compare, t_score], [t_pie])
+    def t_decimal():
+        return _tb("Write %s as a percentage. Give the number only." % _ds(f), pc, "int", {},
+                   ["%s = %s = %d%%." % (_ds(f), _fs(f), pc)])
+
+    def t_order():
+        fs = random.sample([Fraction(1, 2), Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5),
+                            Fraction(3, 5), Fraction(4, 5), Fraction(7, 10), Fraction(3, 10)], 3)
+        q = random.choice([x for x in range(5, 96) if Fraction(x, 100) not in fs])
+        vals = fs + [Fraction(q, 100)]
+        shown = [_fs(v) for v in fs] + ["%d%%" % q]
+        return _tb("Which is the smallest: %s? Give its value as a percentage (number only)." % ", ".join(shown),
+                   int(min(vals) * 100), "int", {}, ["As percentages: %s." % ", ".join("%d%%" % int(v * 100) for v in vals)])
+
+    def t_table():
+        fs = random.sample([Fraction(1, 2), Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5),
+                            Fraction(3, 10), Fraction(7, 25), Fraction(9, 50)], 3)
+        rows = [[_fs(v), _ds(v), "%d%%" % int(v * 100)] for v in fs]
+        r = random.randrange(3)
+        rows[r][2] = ""
+        return _dt("Complete the table. What percentage belongs in the empty cell? Give the number only.",
+                   ["Fraction", "Decimal", "Per cent"], rows, int(fs[r] * 100),
+                   ["%s = %s = %d%%." % (_fs(fs[r]), _ds(fs[r]), int(fs[r] * 100))], missing=[r, 2])
+
+    def t_bar():
+        k = random.randint(1, 4)
+        return {"prompt": "The bar is split into 5 equal parts. Shade %d%% of it." % (k * 20),
+                "component": "fraction_bar", "spec": {"parts": 5, "mode": "shade"},
+                "answer": "%d/5" % k, "answer_type": "frac", "solution": ["%d%% = %d/5." % (k * 20, k)]}
+
+    def t_class():
+        den = pick([20, 25, 50])
+        k = random.randint(1, den - 1)
+        return _tb("In a club of %d children, %d play the piano. What percentage play the piano? Give the number only."
+                   % (den, k), k * 100 // den, "int", {}, ["%d/%d = %d/100 = %d%%." % (k, den, k * 100 // den, k * 100 // den)])
+
+    def t_word_fraction():
+        pc_ = pick([10, 20, 25, 40, 50, 60, 75, 80])
+        return _wq("%d%% of the children in a choir are boys. What fraction of the choir are boys? Give it in its simplest "
+                   "form." % pc_, _fs(Fraction(pc_, 100)), ["%d%% = %d/100 = %s." % (pc_, pc_, _fs(Fraction(pc_, 100)))],
+                   "e.g. 2/5")
+
+    def t_25ths():
+        k = random.randint(1, 24)
+        return _tb("Write %d/25 as a percentage. Give the number only." % k, 4 * k, "int", {},
+                   ["× 4: %d/100 = %d%%." % (4 * k, 4 * k)])
+
+    def t_rest_fraction():
+        f2 = pick([Fraction(1, 4), Fraction(1, 5), Fraction(2, 5), Fraction(3, 10), Fraction(1, 2)])
+        return _tb("%s of a garden is grass. What percentage is NOT grass? Give the number only." % _fs(f2),
+                   100 - int(f2 * 100), "int", {}, ["%s = %d%%." % (_fs(f2), int(f2 * 100)),
+                                                    "100 − %d = %d." % (int(f2 * 100), 100 - int(f2 * 100))])
+
+    return _pick_t([t_to_pc, t_from_pc, t_compare, t_score, t_decimal, t_order, t_class, t_word_fraction, t_25ths,
+                    t_rest_fraction], [t_pie, t_table, t_bar])
 
 
 @skill("Y5.6.j", "Percentage problems", S6)
@@ -496,7 +804,7 @@ def _(d=1):
         b_s, b_t = random.randint(10, 25), 25
         pa, pb = a_s * 5, b_s * 4
         if pa == pb:
-            b_s += 1
+            b_s -= 1
             pb = b_s * 4
         return _wq("Maya scored %d out of 20. Noah scored %d out of 25. Who did better? (compare the "
                    "percentages)" % (a_s, b_s), "Maya" if pa > pb else "Noah",
@@ -508,7 +816,56 @@ def _(d=1):
                      {"mode": "fraction_read", "parts": 100, "shaded": s, "placeholder": "number"}, 100 - s,
                      ["%d%% is shaded, so %d%% is not." % (s, 100 - s)])
 
-    return _pick_t([t_simple_of, t_sale, t_left, t_compare_scores], [t_grid])
+    def t_class():
+        n = pick([20, 24, 28, 32, 36, 40])
+        p = pick([25, 50, 75])
+        return _tb("There are %d pupils in a class. %d%% of them walk to school. How many pupils walk?" % (n, p),
+                   n * p // 100, "int", {"unit": "pupils"}, ["%d%% = %s." % (p, _fs(Fraction(p, 100))),
+                                                            "%s of %d = %d." % (_fs(Fraction(p, 100)), n, n * p // 100)])
+
+    def t_sale_price():
+        p = pick([10, 20, 25, 50])
+        price = random.randint(2, 20) * (100 // _gcd(p, 100))
+        return _tb("A coat costs £%d. In a sale there is %d%% off. What is the sale price, in pounds?" % (price, p),
+                   price - price * p // 100, "int", {"unit": "£"},
+                   ["%d%% of %d = %d." % (p, price, price * p // 100), "%d − %d = %d." % (price, price * p // 100,
+                                                                                       price - price * p // 100)])
+
+    def t_which_more():
+        a_p, b_p = pick([10, 20, 25, 50]), pick([10, 20, 25, 50])
+        x = 100 // _gcd(a_p, 100) * random.randint(2, 12)
+        y = 100 // _gcd(b_p, 100) * random.randint(2, 12)
+        va, vb = x * a_p // 100, y * b_p // 100
+        if va == vb:
+            return t_simple_of()
+        return _tb("Which is more: %d%% of %d or %d%% of %d? Type its value." % (a_p, x, b_p, y), max(va, vb), "int", {},
+                   ["%d%% of %d = %d; %d%% of %d = %d." % (a_p, x, va, b_p, y, vb)])
+
+    def t_table():
+        items = [("Book", random.randint(2, 20) * 10), ("Bag", random.randint(2, 20) * 10),
+                 ("Lamp", random.randint(2, 20) * 10)]
+        p = pick([10, 20, 50])
+        k = random.randrange(3)
+        return _dt("Everything in the shop has %d%% off. How much do you save on the %s, in pounds?"
+                   % (p, items[k][0].lower()), ["Item", "Price"], [[n, "£%d" % v] for n, v in items],
+                   items[k][1] * p // 100, ["%d%% of £%d = £%d." % (p, items[k][1], items[k][1] * p // 100)])
+
+    def t_pie():
+        a = pick([10, 20, 25, 30, 40])
+        b = pick([x for x in (10, 15, 20, 25, 30) if a + x < 100])
+        c = 100 - a - b
+        slices = [["Walk", a], ["Car", b], ["Bus", c]]
+        total = pick([20, 40, 60, 80, 100, 200])
+        while total * c % 100:
+            total += 20
+        return {"prompt": "The pie chart shows how %d pupils travel to school. %d%% walk and %d%% come by car. How many "
+                          "pupils come by bus?" % (total, a, b), "component": "pie_chart",
+                "spec": {"slices": slices, "mode": "read", "highlight": 2}, "answer": total * c // 100,
+                "answer_type": "int", "solution": ["Bus: 100 − %d − %d = %d%%." % (a, b, c),
+                                                   "%d%% of %d = %d." % (c, total, total * c // 100)]}
+
+    return _pick_t([t_simple_of, t_sale, t_left, t_compare_scores, t_class, t_sale_price, t_which_more],
+                   [t_grid, t_table, t_pie])
 
 
 # ================================================================== 5.7 ======
@@ -599,7 +956,7 @@ def _(d=1):
     def t_miles():
         n = 5 * random.randint(1, 12)
         return _tb("5 miles is about 8 km. About how many km is %d miles?" % n, n // 5 * 8, "int",
-                   {"unit": "km"}, ["%d ÷ 5 = %d lots of 5 miles." % (n, n // 5), "%d × 8 = %d." % (n // 5, n // 5 * 8)])
+                   {"unit": "km"}, ["%d ÷ 5 = %s of 5 miles." % (n, _pl(n // 5, "lot")), "%d × 8 = %d." % (n // 5, n // 5 * 8)])
 
     def t_back():
         n = random.randint(2, 10)
@@ -620,7 +977,26 @@ def _(d=1):
                    "cell?", ["Inches", "Centimetres"], rows, rows[k][1],
                    ["%d × 2.5 = %s." % (rows[k][0], rows[k][1])], missing=[k, 1], atype="num")
 
-    return _pick_t([t_inches, t_pounds, t_pints, t_feet, t_miles, t_back, t_sensible], [t_table])
+    def t_longer():
+        f = random.randint(1, 4)
+        cm = f * 30 + pick([-12, -8, 8, 12])
+        unit = "foot" if f == 1 else "feet"
+        return _wq("Which is longer, %d %s or %d cm? (1 foot is about 30 cm.) Type %s or cm." % (f, unit, cm, unit),
+                   unit if f * 30 > cm else "cm",
+                   ["%d × 30 = %d cm." % (f, f * 30)], "feet or cm")
+
+    def t_stone():
+        st = random.randint(5, 12)
+        return _tb("1 stone is 14 pounds. How many pounds is %d stone?" % st, 14 * st, "int", {"unit": "pounds"},
+                   ["%d × 14 = %d." % (st, 14 * st)])
+
+    def t_yards():
+        y = random.randint(2, 20)
+        return _tb("1 yard is 3 feet. How many feet are in %d yards?" % y, 3 * y, "int", {"unit": "feet"},
+                   ["%d × 3 = %d." % (y, 3 * y)])
+
+    return _pick_t([t_inches, t_pounds, t_pints, t_feet, t_miles, t_back, t_sensible, t_longer, t_stone, t_yards],
+                   [t_table])
 
 
 def _l_shape(d):
@@ -645,8 +1021,8 @@ def _(d=1):
     def t_l_words():
         W, H = random.randint(8, 20), random.randint(6, 16)
         cw, ch = random.randint(2, W - 3), random.randint(2, H - 3)
-        return _tb("An L-shaped garden is made by cutting a %d m by %d m rectangle out of one corner of a "
-                   "%d m by %d m rectangle. What is the perimeter of the garden, in m?" % (cw, ch, W, H),
+        return _tb("An L-shaped garden is made by cutting a rectangle %d m by %d m out of one corner of a rectangle "
+                   "%d m by %d m. What is the perimeter of the garden, in m?" % (cw, ch, W, H),
                    2 * (W + H), "int", {"unit": "m"},
                    ["Cutting out a corner does not change the total perimeter here.",
                     "2 × (%d + %d) = %d m." % (W, H, 2 * (W + H))])
@@ -676,7 +1052,52 @@ def _(d=1):
         return _tb("A rectangular pond is %s m by %s m. What is its perimeter, in metres?" % (_ds(a), _ds(b)),
                    _ds(2 * (a + b)), "num", {"unit": "m"}, ["2 × (%s + %s) = %s." % (_ds(a), _ds(b), _ds(2 * (a + b)))])
 
-    return _pick_t([t_l_words, t_missing_side, t_rect, t_inverse, t_metres], [t_grid])
+    def t_fence():
+        a, b = random.randint(4, 20), random.randint(4, 20)
+        cost = random.randint(3, 12)
+        return _tb("A rectangular field is %d m by %d m. Fencing costs £%d a metre. How much does it cost to fence all the "
+                   "way round, in pounds?" % (a, b, cost), 2 * (a + b) * cost, "int", {"unit": "£"},
+                   ["Perimeter: 2 × (%d + %d) = %d m." % (a, b, 2 * (a + b)), "%d × %d = %d." % (2 * (a + b), cost,
+                                                                                               2 * (a + b) * cost)])
+
+    def t_rect_grid():
+        w, h = random.randint(2, 8), random.randint(2, 6)
+        cells = [[r, c] for r in range(h) for c in range(w)]
+        return _area("Each square is 1 cm long. What is the perimeter of this rectangle, in cm?",
+                     {"mode": "read_perimeter", "cells": cells, "rows": h, "cols": w}, 2 * (w + h),
+                     ["2 × (%d + %d) = %d cm." % (w, h, 2 * (w + h))])
+
+    def t_table():
+        dims = [(random.randint(3, 20), random.randint(3, 20)) for _ in range(3)]
+        rows = [["%d cm" % a, "%d cm" % b, "%d cm" % (2 * (a + b))] for a, b in dims]
+        r = random.randrange(3)
+        c = pick([1, 2])
+        ans = dims[r][1] if c == 1 else 2 * sum(dims[r])
+        rows[r][c] = ""
+        return _dt("The table gives the length, width and perimeter of three rectangles. What number belongs in the empty "
+                   "cell, in cm?", ["Length", "Width", "Perimeter"], rows, ans,
+                   ["Perimeter = 2 × (length + width)." if c == 2 else
+                    "Half the perimeter is %d; %d − %d = %d." % (sum(dims[r]), sum(dims[r]), dims[r][0], ans)],
+                   missing=[r, c])
+
+    def t_which_longer():
+        a, b, c, e = [random.randint(3, 15) for _ in range(4)]
+        if a + b == c + e:
+            e += 1
+        return _wq("Rectangle A is %d cm by %d cm. Rectangle B is %d cm by %d cm. Which has the longer perimeter? (A or B)"
+                   % (a, b, c, e), "A" if a + b > c + e else "B",
+                   ["A: %d cm. B: %d cm." % (2 * (a + b), 2 * (c + e))], "A or B")
+
+    def t_regular_mix():
+        name, n = pick([("pentagon", 5), ("hexagon", 6), ("octagon", 8)])
+        s = random.randint(3, 12)
+        return _tb("A garden is a square of side %d m joined to a regular %s of side %d m along one edge. What is the "
+                   "perimeter of the whole garden, in m?" % (s, name, s), (4 - 1) * s + (n - 1) * s, "int", {"unit": "m"},
+                   ["The shared edge is inside, so it does not count.", "%d + %d = %d sides of %d m: %d m." % (
+                       3, n - 1, 3 + n - 1, s, (3 + n - 1) * s)])
+
+    return _pick_t([t_l_words, t_missing_side, t_rect, t_inverse, t_metres, t_fence, t_which_longer, t_regular_mix],
+                   [t_grid, t_rect_grid, t_table])
 
 
 @skill("Y5.7.d", "Area of rectangles and compound shapes in cm² and m²", S7)
@@ -709,7 +1130,7 @@ def _(d=1):
     def t_l_words():
         W, H = random.randint(8, 20), random.randint(6, 16)
         cw, ch = random.randint(2, W - 3), random.randint(2, H - 3)
-        return _tb("An L-shaped room is a %d m by %d m rectangle with a %d m by %d m corner missing. What is "
+        return _tb("An L-shaped room is a rectangle %d m by %d m with a corner %d m by %d m missing. What is "
                    "its floor area, in m²?" % (W, H, cw, ch), W * H - cw * ch, "int", {"unit": "m²"},
                    ["%d × %d = %d." % (W, H, W * H), "%d × %d = %d." % (cw, ch, cw * ch),
                     "%d − %d = %d." % (W * H, cw * ch, W * H - cw * ch)])
@@ -736,7 +1157,37 @@ def _(d=1):
         return _area("Each square is 1 cm². Shade squares to make a shape with an area of %d cm²." % n,
                      {"mode": "build_area", "rows": 6, "cols": 8}, n, ["Shade %d squares." % n])
 
-    return _pick_t([t_rect, t_side, t_square, t_l_words, t_compare, t_same_perimeter], [t_compound, t_build])
+    def t_carpet():
+        a, b, cost = random.randint(2, 9), random.randint(2, 9), random.randint(5, 25)
+        return _tb("A room is %d m by %d m. Carpet costs £%d for each m². How much does it cost to carpet the room, in "
+                   "pounds?" % (a, b, cost), a * b * cost, "int", {"unit": "£"},
+                   ["Area: %d × %d = %d m²." % (a, b, a * b), "%d × %d = %d." % (a * b, cost, a * b * cost)])
+
+    def t_table():
+        dims = [(random.randint(2, 15), random.randint(2, 15)) for _ in range(3)]
+        rows = [["%d cm" % a, "%d cm" % b, "%d cm²" % (a * b)] for a, b in dims]
+        r, c = random.randrange(3), pick([1, 2])
+        ans = dims[r][1] if c == 1 else dims[r][0] * dims[r][1]
+        rows[r][c] = ""
+        return _dt("The table gives the length, width and area of three rectangles. What number belongs in the empty cell?",
+                   ["Length", "Width", "Area"], rows, ans,
+                   ["Area = length × width." if c == 2 else "%d ÷ %d = %d." % (dims[r][0] * dims[r][1], dims[r][0], ans)],
+                   missing=[r, c])
+
+    def t_two_rooms():
+        a, b, c, e = [random.randint(2, 8) for _ in range(4)]
+        return _tb("A flat has two rectangular rooms: one %d m by %d m and one %d m by %d m. What is the total floor area, "
+                   "in m²?" % (a, b, c, e), a * b + c * e, "int", {"unit": "m²"},
+                   ["%d + %d = %d." % (a * b, c * e, a * b + c * e)])
+
+    def t_unit():
+        what, ans = pick([("a football pitch", "m"), ("a postage stamp", "cm"), ("a classroom floor", "m"),
+                          ("a playing card", "cm"), ("a garden", "m"), ("a page of a book", "cm")])
+        return _wq("Would you measure the area of %s in square centimetres (cm²) or square metres (m²)? Type cm or m."
+                   % what, ans, ["Small things use cm²; large things use m²."], "cm or m")
+
+    return _pick_t([t_rect, t_side, t_square, t_l_words, t_compare, t_same_perimeter, t_carpet, t_two_rooms, t_unit],
+                   [t_compound, t_build, t_table])
 
 
 @skill("Y5.7.e", "Estimate the area of irregular shapes", S7)
@@ -777,7 +1228,54 @@ def _(d=1):
                    "between %d m² and how many m²?" % (lo, lo // 2, lo), lo + lo // 2, "int", {"unit": "m²"},
                    ["At most it covers every touched square: %d + %d = %d." % (lo, lo // 2, lo + lo // 2)])
 
-    return _pick_t([t_count, t_more_than_half, t_between], [t_cells])
+    def t_compare():
+        a_w, a_h = random.randint(8, 25), 2 * random.randint(1, 6)
+        b_w, b_h = random.randint(8, 25), 2 * random.randint(1, 6)
+        ea, eb = a_w + a_h // 2, b_w + b_h // 2
+        if ea == eb:
+            b_w += 1
+            eb += 1
+        return _wq("Leaf A covers %d whole squares and %d half squares. Leaf B covers %d whole squares and %d half squares. "
+                   "Which leaf has the larger area? (A or B)" % (a_w, a_h, b_w, b_h), "A" if ea > eb else "B",
+                   ["A: %d + %d = %d. B: %d + %d = %d." % (a_w, a_h // 2, ea, b_w, b_h // 2, eb)], "A or B")
+
+    def t_table():
+        shapes = ["Pond", "Lawn", "Patio"]
+        whole = [random.randint(6, 30) for _ in shapes]
+        half = [2 * random.randint(1, 8) for _ in shapes]
+        k = random.randrange(3)
+        return _dt("A plan of a garden is drawn on a 1 m grid. The table counts the squares each part covers. Estimate the "
+                   "area of the %s, in m², counting two half squares as one whole." % shapes[k].lower(),
+                   ["Part", "Whole squares", "Half squares"], [[s, w, h] for s, w, h in zip(shapes, whole, half)],
+                   whole[k] + half[k] // 2, ["%d + %d ÷ 2 = %d m²." % (whole[k], half[k], whole[k] + half[k] // 2)])
+
+    def t_sensible():
+        q, a = pick([("The outline of a child's hand, drawn on 1 cm squared paper. Is its area about 12 cm², 120 cm² or 1,200 cm²?", 120),
+                     ("A puddle in the playground. Is its area about 1 m², 100 m² or 1,000 m²?", 1),
+                     ("A postcard. Is its area about 15 cm², 150 cm² or 1,500 cm²?", 150),
+                     ("A school field. Is its area about 50 m², 5,000 m² or 500,000 m²?", 5000)])
+        return _tb(q + " Type the number.", a, "int", {}, ["Picture the real object."])
+
+    def t_halves_only():
+        h = 2 * random.randint(4, 15)
+        return _tb("The edge of a lake drawn on a 1 km grid cuts %d squares exactly in half. Estimate the area those half "
+                   "squares cover, in km²." % h, h // 2, "int", {"unit": "km²"}, ["Two halves make one: %d ÷ 2 = %d." % (h, h // 2)])
+
+    def t_rule():
+        full, more, less = random.randint(8, 30), random.randint(2, 10), random.randint(2, 10)
+        return _tb("A shape on a 1 cm grid covers %d squares completely, more than half of %d squares and less than half of "
+                   "%d squares. Using the rule 'count more than half, ignore less than half', estimate its area, in cm²."
+                   % (full, more, less), full + more, "int", {"unit": "cm²"},
+                   ["%d + %d = %d; the %d small bits are ignored." % (full, more, full + more, less)])
+
+    def t_scale():
+        sq = random.randint(10, 40)
+        k = pick([4, 10, 100])
+        return _tb("On a map, each grid square stands for %d m². A park covers about %d squares. Estimate the park's area, "
+                   "in m²." % (k, sq), sq * k, "int", {"unit": "m²"}, ["%d × %d = %d." % (sq, k, sq * k)])
+
+    return _pick_t([t_count, t_more_than_half, t_between, t_compare, t_sensible, t_halves_only, t_rule, t_scale],
+                   [t_cells, t_table])
 
 
 @skill("Y5.7.f", "Volume of cuboids using 1 cm³ cubes", S7)
@@ -788,11 +1286,11 @@ def _(d=1):
     def t_count():
         return _tb("A cuboid is built from 1 cm cubes: %d cubes long, %d wide and %d tall. How many cubes "
                    "is that?" % (l, w, h), l * w * h, "int", {"unit": "cm³"},
-                   ["%d × %d = %d in one layer." % (l, w, l * w), "%d layers: %d." % (h, l * w * h)])
+                   ["%d × %d = %d in one layer." % (l, w, l * w), "%s: %d." % (_pl(h, "layer"), l * w * h)])
 
     def t_layer():
-        return _tb("One layer of a cuboid has %d cubes. The cuboid has %d layers. What is its volume, in cm³?"
-                   % (l * w, h), l * w * h, "int", {"unit": "cm³"}, ["%d × %d = %d." % (l * w, h, l * w * h)])
+        return _tb("One layer of a cuboid has %d cubes. The cuboid has %s. What is its volume, in cm³?"
+                   % (l * w, _pl(h, "layer")), l * w * h, "int", {"unit": "cm³"}, ["%d × %d = %d." % (l * w, h, l * w * h)])
 
     def t_missing():
         v = l * w * h
@@ -819,7 +1317,43 @@ def _(d=1):
         return _dt("The table gives the size of a cuboid. What is its volume, in cm³?", ["Measure", "Size"],
                    rows, l * w * h, ["%d × %d × %d = %d." % (l, w, h, l * w * h)])
 
-    return _pick_t([t_count, t_layer, t_missing, t_compare, t_cube], [t_table])
+    def t_add_layer():
+        return _tb("A cuboid of 1 cm cubes is %d cubes long, %d wide and %d tall. Another layer is added on top. What is "
+                   "the new volume, in cm³?" % (l, w, h), l * w * (h + 1), "int", {"unit": "cm³"},
+                   ["One layer is %d × %d = %d cubes." % (l, w, l * w), "%s: %d." % (_pl(h + 1, "layer"), l * w * (h + 1))])
+
+    def t_same():
+        v = l * w * h
+        good = (l * h, w, 1)
+        bad = (l + 1, w, h)
+        first = random.random() < 0.5
+        A, B = (good, bad) if first else (bad, good)
+        return _wq("A cuboid is %d × %d × %d cm. Which of these has the SAME volume? A: %d × %d × %d cm. B: %d × %d × %d cm. "
+                   "(A or B)" % ((l, w, h) + A + B), "A" if first else "B",
+                   ["%d × %d × %d = %d cm³." % (l, w, h, v), "%d × %d × %d = %d cm³." % (good + (v,))], "A or B")
+
+    def t_room():
+        a, b, c = random.randint(2, 6), random.randint(2, 5), random.randint(2, 3)
+        return _tb("A storeroom is a cuboid %d m long, %d m wide and %d m high. How many 1 m³ crates would fill it exactly?"
+                   % (a, b, c), a * b * c, "int", {"unit": "m³"}, ["%d × %d × %d = %d m³." % (a, b, c, a * b * c)])
+
+    def t_half():
+        v = l * w * h
+        if v % 2:
+            return t_layer()
+        return _tb("A box is %d cm long, %d cm wide and %d cm tall. It is half full of 1 cm cubes. How many cubes are in it?"
+                   % (l, w, h), v // 2, "int", {"unit": "cubes"},
+                   ["Full: %d × %d × %d = %d." % (l, w, h, v), "Half: %d." % (v // 2)])
+
+    def t_estimate():
+        q, a = pick([("Is the volume of a dice about 1 cm³, 100 cm³ or 1,000 cm³?", 1),
+                     ("Is the volume of a shoebox about 60 cm³, 6,000 cm³ or 600,000 cm³?", 6000),
+                     ("Is the volume of a sugar cube about 1 cm³, 50 cm³ or 500 cm³?", 1),
+                     ("Is the volume of a garden shed about 1 m³, 10 m³ or 100 m³?", 10)])
+        return _tb(q + " Type the number.", a, "int", {}, ["Picture 1 cm cubes (the size of a sugar cube) or 1 m cubes."])
+
+    return _pick_t([t_count, t_layer, t_missing, t_compare, t_cube, t_add_layer, t_same, t_room, t_half, t_estimate],
+                   [t_table])
 
 
 @skill("Y5.7.g", "Estimate and measure capacity", S7)
@@ -853,15 +1387,41 @@ def _(d=1):
     def t_how_many():
         cup = pick([100, 200, 250, 500])
         tot = pick([1000, 2000, 3000])
-        return _tb("How many %d ml glasses can be filled from %d litres?" % (cup, tot // 1000), tot // cup,
-                   "int", {}, ["%d litres = %d ml." % (tot // 1000, tot), "%d ÷ %d = %d." % (tot, cup, tot // cup)])
+        return _tb("How many %d ml glasses can be filled from %s?" % (cup, _pl(tot // 1000, "litre")), tot // cup,
+                   "int", {}, ["%s = %d ml." % (_pl(tot // 1000, "litre"), tot), "%d ÷ %d = %d." % (tot, cup, tot // cup)])
 
     def t_volume_capacity():
         l, w, h = random.randint(5, 20), random.randint(5, 20), random.randint(5, 20)
         return _tb("A box-shaped tank is %d cm × %d cm × %d cm inside. 1 cm³ holds 1 ml. How many ml does it "
                    "hold?" % (l, w, h), l * w * h, "int", {"unit": "ml"}, ["%d × %d × %d = %d." % (l, w, h, l * w * h)])
 
-    return _pick_t([t_sensible, t_cups, t_how_many, t_volume_capacity], [t_jug])
+    def t_table():
+        drinks = ["Milk", "Juice", "Water"]
+        ml = [random.randint(2, 19) * 50 for _ in drinks]
+        rows = [[n, "%d ml" % v] for n, v in zip(drinks, ml)]
+        return _dt("The table shows how much of each drink is left in the fridge. How many ml is that altogether?",
+                   ["Drink", "Amount"], rows, sum(ml), ["%s = %d ml." % (" + ".join(map(str, ml)), sum(ml))])
+
+    def t_doses():
+        dose = pick([5, 10])
+        bottle = pick([100, 150, 200, 250])
+        return _tb("A bottle holds %d ml of medicine. One dose is %d ml. How many doses are in the bottle?" % (bottle, dose),
+                   bottle // dose, "int", {"unit": "doses"}, ["%d ÷ %d = %d." % (bottle, dose, bottle // dose)])
+
+    def t_litres():
+        l_ = random.randint(1, 9)
+        ml = random.randint(1, 19) * 50
+        return _tb("A paddling pool holds %s and %d ml. How many ml is that altogether?" % (_pl(l_, "litre"), ml),
+                   l_ * 1000 + ml, "int", {"unit": "ml"}, ["%d × 1000 + %d = %d." % (l_, ml, l_ * 1000 + ml)])
+
+    def t_jug_more():
+        mx = pick([500, 1000])
+        v = random.randint(1, mx // 50 - 2) * 50
+        return {"prompt": "Read the measuring jug. How much more water is needed to reach %d ml?" % mx, "component": "ruler",
+                "spec": {"mode": "capacity", "value": v, "max": mx, "unit": "ml"}, "answer": mx - v,
+                "answer_type": "num", "tolerance": 25, "solution": ["The jug holds %d ml; %d − %d = %d." % (v, mx, v, mx - v)]}
+
+    return _pick_t([t_sensible, t_cups, t_how_many, t_volume_capacity, t_doses, t_litres], [t_jug, t_table, t_jug_more])
 
 
 @skill("Y5.7.h", "Convert between units of time", S7)
@@ -870,7 +1430,7 @@ def _(d=1):
 
     def t_hm():
         h, m = random.randint(1, 5), random.randint(1, 59)
-        return _tb("How many minutes are in %d hours %d minutes?" % (h, m), 60 * h + m, "int",
+        return _tb("How many minutes are in %s %s?" % (_pl(h, "hour"), _pl(m, "minute")), 60 * h + m, "int",
                    {"unit": "minutes"}, ["%d × 60 + %d = %d." % (h, m, 60 * h + m)])
 
     def t_mh():
@@ -881,7 +1441,7 @@ def _(d=1):
 
     def t_seconds():
         m, s = random.randint(1, 6), random.randint(0, 59)
-        return _tb("How many seconds are in %d minutes %d seconds?" % (m, s), 60 * m + s, "int",
+        return _tb("How many seconds are in %s %s?" % (_pl(m, "minute"), _pl(s, "second")), 60 * m + s, "int",
                    {"unit": "seconds"}, ["%d × 60 + %d = %d." % (m, s, 60 * m + s)])
 
     def t_days():
@@ -947,8 +1507,8 @@ def _(d=1):
         n = random.randint(2, 8)
         each = Decimal(random.randint(11, 99)) / 100
         tot = each * n
-        return _tb("%s litres of juice are shared equally into %d bottles. How much is in each bottle, in "
-                   "litres?" % (_ds(tot), n), _ds(each), "num", {"unit": "litres"},
+        return _tb("%s %s of juice is shared equally into %d bottles. How much is in each bottle, in "
+                   "litres?" % (_ds(tot), "litre" if tot == 1 else "litres", n), _ds(each), "num", {"unit": "litres"},
                    ["%s ÷ %d = %s." % (_ds(tot), n, _ds(each))])
 
     def t_mixed_units():
@@ -965,7 +1525,76 @@ def _(d=1):
         return _tb("A running track is %s km round. %s runs %d laps. How far is that, in km?" % (_ds(lap), _who(), n),
                    _ds(lap * n), "num", {"unit": "km"}, ["%d × %s = %s." % (n, _ds(lap), _ds(lap * n))])
 
-    return _pick_t([t_scale_recipe, t_lengths, t_share, t_mixed_units, t_run])
+    def t_table():
+        items = [("Flour", Decimal(random.randint(5, 30)) / 10), ("Sugar", Decimal(random.randint(2, 15)) / 10),
+                 ("Butter", Decimal(random.randint(1, 9)) / 10)]
+        k = random.randint(2, 5)
+        i = random.randrange(3)
+        return _dt("A baker's recipe uses these amounts. The baker makes %d times the recipe. How many kg of %s are "
+                   "needed?" % (k, items[i][0].lower()), ["Ingredient", "Mass (kg)"],
+                   [[n, _ds(v)] for n, v in items], _ds(items[i][1] * k),
+                   ["%s × %d = %s." % (_ds(items[i][1]), k, _ds(items[i][1] * k))], atype="num")
+
+    def t_graph():
+        wk = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5"]
+        vals = sorted(Decimal(v) / 10 for v in random.sample(range(10, 60), 5))
+        i, j = sorted(random.sample(range(5), 2))
+        return _lg("The graph shows a puppy's mass each week, in kg. How much heavier was it in %s than in %s, in kg?"
+                   % (wk[j], wk[i]), [(a, float(v)) for a, v in zip(wk, vals)], _ds(vals[j] - vals[i]),
+                   ["%s − %s = %s." % (_ds(vals[j]), _ds(vals[i]), _ds(vals[j] - vals[i]))], "kg", "Week", atype="num")
+
+    def t_compare():
+        a = Decimal(random.randint(105, 495)) / 100
+        b = random.randint(105, 495)
+        if a * 100 == b:
+            b += 1
+        return _tb("Which is longer, %s m or %d cm? Type the longer length in cm." % (_ds(a), b), max(int(a * 100), b),
+                   "int", {"unit": "cm"}, ["%s m = %d cm." % (_ds(a), int(a * 100))])
+
+    def t_scale_down():
+        g = random.randint(2, 9) * 300
+        return _tb("A cake for 9 people needs %d g of flour. How much flour is needed for 3 people, in kg?" % g,
+                   _ds(Decimal(g) / 3 / 1000), "num", {"unit": "kg"},
+                   ["%d ÷ 3 = %d g." % (g, g // 3), "= %s kg." % _ds(Decimal(g // 3) / 1000)])
+
+    def t_ribbon_cm():
+        a = Decimal(random.randint(15, 49)) / 10
+        cm = random.randint(15, 95)
+        return _tb("A roll has %s m of ribbon. %d cm is cut off. How much is left, in metres?" % (_ds(a), cm),
+                   _ds(a - Decimal(cm) / 100), "num", {"unit": "m"},
+                   ["%d cm = %s m." % (cm, _ds(Decimal(cm) / 100)), "%s − %s = %s." % (_ds(a), _ds(Decimal(cm) / 100),
+                                                                                       _ds(a - Decimal(cm) / 100))])
+
+    def t_drinks():
+        l_ = random.randint(1, 3)
+        cups = random.randint(3, 8)
+        cup = pick([150, 200, 250])
+        if cups * cup >= l_ * 1000:
+            cups = (l_ * 1000 - 1) // cup
+        return _tb("A jug holds %d litre%s of lemonade. %d cups of %d ml are poured out. How much is left, in litres?"
+                   % (l_, "" if l_ == 1 else "s", cups, cup), _ds(Decimal(l_ * 1000 - cups * cup) / 1000), "num",
+                   {"unit": "litres"}, ["%d × %d = %d ml poured." % (cups, cup, cups * cup),
+                                        "%d − %d = %d ml = %s %s." % (l_ * 1000, cups * cup, l_ * 1000 - cups * cup,
+                                                                       _ds(Decimal(l_ * 1000 - cups * cup) / 1000),
+                                                                       "litre" if l_ * 1000 - cups * cup == 1000 else "litres")])
+
+    def t_laps_m():
+        lap = random.randint(2, 8) * 50
+        n = random.randint(3, 12)
+        return _tb("A running track is %d m round. %s runs %d laps. How far is that, in km?" % (lap, _who(), n),
+                   _ds(Decimal(lap * n) / 1000), "num", {"unit": "km"},
+                   ["%d × %d = %d m." % (lap, n, lap * n), "= %s km." % _ds(Decimal(lap * n) / 1000)])
+
+    def t_tins():
+        tin = Decimal(random.randint(2, 9)) / 10
+        n = random.randint(3, 9)
+        return _tb("A tin of beans weighs %s kg. What do %d tins weigh, in grams?" % (_ds(tin), n),
+                   int(tin * n * 1000), "int", {"unit": "g"},
+                   ["%d × %s = %s kg." % (n, _ds(tin), _ds(tin * n)), "= %d g." % int(tin * n * 1000)])
+
+    return _pick_t([t_scale_recipe, t_lengths, t_share, t_mixed_units, t_run, t_compare, t_scale_down, t_ribbon_cm,
+                    t_drinks, t_laps_m, t_tins],
+                   [t_table, t_graph])
 
 
 @skill("Y5.7.j", "Money problems with decimals", S7)
@@ -1008,8 +1637,8 @@ def _(d=1):
         a, b = random.sample(range(4), 2)
         qa = random.randint(1, 3)
         tot = Decimal(menu[a][1] * qa + menu[b][1]) / 100
-        return _dt("Use the price list. How much do %d %s%s and one %s cost altogether, in pounds?"
-                   % (qa, menu[a][0].lower(), "" if qa == 1 else "s", menu[b][0].lower()), ["Item", "Price"], rows,
+        return _dt("Use the price list. How much do %s %s%s and one %s cost altogether, in pounds?"
+                   % (n_words(qa), menu[a][0].lower(), "" if qa == 1 else "s", menu[b][0].lower()), ["Item", "Price"], rows,
                    _ds(tot), ["%d × £%s + £%s = £%s." % (qa, format(Decimal(menu[a][1]) / 100, ".2f"),
                                                          format(Decimal(menu[b][1]) / 100, ".2f"), format(tot, ".2f"))],
                    atype="num")

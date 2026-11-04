@@ -41,7 +41,40 @@ def _(d=1):
         return _tb("Simplify  %dx × %d  and find its value when x = %d." % (a, b, x), a * b * x, "int", {},
                    ["%dx; %d × %d = %d." % (a * b, a * b, x, a * b * x)])
 
-    return _pick_t([t_coef, t_square, t_divide, t_cancel, t_number, t_value])
+    def t_cube():
+        v = pick(["a", "x", "y", "n"])
+        return _wq("Simplify  %s × %s × %s  (use ^ for a power, like a^3)" % (v, v, v), "%s^3" % v,
+                   ["Three %s's multiplied: %s³." % (v, v)], "e.g. a^3")
+
+    def t_three():
+        c = random.randint(2, 5)
+        return _wq("Simplify  %da × %db × %dc  (like 30abc)" % (a, b, c), "%dabc" % (a * b * c),
+                   ["%d × %d × %d = %d." % (a, b, c, a * b * c)], "e.g. 30abc")
+
+    def t_x2y():
+        return _wq("Simplify  %dx × x × y  (like 5x^2y)" % a, "%dx^2y" % a, ["x × x = x², then y: %dx²y." % a], "e.g. 5x^2y")
+
+    def t_divide_same():
+        return _tb("Simplify  %dx ÷ %dx. (It is a number.)" % (a * b, a), b, "int", {}, ["The x's cancel: %d ÷ %d = %d." % (a * b, a, b)])
+
+    def t_area():
+        return _wq("A rectangle is %da cm long and %db cm wide. Write an expression for its area, in cm² (like 12ab)." % (a, b),
+                   "%dab" % (a * b), ["Area = length × width = %da × %db = %dab." % (a, b, a * b)], "e.g. 12ab")
+
+    def t_missing():
+        return _wq("Complete:  %da × ___ = %dab" % (a, a * b), "%db" % b, ["%d ÷ %d = %d, and a × b = ab, so %db." % (a * b, a, b, b)],
+                   "e.g. 5b")
+
+    def t_bracket_sq():
+        return _wq("Simplify  (%dy)²  (use ^ for a power, like 9y^2)" % a, "%dy^2" % (a * a),
+                   ["(%dy)² = %dy × %dy = %dy²." % (a, a, a, a * a)], "e.g. 9y^2")
+
+    def t_frac_form():
+        return _wq("Write  %dm ÷ %d  in its simplest form." % (a * b, b), "%dm" % a if a != 1 else "m",
+                   ["%d ÷ %d = %d." % (a * b, b, a)], "e.g. 4m")
+
+    return _pick_t([t_coef, t_square, t_divide, t_cancel, t_number, t_value, t_cube, t_three, t_x2y, t_divide_same, t_area,
+                    t_missing, t_bracket_sq, t_frac_form])
 
 
 @skill("Y7.2.f", "Inequality notation and number lines", S2)
@@ -101,7 +134,7 @@ def _(d=1):
 
     def t_time():
         h = Decimal(random.randint(1, 20)) / 4
-        return _tb("How many minutes are in %s hours?" % _ds(h), int(h * 60), "int", {"unit": "minutes"},
+        return _tb("How many minutes are in %s hour%s?" % (_ds(h), "" if h == 1 else "s"), int(h * 60), "int", {"unit": "minutes"},
                    ["%s × 60 = %d." % (_ds(h), int(h * 60))])
 
     def t_time_dec():
@@ -116,7 +149,8 @@ def _(d=1):
                    {"unit": big}, ["%d %s = %s %s." % (b, small, _ds(Decimal(b) / f), big)])
 
     def t_order():
-        vals = [("%s %s" % (_ds(Decimal(random.randint(1, 99)) / 10), big)), ("%d %s" % (random.randint(100, 9999), small))]
+        x = Decimal(random.randint(1, 99)) / 10
+        vals = ["%s %s" % (_ds(x), big[:-1] if x == 1 and big.endswith("s") else big), "%d %s" % (random.randint(100, 9999), small)]
         a = Decimal(vals[0].split()[0]) * f
         b = Decimal(vals[1].split()[0])
         if a == b:
@@ -145,13 +179,13 @@ def _(d=1):
                    {"unit": "kg"}, ["%d%% of %d = %s." % (p, x, _ds(Fraction(x * p, 100)))])
 
     def t_over():
-        x = random.randint(2, 20) * 20
+        x = random.choice([v for v in range(40, 401, 20) if v != 100])
         p = pick([150, 200, 120, 250, 300])
         return _tb("A town's population is %d%% of what it was 50 years ago, when it was %d. What is it now?" % (p, x),
                    x * p // 100, "int", {}, ["%d%% = × %s." % (p, _ds(Fraction(p, 100))), "%d × %s = %d." % (x, _ds(Fraction(p, 100)), x * p // 100)])
 
     def t_as_percent():
-        a = random.randint(2, 20) * 5
+        a = random.choice([v for v in range(10, 101, 5) if v != 100])
         b = a + random.randint(1, 20) * 5
         return _tb("%d is what percentage of %d? Give the number only." % (b, a), _ds(Fraction(b * 100, a)), "num", {},
                    ["%d ÷ %d × 100 = %s." % (b, a, _ds(Fraction(b * 100, a)))]) if (b * 100) % a == 0 else t_increase()
@@ -170,7 +204,50 @@ def _(d=1):
                    % (old, new, "increase" if up else "decrease"), abs(new - old) * 100 // old, "int", {},
                    ["Change £%d; %d ÷ %d × 100 = %d%%." % (abs(new - old), abs(new - old), old, abs(new - old) * 100 // old)])
 
-    return _pick_t([t_increase, t_decrease, t_over, t_as_percent, t_multiplier, t_change])
+    def t_profit():
+        cost = random.randint(2, 30) * 4
+        p = pick([25, 50, 75, 10, 20])
+        sell = cost * (100 + p) // 100
+        if (cost * (100 + p)) % 100:
+            cost, sell = 40, 40 * (100 + p) // 100
+        return _tb("A shop buys a lamp for £%d and sells it for £%d. What is the percentage profit? Give the number only."
+                   % (cost, sell), p, "int", {}, ["Profit £%d; %d ÷ %d × 100 = %d%%." % (sell - cost, sell - cost, cost, p)])
+
+    def t_salary():
+        s = random.randint(18, 40) * 1000
+        p = pick([2, 3, 4, 5, 10])
+        return _tb("A salary of £%s rises by %d%%. What is the new salary, in pounds?" % (_c(s), p), s * (100 + p) // 100, "int",
+                   {"unit": "£"}, ["%d%% of %s = %s." % (p, _c(s), _c(s * p // 100)), "New salary £%s." % _c(s * (100 + p) // 100)])
+
+    def t_growth():
+        a = random.randint(2, 20) * 2
+        p = pick([150, 200, 250, 300, 125])
+        b = a * p // 100
+        if (a * p) % 100:
+            a, b = 20, 20 * p // 100
+        return _tb("A plant grew from %d cm to %d cm. Its new height is what percentage of its old height? Give the number only."
+                   % (a, b), p, "int", {}, ["%d ÷ %d × 100 = %d%%." % (b, a, p)])
+
+    def t_use_mult():
+        x = random.randint(2, 40) * 10
+        p = pick([15, 35, 12, 8, 65])
+        up = random.random() < 0.5
+        m = Fraction(100 + p if up else 100 - p, 100)
+        return _tb("%s £%d by %d%% by multiplying by %s. What is the answer, in pounds?" % ("Increase" if up else "Decrease", x, p,
+                                                                                         _ds(m)), _ds(x * m), "num", {"unit": "£"},
+                   ["%d × %s = %s." % (x, _ds(m), _ds(x * m))])
+
+    def t_line():
+        yrs = ["2021", "2022", "2023", "2024"]
+        base = random.randint(2, 10) * 20                 # a multiple of 20, so every rise below is whole
+        p = pick([10, 20, 25, 50])
+        v = [base + random.randint(-20, 20) for _ in range(2)] + [base, base * (100 + p) // 100]
+        return _lg("The graph shows the number of members of a club. What was the percentage increase from 2023 to 2024? Give the "
+                   "number only.", list(zip(yrs, v)), p, ["%d to %d: increase %d." % (base, v[3], v[3] - base),
+                                                         "%d ÷ %d × 100 = %d%%." % (v[3] - base, base, p)], "Members", "Year")
+
+    return _pick_t([t_increase, t_decrease, t_over, t_as_percent, t_multiplier, t_change, t_profit, t_salary, t_growth, t_use_mult],
+                   [t_line])
 
 
 @skill("Y7.5.f", "Perimeter and area problems with decimals", S5)
@@ -207,7 +284,55 @@ def _(d=1):
         return _tb("A rectangle has area %s cm² and width %d cm. What is its length, in cm?" % (_ds(a * b), b), _ds(a), "num",
                    {"unit": "cm"}, ["%s ÷ %d = %s." % (_ds(a * b), b, _ds(a))])
 
-    return _pick_t([t_rect_p, t_rect_a, t_fence, t_tiles, t_missing])
+    def t_carpet():
+        a, b = Decimal(random.randint(5, 12)) / 2, random.randint(2, 6)
+        price = Decimal(random.randint(8, 25)) + pick([Decimal("0"), Decimal("0.5")])
+        return _tb("A room is %s m by %d m. Carpet costs £%s per m². How much does it cost to carpet the room, in pounds?"
+                   % (_ds(a), b, format(price, ".2f")), _ds(a * b * price), "num", {"unit": "£"},
+                   ["Area %s m²." % _ds(a * b), "%s × %s = %s." % (_ds(a * b), format(price, ".2f"), _ds(a * b * price))])
+
+    def t_width_from_p():
+        l = Decimal(random.randint(21, 89)) / 10
+        w = Decimal(random.randint(11, 69)) / 10
+        return _tb("A rectangle has perimeter %s cm and length %s cm. What is its width, in cm?" % (_ds(2 * (l + w)), _ds(l)),
+                   _ds(w), "num", {"unit": "cm"}, ["Half the perimeter: %s." % _ds(l + w), "%s − %s = %s." % (_ds(l + w), _ds(l), _ds(w))])
+
+    def t_square_side():
+        s = Decimal(random.randint(11, 99)) / 10
+        return _tb("A square has perimeter %s m. How long is each side, in m?" % _ds(4 * s), _ds(s), "num", {"unit": "m"},
+                   ["%s ÷ 4 = %s." % (_ds(4 * s), _ds(s))])
+
+    def t_path():
+        L, W = random.randint(6, 12), random.randint(4, 8)
+        p = Decimal(pick(["0.5", "1", "1.5"]))
+        outer = (L + 2 * p) * (W + 2 * p)
+        return _tb("A lawn is %d m by %d m. A path %s m wide goes all the way round it. What is the area of the path, in m²?"
+                   % (L, W, _ds(p)), _ds(outer - L * W), "num", {"unit": "m²"},
+                   ["Outer rectangle %s × %s = %s." % (_ds(L + 2 * p), _ds(W + 2 * p), _ds(outer)),
+                    "%s − %d = %s." % (_ds(outer), L * W, _ds(outer - L * W))])
+
+    def t_paint():
+        h = Decimal(random.randint(20, 30)) / 10
+        w = random.randint(3, 8)
+        cover = pick([5, 6, 8, 10, 12])
+        area = h * w
+        tins = int((area / cover).to_integral_value(rounding="ROUND_CEILING"))
+        return _tb("A wall is %s m high and %d m wide. One tin of paint covers %d m². How many tins are needed for one coat?"
+                   % (_ds(h), w, cover), tins, "int", {"unit": "tins"},
+                   ["Area %s m²." % _ds(area), "%s ÷ %d needs rounding up: %d tin%s." % (_ds(area), cover, tins, "" if tins == 1 else "s")])
+
+    def t_equilateral():
+        s = Decimal(random.randint(11, 99)) / 10
+        return _tb("An equilateral triangle has sides of %s cm. What is its perimeter, in cm?" % _ds(s), _ds(3 * s), "num",
+                   {"unit": "cm"}, ["3 × %s = %s." % (_ds(s), _ds(3 * s))])
+
+    def t_square_area():
+        sd = Decimal(random.randint(11, 59)) / 10
+        return _tb("A square patio has sides of %s m. What is its area, in m²?" % _ds(sd), _ds(sd * sd), "num", {"unit": "m²"},
+                   ["%s × %s = %s." % (_ds(sd), _ds(sd), _ds(sd * sd))])
+
+    return _pick_t([t_rect_p, t_rect_a, t_fence, t_tiles, t_missing, t_carpet, t_width_from_p, t_square_side, t_path, t_paint,
+                    t_equilateral, t_square_area])
 
 
 @skill("Y7.8.h", "Coordinates in all four quadrants", S8)

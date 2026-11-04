@@ -942,7 +942,7 @@ def _(d=1):
         return _numq("%d %s are packed into boxes of %d. How many %s are left "
                      "over?" % (a, thing, b, thing), r,
                      ["%d ÷ %d = %d remainder %d." % (a, b, k, r),
-                      "%d %s are left over." % (r, thing)], unit=thing)
+                      "%s %s left over." % (_pl(r, thing[:-1], thing), "is" if r == 1 else "are")], unit=thing)
 
     def word_round_up():
         return _numq("%d children go on a trip. Each minibus holds %d children. "
@@ -1421,7 +1421,7 @@ def _(d=1):
                      "gives away %d cards. How many cards does %s have left?"
                      % (who, n, per, spent, who), n * per - spent,
                      ["%d × %d = %d cards." % (n, per, n * per),
-                      "%d − %d = %d cards." % (n * per, spent, n * per - spent)],
+                      "%d − %d = %s." % (n * per, spent, _pl(n * per - spent, "card"))],
                      unit="cards")
 
     def two_step_money():
@@ -2195,16 +2195,50 @@ def _(d=1):
                         "%d/100 + %d/100 = %d/100." % (k, step, k + step)],
                        answer="%d/100" % (k + step), placeholder="e.g. 45/100")
 
+    def decimal_tenths():
+        start = random.randint(_by_d(d, 4, 5, 12), _by_d(d, 6, 17, 27))
+        up = random.random() < 0.6
+        seq = [start + (i if up else -i) for i in range(3)]
+        nxt = seq[-1] + (1 if up else -1)
+
+        def f1(v):
+            return ("%.1f" % (v / 10.0)).rstrip("0").rstrip(".")
+        return _numq("Count %s in steps of 0.1:  %s, ___" % ("on" if up else "back", ", ".join(f1(v) for v in seq)), f1(nxt),
+                     ["Each step is one tenth.", "%s %s 0.1 = %s." % (f1(seq[-1]), "+" if up else "−", f1(nxt))],
+                     answer_type="num", placeholder="e.g. 1.4")
+
+    def decimal_hundredths():
+        start = random.randint(12, 95)
+        up = random.random() < 0.5
+        seq = [start + (i if up else -i) for i in range(3)]
+        nxt = seq[-1] + (1 if up else -1)
+        return _numq("Count %s in steps of 0.01:  %s, ___" % ("on" if up else "back", ", ".join("%.2f" % (v / 100.0) for v in seq)),
+                     ("%.2f" % (nxt / 100.0)).rstrip("0").rstrip("."),
+                     ["Each step is one hundredth.", "The next number is %.2f." % (nxt / 100.0)],
+                     answer_type="num", placeholder="e.g. 0.46")
+
+    def tenth_in_hundredths():
+        n = random.randint(1, 89)
+        return _fracq("Start at %d/100 and count on 1 tenth. Which fraction do you reach?" % n, n + 10, 100,
+                      ["1 tenth = 10/100.", "%d/100 + 10/100 = %d/100." % (n, n + 10)], placeholder="e.g. 45/100")
+
+    def missing_middle():
+        n = random.randint(1, 7)
+        return _fracq("Fill the gap in the count:  %d/10, ___, %d/10" % (n, n + 2), n + 1, 10,
+                      ["The count goes up in tenths.", "The missing fraction is %d/10." % (n + 1)], placeholder="e.g. 4/10")
+
     opts = [next_tenth, back_tenth, next_hundredth, back_hundredth,
             sequence_tenths, line_tenths, bar_tenths, how_many_to_whole,
-            count_steps]
+            count_steps, decimal_tenths, tenth_in_hundredths, missing_middle]
     if d == 0:
         opts = [next_tenth, back_tenth, sequence_tenths, line_tenths,
-                bar_tenths, how_many_to_whole, count_steps]
+                bar_tenths, how_many_to_whole, count_steps, decimal_tenths, missing_middle]
     elif d == 2:
         opts = [next_hundredth, back_hundredth, sequence_hundredths,
                 cross_the_whole, hundredths_grid, line_tenths, count_steps,
-                sequence_tenths]
+                sequence_tenths, decimal_tenths, decimal_hundredths, tenth_in_hundredths]
+    if d == 1:
+        opts += [decimal_hundredths]
     opts = opts + [line_tenths, bar_tenths, hundredths_grid]
     return pick(opts)()
 
@@ -2555,10 +2589,9 @@ def _(d=1):
                        % (a, b, tot, tot, den)])
 
     def shade_missing():
-        return _fbq("A whole bar is %d/%d. %d/%d of it has been shaded. "
-                    "Shade the fraction that is still missing to make the whole bar."
+        return _fbq("%d/%d = %d/%d + ? Shade the missing fraction on the bar."
                     % (tot, den, a, den), den, b,
-                    ["%d − %d = %d parts still missing." % (tot, a, b),
+                    ["%d − %d = %s still missing." % (tot, a, _pl(b, "part")),
                      "That is %d/%d." % (b, den)])
 
     def shade_total():
@@ -2581,8 +2614,8 @@ def _(d=1):
         return _fracq("%s needs %d/%d of a metre of ribbon and already has %d/%d "
                       "of a metre. What fraction of a metre does %s still need?"
                       % (who, tot, den, a, den, who), b, den,
-                      ["%d/%d is made of %d/%d and one more part."
-                       % (tot, den, a, den),
+                      ["%d/%d is made of %d/%d and %d/%d more."
+                       % (tot, den, a, den, b, den),
                        "%d/%d − %d/%d = %d/%d." % (tot, den, a, den, b, den)])
 
     def area_decompose():
@@ -2594,16 +2627,35 @@ def _(d=1):
                         ["%d + %d = %d parts." % (x, y, x + y),
                          "Shade %d of the %d parts." % (x + y, parts)])
 
+    def equal_halves():
+        t2 = 2 * random.randint(1, den // 2)
+        return _numq("Split %d/%d into two equal fractions:  %d/%d = ___/%d + ___/%d. What number goes in each gap?"
+                     % (t2, den, t2, den, den, den), t2 // 2,
+                     ["%d ÷ 2 = %d." % (t2, t2 // 2), "%d/%d = %d/%d + %d/%d." % (t2, den, t2 // 2, den, t2 // 2, den)])
+
+    def beyond_whole():
+        x = random.randint(1, den - 1)
+        return _fracq("Write 1 + %d/%d as a single fraction with denominator %d." % (x, den, den), den + x, den,
+                      ["1 = %d/%d." % (den, den), "%d/%d + %d/%d = %d/%d." % (den, den, x, den, den + x, den)],
+                      placeholder="e.g. 9/8")
+
+    def true_false():
+        wrong = random.random() < 0.5
+        shown = "%d/%d" % (tot, 2 * den) if wrong else "%d/%d" % (tot, den)
+        return _wordq("Is this correct?  %d/%d + %d/%d = %s  Type yes or no." % (a, den, b, den, shown), "no" if wrong else "yes",
+                      ["When the denominators are the same, add only the numerators: %d/%d." % (tot, den),
+                       "So the statement is %s." % ("wrong" if wrong else "correct")], placeholder="yes or no")
+
     opts = [missing_part, missing_first, unit_fractions, whole_decompose,
             sum_as_fraction, shade_missing, shade_total, word_two_parts,
-            area_decompose]
+            area_decompose, word_missing, equal_halves, true_false]
     if d == 0:
         opts = [missing_part, missing_first, unit_fractions, whole_decompose,
-                shade_total, word_two_parts, area_decompose]
+                shade_total, word_two_parts, area_decompose, equal_halves, true_false]
     elif d == 2:
         opts = [missing_part, three_parts, three_parts, unit_fractions,
                 whole_decompose, word_missing, word_two_parts, shade_missing,
-                area_decompose]
+                area_decompose, beyond_whole, equal_halves, true_false]
     opts = opts + [shade_total, area_decompose, shade_missing]
     return pick(opts)()
 
@@ -3086,12 +3138,12 @@ def _(d=1):
         p, q = _two_names()
         a = random.randint(1, den - 2)
         b = random.randint(1, den - a - 1)
-        return _fracq("A cake is cut into %d equal pieces. %s takes %d pieces "
-                      "and %s takes %d pieces. What fraction of the cake is "
-                      "left?" % (den, p, a, q, b), den - a - b, den,
-                      ["%d + %d = %d pieces taken." % (a, b, a + b),
-                       "%d − %d = %d pieces left, which is %d/%d."
-                       % (den, a + b, den - a - b, den - a - b, den)])
+        return _fracq("A cake is cut into %d equal pieces. %s takes %s "
+                      "and %s takes %s. What fraction of the cake is "
+                      "left?" % (den, p, _pl(a, "piece"), q, _pl(b, "piece")), den - a - b, den,
+                      ["%d + %d = %s taken." % (a, b, _pl(a + b, "piece")),
+                       "%d − %d = %s left, which is %d/%d."
+                       % (den, a + b, _pl(den - a - b, "piece"), den - a - b, den)])
 
     def fraction_of_quantity():
         per = random.randint(3, 12)

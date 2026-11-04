@@ -574,7 +574,7 @@ def _(d=1):
                      "packs of rolls are needed?" % (a, b), L // a,
                      ["The lowest common multiple of %d and %d is %d."
                       % (a, b, L),
-                      "%d ÷ %d = %s packs of rolls." % (L, a, L // a)],
+                      "%d ÷ %d = %s of rolls." % (L, a, _pl(L // a, "pack"))],
                      unit="packs")
 
     def on_line():
@@ -2138,7 +2138,7 @@ def _(d=1):
         y = random.randint(1, x - 1)
         return _agshade("This area model has %d equal parts. Shade it to show "
                         "%d/%d − %d/%d." % (dd, x, dd, y, dd), dd, x - y,
-                        ["%d − %d = %d parts left." % (x, y, x - y),
+                        ["%d − %d = %s left." % (x, y, _pl(x - y, "part")),
                          "%d/%d − %d/%d = %d/%d."
                          % (x, dd, y, dd, x - y, dd)])
 
@@ -2148,8 +2148,8 @@ def _(d=1):
         y = random.randint(1, dd - x - 1)
         return _nlfrac("Start at %d/%d and count on %d/%d. Mark where you land "
                        "on the number line." % (x, dd, y, dd), x + y, dd, 1,
-                       ["Counting on %d/%d means %d steps of 1/%d."
-                        % (y, dd, y, dd),
+                       ["Counting on %d/%d means %s of 1/%d."
+                        % (y, dd, _pl(y, "step"), dd),
                         "%d/%d + %d/%d = %d/%d."
                         % (x, dd, y, dd, x + y, dd)])
 
@@ -2160,8 +2160,8 @@ def _(d=1):
         return _nlfrac("Start at %d/%d and count back %d/%d. Mark where you "
                        "land on the number line." % (x, dd, y, dd), x - y, dd,
                        1,
-                       ["Counting back %d/%d means %d steps of 1/%d."
-                        % (y, dd, y, dd),
+                       ["Counting back %d/%d means %s of 1/%d."
+                        % (y, dd, _pl(y, "step"), dd),
                         "%d/%d − %d/%d = %d/%d."
                         % (x, dd, y, dd, x - y, dd)])
 
@@ -2683,8 +2683,8 @@ def _(d=1):
                      "the largest activity than on %s?" % cats[i].lower(),
                      cats, vals, max(vals) - vals[i],
                      ["The largest bar is %d hours." % max(vals),
-                      "%d − %d = %d hours." % (max(vals), vals[i],
-                                               max(vals) - vals[i])])
+                      "%d − %d = %s." % (max(vals), vals[i],
+                                          _pl(max(vals) - vals[i], "hour"))])
 
     def data_table_problem():
         rows = []
@@ -2939,8 +2939,8 @@ def _(d=1):
         rows[j][1] = ""
         return _dtq("Each portion of a recipe uses %d/%d of a litre of milk. "
                     "Complete the table: type the numerator of the amount "
-                    "needed for %d portions, over the denominator %d."
-                    % (num, den, j + 1, den), ["Portions", "Litres of milk"],
+                    "needed for %s, over the denominator %d."
+                    % (num, den, _pl(j + 1, "portion"), den), ["Portions", "Litres of milk"],
                     rows, ans,
                     ["%d/%d × %d = %d/%d." % (num, den, j + 1, ans, den),
                      "The numerator is %d." % ans], missing=(j, 1),
@@ -3265,9 +3265,9 @@ def _(d=1):
         shaded = random.randint(1, parts - 1)
         each = random.randint(2, 12)
         return _agread("This area model shows a bag of %d sweets split into %d "
-                       "equal parts, with %d parts shaded. How many sweets "
+                       "equal parts, with %s shaded. How many sweets "
                        "does the shaded part represent?"
-                       % (parts * each, parts, shaded), parts, shaded,
+                       % (parts * each, parts, _pl(shaded, "part")), parts, shaded,
                        ["%d ÷ %d = %d sweets in each part."
                         % (parts * each, parts, each),
                         "%d × %d = %d sweets." % (each, shaded,
@@ -3484,9 +3484,9 @@ def _(d=1):
         small, big = min(a, b), max(a, b)
         if small == big:
             small = max(1, big - 1)
-        return _fracq("%d cakes are shared equally between %d children. What "
+        return _fracq("%s %s shared equally between %d children. What "
                       "fraction of a cake does each child get?"
-                      % (small, big), small, big,
+                      % (_pl(small, "cake"), "is" if small == 1 else "are", big), small, big,
                       ["%d ÷ %d = %d/%d." % (small, big, small, big),
                        "Each child gets %d/%d of a cake." % (small, big)])
 
@@ -3532,19 +3532,19 @@ def _(d=1):
     def shade_share():
         dd = pick([3, 4, 5, 6, 8, 10, 12])
         nn = random.randint(1, dd - 1)
-        return _fbq("%d cakes are shared equally between %d people. This bar "
+        return _fbq("%s %s shared equally between %d people. This bar "
                     "shows one whole cake in %d equal parts — shade the amount "
-                    "one person gets." % (nn, dd, dd), dd, nn,
+                    "one person gets." % (_pl(nn, "cake"), "is" if nn == 1 else "are", dd, dd), dd, nn,
                     ["%d ÷ %d = %d/%d of a cake each." % (nn, dd, nn, dd),
                      "Shade %s." % _pl(nn, "part")])
 
     def area_share():
         parts = pick([4, 6, 8, 10, 12])
         nn = random.randint(1, parts - 1)
-        return _agshade("%d loaves of bread are shared equally between %d "
+        return _agshade("%s of bread %s shared equally between %d "
                         "families. This area model shows one whole loaf in %d "
                         "equal parts. Shade the amount one family gets."
-                        % (nn, parts, parts), parts, nn,
+                        % (_pl(nn, "loaf", "loaves"), "is" if nn == 1 else "are", parts, parts), parts, nn,
                         ["%d ÷ %d = %d/%d of a loaf each."
                          % (nn, parts, nn, parts),
                          "Shade %d of the %d parts." % (nn, parts)])
@@ -3606,11 +3606,12 @@ def _(d=1):
         while Fraction(a1, b1) == Fraction(a2, b2):
             a2 = random.randint(1, 5)
         winner = p if Fraction(a1, b1) > Fraction(a2, b2) else q
-        return _wordq("%d cakes are shared between %d children in %s's group, "
-                      "and %d cakes are shared between %d children in %s's "
+        return _wordq("%s %s shared between %d children in %s's group, "
+                      "and %s %s shared between %d children in %s's "
                       "group. In which group does each child get more? Type "
                       "the name of the person whose group it is."
-                      % (a1, b1, p, a2, b2, q), winner,
+                      % (_pl(a1, "cake"), "is" if a1 == 1 else "are", b1, p,
+                         _pl(a2, "cake"), "is" if a2 == 1 else "are", b2, q), winner,
                       ["%d ÷ %d = %d/%d and %d ÷ %d = %d/%d."
                        % (a1, b1, a1, b1, a2, b2, a2, b2),
                        "%s's group gets more each." % winner],
@@ -3778,8 +3779,8 @@ def _(d=1):
                         % (parts, _pl(a, "strip"), _pl(b, "strip")), parts,
                         left,
                         ["%d + %d = %d strips are used." % (a, b, a + b),
-                         "%d − %d = %d strips are left, which is %d/%d."
-                         % (parts, a + b, left, left, parts)])
+                         "%d − %d = %s left, which is %d/%d."
+                         % (parts, a + b, _pl(left, "strip"), left, parts)])
 
     def line_two_step():
         dd = pick([6, 8, 10, 12])
@@ -3814,8 +3815,6 @@ def _(d=1):
     def divide_then_multiply():
         dd = pick([2, 3, 4])
         k = random.randint(2, 4)
-        nn = 1
-        m = random.randint(2, 5)
         return _fracq("A cake is cut so that each person gets 1/%d of it. Each "
                       "of those pieces is then split equally between %d "
                       "children. What fraction of the whole cake does each "
@@ -3836,16 +3835,54 @@ def _(d=1):
                       "%d − %d = %d." % (n1 * per, n2 * per,
                                          (n1 - n2) * per)])
 
+    def reverse_left():
+        dd = pick([3, 4, 5, 8])
+        nn = random.randint(1, dd - 1)
+        per = random.randint(2, _by_d(d, 6, 12, 25))
+        start = dd * per
+        who = pick(NAMES)
+        return _numq("%s spends %d/%d of their savings and has £%d left. How much did %s have to start with, in pounds?"
+                     % (who, nn, dd, (dd - nn) * per, who), start,
+                     ["%d/%d is left, and that is £%d." % (dd - nn, dd, (dd - nn) * per),
+                      "So 1/%d is £%d ÷ %d = £%d." % (dd, (dd - nn) * per, dd - nn, per),
+                      "The whole is %d × £%d = £%d." % (dd, per, start)], unit="£")
+
+    def what_fraction_left():
+        d1, d2 = random.sample([2, 3, 4, 5, 6, 8], 2)
+        f = Fraction(1, d1) + Fraction(1, d2)
+        left = 1 - f
+        thing, a, b = pick([("garden", "grass", "flowers"), ("class", "walk to school", "come by bus"),
+                            ("bookshelf", "stories", "atlases")])
+        return _fracq("In a %s, 1/%d is %s and 1/%d is %s. What fraction is left for everything else?"
+                      % (thing, d1, a, d2, b) if thing != "class" else
+                      "In a class, 1/%d of the children %s and 1/%d %s. What fraction of the class travel some other way?"
+                      % (d1, a, d2, b), left.numerator, left.denominator,
+                      ["1/%d + 1/%d = %d/%d." % (d1, d2, f.numerator, f.denominator),
+                       "1 − %d/%d = %d/%d." % (f.numerator, f.denominator, left.numerator, left.denominator)])
+
+    def how_much_more():
+        a, b = random.sample([Fraction(2, 5), Fraction(3, 8), Fraction(1, 2), Fraction(2, 3), Fraction(3, 4), Fraction(1, 3)], 2)
+        big, small = max(a, b), min(a, b)
+        diff = big - small
+        who1, who2 = random.sample(NAMES, 2)
+        return _fracq("%s eats %d/%d of a pizza. %s eats %d/%d of an identical pizza. How much more pizza does %s eat? "
+                      "Give the answer as a fraction." % (who1, big.numerator, big.denominator, who2, small.numerator,
+                                                          small.denominator, who1), diff.numerator, diff.denominator,
+                      ["Use a common denominator: %d/%d − %d/%d." % (big.numerator, big.denominator, small.numerator,
+                                                                     small.denominator),
+                       "The difference is %d/%d." % (diff.numerator, diff.denominator)])
+
     opts = [fraction_then_remainder, add_then_of, fraction_of_fraction,
             strip_two_step, bar_two_step, recipe_table, area_two_step,
-            line_two_step, mixed_multi]
+            line_two_step, mixed_multi, money_two_steps, reverse_left, what_fraction_left, how_much_more]
     if d == 0:
         opts = [add_then_of, strip_two_step, bar_two_step, area_two_step,
-                line_two_step, recipe_table]
+                line_two_step, recipe_table, money_two_steps, reverse_left]
     elif d == 2:
         opts = [fraction_then_remainder, fraction_of_fraction, mixed_multi,
                 divide_then_multiply, difference_of_fractions_of,
-                recipe_table, bar_two_step, area_two_step, line_two_step]
+                recipe_table, bar_two_step, area_two_step, line_two_step, reverse_left, what_fraction_left,
+                how_much_more]
     opts = opts + [area_two_step, line_two_step, strip_two_step]
     return pick(opts)()
 

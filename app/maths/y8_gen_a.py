@@ -466,7 +466,7 @@ def _(d=1):
         ans = Decimal(whole) + Decimal(k) / 10
         return _nl("Place %s on the number line." % _fmt(ans), ans,
                    whole, whole + 1, Decimal("0.1"), Decimal("0.5"),
-                   ["%s is %d tenths past %d." % (_fmt(ans), k, whole)])
+                   ["%s is %d %s past %d." % (_fmt(ans), k, "tenth" if k == 1 else "tenths", whole)])
 
     return _pick_t([t_digit_value, t_place_of, t_value_worth, t_greater, t_smaller,
                     t_symbol, t_order_smallest, t_order_largest, t_nth],
@@ -499,12 +499,13 @@ def _(d=1):
                       "%s rounds to %s." % (_fmt(x), _fmt(ans))])
 
     def t_sf_small():
-        whole = random.randint(0, 0 if d == 0 else 9)
-        frac = "".join(str(random.randint(0, 9)) for _ in range(5))
-        x = Decimal("%d.%s" % (whole, frac))
-        if x == 0:
-            x = Decimal("0.4713")
         sig = random.randint(1, 3 if d else 2)
+        while True:                                   # the number must need rounding
+            whole = random.randint(0, 0 if d == 0 else 9)
+            frac = "".join(str(random.randint(0, 9)) for _ in range(5))
+            x = Decimal("%d.%s" % (whole, frac))
+            if x != 0 and _sfround(x, sig) != x:
+                break
         ans = _sfround(x, sig)
         return _numq("Round %s to %d significant figure%s."
                      % (_fmt(x), sig, "" if sig == 1 else "s"), _fmt(ans),
@@ -512,9 +513,12 @@ def _(d=1):
                       "%s to %d s.f. is %s." % (_fmt(x), sig, _fmt(ans))])
 
     def t_sf_big():
-        n = random.randint(1000, 999999) if d else random.randint(100, 9999)
-        sig = random.randint(1, 3)
-        ans = _sfround(Decimal(n), sig)
+        while True:                                   # the number must need rounding
+            n = random.randint(1000, 999999) if d else random.randint(100, 9999)
+            sig = random.randint(1, 3)
+            ans = _sfround(Decimal(n), sig)
+            if ans != n:
+                break
         return _numq("Round %d to %d significant figure%s."
                      % (n, sig, "" if sig == 1 else "s"), _fmt(ans),
                      ["Keep %d significant figure%s, the rest become zeros."
@@ -533,7 +537,7 @@ def _(d=1):
                       "£%s to 2 d.p. is £%s." % (_fmt(raw), _fmt(ans))], unit="£")
 
     def t_measure():
-        x = Decimal(random.randint(100, 9999)) / 100
+        x = Decimal(pick([n for n in range(100, 10000) if n % 10])) / 100     # always 2 d.p. to round
         who = pick(NAMES)
         ans = _dround(x, 1)
         return _numq("%s measures a plank as %s m. Round this length to 1 decimal "
@@ -590,8 +594,9 @@ def _(d=1):
         step = pick([1, 2])
         ans = lo + step * random.randint(1, 9)
         return _nl("Place %d on the number line." % ans, ans, lo, lo + step * 10,
-                   step, step * 5, ["%d is %d steps of %d past %d."
-                                    % (ans, (ans - lo) // step, step, lo)])
+                   step, step * 5, ["%d is %d %s of %d past %d."
+                                    % (ans, (ans - lo) // step,
+                                       "step" if ans - lo == step else "steps", step, lo)])
 
     def t_int_neg():
         span = pick([10, 20])
@@ -607,7 +612,7 @@ def _(d=1):
         ans = Decimal(whole) + Decimal(k) / 10
         return _nl("Place %s on the number line." % _fmt(ans), ans, whole, whole + 1,
                    Decimal("0.1"), Decimal("0.5"),
-                   ["%s is %d tenths past %d." % (_fmt(ans), k, whole)])
+                   ["%s is %d %s past %d." % (_fmt(ans), k, "tenth" if k == 1 else "tenths", whole)])
 
     def t_dec_neg():
         whole = -random.randint(1, 4)
@@ -1325,7 +1330,8 @@ def _(d=1):
         c = sum(1 for x in xs if x % k == 0)
         return _tb("How many of these numbers are divisible by %d?   %s" % (k, _lst(xs)),
                    c, "int", {},
-                   ["The multiples of %d are %s." % (k, _lst([x for x in xs if x % k == 0])),
+                   ["The multiples of %d are %s." % (k, _lst([x for x in xs if x % k == 0]))
+                    if c else "No number in the list is a multiple of %d." % k,
                     "That is %d of them." % c])
 
     def t_not_div():
@@ -1692,8 +1698,8 @@ def _(d=1):
         a, b = _pair()
         l = _lcm(a, b)
         i = random.randint(2, 3)
-        return _tb("The common multiples of %d and %d are %d, %d, %d, ... What is the "
-                   "%s common multiple?" % (a, b, l, 2 * l, 3 * l, ordinal(i)),
+        return _tb("The lowest common multiple of %d and %d is %d. What is their "
+                   "%s common multiple?" % (a, b, l, ordinal(i)),
                    l * i, "int", {},
                    ["Common multiples are multiples of the LCM %d." % l,
                     "The %s is %d × %d = %d." % (ordinal(i), i, l, i * l)])

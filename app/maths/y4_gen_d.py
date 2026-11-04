@@ -238,8 +238,8 @@ def _(d=1):
         return _num_q("Here is a decimal expressed in words: '%s'. "
                       "Write it as a decimal number." % _dec_words(c),
                       _h(c), "num",
-                      solution=["'%s' means %d hundredths in all."
-                                % (_dec_words(c), c),
+                      solution=["'%s' means %s in all."
+                                % (_dec_words(c), _pl(c, "hundredth")),
                                 "As a decimal that is %s." % _dec_text(c)])
 
     if t == 11:                      # decimal read out in words -> decimal
@@ -263,7 +263,7 @@ def _(d=1):
                           "Shade %s of it." % _dec_text(c),
                 "component": "area_grid", "spec": {"mode": "fraction", "parts": 100},
                 "answer": "%d/100" % c, "answer_type": "frac",
-                "solution": ["%s means %d hundredths." % (_dec_text(c), c),
+                "solution": ["%s means %s." % (_dec_text(c), _pl(c, "hundredth")),
                              "Shade %d of the 100 small squares." % c]}
 
     if t == 1:                       # read the hundredths square as a fraction
@@ -273,7 +273,7 @@ def _(d=1):
                 "component": "area_grid",
                 "spec": {"mode": "fraction_read", "parts": 100, "shaded": c},
                 "answer": "%d/100" % c, "answer_type": "frac",
-                "solution": ["%d parts out of 100 are shaded." % c,
+                "solution": ["%s out of 100 %s shaded." % ("1 part" if c == 1 else "%d parts" % c, "is" if c == 1 else "are"),
                              "The fraction is %d/100." % c]}
 
     if t == 2:                       # read the hundredths square as a decimal
@@ -284,7 +284,7 @@ def _(d=1):
                 "component": "area_grid",
                 "spec": {"mode": "fraction_read", "parts": 100, "shaded": c},
                 "answer": _h(c), "answer_type": "num",
-                "solution": ["%d/100 is %d hundredths." % (c, c),
+                "solution": ["%d/100 is %s." % (c, _pl(c, "hundredth")),
                              "As a decimal that is %s." % _dec_text(c)]}
 
     if t == 3:                       # tenths on a ten-part model
@@ -301,8 +301,7 @@ def _(d=1):
         num = random.randint(1, den - 1)
         return _num_q("Write %d/%d as a decimal." % (num, den),
                       round(num / float(den), 2), "num",
-                      solution=["%d/%d means %d %s." % (num, den, num,
-                                "tenths" if den == 10 else "hundredths"),
+                      solution=["%d/%d means %s." % (num, den, _pl(num, "tenth" if den == 10 else "hundredth")),
                                 "As a decimal that is %s." % _n(num / float(den))])
 
     if t == 5:                       # decimal -> fraction
@@ -310,7 +309,7 @@ def _(d=1):
         return _num_q("Write %s as a fraction with a denominator of 100."
                       % _dec_text(c),
                       "%d/100" % c, "frac", text=True, placeholder="e.g. 37/100",
-                      solution=["%s is %d hundredths." % (_dec_text(c), c),
+                      solution=["%s is %s." % (_dec_text(c), _pl(c, "hundredth")),
                                 "That is %d/100." % c])
 
     if t == 6:                       # how many hundredths / tenths
@@ -368,7 +367,7 @@ def _(d=1):
                    (7, 20, 0.35), (1, 25, 0.04), (3, 25, 0.12), (7, 100, 0.07),
                    (33, 100, 0.33), (9, 100, 0.09)])
     num, den, dec = pick(pairs)
-    t = _pick_t([1, 1, 2, 2, 1, 1, 1, 2, 1, 1])
+    t = _pick_t([1, 1, 2, 2, 1, 1, 1, 2, 1, 2, 1, 1, 1])
 
     if t == 0:                       # fraction -> decimal
         return _num_q("Write %d/%d as a decimal." % (num, den), dec, "num",
@@ -378,7 +377,7 @@ def _(d=1):
     if t == 1:                       # decimal -> fraction
         return _num_q("Write %s as a fraction." % _n(dec),
                       "%d/%d" % (num, den), "frac", text=True, placeholder="e.g. 3/4",
-                      solution=["%s is %d hundredths." % (_n(dec), int(round(dec * 100))),
+                      solution=["%s is %s." % (_n(dec), _pl(int(round(dec * 100)), "hundredth")),
                                 "%d/100 = %d/%d." % (int(round(dec * 100)), num, den)])
 
     if t == 2:                       # shade a bar to match a decimal
@@ -408,7 +407,7 @@ def _(d=1):
                           solution=["%d/%d is the same as %s." % (num, den, _n(dec))])
         return _num_q("Complete: %s = ___/100 (write the missing numerator)" % _n(dec),
                       int(round(dec * 100)), "int",
-                      solution=["%s is %d hundredths." % (_n(dec), int(round(dec * 100))),
+                      solution=["%s is %s." % (_n(dec), _pl(int(round(dec * 100)), "hundredth")),
                                 "So %s = %d/100." % (_n(dec), int(round(dec * 100)))])
 
     if t == 5:                       # word problem
@@ -447,6 +446,29 @@ def _(d=1):
                                 "%d + %s = %s." % (whole, _n(f_dec),
                                                    _n(whole + f_dec))])
 
+    if t == 9:                       # read a shaded grid, answer as a decimal
+        parts = pick([10, 100]) if d else 10
+        k = random.randint(1, parts - 1)
+        return {"prompt": "What fraction of the grid is shaded? Write it as a decimal.", "component": "area_grid",
+                "spec": {"mode": "fraction_read", "parts": parts, "shaded": k, "placeholder": "e.g. 0.3"},
+                "answer": _n(k / float(parts)), "answer_type": "num",
+                "solution": ["%d of the %d equal parts %s shaded: %d/%d." % (k, parts, "is" if k == 1 else "are", k, parts),
+                             "%d/%d = %s." % (k, parts, _n(k / float(parts)))]}
+
+    if t == 10:                      # measures context
+        what, unit = pick([("A jug holds", "litre"), ("A ribbon is", "metre"), ("A bag of rice weighs", "kilogram")])
+        return _num_q("%s %d/%d of a %s. Write this as a decimal number of %ss." % (what, num, den, unit, unit), dec, "num",
+                      solution=["%d/%d = %s." % (num, den, _n(dec)), "So it is %s %ss." % (_n(dec), unit)])
+
+    if t == 11:                      # tenths and hundredths in words
+        if random.random() < 0.5 or d == 0:
+            k = random.randint(1, 9)
+            return _num_q("Write %s %s as a decimal." % (n_words(k), "tenth" if k == 1 else "tenths"), _n(k / 10.0), "num",
+                          solution=["%d/10 = %s." % (k, _n(k / 10.0))])
+        k = random.choice([x for x in range(1, 100) if x % 10])
+        return _num_q("Write %s %s as a decimal." % (n_words(k), "hundredth" if k == 1 else "hundredths"), _n(k / 100.0), "num",
+                      solution=["%d/100 = %s." % (k, _n(k / 100.0))])
+
     # how many tenths
     tenth_dec = pick([0.2, 0.4, 0.5, 0.6, 0.8, 0.9, 0.3, 0.7])
     return _num_q("How many tenths is %s the same as?" % _n(tenth_dec),
@@ -479,14 +501,14 @@ def _(d=1):
                           "Write it as a decimal." % (hund, txt),
                           round(hund / 100.0, 2), "num",
                           solution=["The %d is in the hundredths place." % hund,
-                                    "Its value is %d hundredths = %s."
-                                    % (hund, _n(hund / 100.0))])
+                                    "Its value is %s = %s."
+                                    % (_pl(hund, "hundredth"), _n(hund / 100.0))])
         return _num_q("What is the value of the digit %d in %s? "
                       "Write it as a decimal." % (tenths, txt),
                       round(tenths / 10.0, 2), "num",
                       solution=["The %d is in the tenths place." % tenths,
-                                "Its value is %d tenths = %s."
-                                % (tenths, _n(tenths / 10.0))])
+                                "Its value is %s = %s."
+                                % (_pl(tenths, "tenth"), _n(tenths / 10.0))])
 
     if t == 1:                       # which digit is in a named place
         place = pick(["tenths", "hundredths"]) if hund else "tenths"
@@ -505,13 +527,13 @@ def _(d=1):
                           % (_pl(w, "one"), _pl(tenths, "tenth"),
                              _pl(hund, "hundredth")),
                           v2, "num",
-                          solution=["%d ones = %d, %d tenths = %s, %d hundredths = %s."
-                                    % (w, w, tenths, _n(tenths / 10.0),
-                                       hund, _n(hund / 100.0)),
+                          solution=["%s = %d, %s = %s, %s = %s."
+                                    % (_pl(w, "one"), w, _pl(tenths, "tenth"), _n(tenths / 10.0),
+                                       _pl(hund, "hundredth"), _n(hund / 100.0)),
                                     "Altogether that is %s." % _n(v2)])
         return _num_q("Write the number that is %s and %s."
                       % (_pl(w, "one"), _pl(tenths, "tenth")), v2, "num",
-                      solution=["%d ones and %d tenths is %s." % (w, tenths, _n(v2))])
+                      solution=["%s and %s is %s." % (_pl(w, "one"), _pl(tenths, "tenth"), _n(v2))])
 
     if t == 3:                       # partition, missing part
         if hund:
@@ -522,7 +544,7 @@ def _(d=1):
                                     "The missing part is %s." % _n(hund / 100.0)])
         return _num_q("Complete the partition: %s = %d + ___" % (txt, whole),
                       round(tenths / 10.0, 2), "num",
-                      solution=["%s is %d ones and %d tenths." % (txt, whole, tenths),
+                      solution=["%s is %s and %s." % (txt, _pl(whole, "one"), _pl(tenths, "tenth")),
                                 "The missing part is %s." % _n(tenths / 10.0)])
 
     if t == 4:                       # how many hundredths altogether
@@ -530,7 +552,7 @@ def _(d=1):
         return _num_q("How many hundredths are there altogether in %s?" % txt,
                       total_h, "int", unit="hundredths",
                       solution=["1 whole = 100 hundredths.",
-                                "%s = %d hundredths." % (txt, total_h)])
+                                "%s = %s." % (txt, _pl(total_h, "hundredth"))])
 
     if t == 5:                       # hundredths square place value (visual)
         c = random.randint(11, 99)
@@ -741,8 +763,8 @@ def _(d=1):
         return _line_q("Graph the decimal %s on the number line."
                        % _dec_text(c), _h(c), w, w + 1, 0.01, 0.1,
                        ["Each small step on the number line is one hundredth, or 0.01.",
-                        "%s is %d hundredths past %d." % (_dec_text(c),
-                                                          c - w * 100, w)])
+                        "%s is %s past %d." % (_dec_text(c),
+                                                 _pl(c - w * 100, "hundredth"), w)])
 
     if t == 0:                       # place a decimal, tenths line
         c = random.randrange(1, 20) * 10
@@ -970,9 +992,10 @@ def _(d=1):
         b = b % 500 + 100
         while b == a:
             b = random.randint(100, 600)
-        return _num_q("%s jumped %s metres and %s jumped %s metres. "
+        return _num_q("%s jumped %s and %s jumped %s. "
                       "Who jumped further? Type the name."
-                      % (p, _dec_text(a), q, _dec_text(b)),
+                      % (p, _dec_text(a) + (" metre" if a == 100 else " metres"), q,
+                         _dec_text(b) + (" metre" if b == 100 else " metres")),
                       p if a > b else q, "str", text=True, placeholder="a name",
                       solution=["%s m and %s m: compare the tenths and hundredths."
                                 % (_dec_text(a), _dec_text(b)),
@@ -1036,7 +1059,7 @@ def _(d=1):
         frac = random.randrange(1, 100) if d else random.randrange(1, 10) * 10
         return w * 100 + frac
 
-    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 1])
+    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
     if t == 0:                       # bare rounding
         v = _v()
@@ -1134,6 +1157,44 @@ def _(d=1):
                       solution=["The tenths digit is %d, which is less than 5."
                                 % ((v // 10) % 10),
                                 "So %s rounds down to %d." % (_dec_text(v), w)])
+
+    if t == 9:                       # estimate a sum by rounding
+        a, b = _v(), _v()
+        ra, rb = _round_half_up(a / 100.0), _round_half_up(b / 100.0)
+        return _num_q("Round each number to the nearest whole number, then add to estimate:  %s + %s"
+                      % (_dec_text(a), _dec_text(b)), ra + rb, "int",
+                      solution=["%s rounds to %d and %s rounds to %d." % (_dec_text(a), ra, _dec_text(b), rb),
+                                "%d + %d = %d." % (ra, rb, ra + rb)])
+
+    if t == 10:                      # closer to which whole number
+        w = random.randint(1, 19)
+        f = random.choice([x for x in range(1, 10) if x != 5])
+        v = w * 100 + 10 * f
+        return _num_q("Is %s closer to %d or to %d? Write the closer whole number." % (_dec_text(v), w, w + 1),
+                      w if f < 5 else w + 1, "int",
+                      solution=["%s is %s tenths past %d." % (_dec_text(v), n_words(f), w),
+                                "So it is closer to %d." % (w if f < 5 else w + 1)])
+
+    if t == 11:                      # how many in a list round to a target
+        w = random.randint(3, 15)
+        vals = [w * 100 + random.randint(-49, 49) for _ in range(3)] + [w * 100 + pick([-1, 1]) * random.randint(51, 99)
+                                                                         for _ in range(random.randint(1, 2))]
+        random.shuffle(vals)
+        k = sum(1 for v in vals if _round_half_up(v / 100.0) == w)
+        return _num_q("How many of these round to %d?   %s" % (w, ", ".join(_dec_text(v) for v in vals)), k, "int",
+                      solution=["Numbers from %s up to (but not including) %s round to %d."
+                                % (_dec_text(w * 100 - 50), _dec_text(w * 100 + 50), w),
+                                "%d of them do." % k])
+
+    if t == 12:                      # mass / time contexts
+        who = pick(NAMES)
+        v = random.randint(105, 995)
+        what, unit = pick([("%s's parcel weighs %s kg.", "kg"), ("%s ran for %s minutes.", "minutes"),
+                           ("%s's pumpkin weighs %s kg.", "kg")])
+        return _num_q((what % (who, _dec_text(v))) + " Round this to the nearest whole number.",
+                      _round_half_up(v / 100.0), "int", unit=unit,
+                      solution=["The tenths digit is %d." % ((v // 10) % 10),
+                                "%s rounds to %d." % (_dec_text(v), _round_half_up(v / 100.0))])
 
     # how much must be added to reach the next whole number
     v = _v()
@@ -1236,7 +1297,7 @@ def _(d=1):
     # single digit ÷ 100
     n = random.randint(1, 9)
     return _num_q("What is %d ÷ 100?" % n, round(n / 100.0, 2), "num",
-                  solution=["%d ÷ 100 gives %d hundredths." % (n, n),
+                  solution=["%d ÷ 100 gives %s." % (n, _pl(n, "hundredth")),
                             "That is 0.0%d." % n])
 
 
@@ -1646,7 +1707,7 @@ def _(d=1):
                         "What number belongs in the blank cell, in litres?",
                         ["Capacity in l", "Capacity in ml"], rows, vals[k], "int",
                         ["1000 ml = 1 litre.",
-                         "%d ÷ 1000 = %d litres." % (vals[k] * 1000, vals[k])],
+                         "%d ÷ 1000 = %s." % (vals[k] * 1000, _pl(vals[k], "litre"))],
                         missing=(k, 0))
 
     if t == 11:                      # greater or smaller volume
@@ -1684,7 +1745,7 @@ def _(d=1):
         return _num_q("How many litres are there in %d ml?" % (v * 1000), v, "int",
                       unit="l",
                       solution=["1000 ml = 1 litre.",
-                                "%d ÷ 1000 = %d litres." % (v * 1000, v)])
+                                "%d ÷ 1000 = %s." % (v * 1000, _pl(v, "litre"))])
 
     if t == 2:                       # mixed -> ml
         l = random.randint(1, 9)
@@ -2002,8 +2063,8 @@ def _(d=1):
                           "heavier mass in ounces." % (_pl(lb, "pound"),
                                                        _pl(oz, "ounce")),
                           max(lb * 16, oz), "int", unit="ounces",
-                          solution=["1 pound = 16 ounces, so %d pounds = %d ounces."
-                                    % (lb, lb * 16),
+                          solution=["1 pound = 16 ounces, so %s = %d ounces."
+                                    % (_pl(lb, "pound"), lb * 16),
                                     "The heavier mass is %d ounces." % max(lb * 16, oz)])
         g = random.randint(1, 5)
         pt = random.randint(max(1, g * 8 - 6), g * 8 + 6)
@@ -2013,8 +2074,8 @@ def _(d=1):
                       "amount in pints." % (_pl(g, "gallon"), _pl(pt, "pint")),
                       max(g * 8, pt), "int",
                       unit="pints",
-                      solution=["1 gallon = 8 pints, so %d gallons = %d pints."
-                                % (g, g * 8),
+                      solution=["1 gallon = 8 pints, so %s = %d pints."
+                                % (_pl(g, "gallon"), g * 8),
                                 "The larger amount is %d pints." % max(g * 8, pt)])
 
     if t == 8:                       # word problem with a remainder
@@ -2219,7 +2280,7 @@ def _(d=1):
                   "You may use 1p, 2p, 5p, 10p, 20p and 50p coins." % money(amount),
                   count, "int", unit="coins",
                   solution=["Start with the largest coins that fit.",
-                            "%s needs %d coins." % (money(amount), count)])
+                            "%s needs %s." % (money(amount), _pl(count, "coin"))])
 
 
 @skill("Y4.7.g", "Add and subtract money, and give change", S7)
@@ -2267,9 +2328,9 @@ def _(d=1):
         a = random.randint(30, paid // 3)
         b = random.randint(30, paid // 3)
         who = pick(NAMES)
-        return _num_q("%s buys a %s for %s and a %s for %s, and pays with %s. "
+        return _num_q("%s buys %s for %s and %s for %s, and pays with %s. "
                       "How much change, in pence?"
-                      % (who, pick(_FOOD), money(a), pick(_SHOP), money(b),
+                      % (who, _a(pick(_FOOD)), money(a), _a(pick(_SHOP)), money(b),
                          money(paid)),
                       paid - a - b, "int", unit="p",
                       solution=["%d + %d = %d p spent." % (a, b, a + b),
@@ -2351,8 +2412,8 @@ def _(d=1):
     if t == 0:                       # total of two named items
         names, prices, rows = _list()
         i, j = random.sample(range(4), 2)
-        return _table_q("Use the price list. How much do a %s and a %s cost "
-                        "altogether, in pence?" % (names[i], names[j]),
+        return _table_q("Use the price list. How much do %s and %s cost "
+                        "altogether, in pence?" % (_a(names[i]), _a(names[j])),
                         ["Item", "Price"], rows, prices[i] + prices[j], "int",
                         ["%s + %s = %s." % (money(prices[i]), money(prices[j]),
                                             money(prices[i] + prices[j])),
@@ -2363,8 +2424,8 @@ def _(d=1):
         i, j = random.sample(range(4), 2)
         hi_i = i if prices[i] > prices[j] else j
         lo_i = j if hi_i == i else i
-        return _table_q("Use the price list. How much more does a %s cost than "
-                        "a %s, in pence?" % (names[hi_i], names[lo_i]),
+        return _table_q("Use the price list. How much more does %s cost than "
+                        "%s, in pence?" % (_a(names[hi_i]), _a(names[lo_i])),
                         ["Item", "Price"], rows,
                         prices[hi_i] - prices[lo_i], "int",
                         ["%s − %s = %s." % (money(prices[hi_i]), money(prices[lo_i]),
@@ -2389,9 +2450,9 @@ def _(d=1):
         while prices[i] >= paid:
             prices[i] = random.randint(35, paid - 20)
             rows[i][1] = money(prices[i])
-        return _table_q("Use the price list. %s buys a %s and pays with %s. "
+        return _table_q("Use the price list. %s buys %s and pays with %s. "
                         "How much change, in pence?"
-                        % (pick(NAMES), names[i], money(paid)),
+                        % (pick(NAMES), _a(names[i]), money(paid)),
                         ["Item", "Price"], rows, paid - prices[i], "int",
                         ["%s − %s = %s." % (money(paid), money(prices[i]),
                                             money(paid - prices[i])),
@@ -2455,9 +2516,9 @@ def _(d=1):
     who = pick(NAMES)
     per = random.randint(35, 300)
     k = random.randint(2, 6)
-    return _num_q("%s and %d friends share the cost of a present equally. The present "
+    return _num_q("%s and %s share the cost of a present equally. The present "
                   "costs %s in total and there are %d people paying. How much does "
-                  "each person pay, in pence?" % (who, k - 1, money(per * k), k),
+                  "each person pay, in pence?" % (who, _pl(k - 1, "friend"), money(per * k), k),
                   per, "int", unit="p",
                   solution=["%d ÷ %d = %d p." % (per * k, k, per),
                             "Each person pays %s." % money(per)])
@@ -2763,7 +2824,7 @@ def _(d=1):
         return _num_q("How many minutes are there in %s %s?"
                       % (_pl(h, "hour"), _pl(m, "minute")),
                       h * 60 + m, "int", unit="minutes",
-                      solution=["%d hours = %d minutes." % (h, h * 60),
+                      solution=["%s = %d minutes." % (_pl(h, "hour"), h * 60),
                                 "%d + %d = %d minutes." % (h * 60, m, h * 60 + m)])
 
     if t == 6:                       # minutes -> mixed (leftover minutes)
@@ -2772,7 +2833,7 @@ def _(d=1):
         total = h * 60 + m
         return _num_q("%d minutes is the same as %s and how many minutes?"
                       % (total, _pl(h, "hour")), m, "int", unit="minutes",
-                      solution=["%d hours = %d minutes." % (h, h * 60),
+                      solution=["%s = %d minutes." % (_pl(h, "hour"), h * 60),
                                 "%d − %d = %d minutes." % (total, h * 60, m)])
 
     if t == 7:                       # weeks / years / calendar facts
@@ -2814,7 +2875,7 @@ def _(d=1):
     return _num_q("%s spends %s %s on a bike ride. How long is the "
                   "ride in minutes?" % (who, _pl(h, "hour"), _pl(m, "minute")),
                   h * 60 + m, "int", unit="minutes",
-                  solution=["%d hours = %d minutes." % (h, h * 60),
+                  solution=["%s = %d minutes." % (_pl(h, "hour"), h * 60),
                             "%d + %d = %d minutes." % (h * 60, m, h * 60 + m)])
 
 
@@ -2851,8 +2912,8 @@ def _(d=1):
                         ["Year", "Event"], rows, years[j] - years[i], "int",
                         ["%s in %d and %s in %d."
                          % (events[i].capitalize(), years[i], events[j], years[j]),
-                         "%d − %d = %d years." % (years[j], years[i],
-                                                  years[j] - years[i])],
+                         "%d − %d = %s." % (years[j], years[i],
+                                             _pl(years[j] - years[i], "year"))],
                         )
 
     if t == 11:                      # timeline: span, or the year of an event
@@ -2863,15 +2924,15 @@ def _(d=1):
                             ["Year", "Event"], rows, years[3] - years[0], "int",
                             ["The first event was in %d and the last in %d."
                              % (years[0], years[3]),
-                             "%d − %d = %d years." % (years[3], years[0],
-                                                      years[3] - years[0])])
+                             "%d − %d = %s." % (years[3], years[0],
+                                                 _pl(years[3] - years[0], "year"))])
         k = random.randrange(4)
         gap = random.randint(1, max(2, min(40, 2020 - years[k])))
         return _table_q("The timeline shows four events. How many years after %s "
                         "was the year %d?" % (events[k], years[k] + gap),
                         ["Year", "Event"], rows, gap, "int",
                         ["%s in %d." % (events[k].capitalize(), years[k]),
-                         "%d − %d = %d years." % (years[k] + gap, years[k], gap)])
+                         "%d − %d = %s." % (years[k] + gap, years[k], _pl(gap, "year"))])
 
     if t == 0:                       # end time
         h = random.randint(1, 11)
@@ -2988,8 +3049,8 @@ def _(d=1):
         return _num_q("A shop opens at %s and closes at %s. How many minutes is the "
                       "shop open for?" % (_hm(h, m), _hm(end // 60, end % 60)),
                       hours * 60 + extra, "int", unit="minutes",
-                      solution=["From %s to %s is %d hours and %d minutes."
-                                % (_hm(h, m), _hm(end // 60, end % 60), hours, extra),
+                      solution=["From %s to %s is %s and %s."
+                                % (_hm(h, m), _hm(end // 60, end % 60), _pl(hours, "hour"), _pl(extra, "minute")),
                                 "That is %d minutes." % (hours * 60 + extra)])
 
     # club timetable: which activity is longest

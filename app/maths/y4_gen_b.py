@@ -1635,14 +1635,28 @@ def _(d=1):
                       % (counts[e] * per, per, counts[e], many)],
                      unit=many)
 
+    def count_facts():
+        return _numq("The numbers %d, %d and %d make a fact family. How many different multiplication and division facts "
+                     "can you write with them?" % (a, b, p), 4,
+                     ["%d × %d = %d and %d × %d = %d." % (a, b, p, b, a, p),
+                      "%d ÷ %d = %d and %d ÷ %d = %d, so 4 facts." % (p, a, b, p, b, a)])
+
+    def wrong_fact():
+        wrong = random.random() < 0.5
+        shown = "%d ÷ %d = %d" % (a, p, b) if wrong else "%d ÷ %d = %d" % (p, b, a)
+        return _wordq("Does %s belong to the fact family of %d × %d = %d? Type yes or no." % (shown, a, b, p),
+                      "no" if wrong else "yes",
+                      ["The family is %d × %d, %d × %d, %d ÷ %d and %d ÷ %d." % (a, b, b, a, p, a, p, b),
+                       "%s %s one of them." % (shown, "is not" if wrong else "is")], placeholder="yes or no")
+
     opts = [mul_to_div, div_to_mul, array_family, groups_family, word_family,
-            dt_family, third_number, io_family, real_world_pattern]
+            dt_family, third_number, io_family, real_world_pattern, wrong_fact]
     if d == 1:
-        opts += [missing_member, fourth_fact]
+        opts += [missing_member, fourth_fact, count_facts]
     elif d == 2:
         opts = [mul_to_div, div_to_mul, fourth_fact, missing_member, dt_family,
                 word_family, third_number, io_family, array_family, groups_family,
-                real_world_pattern]
+                real_world_pattern, wrong_fact]
     return pick(opts)()
 
 
@@ -1853,13 +1867,13 @@ def _(d=1):
 @skill("Y4.3.f", "Divisibility rules", S3)
 def _(d=1):
     d = _lvl(d)
-    rules = [2, 5, 10] if d == 0 else ([2, 3, 5, 9, 10] if d == 1 else [3, 9, 2, 5, 10])
+    # Year 4 tests divisibility by 2, 5 and 10 (last digit) and by times-table facts to 12 x 12;
+    # the digit-sum rule for 3 and 9 is not in the Year 4 curriculum.
+    rules = [2, 5, 10]
     r = pick(rules)
     _WHY = {2: "A number is divisible by 2 if its last digit is even (0, 2, 4, 6 or 8).",
             5: "A number is divisible by 5 if its last digit is 0 or 5.",
-            10: "A number is divisible by 10 if its last digit is 0.",
-            3: "A number is divisible by 3 if the sum of its digits is divisible by 3.",
-            9: "A number is divisible by 9 if the sum of its digits is divisible by 9."}
+            10: "A number is divisible by 10 if its last digit is 0."}
 
     def _rand(lo=100, hi=999):
         return random.randint(lo, hi)
@@ -1869,15 +1883,7 @@ def _(d=1):
         if random.random() < 0.5:
             n = n - (n % r)
         yes = (n % r == 0)
-        sol = [_WHY[r]]
-        if r in (3, 9):
-            ds = sum(int(ch) for ch in str(n))
-            sol.append("The digits of %d add to %d, and %d ÷ %d = %s."
-                       % (n, ds, ds, r,
-                          "%d exactly" % (ds // r) if ds % r == 0
-                          else "%d remainder %d" % (ds // r, ds % r)))
-        else:
-            sol.append("The last digit of %d is %d." % (n, n % 10))
+        sol = [_WHY[r], "The last digit of %d is %d." % (n, n % 10)]
         sol.append("So %d %s divisible by %d." % (n, "is" if yes else "is not", r))
         return _wordq("Is %d divisible by %d? Type yes or no." % (n, r),
                       "yes" if yes else "no", sol, placeholder="yes or no")
@@ -1890,6 +1896,8 @@ def _(d=1):
                 x = x - (x % r)
             if x not in lst:
                 lst.append(x)
+        if all(x % r == 0 for x in lst):
+            lst[0] += 1
         ans = [x for x in lst if x % r == 0]
         if not ans:
             lst[0] = lst[0] - (lst[0] % r)
@@ -1901,33 +1909,32 @@ def _(d=1):
                       % (r, ", ".join(str(x) for x in sorted(ans)))],
                      placeholder="e.g. 120, 345")
 
-    def digit_sum():
-        rr = pick([3, 9])
-        n = random.randint(100, 999)
-        ds = sum(int(ch) for ch in str(n))
-        return _numq("To test whether %d is divisible by %d, add its digits. What is "
-                     "the sum of the digits of %d?" % (n, rr, n), ds,
-                     ["%s = %d." % (" + ".join(str(ch) for ch in str(n)), ds),
-                      _WHY[rr]])
+    def digit_sum():                 # times-table facts: is it in the table?
+        rr = random.randint(3, 12)
+        if random.random() < 0.5:
+            n = rr * random.randint(2, 12)
+        else:
+            n = rr * random.randint(2, 11) + random.randint(1, rr - 1)
+        yes = n % rr == 0
+        return _wordq("Is %d in the %d times table? Type yes or no." % (n, rr), "yes" if yes else "no",
+                      ["%d × %d = %d." % (rr, n // rr, rr * (n // rr)),
+                       "%d %s in the %d times table%s." % (n, "is" if yes else "is not", rr,
+                                                           "" if yes else " (it leaves %d over)" % (n % rr))],
+                      placeholder="yes or no")
 
-    def which_rule():
-        rr = pick([2, 3, 5, 9, 10])
-        ans = "digit sum" if rr in (3, 9) else "last digit"
-        return _wordq("To test whether a number divides exactly by %d, which test do "
-                      "you use? Type last digit or digit sum." % rr, ans,
-                      [_WHY[rr], "So the test for %d uses the %s." % (rr, ans)],
-                      placeholder="last digit / digit sum")
+    def which_rule():                # which last digits pass the test
+        rr = pick([2, 5, 10])
+        ends = {2: [0, 2, 4, 6, 8], 5: [0, 5], 10: [0]}[rr]
+        return _setq("A whole number divides exactly by %d. Which digits could it end in? Type them all." % rr,
+                     ends, [_WHY[rr]], placeholder="e.g. 1, 3")
 
     def missing_digit():
-        rr = pick([3, 9])
+        rr = pick([2, 5])
         pre = random.randint(10, 99)
-        cands = [dg for dg in range(10) if (pre * 10 + dg) % rr == 0]
-        dg = min(cands)
-        return _numq("Find the smallest digit that can replace the ? so that %d? is "
+        dg = max(x for x in range(10) if (pre * 10 + x) % rr == 0)
+        return _numq("Find the largest digit that can replace the ? so that %d? is "
                      "divisible by %d. Type that digit." % (pre, rr), dg,
-                     [_WHY[rr],
-                      "%d%d has digits adding to %d, which divides by %d."
-                      % (pre, dg, sum(int(ch) for ch in str(pre * 10 + dg)), rr)],
+                     [_WHY[rr], "%d%d ÷ %d = %d exactly." % (pre, dg, rr, (pre * 10 + dg) // rr)],
                      placeholder="a single digit")
 
     def dt_sort():
@@ -1951,9 +1958,12 @@ def _(d=1):
                     missing=[m, 1], answer_type="str", placeholder="yes or no")
 
     def count_in_list():
-        lst = [random.randint(100, 999) for _ in range(6)]
-        for i in range(3):
-            lst[i] = lst[i] - (lst[i] % r)
+        while True:
+            lst = [random.randint(100, 999) for _ in range(6)]
+            for i in range(3):
+                lst[i] = lst[i] - (lst[i] % r)
+            if len(set(lst)) == 6:
+                break
         random.shuffle(lst)
         n = len([x for x in lst if x % r == 0])
         return _numq("How many of these numbers are divisible by %d?  %s"
@@ -1962,7 +1972,7 @@ def _(d=1):
                      unit="numbers")
 
     def both_rules():
-        r2 = pick([x for x in (2, 3, 5, 9, 10) if x != r])
+        r2 = pick([x for x in (2, 5, 10) if x != r])
         lst = []
         both = r * r2 * random.randint(2, 6)
         while both > 9999:
@@ -1982,6 +1992,8 @@ def _(d=1):
 
     def make_divisible():
         n = random.randint(100, 990)
+        while n % r == 0:
+            n = random.randint(100, 990)
         need = (r - n % r) % r
         return _numq("What is the smallest number you must add to %d to make a "
                      "number divisible by %d?" % (n, r), need,
@@ -1990,7 +2002,7 @@ def _(d=1):
                       % (n, need, n + need, n + need, r, (n + need) // r)])
 
     def dt_two_tests():
-        r2 = pick([x for x in (2, 3, 5, 9, 10) if x != r])
+        r2 = pick([x for x in (2, 5, 10) if x != r])
         nums = []
         while len(nums) < 4:
             x = random.randint(100, 999)
@@ -2020,14 +2032,47 @@ def _(d=1):
                                    rule)],
                     missing=[m, col], answer_type="str", placeholder="yes or no")
 
+    def next_multiple():
+        n = random.randint(101, 989)
+        while n % r == 0:
+            n += 1
+        ans = n + (r - n % r)
+        return _numq("What is the smallest number greater than %d that is divisible by %d?" % (n, r), ans,
+                     [_WHY[r], "%d ÷ %d = %d exactly." % (ans, r, ans // r)])
+
+    def packing():
+        who = pick(NAMES)
+        n = _rand(100, 999)
+        if random.random() < 0.5:
+            n = n - (n % r)
+        yes = n % r == 0
+        return _wordq("%s has %d stickers to put into packs of %d. Will every pack be full with none left over? Type yes or no."
+                      % (who, n, r), "yes" if yes else "no",
+                      [_WHY[r], "So %d %s divisible by %d." % (n, "is" if yes else "is not", r)], placeholder="yes or no")
+
+    def largest_three_digit():
+        ans = 999 - 999 % r
+        return _numq("What is the largest 3-digit number that is divisible by %d?" % r, ans,
+                     [_WHY[r], "%d ÷ %d = %d exactly, and no bigger 3-digit number works." % (ans, r, ans // r)])
+
+    def end_digits():
+        rr = pick([2, 5, 10])
+        n = random.randint(10, 99) * 10 + random.randint(0, 9)
+        last = n % 10
+        yes = n % rr == 0
+        return _wordq("A number ends in %d. Is it divisible by %d? Type yes or no." % (last, rr), "yes" if yes else "no",
+                      [_WHY[rr], "A last digit of %d %s the test." % (last, "passes" if yes else "fails")], placeholder="yes or no")
+
     opts = [yes_no, sort_list, dt_sort, dt_sort, dt_two_tests, dt_two_tests,
-            count_in_list, digit_sum, which_rule, make_divisible]
+            count_in_list, digit_sum, which_rule, make_divisible, next_multiple, packing, largest_three_digit]
     if d == 1:
         opts += [missing_digit]
     elif d == 2:
         opts = [yes_no, sort_list, dt_sort, dt_two_tests, dt_two_tests,
                 both_rules, missing_digit, make_divisible, count_in_list,
-                digit_sum]
+                digit_sum, next_multiple, packing, largest_three_digit]
+    if d == 0:
+        opts += [end_digits]
     return pick(opts)()
 
 
@@ -2130,14 +2175,37 @@ def _(d=1):
                     ["%d × %d = %d." % (ns[m], ns[m], ns[m] * ns[m])],
                     missing=[m, 1], caption="Square numbers")
 
+    def side_from_area():
+        return _numq("A square has an area of %d square centimetres. How long is each side, in cm?" % sq, n,
+                     ["%d × %d = %d, so each side is %d cm." % (n, n, sq, n)], unit="cm")
+
+    def sum_of_squares():
+        a, b = random.sample(range(2, 10 if d < 2 else 13), 2)
+        return _numq("Work out %d squared add %d squared." % (a, b), a * a + b * b,
+                     ["%d × %d = %d and %d × %d = %d." % (a, a, a * a, b, b, b * b), "%d + %d = %d." % (a * a, b * b, a * a + b * b)])
+
+    def odd_even():
+        return _wordq("Is %d squared odd or even? Type odd or even." % n, "even" if sq % 2 == 0 else "odd",
+                      ["%d × %d = %d." % (n, n, sq), "An odd number times an odd number is odd; an even number squared is even."],
+                      placeholder="odd or even")
+
+    def closest_square():
+        m = random.randint(3, 11)
+        x = m * m + pick([1, 2, -1, -2])
+        lo = max(i * i for i in range(1, 13) if i * i <= x)
+        hi = min(i * i for i in range(1, 14) if i * i >= x)
+        ans = lo if x - lo < hi - x else hi
+        return _numq("Which square number is closest to %d?" % x, ans,
+                     ["%d lies between %d and %d." % (x, lo, hi), "It is closer to %d." % ans])
+
     opts = [bare, squared_notation, root, area_square, array_square, is_square,
-            word_tiles, dt_squares, next_square]
+            word_tiles, dt_squares, next_square, side_from_area, odd_even]
     if d == 1:
-        opts += [list_squares]
+        opts += [list_squares, sum_of_squares, closest_square]
     elif d == 2:
         opts = [squared_notation, root, list_squares, is_square,
                 difference_squares, next_square, dt_squares, area_square,
-                word_tiles, bare]
+                word_tiles, bare, side_from_area, sum_of_squares, closest_square]
     return pick(opts)()
 
 

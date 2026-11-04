@@ -11,6 +11,17 @@ from .y5_common import *  # noqa: F401,F403
 S7 = "7.7 Fractional thinking"
 S8 = "7.8 Lines & angles"
 
+def _a(x):
+    """'a 7 cm', 'an 8 cm', 'an 11-sided', 'an octagon': the article read aloud, plus the text."""
+    s = str(x)
+    w = s.split()[0].replace(",", "").split("-")[0]
+    if w[:1].isdigit():
+        vowel = w.startswith("8") or w in ("11", "18") or (len(w) in (5, 8) and w[:2] in ("11", "18"))
+    else:
+        vowel = w[:1].lower() in "aeiou"
+    return ("an " if vowel else "a ") + s
+
+
 
 def _rf(d, proper=True):
     den = pick(_by(d, [2, 3, 4, 5, 6], [3, 4, 5, 6, 8, 9, 10], [6, 7, 8, 9, 10, 12, 15]))
@@ -53,7 +64,43 @@ def _(d=1):
         return _fq("%s spends %s of the money in a purse on a book and %s on a game. What fraction is left?" % (who, _fs(x), _fs(y)),
                    1 - x - y, ["1 − %s − %s = %s." % (_fs(x), _fs(y), _fs(1 - x - y))])
 
-    return _pick_t([t_add, t_sub, t_simplest, t_missing, t_word])
+    def t_three():
+        c, cn, cd = _rf(d)
+        tot = a + b - c
+        if tot <= 0:
+            return t_add()
+        return _fq("Work out  %s + %s − %s" % (_fs(a), _fs(b), _fs(c)), tot, ["Use a common denominator for all three: %s." % _fs(tot)])
+
+    def t_more_than_one():
+        return _wq("Is %s + %s more than 1? (yes or no)" % (_fs(a), _fs(b)), "yes" if a + b > 1 else "no",
+                   ["%s + %s = %s." % (_fs(a), _fs(b), _fs(a + b))], "yes / no") if a + b != 1 else t_add()
+
+    def t_error():
+        return _fq("%s says %d/%d + %d/%d = %d/%d. What is the correct answer?" % (_who(), an, ad, bn, bd, an + bn, ad + bd), a + b,
+                   ["You cannot add the denominators. Common denominator %d: %s." % (ad * bd // _gcd(ad, bd), _fs(a + b))])
+
+    def t_lcd():
+        return _tb("What is the lowest common denominator of %d/%d and %d/%d?" % (an, ad, bn, bd), ad * bd // _gcd(ad, bd), "int",
+                   {}, ["The LCM of %d and %d is %d." % (ad, bd, ad * bd // _gcd(ad, bd))])
+
+    def t_hours():
+        x, y = pick([(Fraction(3, 4), Fraction(2, 3)), (Fraction(1, 2), Fraction(1, 3)), (Fraction(1, 4), Fraction(5, 6)),
+                     (Fraction(2, 3), Fraction(1, 6)), (Fraction(3, 4), Fraction(1, 3))])
+        return _fq("%s worked for %s of an hour, then %s of an hour. How many hours is that altogether?" % (_who(), _fs(x), _fs(y)),
+                   x + y, ["%s + %s = %s hours (%d minutes)." % (_fs(x), _fs(y), _fs(x + y), int((x + y) * 60))])
+
+    def t_bar():
+        den = ad * bd // _gcd(ad, bd)
+        if den > 12 or a == b:
+            return t_add()
+        res = a + b if a + b <= 1 else abs(a - b)
+        txt = "%s + %s" % (_fs(a), _fs(b)) if a + b <= 1 else "%s − %s" % (_fs(max(a, b)), _fs(min(a, b)))
+        return {"prompt": "Work out %s. Shade the bar to show the answer (it has %d equal parts)." % (txt, den),
+                "component": "fraction_bar", "spec": {"parts": den, "mode": "shade"},
+                "answer": "%d/%d" % (int(res * den), den), "answer_type": "frac",
+                "solution": ["With %d equal parts: %s = %d/%d." % (den, txt, int(res * den), den)]}
+
+    return _pick_t([t_add, t_sub, t_simplest, t_missing, t_word, t_three, t_more_than_one, t_error, t_lcd, t_hours], [t_bar])
 
 
 def _gcd(x, y):
@@ -90,7 +137,58 @@ def _(d=1):
                    % (_mixed(A + B), _mixed(B)), _mixed(A), ["%s − %s = %s." % (_mixed(A + B), _mixed(B), _mixed(A))],
                    "e.g. 3 1/2")
 
-    return _pick_t([t_add, t_sub, t_whole_minus, t_word])
+    def t_improper():
+        return _wq("Write %s as an improper fraction." % _mixed(A), _fs(A), ["%d × %d + %d = %d, so %s." % (
+            A.numerator // A.denominator, A.denominator, A.numerator % A.denominator, A.numerator, _fs(A))], "e.g. 11/4")
+
+    def t_to_whole():
+        w = random.randint(B.numerator // B.denominator + 2, 9)
+        return _wq("%s + ___ = %d. What is the missing number? (mixed number, simplest form)" % (_mixed(B), w), _mixed(w - B),
+                   ["%d − %s = %s." % (w, _mixed(B), _mixed(w - B))], "e.g. 2 3/4")
+
+    def t_exchange():
+        den = pick([3, 4, 5, 6, 8])
+        p = random.randint(1, den - 2)
+        q = random.randint(p + 1, den - 1)
+        w1, w2 = random.randint(3, 8), random.randint(1, 2)
+        x, y = w1 + Fraction(p, den), w2 + Fraction(q, den)
+        return _wq("Work out %s − %s. (Mixed number, simplest form.)" % (_mixed(x), _mixed(y)), _mixed(x - y),
+                   ["The fraction part %d/%d is smaller than %d/%d, so exchange a whole: %s = %d %d/%d."
+                    % (p, den, q, den, _mixed(x), w1 - 1, den + p, den), "= %s." % _mixed(x - y)], "e.g. 2 3/4")
+
+    def t_hours():
+        x = random.randint(1, 3) + pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)])
+        y = random.randint(1, 3) + pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4), Fraction(1, 3)])
+        return _wq("A film is %s hours long and another is %s hours. How long are they altogether, in hours? (mixed number)"
+                   % (_mixed(x), _mixed(y)), _mixed(x + y), ["%s + %s = %s." % (_mixed(x), _mixed(y), _mixed(x + y))], "e.g. 3 1/4")
+
+    def t_perimeter():
+        s = [random.randint(1, 4) + _rf(d)[0] for _ in range(3)]
+        return _wq("A triangle has sides %s cm, %s cm and %s cm. What is its perimeter, in cm? (mixed number, simplest form)"
+                   % tuple(_mixed(v) for v in s), _mixed(sum(s)), ["%s." % _mixed(sum(s))], "e.g. 9 1/2")
+
+    def t_line():
+        lo = random.randint(1, 4)
+        f = pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4), Fraction(1, 5), Fraction(3, 5)])
+        v = lo + f
+        step = Fraction(1, f.denominator)
+        return _nld("Place %s on the number line." % _mixed(v), float(v), lo - 1, lo + 2, float(step), 1,
+                    ["%s is %s of the way from %d to %d." % (_mixed(v), _fs(f), lo, lo + 1)])
+
+    def t_bigger():
+        if A == B:
+            return t_add()
+        return _wq("Which is bigger: %s or %s? (type it as written)" % (_mixed(A), _mixed(B)), _mixed(max(A, B)),
+                   ["Compare the whole numbers first, then the fractions."], "e.g. 2 1/3")
+
+    def t_ribbon():
+        L = random.randint(5, 9)
+        c1, c2 = random.randint(1, 2) + Fraction(1, 4), 1 + Fraction(pick([1, 2]), 3)
+        return _wq("A ribbon is %d m long. Pieces of %s m and %s m are cut off. How much is left, in metres? (mixed number)"
+                   % (L, _mixed(c1), _mixed(c2)), _mixed(L - c1 - c2), ["%d − %s − %s = %s." % (L, _mixed(c1), _mixed(c2),
+                                                                                              _mixed(L - c1 - c2))], "e.g. 2 5/12")
+
+    return _pick_t([t_add, t_sub, t_whole_minus, t_word, t_improper, t_to_whole, t_exchange, t_hours, t_perimeter, t_bigger, t_ribbon], [t_line])
 
 
 @skill("Y7.7.c", "Multiply fractions", S7)
@@ -128,7 +226,34 @@ def _(d=1):
         return _fq("Work out  %d/%d × %d/%d  (cancel first if you can)" % (p, q * r, r, p * 2), Fraction(p, q * r) * Fraction(r, p * 2),
                    ["= %s." % _fs(Fraction(p, q * r) * Fraction(r, p * 2))])
 
-    return _pick_t([t_ff, t_of, t_int, t_mixed, t_area, t_cancel])
+    def t_mixed_mixed():
+        M = random.randint(1, 2) + Fraction(1, pick([2, 3, 4]))
+        N = random.randint(1, 3) + Fraction(pick([1, 2]), 3)
+        return _wq("Work out %s × %s. Give a mixed number (or whole number) in its simplest form." % (_mixed(M), _mixed(N)),
+                   _mixed(M * N), ["As improper fractions: %s × %s = %s." % (_fs(M), _fs(N), _mixed(M * N))], "e.g. 3 1/2")
+
+    def t_of_of():
+        p, q = pick([(Fraction(2, 3), Fraction(3, 4)), (Fraction(1, 2), Fraction(4, 5)), (Fraction(3, 5), Fraction(5, 6)),
+                     (Fraction(3, 4), Fraction(2, 3)), (Fraction(1, 3), Fraction(3, 8))])
+        x = (p * q).denominator * random.randint(2, 12)
+        return _tb("Work out %s of %s of %d." % (_fs(p), _fs(q), x), int(p * q * x), "int", {},
+                   ["%s × %s = %s; %s of %d = %d." % (_fs(p), _fs(q), _fs(p * q), _fs(p * q), x, int(p * q * x))])
+
+    def t_square():
+        return _fq("Work out  (%d/%d)²" % (an, ad), a * a, ["%d/%d × %d/%d = %s." % (an, ad, an, ad, _fs(a * a))])
+
+    def t_bigger():
+        return _wq("Is %d/%d × %d/%d bigger or smaller than %d/%d? (type bigger or smaller)" % (an, ad, bn, bd, an, ad), "smaller",
+                   ["Multiplying by a fraction less than 1 makes it smaller."], "bigger / smaller") \
+            if random.random() < 0.6 else \
+            _wq("Is %d/%d × %d bigger or smaller than %d/%d? (type bigger or smaller)" % (an, ad, bn + bd, an, ad), "bigger",
+                ["Multiplying by a number greater than 1 makes it bigger."], "bigger / smaller")
+
+    def t_missing():
+        return _fq("%d/%d × ___ = %s. What is the missing fraction?" % (an, ad, _fs(a * b)), b,
+                   ["%s ÷ %d/%d = %s." % (_fs(a * b), an, ad, _fs(b))])
+
+    return _pick_t([t_ff, t_of, t_int, t_mixed, t_area, t_cancel, t_mixed_mixed, t_of_of, t_square, t_bigger, t_missing])
 
 
 @skill("Y7.7.d", "Divide with fractions", S7)
@@ -159,7 +284,20 @@ def _(d=1):
         return _tb("How many %s kg bags can be filled from %s kg of rice?" % (_fs(part), _fs(tot)), int(tot / part), "int",
                    {"unit": "bags"}, ["%s ÷ %s = %d." % (_fs(tot), _fs(part), int(tot / part))])
 
-    return _pick_t([t_by_int, t_int_by_unit, t_ff, t_reciprocal, t_word])
+    def t_mixed_div():
+        M = random.randint(1, 4) + Fraction(1, 2)
+        k = pick([Fraction(1, 2), Fraction(3, 4), Fraction(1, 4)])
+        return _wq("Work out %s ÷ %s. Give a mixed number (or whole number) in its simplest form." % (_mixed(M), _fs(k)),
+                   _mixed(M / k), ["%s × %s = %s." % (_fs(M), _fs(1 / k), _mixed(M / k))], "e.g. 3 1/2")
+
+    def t_portions():
+        p = pick([Fraction(1, 4), Fraction(1, 3), Fraction(3, 4), Fraction(2, 3)])
+        n = random.randint(3, 12)
+        tot = p * n
+        return _tb("A cake recipe needs %s kg of flour. How many cakes can be made from %s kg?" % (_fs(p), _mixed(tot)), n, "int",
+                   {"unit": "cakes"}, ["%s ÷ %s = %d." % (_mixed(tot), _fs(p), n)])
+
+    return _pick_t([t_by_int, t_int_by_unit, t_ff, t_reciprocal, t_word, t_mixed_div, t_portions])
 
 
 def _unit_word(u):
@@ -200,7 +338,52 @@ def _(d=1):
         return _wq("A recipe uses 3/4 cup of milk per batch. How much milk for %d batches? (mixed number or whole number)" % k,
                    _mixed(m * k), ["%d × 3/4 = %s." % (k, _mixed(m * k))], "e.g. 2 1/4")
 
-    return _pick_t([t_remaining, t_of_remainder, t_whole_from_part, t_compare, t_recipe])
+    def t_price_rise():
+        f = pick([Fraction(1, 4), Fraction(1, 5), Fraction(1, 3), Fraction(2, 5)])
+        x = f.denominator * random.randint(4, 30)
+        up = random.random() < 0.5
+        new = x + f * x if up else x - f * x
+        return _tb("A price of £%d %s by %s. What is the new price, in pounds?" % (x, "rises" if up else "falls", _fs(f)), int(new),
+                   "int", {"unit": "£"}, ["%s of %d = %d." % (_fs(f), x, int(f * x)), "%d %s %d = %d." % (x, "+" if up else "−", int(f * x), int(new))])
+
+    def t_ages():
+        f = pick([Fraction(1, 3), Fraction(2, 5), Fraction(3, 5), Fraction(3, 8), Fraction(1, 4)])
+        dad = f.denominator * random.randint(6, 12)
+        w = _who()
+        return _tb("%s's age is %s of their grandad's age. Their grandad is %d. How old is %s?" % (w, _fs(f), dad, w),
+                   int(f * dad), "int", {"unit": "years"}, ["%s of %d = %d." % (_fs(f), dad, int(f * dad))])
+
+    def t_tank():
+        f = pick([Fraction(2, 3), Fraction(3, 4), Fraction(2, 5), Fraction(5, 8), Fraction(3, 10)])
+        full = f.denominator * random.randint(4, 20)
+        return _tb("A water tank is %s full and holds %d litres. How many litres does it hold when full?" % (_fs(f), int(f * full)),
+                   full, "int", {"unit": "litres"}, ["%d ÷ %d = %d is 1/%d." % (int(f * full), f.numerator, full // f.denominator,
+                                                                               f.denominator), "× %d = %d." % (f.denominator, full)])
+
+    def t_votes():
+        x = random.randint(2, 15) * 8
+        return _tb("In a vote, 3/8 chose pizza, 1/4 chose pasta and the rest chose curry. %d people chose curry. How many people "
+                   "voted?" % (x * 3 // 8), x, "int", {"unit": "people"},
+                   ["Curry: 1 − 3/8 − 1/4 = 3/8.", "3/8 is %d, so 1/8 is %d and the total is %d." % (x * 3 // 8, x // 8, x)])
+
+    def t_journey():
+        f = pick([Fraction(2, 5), Fraction(1, 3), Fraction(3, 4), Fraction(5, 8)])
+        tot = f.denominator * random.randint(3, 15)
+        return _tb("A family has driven %s of their journey. They have %d km left to go. How long is the whole journey, in km?"
+                   % (_fs(f), int((1 - f) * tot)), tot, "int", {"unit": "km"},
+                   ["%d km is %s of the journey." % (int((1 - f) * tot), _fs(1 - f)), "Whole journey = %d km." % tot])
+
+    def t_strip():
+        den = pick([3, 4, 5, 6])
+        num = random.randint(1, den - 1)
+        part = random.randint(3, 15)
+        return _strip("%d/%d of the pupils in a club are girls. The bar shows all %d pupils split into %d equal parts. How many "
+                      "girls are there?" % (num, den, den * part, den),
+                      {"mode": "equal_parts", "parts": den, "partLabel": "?", "totalLabel": str(den * part), "unknown": "part"},
+                      num * part, ["One part: %d ÷ %d = %d." % (den * part, den, part), "%d part%s: %d." % (num, "" if num == 1 else "s", num * part)])
+
+    return _pick_t([t_remaining, t_of_remainder, t_whole_from_part, t_compare, t_recipe, t_price_rise, t_ages, t_tank, t_votes,
+                    t_journey], [t_strip])
 
 
 # ================================================================== 7.8 ======
@@ -283,7 +466,47 @@ def _(d=1):
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 180 - deg,
                 "answer_type": "int", "solution": ["180 − %d = %d." % (deg, 180 - deg)]}
 
-    return _pick_t([t_line, t_point, t_vertical, t_adjacent, t_algebra], [t_pic])
+    def t_equal_point():
+        n = pick([3, 4, 5, 6, 8, 9, 10, 12])
+        return _tb("%d equal angles meet at a point. How big is each one?" % n, 360 // n, "int", {"unit": "°"},
+                   ["360 ÷ %d = %d." % (n, 360 // n)])
+
+    def t_point_algebra():
+        x = pick([20, 24, 30, 36, 40, 45, 60])
+        k = 360 // x
+        a = random.randint(1, k - 3)
+        b = random.randint(1, k - a - 1)
+        c = k - a - b
+        terms = ["%sx°" % ("" if t == 1 else t) for t in (a, b, c)]
+        return _tb("Angles of %s, %s and %s meet at a point. What is x?" % tuple(terms), x, "int", {"unit": "°"},
+                   ["%dx = 360, so x = %d." % (k, x)])
+
+    def t_vert_algebra():
+        x = random.randint(5, 30)
+        k = random.randint(2, 4)
+        c = random.randint(5, 40)
+        return _tb("Two straight lines cross. Vertically opposite angles are (%dx + %d)° and %d°. What is x?" % (k, c, k * x + c), x,
+                   "int", {"unit": "°"}, ["They are equal: %dx + %d = %d." % (k, c, k * x + c), "x = %d." % x])
+
+    def t_three_line():
+        a, b = random.randint(20, 80), random.randint(20, 70)
+        return _tb("Three angles lie on a straight line. Two of them are %d° and %d°. Find the third." % (a, b), 180 - a - b, "int",
+                   {"unit": "°"}, ["180 − %d − %d = %d." % (a, b, 180 - a - b)])
+
+    def t_reflex_pic():
+        deg = random.randint(4, 16) * 10
+        return {"prompt": "The angle shown is %d°. What is the reflex angle that makes a full turn with it?" % deg,
+                "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 360 - deg,
+                "answer_type": "int", "solution": ["360 − %d = %d." % (deg, 360 - deg)]}
+
+    def t_check_line():
+        a = random.randint(30, 150)
+        b = 180 - a + pick([0, 0, 5, -10])
+        return _wq("Two angles of %d° and %d° sit next to each other. Do they make a straight line? (yes or no)" % (a, b),
+                   "yes" if a + b == 180 else "no", ["%d + %d = %d." % (a, b, a + b)], "yes / no")
+
+    return _pick_t([t_line, t_point, t_vertical, t_adjacent, t_algebra, t_equal_point, t_point_algebra, t_vert_algebra,
+                    t_three_line, t_check_line], [t_pic, t_reflex_pic])
 
 
 @skill("Y7.8.c", "Angles in triangles", S8)
@@ -326,7 +549,45 @@ def _(d=1):
         return _wq("Could a triangle have angles of %d°, %d° and %d°? (yes or no)" % (x, y, z),
                    "yes" if x + y + z == 180 else "no", ["They add up to %d°." % (x + y + z)], "yes / no")
 
-    return _pick_t([t_third, t_isos_base, t_isos_apex, t_right, t_equilateral, t_exterior, t_possible])
+    def t_algebra():
+        x = random.randint(20, 40)
+        c = random.randint(5, 30)
+        rest = 180 - 3 * x - c                    # x <= 40 and c <= 30 keep this at least 30
+        return _tb("The angles of a triangle are x°, (2x + %d)° and %d°. What is x?" % (c, rest), x, "int", {"unit": "°"},
+                   ["3x + %d + %d = 180." % (c, rest), "3x = %d, x = %d." % (180 - c - rest, x)])
+
+    def t_type():
+        x, y = random.randint(20, 80), random.randint(20, 80)
+        z = 180 - x - y
+        kind = "acute" if z < 90 and x < 90 and y < 90 else "right" if 90 in (x, y, z) else "obtuse"
+        return _wq("A triangle has angles of %d° and %d°. Is it an acute-angled, right-angled or obtuse-angled triangle? "
+                   "(type acute, right or obtuse)" % (x, y), kind, ["The third angle is %d°." % z], "acute / right / obtuse")
+
+    def t_right_isos():
+        return _tb("A right-angled triangle is also isosceles. What size is each of its two equal angles?", 45, "int",
+                   {"unit": "°"}, ["(180 − 90) ÷ 2 = 45."])
+
+    def t_ext_interior():
+        a = random.randint(25, 80)
+        ext = a + random.randint(30, 90)
+        return _tb("The exterior angle at one corner of a triangle is %d°. One of the two opposite interior angles is %d°. "
+                   "Find the other." % (ext, a), ext - a, "int", {"unit": "°"},
+                   ["The exterior angle equals the sum of the two opposite interior angles: %d − %d = %d." % (ext, a, ext - a)])
+
+    def t_isos_from_base():
+        base = random.randint(30, 80)
+        return _tb("In an isosceles triangle one of the two equal angles is %d°. What is the angle between the two equal sides?"
+                   % base, 180 - 2 * base, "int", {"unit": "°"}, ["180 − 2 × %d = %d." % (base, 180 - 2 * base)])
+
+    def t_pic():
+        a = random.randint(4, 9) * 10
+        b = random.randint(2, 13 - a // 10) * 10
+        return {"prompt": "In a triangle, the angle shown is %d° and another angle is %d°. How big is the third angle?" % (a, b),
+                "component": "angle", "spec": {"mode": "classify", "degrees": a, "numeric": True}, "answer": 180 - a - b,
+                "answer_type": "int", "solution": ["180 − %d − %d = %d." % (a, b, 180 - a - b)]}
+
+    return _pick_t([t_third, t_isos_base, t_isos_apex, t_right, t_equilateral, t_exterior, t_possible, t_algebra, t_type,
+                    t_right_isos, t_ext_interior, t_isos_from_base], [t_pic])
 
 
 @skill("Y7.8.d", "Angles and properties of quadrilaterals", S8)
@@ -380,7 +641,7 @@ def _(d=1):
             12: "dodecagon"}[n]
 
     def t_sum():
-        return _tb("What do the interior angles of a %s (%d sides) add up to?" % (name, n), (n - 2) * 180, "int",
+        return _tb("What do the interior angles of %s (%d sides) add up to?" % (_a(name), n), (n - 2) * 180, "int",
                    {"unit": "°"}, ["(n − 2) × 180 = %d × 180 = %d." % (n - 2, (n - 2) * 180)])
 
     def t_regular():
@@ -396,7 +657,7 @@ def _(d=1):
                    ["Exterior angles add to 360°: 360 ÷ %d = %d." % (n, 360 // n)])
 
     def t_triangles():
-        return _tb("How many triangles can a %d-sided polygon be split into by drawing diagonals from one corner?" % n, n - 2,
+        return _tb("How many triangles can %s-sided polygon be split into by drawing diagonals from one corner?" % _a(n), n - 2,
                    "int", {}, ["Always 2 fewer than the number of sides."])
 
     def t_missing():
@@ -461,7 +722,44 @@ def _(d=1):
                 "answer": "(%d,%d)" % (x2 + dx, y + dy), "answer_type": "coord",
                 "solution": ["Make the same move: %d right and %d up." % (dx, dy)]}
 
-    return _pick_t([t_vocab, t_bisect_angle, t_bisect_line, t_shortest], [t_grid, t_parallel_grid])
+    def t_pairs():
+        q, ans = pick([("How many pairs of parallel sides does a rectangle have?", 2),
+                       ("How many pairs of parallel sides does a trapezium have?", 1),
+                       ("How many pairs of parallel sides does a regular hexagon have?", 3),
+                       ("How many right angles does a rectangle have?", 4),
+                       ("How many pairs of parallel sides does a kite have?", 0),
+                       ("How many pairs of perpendicular sides does a right-angled triangle have?", 1)])
+        return _tb(q, ans, "int", {}, ["Picture the shape and check each pair of sides."])
+
+    def t_is_parallel():
+        dx, dy = random.randint(1, 3), random.randint(1, 3)
+        same = random.random() < 0.5
+        ex, ey = (dx, dy) if same else pick([(dy, dx), (dx + 1, dy), (dx, dy + 1)])
+        if not same and ex * dy == ey * dx:
+            ex += 1
+        x0, y0 = random.randint(0, 3), random.randint(0, 3)
+        x1, y1 = random.randint(4, 6), random.randint(0, 2)
+        return {"prompt": "Line AB goes from (%d,%d) to (%d,%d). Line CD goes from (%d,%d) to (%d,%d). Are the lines parallel? "
+                          "(yes or no)" % (x0, y0, x0 + dx, y0 + dy, x1, y1, x1 + ex, y1 + ey), "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "typed": True, "placeholder": "yes / no",
+                         "points": [[x0, y0, "A"], [x0 + dx, y0 + dy, "B"], [x1, y1, "C"], [x1 + ex, y1 + ey, "D"]],
+                         "lines": [{"p1": [x0, y0], "p2": [x0 + dx, y0 + dy]}, {"p1": [x1, y1], "p2": [x1 + ex, y1 + ey]}]},
+                "answer": "yes" if ex * dy == ey * dx else "no", "answer_type": "str",
+                "solution": ["AB moves %d right, %d up; CD moves %d right, %d up." % (dx, dy, ex, ey)]}
+
+    def t_perp_angle():
+        return _tb("A line is drawn perpendicular to another line. What angle do they make?", 90, "int", {"unit": "°"},
+                   ["Perpendicular means at right angles: 90°."]) if random.random() < 0.3 else \
+            _wq("A road runs north–south. Another road crosses it running east–west. Are the roads parallel or perpendicular?",
+                "perpendicular", ["North–south and east–west meet at right angles."], "parallel / perpendicular")
+
+    def t_construct():
+        a = random.randint(4, 12)
+        return _tb("An equilateral triangle is constructed with compasses on a line segment %d cm long. How long is each of its "
+                   "other two sides, in cm?" % a, a, "int", {"unit": "cm"}, ["All three sides of an equilateral triangle are equal."])
+
+    return _pick_t([t_vocab, t_bisect_angle, t_bisect_line, t_shortest, t_pairs, t_perp_angle, t_construct],
+                   [t_grid, t_parallel_grid, t_is_parallel])
 
 
 @skill("Y7.8.g", "Area of triangles, parallelograms and trapezia", S8)
@@ -498,8 +796,59 @@ def _(d=1):
 
     def t_compound():
         w, h, th = random.randint(4, 12), random.randint(3, 10), random.randint(2, 6)
-        return _tb("A house shape is a %d cm by %d cm rectangle with a triangle on top of base %d cm and height %d cm. Find the "
-                   "total area, in cm²." % (w, h, w, th), _ds(w * h + Fraction(w * th, 2)), "num", {"unit": "cm²"},
+        return _tb("A house shape is %s cm by %d cm rectangle with a triangle on top of base %d cm and height %d cm. Find the "
+                   "total area, in cm²." % (_a(w), h, w, th), _ds(w * h + Fraction(w * th, 2)), "num", {"unit": "cm²"},
                    ["%d + %s = %s." % (w * h, _ds(Fraction(w * th, 2)), _ds(w * h + Fraction(w * th, 2)))])
 
-    return _pick_t([t_triangle, t_parallelogram, t_trapezium, t_reverse, t_slant_trap, t_compound])
+    def t_grid_triangle():
+        x0, y0 = random.randint(0, 2), random.randint(0, 2)
+        b, h = random.randint(2, 7), random.randint(2, 7)
+        apex = x0 + random.randint(0, b)
+        return {"prompt": "Find the area of the triangle drawn on the grid. Each square is 1 cm². Give your answer in cm².",
+                "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "typed": True, "placeholder": "cm²",
+                         "polygon": [[x0, y0], [x0 + b, y0], [apex, y0 + h]]},
+                "answer": _ds(Fraction(b * h, 2)), "answer_type": "num",
+                "solution": ["Base %d, perpendicular height %d." % (b, h), "½ × %d × %d = %s." % (b, h, _ds(Fraction(b * h, 2)))]}
+
+    def t_grid_parallelogram():
+        x0, y0 = random.randint(0, 2), random.randint(0, 2)
+        b, h, s = random.randint(2, 5), random.randint(2, 6), random.randint(1, 3)
+        return {"prompt": "Find the area of the parallelogram drawn on the grid. Each square is 1 cm². Give your answer in cm².",
+                "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "typed": True, "placeholder": "cm²",
+                         "polygon": [[x0, y0], [x0 + b, y0], [x0 + b + s, y0 + h], [x0 + s, y0 + h]]},
+                "answer": b * h, "answer_type": "int", "solution": ["Base %d × perpendicular height %d = %d." % (b, h, b * h)]}
+
+    def t_trap_reverse():
+        a, b = random.randint(2, 10), random.randint(2, 10)
+        h = random.randint(2, 10)
+        if (a + b) * h % 2:
+            h += 1
+        return _tb("A trapezium has parallel sides %d m and %d m and an area of %d m². What is its height, in m?"
+                   % (a, b, (a + b) * h // 2), h, "int", {"unit": "m"},
+                   ["½ × (%d + %d) × h = %d, so %d × h = %d." % (a, b, (a + b) * h // 2, (a + b), (a + b) * h), "h = %d." % h])
+
+    def t_cut_out():
+        w, h = random.randint(6, 14), random.randint(5, 12)
+        tb, th = random.randint(2, w - 2), random.randint(2, h - 1)
+        return _tb("A triangle with base %d cm and height %d cm is cut out of %s cm by %d cm rectangle of card. What area of "
+                   "card is left, in cm²?" % (tb, th, _a(w), h), _ds(w * h - Fraction(tb * th, 2)), "num", {"unit": "cm²"},
+                   ["%d − %s = %s." % (w * h, _ds(Fraction(tb * th, 2)), _ds(w * h - Fraction(tb * th, 2)))])
+
+    def t_mixed_units():
+        b = Decimal(random.randint(5, 15)) / 10
+        h = random.randint(2, 9) * 10
+        return _tb("A triangle has base %s m and perpendicular height %d cm. Find its area, in cm²." % (_ds(b), h),
+                   _ds(b * 100 * h / 2), "num", {"unit": "cm²"},
+                   ["%s m = %d cm." % (_ds(b), int(b * 100)), "½ × %d × %d = %s." % (int(b * 100), h, _ds(b * 100 * h / 2))])
+
+    def t_compare():
+        b, h = random.randint(3, 12), random.randint(3, 12)
+        return _wq("A triangle and a parallelogram both have base %d cm and perpendicular height %d cm. Which has the bigger area? "
+                   "(type triangle or parallelogram)" % (b, h), "parallelogram",
+                   ["Triangle %s cm², parallelogram %d cm²: the triangle is half." % (_ds(Fraction(b * h, 2)), b * h)],
+                   "triangle / parallelogram")
+
+    return _pick_t([t_triangle, t_parallelogram, t_trapezium, t_reverse, t_slant_trap, t_compound, t_trap_reverse, t_cut_out,
+                    t_mixed_units, t_compare], [t_grid_triangle, t_grid_parallelogram])

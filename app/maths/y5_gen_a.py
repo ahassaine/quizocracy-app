@@ -2,6 +2,8 @@
 #
 # Numbers to 1,000,000; counting in powers of 10; negative numbers in context and through zero;
 # Roman numerals to M and years; comparing, ordering, rounding to 100,000 and estimating.
+from itertools import permutations
+
 from .maths_engine import skill
 from .y5_common import *  # noqa: F401,F403
 
@@ -518,7 +520,85 @@ def _(d=1):
         return _tb("What is the sum of the digits of %s?" % _c(n), sum(map(int, str(n))), "int", {},
                    ["%s = %d." % (" + ".join(str(n)), sum(map(int, str(n))))])
 
-    return _pick_t([t_largest, t_smallest, t_clues, t_between, t_round_trip, t_digit_sum])
+    def t_largest_even():
+        ds = random.sample(range(0, 10), _by(d, 5, 5, 6))
+        if not any(x % 2 == 0 for x in ds):
+            ds[0] = 4
+        best = max(int("".join(map(str, p))) for p in permutations(ds) if p[0] and p[-1] % 2 == 0)
+        return _tb("Use each digit card once to make the LARGEST EVEN number you can: %s"
+                   % ", ".join(map(str, ds)), best, "int", {},
+                   ["An even number ends in 0, 2, 4, 6 or 8.",
+                    "Keep the smallest even digit for the ones place: %s." % _c(best)])
+
+    def t_largest_odd():
+        ds = random.sample(range(0, 10), _by(d, 5, 5, 6))
+        if not any(x % 2 for x in ds):
+            ds[0] = 7
+        best = max(int("".join(map(str, p))) for p in permutations(ds) if p[0] and p[-1] % 2)
+        return _tb("Use each digit card once to make the LARGEST ODD number you can: %s"
+                   % ", ".join(map(str, ds)), best, "int", {},
+                   ["An odd number ends in 1, 3, 5, 7 or 9.",
+                    "Keep the smallest odd digit for the ones place: %s." % _c(best)])
+
+    def t_closest():
+        ds = random.sample(range(0, 10), 5)
+        target = random.randint(3, 7) * 10000
+        nums = sorted({int("".join(map(str, p))) for p in permutations(ds) if p[0]},
+                      key=lambda v: (abs(v - target), v))
+        if abs(nums[0] - target) == abs(nums[1] - target):
+            return t_largest()
+        return _tb("Use each of these digit cards once to make the 5-digit number that is CLOSEST to %s: %s"
+                   % (_c(target), ", ".join(map(str, ds))), nums[0], "int", {},
+                   ["Start with the digit nearest to %d in the ten thousands place, then make the rest as "
+                    "close as you can." % (target // 10000), "The closest is %s." % _c(nums[0])])
+
+    def t_swap():
+        n = random.randint(100000, 999999)
+        s = list(str(n))
+        i, j = pick([(2, 3), (1, 4), (3, 5), (0, 1)])
+        while s[i] == s[j] or (i == 0 and s[j] == "0"):
+            n = random.randint(100000, 999999)
+            s = list(str(n))
+        names = ["hundred thousands", "ten thousands", "thousands", "hundreds", "tens", "ones"]
+        t = s[:]
+        t[i], t[j] = t[j], t[i]
+        m = int("".join(t))
+        return _tb("Swap the %s digit and the %s digit of %s. What is the new number?"
+                   % (names[i], names[j], _c(n)), m, "int", {},
+                   ["The %s digit is %s and the %s digit is %s." % (names[i], s[i], names[j], s[j]),
+                    "Swapped: %s." % _c(m)])
+
+    def t_odd_partition():
+        th = random.randint(12, 99)
+        te = random.randint(12, 99)
+        o = random.randint(1, 9)
+        n = th * 1000 + te * 10 + o
+        return _tb("Which number is made from %d thousands, %d tens and %s?" % (th, te, _pl(o, "one")), n, "int", {},
+                   ["%d thousands = %s; %d tens = %d." % (th, _c(th * 1000), te, te * 10),
+                    "%s + %d + %d = %s." % (_c(th * 1000), te * 10, o, _c(n))])
+
+    def t_same_digit():
+        n = random.randint(100000, 999999)
+        s = str(n)
+        reps = [c for c in set(s) if s.count(c) == 2 and c != "0"]
+        if not reps:
+            return t_clues()
+        c = pick(reps)
+        i, j = [k for k, x in enumerate(s) if x == c]
+        vi, vj = int(c) * 10 ** (5 - i), int(c) * 10 ** (5 - j)
+        return _tb("The digit %s appears twice in %s. What is the difference between the values of the two %ss?"
+                   % (c, _c(n), c), vi - vj, "int", {},
+                   ["One is worth %s and the other %s." % (_c(vi), _c(vj)), "%s − %s = %s." % (_c(vi), _c(vj), _c(vi - vj))])
+
+    def t_chart():
+        n = _six(max(d, 1))
+        heads = ["HTh", "TTh", "Th", "H", "T", "O"]
+        return _dt("The place value chart shows a number (HTh = hundred thousands, TTh = ten thousands, and so "
+                   "on). What number is it?", heads, [list(str(n))], n,
+                   ["Read the digits in order: %s." % _c(n)])
+
+    return _pick_t([t_largest, t_smallest, t_clues, t_between, t_round_trip, t_digit_sum, t_largest_even,
+                    t_largest_odd, t_closest, t_swap, t_odd_partition, t_same_digit], [t_chart])
 
 
 # ================================================================== 5.1 ======
@@ -623,7 +703,56 @@ def _(d=1):
                    "order, largest first. Which number is %s?" % _ord(i), ["Park", "Visitors"], rows,
                    asc[::-1][i - 1], ["Largest first: %s." % ", ".join(_c(x) for x in asc[::-1])])
 
-    return _pick_t([t_smallest, t_position, t_between], [t_table])
+    def t_largest():
+        return _tb("Which is the largest of these numbers? %s" % ", ".join(_c(x) for x in nums),
+                   asc[-1], "int", {}, ["In order: %s." % ", ".join(_c(x) for x in asc)])
+
+    def t_middle():
+        if k % 2 == 0:
+            return t_position()
+        return _tb("Put these numbers in order. Which number is in the middle? %s"
+                   % ", ".join(_c(x) for x in nums), asc[k // 2], "int", {},
+                   ["In order: %s." % ", ".join(_c(x) for x in asc)])
+
+    def t_spread():
+        return _tb("What is the difference between the largest and the smallest of these numbers? %s"
+                   % ", ".join(_c(x) for x in nums), asc[-1] - asc[0], "int", {},
+                   ["Largest %s, smallest %s." % (_c(asc[-1]), _c(asc[0])),
+                    "%s − %s = %s." % (_c(asc[-1]), _c(asc[0]), _c(asc[-1] - asc[0]))])
+
+    def t_which_between():
+        lo_, hi_ = asc[0], asc[-1]
+        inside = random.randint(lo_ + 1, hi_ - 1) if hi_ - lo_ > 2 else lo_
+        outs = [lo_ - random.randint(1, 9) * 1000, hi_ + random.randint(1, 9) * 1000]
+        opts = [inside] + outs
+        random.shuffle(opts)
+        return _tb("Which of these numbers lies between %s and %s?  %s"
+                   % (_c(lo_), _c(hi_), ", ".join(_c(x) for x in opts)), inside, "int", {},
+                   ["%s < %s < %s." % (_c(lo_), _c(inside), _c(hi_))])
+
+    def t_bar():
+        names = random.sample(["Ashby", "Brill", "Corfe", "Dunster", "Eyam"], k)
+        vals = random.sample(range(12, 98), k)
+        vals = [v * 10000 for v in vals]
+        order = sorted(vals, reverse=True)
+        i = random.randint(2, k)
+        return _bar("The chart shows how many people visited five castles last year. Put the numbers in order, "
+                    "largest first. Which number is %s?" % _ord(i) if k == 5 else
+                    "The chart shows how many people visited four castles last year. Put the numbers in order, "
+                    "largest first. Which number is %s?" % _ord(i), names, vals, order[i - 1],
+                    ["Largest first: %s." % ", ".join(_c(x) for x in order)])
+
+    def t_name_rank():
+        names = random.sample(["Mount Ash", "Lake Bryn", "Cove Hill", "Fen Vale", "Glen Ard"], k)
+        rows = [[n, _c(v)] for n, v in zip(names, nums)]
+        small = random.random() < 0.5
+        win = names[nums.index(asc[0] if small else asc[-1])]
+        return _dt("The table shows how many visitors each park had last year. Which park had the %s visitors? "
+                   "(type its name)" % ("fewest" if small else "most"), ["Park", "Visitors"], rows, win,
+                   ["%s had %s." % (win, _c(asc[0] if small else asc[-1]))], atype="str")
+
+    return _pick_t([t_smallest, t_position, t_between, t_largest, t_middle, t_spread, t_which_between],
+                   [t_table, t_bar, t_name_rank])
 
 
 def _ord(i):
@@ -710,7 +839,58 @@ def _(d=1):
                    _r(n, u), u // 10, u, ["%s → %s." % (_c(n), _c(_r(n, u)))],
                    lo=max(0, lo - u), hi=lo + 2 * u)
 
-    return _pick_t([t_plain, t_headline, t_both], [t_line])
+    def t_smallest_to():
+        tgt = random.randint(2, 9) * u if u == 100000 else random.randint(11, 99) * u
+        return _tb("A whole number rounds to %s when rounded to the nearest %s. What is the SMALLEST it could be?"
+                   % (_c(tgt), _c(u)), tgt - u // 2, "int", {},
+                   ["Half of %s is %s." % (_c(u), _c(u // 2)), "%s − %s = %s rounds up to %s." % (
+                       _c(tgt), _c(u // 2), _c(tgt - u // 2), _c(tgt))])
+
+    def t_which():
+        tgt = _r(n, u)
+        good = tgt + random.randint(-u // 2, u // 2 - 1)
+        bads = [tgt + u // 2 + random.randint(0, u // 4), tgt - u // 2 - random.randint(1, u // 4)]
+        opts = [good] + bads
+        random.shuffle(opts)
+        return _tb("Which of these rounds to %s to the nearest %s?  %s"
+                   % (_c(tgt), _c(u), ", ".join(_c(x) for x in opts)), good, "int", {},
+                   ["%s rounds to %s; the others do not." % (_c(good), _c(tgt))])
+
+    def t_table():
+        xs = random.sample(range(100000, 999999), 3)
+        rows = [[_c(x), _c(_r(x, 10000)), _c(_r(x, 100000))] for x in xs]
+        r, c = random.randrange(3), random.randint(1, 2)
+        ans = _r(xs[r], [10000, 100000][c - 1])
+        return _dt("Complete the rounding table. What belongs in the empty cell?",
+                   ["Number", "Nearest 10,000", "Nearest 100,000"], rows, ans,
+                   ["%s to the nearest %s is %s." % (_c(xs[r]), _c([10000, 100000][c - 1]), _c(ans))],
+                   missing=[r, c])
+
+    def t_check():
+        wrong = _r(n, u) + pick([-u, u])
+        claimed = pick([_r(n, u), wrong])
+        if claimed <= 0:
+            claimed = _r(n, u)
+        return _wq("%s rounds %s to the nearest %s and gets %s. Is that right? (yes or no)"
+                   % (_who(), _c(n), _c(u), _c(claimed)), "yes" if claimed == _r(n, u) else "no",
+                   ["%s rounds to %s." % (_c(n), _c(_r(n, u)))], "yes / no")
+
+    def t_bar():
+        towns = random.sample(["Fenton", "Oakfield", "Redhill", "Stanton"], 4)
+        vals = [random.randint(100000, 999999) for _ in towns]
+        k = random.randrange(4)
+        return _bar("The chart shows the population of four towns. Round the population of %s to the nearest %s."
+                    % (towns[k], _c(u)), towns, vals, _r(vals[k], u),
+                    ["%s → %s." % (_c(vals[k]), _c(_r(vals[k], u)))])
+
+    def t_crowd():
+        a, b = random.randint(100000, 499999), random.randint(100000, 499999)
+        return _tb("Two concerts had crowds of %s and %s. Round each to the nearest 10,000, then add to estimate the "
+                   "total." % (_c(a), _c(b)), _r(a, 10000) + _r(b, 10000), "int", {},
+                   ["%s + %s = %s." % (_c(_r(a, 10000)), _c(_r(b, 10000)), _c(_r(a, 10000) + _r(b, 10000)))])
+
+    return _pick_t([t_plain, t_headline, t_both, t_smallest_to, t_which, t_check, t_crowd],
+                   [t_line, t_table, t_bar])
 
 
 @skill("Y5.1.e", "Which numbers round to a given value", S1)
@@ -747,7 +927,61 @@ def _(d=1):
                    ["From %s to %s inclusive: %s numbers." % (_c(target - u // 2), _c(target + u // 2 - 1),
                                                               _c(u))])
 
-    return _pick_t([t_smallest, t_largest, t_which, t_count])
+    def t_range_size():
+        return _tb("A whole number rounds to %s to the nearest %s. What is the difference between the largest and the "
+                   "smallest number it could be?" % (_c(target), _c(u)), u - 1, "int", {},
+                   ["Smallest %s, largest %s." % (_c(target - u // 2), _c(target + u // 2 - 1)),
+                    "%s − %s = %s." % (_c(target + u // 2 - 1), _c(target - u // 2), _c(u - 1))])
+
+    def t_not():
+        bad = target + pick([u // 2 + random.randint(0, u // 4), -u // 2 - random.randint(1, u // 4)])
+        goods = random.sample(range(target - u // 2, target + u // 2), 2)
+        opts = goods + [bad]
+        random.shuffle(opts)
+        return _tb("Which of these does NOT round to %s (nearest %s)?  %s"
+                   % (_c(target), _c(u), ", ".join(_c(x) for x in opts)), bad, "int", {},
+                   ["Numbers from %s to %s round to %s." % (_c(target - u // 2), _c(target + u // 2 - 1), _c(target)),
+                    "%s rounds to %s." % (_c(bad), _c(_r(bad, u)))])
+
+    def t_crowd():
+        tgt = random.randint(2, 9) * 1000
+        few = random.random() < 0.5
+        return _tb("A newspaper says 'about %s people' came to a fair, rounded to the nearest 100. What is the %s "
+                   "number of people that could have come?" % (_c(tgt), "smallest" if few else "largest"),
+                   tgt - 50 if few else tgt + 49, "int", {},
+                   ["Numbers from %s to %s round to %s." % (_c(tgt - 50), _c(tgt + 49), _c(tgt))])
+
+    def t_price():
+        tgt = random.randint(3, 20) * 10
+        return _tb("The price of a bike, rounded to the nearest £10, is £%d. The real price is a whole number of "
+                   "pounds. What is the most it could cost, in pounds?" % tgt, tgt + 4, "int", {"unit": "£"},
+                   ["£%d would round up to £%d." % (tgt + 5, tgt + 10), "So the most is £%d." % (tgt + 4)])
+
+    def t_digit():
+        if u > 1000:
+            return t_largest()
+        lead = target // u
+        rest = random.randint(0, u - 1)
+        n = target - u // 2 + rest
+        s = _c(n)
+        place = len(s) - (2 if u == 10 else 3 if u == 100 else 5)          # the digit in the rounding place
+        digit = int(s[place])
+        hidden = s[:place] + "□" + s[place + 1:]
+        cands = [k for k in range(10) if _r(int((s[:place] + str(k) + s[place + 1:]).replace(",", "")), u) == target]
+        if len(cands) != 1:
+            return t_smallest()
+        return _tb("%s rounds to %s to the nearest %s. Here □ is one hidden digit. What is □?"
+                   % (hidden, _c(target), _c(u)), digit, "int", {},
+                   ["Try each digit: only %d makes it round to %s." % (digit, _c(target))]) if lead else t_smallest()
+
+    def t_line():
+        lo = target - u
+        return _nl("Mark the smallest whole number that rounds to %s to the nearest %s." % (_c(target), _c(u)),
+                   target - u // 2, u // 10, u, ["Halfway between %s and %s is %s, which rounds up." % (
+                       _c(lo), _c(target), _c(target - u // 2))], lo=lo, hi=lo + 3 * u) if u >= 100 else t_smallest()
+
+    return _pick_t([t_smallest, t_largest, t_which, t_count, t_range_size, t_not, t_crowd, t_price, t_digit],
+                   [t_line])
 
 
 @skill("Y5.1.f", "Estimate and check calculations by rounding", S1)
@@ -791,7 +1025,69 @@ def _(d=1):
                    _r(x, 1000) + _r(y, 1000), "int", {},
                    ["%s + %s = %s." % (_c(_r(x, 1000)), _c(_r(y, 1000)), _c(_r(x, 1000) + _r(y, 1000)))])
 
-    return _pick_t([t_sum, t_diff, t_check, t_word])
+    def t_closest():
+        x, y = a, b
+        exact = x + y
+        est = _r(x, u) + _r(y, u)
+        opts = sorted({est, est + 10 * u, est - 5 * u if est - 5 * u > 0 else est + 5 * u})
+        return _tb("Without working it out exactly, which of these is the best estimate for %s + %s?  %s"
+                   % (_c(x), _c(y), ", ".join(_c(o) for o in opts)), est, "int", {},
+                   ["Round to the nearest %s: %s + %s = %s." % (_c(u), _c(_r(x, u)), _c(_r(y, u)), _c(est)),
+                    "The exact answer %s is closest to %s." % (_c(exact), _c(est))])
+
+    def t_check_sub():
+        x, y = max(a, b), min(a, b)
+        if x == y:
+            x += u
+        true = x - y
+        claimed = pick([true, true + pick([-1, 1]) * u * random.randint(2, 4)])
+        if claimed <= 0:
+            claimed = true
+        ok = "yes" if claimed == true else "no"
+        return _wq("%s says %s − %s = %s. Estimate by rounding to the nearest %s. Is the answer sensible? (yes or no)"
+                   % (_who(), _c(x), _c(y), _c(claimed), _c(u)), ok,
+                   ["Estimate: %s − %s = %s." % (_c(_r(x, u)), _c(_r(y, u)), _c(_r(x, u) - _r(y, u))),
+                    "%s is %s the estimate." % (_c(claimed), "close to" if ok == "yes" else "far from")], "yes / no")
+
+    def t_over_under():
+        up = random.random() < 0.5
+        base1, base2 = random.randint(2, 8) * u, random.randint(2, 8) * u
+        off1, off2 = random.randint(1, u // 3), random.randint(1, u // 3)
+        x, y = (base1 - off1, base2 - off2) if up else (base1 + off1, base2 + off2)
+        return _wq("%s estimates %s + %s by rounding each number to the nearest %s. Is the estimate MORE or LESS than "
+                   "the exact answer? (type more or less)" % (_who(), _c(x), _c(y), _c(u)), "more" if up else "less",
+                   ["Both numbers were rounded %s." % ("up" if up else "down"),
+                    "So the estimate %s is %s than %s." % (_c(_r(x, u) + _r(y, u)), "more" if up else "less", _c(x + y))],
+                   "more / less")
+
+    def t_shop():
+        items = [("TV", random.randint(260, 890)), ("Sofa", random.randint(310, 990)),
+                 ("Table", random.randint(120, 480)), ("Lamp", random.randint(21, 98))]
+        rows = [[n, "£%d" % p] for n, p in items]
+        est = sum(_r(p, 100) for _, p in items)
+        return _dt("Estimate the total cost of everything on the list by rounding each price to the nearest £100. "
+                   "What is your estimate, in pounds?", ["Item", "Price"], rows, est,
+                   ["%s = £%s." % (" + ".join("£%d" % _r(p, 100) for _, p in items), _c(est))])
+
+    def t_bar():
+        cats = ["Mon", "Tue", "Wed", "Thu"]
+        vals = [random.randint(110, 990) for _ in cats]
+        est = sum(_r(v, 100) for v in vals)
+        return _bar("The chart shows how many people used a swimming pool each day. Round each number to the nearest "
+                    "100 to estimate the total for the four days.", cats, vals, est,
+                    ["%s = %s." % (" + ".join(_c(_r(v, 100)) for v in vals), _c(est))])
+
+    def t_mult_check():
+        n, m = random.randint(21, 89), random.randint(3, 9)
+        true = n * m
+        claimed = pick([true, true, true * 10])
+        est = _r(n, 10) * m
+        return _wq("%s works out %d × %d = %s. Estimate with %d × %d. Is the answer sensible? (yes or no)"
+                   % (_who(), n, m, _c(claimed), _r(n, 10), m), "yes" if claimed == true else "no",
+                   ["%d × %d = %s, so the answer should be near %s." % (_r(n, 10), m, _c(est), _c(est))], "yes / no")
+
+    return _pick_t([t_sum, t_diff, t_check, t_word, t_closest, t_check_sub, t_over_under, t_mult_check],
+                   [t_shop, t_bar])
 
 
 @skill("Y5.1.g", "Numbers to 1,000,000 on a number line", S1)
@@ -826,4 +1122,43 @@ def _(d=1):
                    ["%s is nearest to %s." % (_c(ans), _c(_r(ans - lo, step) + lo))],
                    lo=lo, hi=lo + 5 * major)
 
-    return _pick_t([t_halfway, t_marks], [t_place, t_nearest])
+    def t_step_size():
+        k = pick([2, 4, 5, 10])
+        return _tb("A number line goes from %s to %s and is split into %d equal steps. How big is each step?"
+                   % (_c(lo), _c(lo + major), k), major // k, "int", {},
+                   ["%s ÷ %d = %s." % (_c(major), k, _c(major // k))])
+
+    def t_back_steps():
+        k = random.randint(2, 7)
+        start = lo + random.randint(2, 4) * major
+        return _nl("Start at %s and count back %d small steps of %s. Mark where you land." % (_c(start), k, _c(step)),
+                   start - k * step, step, major, ["%s − %d × %s = %s." % (_c(start), k, _c(step), _c(start - k * step))],
+                   lo=lo, hi=lo + 5 * major)
+
+    def t_place_halfway():
+        a = lo + random.randint(0, 3) * major
+        b = a + major
+        return _nl("Mark the number exactly halfway between %s and %s." % (_c(a), _c(b)), (a + b) // 2, step, major,
+                   ["(%s + %s) ÷ 2 = %s." % (_c(a), _c(b), _c((a + b) // 2))], lo=lo, hi=lo + 5 * major)
+
+    def t_fraction_way():
+        f = pick([(1, 4), (3, 4), (1, 5), (2, 5), (1, 10), (7, 10)])
+        a = lo
+        b = lo + major * 2
+        ans = a + (b - a) * f[0] // f[1]
+        return _tb("A point is %d/%d of the way from %s to %s. What number is it at?" % (f[0], f[1], _c(a), _c(b)),
+                   ans, "int", {}, ["The gap is %s." % _c(b - a), "%d/%d of %s = %s." % (f[0], f[1], _c(b - a), _c(ans - a)),
+                                    "%s + %s = %s." % (_c(a), _c(ans - a), _c(ans))])
+
+    def t_nearer():
+        a = lo + random.randint(0, 3) * major
+        b = a + major
+        x = a + random.randint(1, 9) * step
+        if 2 * x == a + b:
+            x += step
+        return _tb("Is %s nearer to %s or to %s? Type the number it is nearer to." % (_c(x), _c(a), _c(b)),
+                   a if x - a < b - x else b, "int", {},
+                   ["%s is %s from %s and %s from %s." % (_c(x), _c(x - a), _c(a), _c(b - x), _c(b))])
+
+    return _pick_t([t_halfway, t_marks, t_step_size, t_fraction_way, t_nearer],
+                   [t_place, t_nearest, t_back_steps, t_place_halfway])

@@ -134,8 +134,18 @@
         segLabel(W / 2, wholeY + barH / 2, totalLabel, { size: 19 });
 
         // known part width proportional where numbers allow, else half/half
-        const totNum = Number(String(spec.total == null ? totalLabel : spec.total).replace(/[^0-9.\-]/g, ''));
-        const partNum = Number(String(partLabel).replace(/[^0-9.\-]/g, ''));
+        // a label is a size only when it is ONE number: "£1,250", "36 cm", "1 1/2", "3/4"; else NaN
+        const num = (t) => {
+          const s = String(t).replace(/,/g, '').replace(/^\s*[£$€]/, '').replace(/\s*[a-z%]+\s*$/i, '').trim();
+          let m = s.match(/^(-?\d+(?:\.\d+)?)$/);
+          if (m) return Number(m[1]);
+          m = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+          if (m && +m[3]) return +m[1] + m[2] / m[3];
+          m = s.match(/^(\d+)\/(\d+)$/);
+          return m && +m[2] ? m[1] / m[2] : NaN;
+        };
+        const totNum = num(spec.total == null ? totalLabel : spec.total);
+        const partNum = num(partLabel);
         let frac = 0.5;
         if (unknown === 'part' && isFinite(totNum) && isFinite(partNum) && totNum > 0 && partNum > 0 && partNum < totNum) {
           frac = Math.min(0.85, Math.max(0.15, partNum / totNum));

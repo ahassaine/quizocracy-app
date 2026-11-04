@@ -257,7 +257,49 @@ def _(d=1):
                    [["A", ", ".join(map(str, a))], ["B", ", ".join(map(str, b))]], "A" if ma > mb else "B",
                    ["A: %s. B: %s." % (_ds(ma), _ds(mb))], atype="str")
 
-    return _pick_t([t_mean, t_missing, t_which_average, t_mode], [t_compare])
+    def t_bar_mean():
+        cats = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        mm = random.randint(13, 30)                 # the last bar is at least mm − 12
+        v = [mm + random.randint(-3, 3) for _ in range(4)]
+        v.append(5 * mm - sum(v))
+        return _bar("The bar chart shows how many emails were received each day. What is the mean number per day?", cats, v, mm,
+                    ["Total %d ÷ 5 = %d." % (sum(v), mm)])
+
+    def t_new_value():
+        k = random.randint(4, 6)
+        mm = random.randint(10, 30)
+        nv = random.randint(1, 40)
+        while (mm * k + nv) % (k + 1):
+            nv += 1
+        return _tb("The mean of %d numbers is %d. Another number, %d, is added. What is the new mean?" % (k, mm, nv),
+                   (mm * k + nv) // (k + 1), "int", {}, ["Total %d + %d = %d." % (mm * k, nv, mm * k + nv),
+                                                         "%d ÷ %d = %d." % (mm * k + nv, k + 1, (mm * k + nv) // (k + 1))])
+
+    def t_best():
+        q, ans = pick([("The data has one very large value (an outlier). Which average is affected most: mean, median or mode?",
+                        "mean"),
+                       ("Shoe sizes sold in a shop: which average tells the shop which size to order most of: mean, median or "
+                        "mode?", "mode"),
+                       ("Which average must be one of the values in the data: the mode or the mean?", "mode")])
+        return _wq(q, ans, ["Think about what each average uses."], "mean / median / mode")
+
+    def t_range_compare():
+        a = random.sample(range(10, 60), 5)
+        b = random.sample(range(10, 60), 5)
+        while max(a) - min(a) == max(b) - min(b):
+            b = random.sample(range(10, 60), 5)
+        return _dt("Which class's test scores are more consistent (smaller range)? (A or B)", ["Class", "Scores"],
+                   [["A", ", ".join(map(str, a))], ["B", ", ".join(map(str, b))]],
+                   "A" if max(a) - min(a) < max(b) - min(b) else "B",
+                   ["Range A = %d, range B = %d." % (max(a) - min(a), max(b) - min(b))], atype="str")
+
+    def t_mean_decimal():
+        vals = [Decimal(random.randint(10, 99)) / 10 for _ in range(4)]
+        return _tb("Find the mean of these times in seconds: %s" % ", ".join(_ds(v) for v in vals), _ds(sum(vals) / 4), "num",
+                   {"unit": "seconds"}, ["%s ÷ 4 = %s." % (_ds(sum(vals)), _ds(sum(vals) / 4))])
+
+    return _pick_t([t_mean, t_missing, t_which_average, t_mode, t_new_value, t_best, t_mean_decimal],
+                   [t_compare, t_bar_mean, t_range_compare])
 
 
 @skill("Y7.9.f", "Read, interpret and compare charts", S9)
@@ -299,4 +341,57 @@ def _(d=1):
         return _wq("A bar chart's vertical axis starts at 90 instead of 0. Does this make small differences look bigger or "
                    "smaller? (type bigger or smaller)", "bigger", ["Cutting the axis exaggerates differences."], "bigger / smaller")
 
-    return _pick_t([t_misleading], [t_bar_total, t_bar_fraction, t_pie, t_line])
+    def t_bar_more():
+        v = random.sample(range(3, 31), 4)
+        i, j = random.sample(range(4), 2)
+        if v[i] < v[j]:
+            i, j = j, i
+        return _bar("The bar chart shows how pupils travel to school. How many more pupils %s than %s?"
+                    % ({"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[i]],
+                       {"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[j]]),
+                    cats, v, v[i] - v[j], ["%d − %d = %d." % (v[i], v[j], v[i] - v[j])])
+
+    def t_bar_mode():
+        v = random.sample(range(3, 31), 4)
+        return _bar("The bar chart shows how pupils travel to school. Which way of travelling is the mode? (type it as on the chart)",
+                    cats, v, cats[v.index(max(v))], ["The tallest bar is %s." % cats[v.index(max(v))]], atype="str")
+
+    def t_pictogram():
+        key = pick([2, 4, 10])
+        vals = [key * random.randint(1, 8) + (key // 2 if random.random() < 0.3 else 0) for _ in range(4)]
+        names = ["Mon", "Tue", "Wed", "Thu"]
+        k = random.randrange(4)
+        return {"prompt": "The pictogram shows cakes sold each day. Each symbol stands for %d cakes. How many were sold on %s?"
+                          % (key, names[k]), "component": "pictogram",
+                "spec": {"categories": names, "values": vals, "key": key, "symbol": "circle", "unit": "cakes"},
+                "answer": vals[k], "answer_type": "int", "solution": ["Count the symbols and multiply by %d: %d." % (key, vals[k])]}
+
+    def t_line_max():
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+        v = random.sample(range(10, 60), 6)
+        return _lg("The graph shows books sold each month. In which month were the most books sold?", list(zip(months, v)),
+                   months[v.index(max(v))], ["The highest point is %s (%d)." % (months[v.index(max(v))], max(v))], "Books", "Month",
+                   atype="str")
+
+    def t_pie_angle():
+        a = pick([45, 60, 72, 90, 120, 135, 150])
+        tot = pick([n for n in (24, 40, 60, 72, 120, 180, 360) if (n * a) % 360 == 0])
+        rest = 360 - a
+        slices = [["Cats", a], ["Dogs", rest // 2], ["Fish", rest - rest // 2]]
+        return {"prompt": "The pie chart shows the pets of %d people. The Cats sector has an angle of %d°. What fraction of the "
+                          "people have cats? Simplest form." % (tot, a), "component": "pie_chart",
+                "spec": {"slices": slices, "mode": "read", "highlight": 0}, "answer": _fs(Fraction(a, 360)),
+                "answer_type": "frac", "solution": ["%d/360 = %s." % (a, _fs(Fraction(a, 360)))]}
+
+    def t_line_rise():
+        months = ["Jan", "Feb", "Mar", "Apr", "May"]
+        v = [random.randint(10, 60) for _ in months]
+        i = random.randrange(4)
+        if v[i + 1] == v[i]:
+            v[i + 1] += 3
+        word = "increase" if v[i + 1] > v[i] else "decrease"
+        return _lg("The graph shows books sold each month. By how many did sales %s from %s to %s?" % (word, months[i], months[i + 1]),
+                   list(zip(months, v)), abs(v[i + 1] - v[i]), ["%d to %d." % (v[i], v[i + 1])], "Books", "Month")
+
+    return _pick_t([t_misleading], [t_bar_total, t_bar_fraction, t_pie, t_line, t_bar_more, t_bar_mode, t_pictogram, t_line_max,
+                                    t_pie_angle, t_line_rise])

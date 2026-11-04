@@ -36,16 +36,21 @@ def _(d=1):
     d = _d(d)
     x = random.randint(-8, 12)
     a, c = random.randint(3, 9), random.randint(1, 2)
-    b = random.randint(-15, 15)
+    b = random.choice([v for v in range(-15, 16) if v])
     e = (a - c) * x + b
+    while e == 0 or b == 0:
+        b += 1
+        e += 1
 
     def t_both():
         return _tb("Solve  %s %s = %s %s" % (_k(a), _t(b), _k(c), _t(e)), x, "int", {},
                    ["%dx − %dx = %d − (%d)." % (a, c, e, b), "%dx = %d, x = %d." % (a - c, e - b, x)])
 
     def t_brackets():
-        k, m = random.randint(2, 5), random.randint(-6, 6)
+        k, m = random.randint(2, 5), random.choice([v for v in range(-6, 7) if v])
         rhs = k * (x + m) - 2 * x
+        if rhs == 0:
+            return t_both()
         return _tb("Solve  %d(x %s) = 2x %s" % (k, _t(m), _t(rhs)), x, "int", {},
                    ["%dx %s = 2x %s." % (k, _t(k * m), _t(rhs)), "x = %d." % x])
 
@@ -53,7 +58,7 @@ def _(d=1):
         p, q = random.randint(2, 5), random.randint(1, 4)
         if p == q:
             p += 1
-        r, s2 = random.randint(-5, 5), random.randint(-5, 5)
+        r, s2 = random.choice([v for v in range(-5, 6) if v]), random.choice([v for v in range(-5, 6) if v])
         lhs_c, rhs_c = p * r, q * s2
         if (rhs_c - lhs_c) % (p - q):
             return t_both()
@@ -104,7 +109,47 @@ def _(d=1):
         k = random.randint(1, 9)
         return _tb("How many solutions does x² = %d have?" % (k * k), 2, "int", {}, ["x = %d or x = −%d." % (k, k)])
 
-    return _pick_t([t_fraction, t_both_frac, t_square, t_square_neg, t_sq_linear, t_count])
+    def t_frac_each_side():
+        p, q = pick([(2, 3), (3, 4), (2, 5), (3, 5), (4, 5), (5, 6)])
+        x = random.randint(-6, 15)
+        a = random.randint(-5, 9)
+        # (x + a)/p = (x + b)/q  ->  q(x + a) = p(x + b)  ->  b = (q(x + a) − px)/p must be whole
+        num = q * (x + a) - p * x
+        if num % p:
+            x += next(k for k in range(1, p + 1) if (q * (x + k + a) - p * (x + k)) % p == 0)
+            num = q * (x + a) - p * x
+        b = num // p
+        return _tb("Solve  (x %s)/%d = (x %s)/%d" % (_t(a), p, _t(b), q), x, "int", {},
+                   ["Cross-multiply: %d(x %s) = %d(x %s)." % (q, _t(a), p, _t(b)), "x = %d." % x])
+
+    def t_reciprocal():
+        x = pick([2, 3, 4, 5, 6, 8])
+        k = x * random.randint(2, 9)
+        c = random.randint(1, 9)
+        return _tb("Solve  %d/x + %d = %d" % (k, c, k // x + c), x, "int", {}, ["%d/x = %d." % (k, k // x), "x = %d ÷ %d = %d." % (k, k // x, x)])
+
+    def t_coef_square():
+        a, k = random.randint(2, 5), random.randint(2, 10)
+        return _tb("Solve %dx² = %d. Give the positive answer." % (a, a * k * k), k, "int", {}, ["x² = %d." % (k * k), "x = %d." % k])
+
+    def t_bracket_square():
+        h, k = random.randint(-6, 6), random.randint(2, 9)
+        return _tb("Solve (x %s)² = %d. Give the LARGER answer." % (_t(-h), k * k), h + k, "int", {},
+                   ["x %s = ±%d." % (_t(-h), k), "x = %d or x = %d." % (h + k, h - k)])
+
+    def t_both():
+        k = random.randint(2, 13)
+        return {"prompt": "Solve x² = %d. Type both answers, like -3, 3." % (k * k), "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. -3, 3"}, "answer": "%d, %d" % (-k, k), "answer_type": "set",
+                "solution": ["x = %d or x = −%d." % (k, k)]}
+
+    def t_rectangle():
+        k, x = random.randint(2, 5), random.randint(2, 9)
+        return _tb("A rectangle is x cm wide and %dx cm long. Its area is %d cm². Find x." % (k, k * x * x), x, "int", {"unit": "cm"},
+                   ["%dx² = %d." % (k, k * x * x), "x² = %d, x = %d." % (x * x, x)])
+
+    return _pick_t([t_fraction, t_both_frac, t_square, t_square_neg, t_sq_linear, t_count, t_frac_each_side, t_reciprocal, t_coef_square,
+                    t_bracket_square, t_both, t_rectangle])
 
 
 @skill("Y9.2.c", "Simultaneous linear equations", S2)
@@ -127,14 +172,14 @@ def _(d=1):
         if a == c:
             c += 1
         return _tb("Solve:  %s + %s = %d  and  %s + %s = %d.  What is x?" % (_k(a), _k(b, "y"), a * x + b * y, _k(c), _k(b, "y"), c * x + b * y), x, "int", {},
-                   ["Subtract: %dx = %d." % (a - c, (a - c) * x), "x = %d." % x])
+                   ["Subtract: %s = %d." % (_k(a - c), (a - c) * x), "x = %d." % x])
 
     def t_substitute():
         m, c = random.randint(1, 4), random.randint(-5, 5)
         k = random.randint(1, 3)
         yy = m * x + c
-        return _tb("y = %dx %s and x + %dy = %d. Find x." % (m, _t(c), k, x + k * yy), x, "int", {},
-                   ["Substitute: x + %d(%dx %s) = %d." % (k, m, _t(c), x + k * yy), "x = %d." % x])
+        return _tb("y = %s %s and x + %s = %d. Find x." % (_k(m), _t(c), _k(k, "y"), x + k * yy), x, "int", {},
+                   ["Substitute: x + %d(%s %s) = %d." % (k, _k(m), _t(c), x + k * yy), "x = %d." % x])
 
     def t_word():
         a, b = random.randint(2, 9), random.randint(2, 9)
@@ -142,8 +187,8 @@ def _(d=1):
         m1, m2 = random.randint(1, 5), random.randint(1, 5)
         if n1 * m2 == n2 * m1:
             m2 += 1
-        return _tb("%d pens and %d pencils cost %dp. %d pens and %d pencils cost %dp. How much is one pen, in pence?"
-                   % (n1, m1, n1 * a * 10 + m1 * b * 10, n2, m2, n2 * a * 10 + m2 * b * 10), a * 10, "int", {"unit": "p"},
+        return _tb("%s and %s cost %dp. %s and %s cost %dp. How much is one pen, in pence?"
+                   % (_pl(n1, "pen"), _pl(m1, "pencil"), n1 * a * 10 + m1 * b * 10, _pl(n2, "pen"), _pl(m2, "pencil"), n2 * a * 10 + m2 * b * 10), a * 10, "int", {"unit": "p"},
                    ["Solve the pair of equations: pen = %dp, pencil = %dp." % (a * 10, b * 10)])
 
     def t_check():
@@ -250,8 +295,8 @@ def _(d=1):
 
     def t_x_intercept():
         k = random.choice([v for v in range(-5, 6) if v])
-        return _tb("Where does y = %dx %s cross the x-axis? Give the x-value." % (m, _t(-m * k)), k, "int", {},
-                   ["Set y = 0: %dx = %d, x = %d." % (m, m * k, k)])
+        return _tb("Where does y = %s %s cross the x-axis? Give the x-value." % (_k(m), _t(-m * k)), k, "int", {},
+                   ["Set y = 0: %s = %d, x = %d." % (_k(m), m * k, k)])
 
     return _pick_t([t_two_points, t_point_grad, t_parallel, t_rearrange, t_x_intercept])
 
@@ -271,8 +316,9 @@ def _(d=1):
 
     def t_roots():
         b, c = -(p + q), p * q
-        return _wq("Where does y = %s cross the x-axis? Write both x-values, smaller first, like -2, 3." % _poly_txt(b, c),
-                   "%d, %d" % tuple(sorted([p, q])), ["It factorises to (x %s)(x %s)." % (_t(-p), _t(-q))], "e.g. -2, 3")
+        return {"prompt": "Where does y = %s cross the x-axis? Type both x-values like -2, 3." % _poly_txt(b, c), "component": "number",
+                "spec": {"text": True, "placeholder": "e.g. -2, 3"}, "answer": "%d, %d" % tuple(sorted([p, q])), "answer_type": "set",
+                "solution": ["It factorises to (x %s)(x %s)." % (_t(-p), _t(-q))]}
 
     def t_turning():
         h, k = random.choice([v for v in range(-4, 5) if v]), random.randint(-6, 6)
@@ -343,4 +389,60 @@ def _(d=1):
         return _tb("A conversion graph shows 5 miles = 8 km. Use it to convert %d miles to km." % m, m // 5 * 8, "int", {"unit": "km"},
                    ["%d ÷ 5 × 8 = %d." % (m, m // 5 * 8)])
 
-    return _pick_t([t_formula, t_gradient_meaning, t_conversion], [t_speed, t_stop])
+    def t_far():
+        speed, out_h = random.randint(2, 6) * 5, random.randint(2, 3)
+        pts, dist = _journey(out_h, random.randint(1, 2), speed)
+        return _lg("The graph shows a walk (distance from home each hour). What is the greatest distance from home, in km?", pts, dist,
+                   ["The highest point on the graph is %d km." % dist], "km", "Time")
+
+    def t_home_speed():
+        speed, out_h = random.randint(2, 6) * 10, random.randint(1, 3)
+        pts, dist = _journey(out_h, 1, speed)
+        return _lg("The graph shows a drive (distance from home each hour). The return home takes the last 2 hours. What is the average "
+                   "speed on the way home, in km/h?", pts, _ds(Fraction(dist, 2)), ["%d km in 2 hours = %s km/h." % (dist, _ds(Fraction(dist, 2)))],
+                   "km", "Time", atype="num")
+
+    def t_total():
+        speed, out_h = random.randint(2, 6) * 5, random.randint(1, 3)
+        pts, dist = _journey(out_h, random.randint(1, 2), speed)
+        return _lg("The graph shows a bike ride that starts and ends at home. What is the total distance cycled, in km?", pts, 2 * dist,
+                   ["%d km out and %d km back." % (dist, dist)], "km", "Time")
+
+    def t_tank():
+        rate = random.randint(2, 9) * 5
+        start = random.randint(0, 4) * 10
+        pts = [["%d min" % m, start + rate * m] for m in range(0, 6)]
+        return _lg("The graph shows the water in a tank as it fills. At what rate does it fill, in litres per minute?", pts, rate,
+                   ["Each minute it rises by %d litres." % rate], "litres", "Time")
+
+    def t_tariffs():
+        fixed, per_a = random.randint(2, 10), random.randint(2, 6)
+        per_b = per_a + pick([1, 2, 5])            # 100 × fixed always divides exactly
+        m = fixed * 100 // (per_b - per_a)
+        return _tb("Phone plan A costs £%d a month plus %dp a minute. Plan B costs %dp a minute and nothing else. Their graphs cross where the "
+                   "costs are equal. For how many minutes is that?" % (fixed, per_a, per_b), m, "int", {"unit": "minutes"},
+                   ["In pence: %d + %dm = %dm." % (fixed * 100, per_a, per_b), "%dm = %d, m = %d." % (per_b - per_a, fixed * 100, m)])
+
+    def t_runner():
+        sp = random.randint(3, 8)
+        t = pick([20, 40, 50, 60, 80, 100])
+        return _tb("A runner's distance–time graph is a straight line from (0 s, 0 m) to (%d s, %d m). What is the gradient, in m/s?"
+                   % (t, sp * t), sp, "int", {"unit": "m/s"}, ["%d ÷ %d = %d m/s." % (sp * t, t, sp)])
+
+    def t_conv_back():
+        k = 8 * random.randint(2, 16)
+        return _tb("A conversion graph shows 5 miles = 8 km. Use it to convert %d km to miles." % k, k // 8 * 5, "int", {"unit": "miles"},
+                   ["%d ÷ 8 × 5 = %d." % (k, k // 8 * 5)])
+
+    def t_temp_rise():
+        temps = [random.randint(2, 8)]
+        for _ in range(6):
+            temps.append(temps[-1] + random.randint(-1, 4))
+        hours = ["6 am", "8 am", "10 am", "noon", "2 pm", "4 pm", "6 pm"]
+        i, j = sorted(random.sample(range(7), 2))
+        return _lg("The graph shows the temperature during a day. By how many degrees did it change from %s to %s? (Use a minus sign for a fall.)"
+                   % (hours[i], hours[j]), list(zip(hours, temps)), temps[j] - temps[i], ["%d − %d = %d." % (temps[j], temps[i], temps[j] - temps[i])],
+                   "°C", "Time")
+
+    return _pick_t([t_formula, t_gradient_meaning, t_conversion, t_tariffs, t_runner, t_conv_back],
+                   [t_speed, t_stop, t_far, t_home_speed, t_total, t_tank, t_temp_rise])

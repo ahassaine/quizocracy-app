@@ -150,3 +150,89 @@ Year 9: 100 — of commonly misspelt words and subject vocabulary from the KS3 p
 the NC lists. Homophones (whether, advice/advise, affect/effect, except, stationary/stationery,
 licence, personnel, wholly, quiet) get a gap sentence. Audio: Google TTS en-GB Neural2, as for the NC
 words (307 clips). `tests/test_spelling_lists.py` checks every year has a list and every word a clip.
+
+## Widening every year, and stress tests (3–4 Nov 2026)
+
+Ali asked whether breadth was the same across years. It was not: Y9, Y7, Y5 and Y1–2 had far fewer
+kinds of question per skill than Y4 and Y6, so a child saw the same few shapes again and again.
+"Kinds" below are distinct prompt shapes per skill (numbers and names masked, 60 samples per tier;
+`scripts/maths_variety.py`). Target: no skill under 12.
+
+| Year | Skills before → after | Kinds per skill before → after | Skills under 12, before → after |
+|---|---|---|---|
+| Y1 | 21 → 22 | 19.0 → 28.5 | 13 → 0 |
+| Y2 | 25 → 27 | 14.0 → 26.4 | 17 → 0 |
+| Y3 | 86 → 89 | 18.0 → 23.2 | 44 → 0 |
+| Y4 | 93 → 93 | 30.5 → 31.0 | 10 → 0 |
+| Y5 | 85 → 85 | 14.4 → 19.9 | 58 → 0 |
+| Y6 | 98 → 98 | 26.1 → 27.1 | 11 → 0 |
+| Y7 | 58 → 71 | 15.8 → 21.1 | 32 → 0 |
+| Y8 | 109 → 109 | 18.6 → 22.9 | 50 → 0 |
+| Y9 | 40 → 54 | 11.0 → 22.4 | 31 → 0 |
+
+(Ladder skills only; `OUT_OF_YEAR` skills are not counted.) All templates are hand-written.
+
+**New skills** (statutory content that had no skill of its own):
+Y1.4.e measure length, mass, capacity and time · Y2.0.e place value in problems · Y2.6.d compare
+and sort 2-D/3-D shapes · Y3.3.h subtract ones/tens/hundreds · Y3.5.g scaling and correspondence ·
+Y3.8.o 12/24-hour clock · Y7.4.f–h ratio notation, sharing in a ratio, ratio and proportion ·
+Y7.5.g–i squares/cubes/roots, area of compound shapes, volume of cuboids · Y7.6.e y = mx + c tables
+and graphs · Y7.8.i–k symmetry, 3-D shapes and nets, reflect/translate · Y7.9.g–i pie charts,
+frequency tables and graphs, probability · Y9.0.e–f bounds, exact calculation · Y9.1.f–g several
+brackets, identities · Y9.2.e forming equations · Y9.3.e–g graph shapes, parallel lines,
+graphical solutions · Y9.4.d–e rates and exchange, ratio and linear functions · Y9.5.c wages, tax,
+best buys · Y9.6.g angle reasoning with algebra · Y9.8.e listing and tree diagrams · Y9.9.e charts
+for grouped data.
+
+**Fit to the year.** Y4.3.f now uses only the Y4 divisibility rules (2, 5, 10); Y6.5.g is
+"multiply decimals by whole numbers" (decimal × decimal stays in Y7); Y6.6.g lost its percentage
+increase/decrease templates (KS3). Rounding (Y3.1.c–e) and lines of symmetry (Y3.8.l) sit in Y3
+though the curriculum places them in Y4; they predate this round and were left for Ali to decide.
+
+**Wrong answers and grammar** found while widening were fixed in every year (wrong totals, ties,
+trivial questions, "1 metres", "a 8", leftover format codes).
+
+### Selection (`maths_mastery.py`)
+
+A simulated pupil walking each year's ladder (`tests/test_maths_ladder.py`) found three traps:
+* a strong pupil stopped at 86 % mastered — skills a level left behind were reached only by chance
+  review. Once every level passes, the selector now finishes them in ladder order;
+* a weak pupil was held on one skill: once a skill was started, the rest of its level never began.
+  Skills with 20+ attempts and no progress (`PLATEAU_ATTEMPTS`) now give way to moving or fresh ones;
+* when every skill of a level had fallen to 0 the first one was always picked; now the least
+  recently practised.
+Years 8 and 9 also draw 15 % of questions from earlier KS3 years (`KS3_MIX_CHANCE`).
+
+### Checker (`maths_engine.check_answer`)
+
+Fair alternative forms are now accepted: "−" and "–" for minus, superscript powers ("10⁻⁴"),
+"×"/"*" between numbers, "(x + 3) × (x − 3)", "2 x" for 2x. `tests/test_maths_checker.py` types
+each skill's answer in other fair ways (spaces, thousands commas, doubled fractions, mixed numbers,
+reversed sets, coordinates without brackets, "4.30" for 4:30, upper case) and checks near misses
+(±1 step, one digit changed, the other choices) are refused.
+
+### Diagrams
+
+`strip_model.js` read a label like "1 1/2" as 112 when sizing the bar; a label now counts as a size
+only if it is one number, otherwise the bar splits in half.
+
+### Stress tests
+
+| Test | What it does | Result |
+|---|---|---|
+| `scripts/maths_soak.py --n 3000` (SEED=2026) | 3,000 questions per skill per tier, all years; crashes, > 0.5 s, stuck generators (stopped after 3 s), answers the checker refuses | 6,903,000 questions, 0 problems |
+| `scripts/maths_lint.py` | format codes, None/nan, doubled words, a/an, "1 metres", brackets, non-JSON diagram data, non-whole int answers | 0 flags |
+| `scripts/maths_variety.py --min 12` | kinds of question per skill | 0 skills under 12 |
+| `tests/test_maths_bank.py` | every skill: variety ≥ 10, no broken text or data | pass |
+| `tests/test_maths_checker.py` | fair forms accepted, near misses refused | pass |
+| `tests/test_maths_ladder.py` | strong pupil masters every year; weak pupil is not trapped; KS3 mix share | pass |
+| `tests/test_load.py` | 9 children (Y1–9) in 3 families answering 120 questions each at once; one token answered 8 times in parallel | 2,160 requests, median 55 ms, p95 116 ms; the token counted once (`[200] + [409]*7`) |
+
+The soak found one real hang the earlier runs could not see: Y3.6.j "which is smaller" looped
+forever with thirds (only 2/3 − 1/3 exists). It now uses at least fifths, and the soak stops and
+reports any generator that runs over 3 s instead of waiting on it.
+
+**Known limits.** The shape component draws only regular polygons and rectangles, so Y7 symmetry
+of kites and similar shapes uses the coordinate grid; the angle component cannot draw, so
+"draw an angle" is practised by measuring. KS3 content is split across Y7–9 by us (the curriculum
+gives KS3 as one stage).

@@ -449,7 +449,7 @@ def _(d=1):
     def t_place_1000():
         ans = random.randint(1, 9) * 1000
         return _nl("Place %s on the number line." % _c(ans), ans, 1000, 5000,
-                   ["%s is %d lots of 1,000." % (_c(ans), ans // 1000)])
+                   ["%s is %s of 1,000." % (_c(ans), _pl(ans // 1000, "lot"))])
 
     def t_mark():
         k = random.randint(2, 9)
@@ -577,8 +577,8 @@ def _(d=1):
             if m not in opts:
                 opts.append(m)
         random.shuffle(opts)
-        return _tb("Which of these numbers has a %d in the %s place?   %s"
-                   % (dig, place, _lst(opts)), target, "int", {},
+        return _tb("Which of these numbers has %s %d in the %s place?   %s"
+                   % ("an" if dig == 8 else "a", dig, place, _lst(opts)), target, "int", {},
                    ["Check the %s digit of each number." % place,
                     "%s has %d in the %s place." % (_c(target), dig, place)])
 
@@ -708,8 +708,8 @@ def _(d=1):
         return _tb("What number has %s, %s and %s?"
                    % (_pl(a, "thousand"), _pl(b, "hundred"), _pl(cc, "one")),
                    val, "int", {},
-                   ["%d hundreds is %s, which is %d thousand %s."
-                    % (b, _c(b * 100), b // 10, "and %s" % _c((b % 10) * 100) if b % 10 else ""),
+                   ["%d hundreds is %s, which is %d thousand%s."
+                    % (b, _c(b * 100), b // 10, " and %s" % _c((b % 10) * 100) if b % 10 else ""),
                     "%s + %s + %d = %s." % (_c(a * 1000), _c(b * 100), cc, _c(val))])
 
     def t_word():
@@ -1300,7 +1300,7 @@ def _(d=1):
         b = random.randint(1, span)
         return _tb("How many degrees warmer is %d°C than %d°C?" % (b, a), b - a, "int",
                    {"unit": "°C"},
-                   ["From %d°C up to 0°C is %d degrees." % (a, -a),
+                   ["From %d°C up to 0°C is %s." % (a, _pl(-a, "degree")),
                     "Then 0°C up to %d°C is %d more, so %d degrees altogether."
                     % (b, b, b - a)])
 
@@ -1321,8 +1321,8 @@ def _(d=1):
         up = random.randint(1, 5)
         ans = -down + up
         return _tb("In a car park, floor 0 is the ground floor and the basement floors are "
-                   "−1, −2 and so on. %s parks on floor %d, then goes up %d floors. "
-                   "Which floor is %s on now?" % (who, -down, up, who), ans, "int", {},
+                   "−1, −2 and so on. %s parks on floor %d, then goes up %s. "
+                   "Which floor is %s on now?" % (who, -down, _pl(up, "floor"), who), ans, "int", {},
                    ["%d + %d = %d." % (-down, up, ans)])
 
     def t_how_far():
@@ -1366,7 +1366,7 @@ def _(d=1):
         ans = -random.randint(1, min(9, span))
         return _nl("The temperature is %d°C. Place that temperature on the number line." % ans,
                    ans, 1, 5, lo=-10, hi=10,
-                   solution=["%d°C is %d degrees below zero." % (ans, -ans)])
+                   solution=["%d°C is %s below zero." % (ans, _pl(-ans, "degree"))])
 
     def t_graph():
         hours = ["6 am", "9 am", "12 pm", "3 pm", "6 pm"]
@@ -1488,9 +1488,9 @@ def _(d=1):
         b = random.randint(0, span)
         return _tb("On Monday the temperature was %d°C and on Tuesday it was %d°C. "
                    "How many degrees warmer was Tuesday?" % (a, b), b - a, "int", {"unit": "°C"},
-                   ["From %d°C to 0°C is %d degrees, then 0°C to %d°C is %d more."
-                    % (a, -a, b, b),
-                    "That is %d degrees warmer." % (b - a)])
+                   ["From %d°C to 0°C is %s, then 0°C to %d°C is %d more."
+                    % (a, _pl(-a, "degree"), b, b),
+                    "That is %s warmer." % _pl(b - a, "degree")])
 
     def t_line_smaller():
         a, b = sample(2, -9, 9)
@@ -1930,8 +1930,28 @@ def _(d=1):
                    ["£%s rounds to £%s." % (_c(vals[r]), _c(_r1000(vals[r])))],
                    missing=[r, 2])
 
+    def t_estimate():
+        a, b = num(), num()
+        ra, rb = _r1000(a), _r1000(b)
+        return _tb("Estimate %s + %s by rounding each number to the nearest 1,000 first." % (_c(a), _c(b)), ra + rb, "int", {},
+                   ["%s rounds to %s and %s rounds to %s." % (_c(a), _c(ra), _c(b), _c(rb)),
+                    "%s + %s = %s." % (_c(ra), _c(rb), _c(ra + rb))])
+
+    def t_distance():
+        n = num()
+        place = pick(["Rome", "Madrid", "Berlin", "Athens", "Lisbon"])
+        return _tb("A plane flies %s km to %s. About how far is that, to the nearest 1,000 km?" % (_c(n), place), _r1000(n), "int",
+                   {"unit": "km"}, ["The hundreds digit is %d." % ((n // 100) % 10), "%s km rounds to %s km." % (_c(n), _c(_r1000(n)))])
+
+    def t_how_many_round():
+        r = random.randint(2, 8) * 1000
+        vals = random.sample(range(r - 900, r + 900), 5)
+        k = sum(1 for v in vals if _r1000(v) == r)
+        return _tb("How many of these numbers round to %s when rounded to the nearest 1,000?   %s" % (_c(r), _lst(vals)), k,
+                   "int", {}, ["Numbers from %s to %s round to %s." % (_c(r - 500), _c(r + 499), _c(r)), "%d of them do." % k])
+
     return _pick_t([t_bare, t_word, t_money_car, t_money_charity, t_inverse, t_odd_one_out,
-                    t_compare_rounded, t_difference], [t_line, t_io, t_table])
+                    t_compare_rounded, t_difference, t_estimate, t_distance, t_how_many_round], [t_line, t_io, t_table])
 
 
 @skill("Y4.1.d", "Estimate sums and differences", S1)
@@ -2726,7 +2746,7 @@ def _(d=1):
                    "What number goes in the empty cell?" % name,
                    rows, miss, rows[miss][1],
                    ["Each extra %s adds %d sticks." % (name[:-1], add),
-                    "%d %s need %d sticks." % (rows[miss][0], name, rows[miss][1])],
+                    "%d %s %d sticks." % (rows[miss][0], name + " need" if rows[miss][0] != 1 else name[:-1] + " needs", rows[miss][1])],
                    rule="sticks")
 
     def t_table():
@@ -2738,7 +2758,7 @@ def _(d=1):
                    ["Number of %s" % name, "1", "2", "3", "4", "5"],
                    [["Matchsticks"] + [str(v) for v in vals]], vals[r],
                    ["Each extra %s adds %d sticks." % (name[:-1], add),
-                    "%d %s need %d sticks." % (r + 1, name, vals[r])],
+                    "%d %s %s %d sticks." % (r + 1, name if r else name[:-1], "need" if r else "needs", vals[r])],
                    missing=[0, r + 1])
 
     def t_table_repeat():

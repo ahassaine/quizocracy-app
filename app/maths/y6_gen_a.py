@@ -718,7 +718,7 @@ def _(d=1):
                    "digit?" % (shown, "greater" if bigger else "less", _c(b), _c(b)),
                    ans, "int", {},
                    ["The missing digit is in the hundred thousands place, where %s "
-                    "has a %d." % (_c(b), dig),
+                    "has %s %d." % (_c(b), "an" if dig == 8 else "a", dig),
                     "A %d makes the number %s, which is %s than %s."
                     % (ans, _c(target), "greater" if bigger else "less", _c(b))])
 
@@ -1503,7 +1503,7 @@ def _(d=1):
         ans = a - b
         return _nlq("Use the number line to subtract the integers:   %d − %d   "
                     "Place the answer on the number line." % (a, b), ans,
-                    ["Start at %d and count %d steps to the left." % (a, b),
+                    ["Start at %d and count %s to the left." % (a, _pl(b, "step")),
                      "%d − %d = %d." % (a, b, ans)],
                     step=1, major=5, lo=min(ans, a) - 2, hi=max(ans, a) + 2)
 
@@ -3178,9 +3178,10 @@ def _(d=1):
         a = random.randint(3, 12)
         b = random.randint(10, 99)
         cc = random.randint(1, 50)
-        return _tb("%s buys %d packs of cards costing %d p each and pays with a %d p "
+        return _tb("%s buys %d packs of cards costing %d p each and pays with %s %d p "
                    "voucher. Write a calculation for the amount still to pay, then "
-                   "work it out." % (who, a, b, a * b + cc), cc, "int", {"unit": "p"},
+                   "work it out." % (who, a, b, "an" if str(a * b + cc)[0] == "8" or a * b + cc in (11, 18) else "a",
+                                     a * b + cc), cc, "int", {"unit": "p"},
                    ["%d × %d = %d." % (a, b, a * b),
                     "%d − %d = %d." % (a * b + cc, a * b, cc)])
 

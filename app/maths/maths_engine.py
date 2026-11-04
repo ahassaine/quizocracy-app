@@ -71,7 +71,7 @@ NAMES = ["Sara","Tom","Amina","Leo","Priya","Zara","Omar","Ella","Noah","Maya"]
 # ------------------------------------------------------------ answer check ----
 def _num(x):
     try:
-        s = str(x).strip().lower().replace(",", "").replace("£", "").replace(" ", "")
+        s = str(x).strip().lower().replace(",", "").replace("£", "").replace(" ", "").replace("−", "-").replace("–", "-")
         for suf in ("cm","mm","km","kg","ml","m","g","l","p","minutes","minute","mins","min"):
             if s.endswith(suf): s = s[: -len(suf)]; break
         return float(s)
@@ -91,6 +91,9 @@ def _frac(x):
     except Exception:
         return None
 
+_SUP = str.maketrans("⁻⁰¹²³⁴⁵⁶⁷⁸⁹", "-0123456789")
+
+
 def _sn(s):
     """normalise free text: case, punctuation, UK 'and', hyphens.
 
@@ -98,7 +101,12 @@ def _sn(s):
     a stored "6x+8". A hyphen between two words ("forty-two", "north-east") counts as a
     space; any other '-' is a minus sign and is kept, so "x>=2" never matches "x>=-2".
     """
-    s = str(s).strip().lower().replace("−", "-").replace("–", "-").replace("²", "^2").replace("³", "^3")
+    s = str(s).strip().lower().replace("−", "-").replace("–", "-")
+    s = re.sub(r"[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+", lambda m: "^" + m.group(0).translate(_SUP), s)
+    s = re.sub(r"(?<=[\d)])\s*[x×*]\s*(?=[\d(])", "x", s)   # 3.2 × 10^-4 = 3.2x10^-4
+    s = s.replace(")x(", ")(")
+    s = re.sub(r"(?<=\d)\s+(?=[a-z]\b)", "", s)            # 2 x = 2x
+    s = re.sub(r"\b([ap])\.\s*m\b\.?", r"\1m", s)          # a.m. = am, p.m. = pm
     for ch in ".,!?":
         s = s.replace(ch, " ")
     s = re.sub(r"(?<=[a-z])\s*-\s*(?=[a-z])", " ", s)   # word hyphens
@@ -130,7 +138,7 @@ def check_answer(answer_type, expected, value, tolerance=0):
         return nv is not None and nv == ne
     if at == "coord":
         def norm(c):
-            c = str(c).strip().strip("()").replace(" ", "")
+            c = str(c).strip().strip("()").replace(" ", "").replace("−", "-")
             try:
                 a, b = c.split(","); return (int(a), int(b))
             except Exception:
@@ -250,11 +258,11 @@ async def check(token, value, pupil):
             "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}
 
 # ------------------------------------------------ register Y3 generators ------
-from . import y1_gen_a, y2_gen_a   # noqa: E402,F401
-from . import y3_gen_a, y3_gen_b, y3_gen_c, y3_gen_d   # noqa: E402,F401
+from . import y1_gen_a, y1_gen_b, y2_gen_a, y2_gen_b   # noqa: E402,F401
+from . import y3_gen_a, y3_gen_b, y3_gen_c, y3_gen_d, y3_gen_e   # noqa: E402,F401
 from . import y4_gen_a, y4_gen_b, y4_gen_c, y4_gen_d, y4_gen_e   # noqa: E402,F401
 from . import y5_gen_a, y5_gen_b, y5_gen_c, y5_gen_d, y5_gen_e   # noqa: E402,F401
 from . import y6_gen_a, y6_gen_b, y6_gen_c, y6_gen_d, y6_gen_e, y6_gen_f   # noqa: E402,F401
-from . import y7_gen_a, y7_gen_b, y7_gen_c, y7_gen_d, y7_gen_e, y7_gen_f   # noqa: E402,F401
-from . import y8_gen_a, y8_gen_b, y8_gen_c, y8_gen_d, y8_gen_e   # noqa: E402,F401
-from . import y9_gen_a, y9_gen_b, y9_gen_c, y9_gen_d, y9_gen_e   # noqa: E402,F401
+from . import y7_gen_a, y7_gen_b, y7_gen_c, y7_gen_d, y7_gen_e, y7_gen_f, y7_gen_g, y7_gen_h   # noqa: E402,F401
+from . import y8_gen_a, y8_gen_b, y8_gen_c, y8_gen_d, y8_gen_e, y8_gen_f   # noqa: E402,F401
+from . import y9_gen_a, y9_gen_b, y9_gen_c, y9_gen_d, y9_gen_e, y9_gen_f, y9_gen_g   # noqa: E402,F401

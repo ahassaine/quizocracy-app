@@ -236,7 +236,55 @@ def _(d=1):
         return _tb("Each term is the sum of the two before it. Find the missing term:  %s" % shown, t[k], "int", {},
                    ["%d + %d = %d." % (t[k - 2], t[k - 1], t[k])])
 
-    return _pick_t([t_type, t_next_special, t_ratio, t_name, t_fib])
+    def t_geo_term():
+        a, r = random.randint(1, 5), pick([2, 3])
+        k = random.randint(5, 7)
+        return _tb("A geometric sequence starts at %d and each term is %d times the one before. What is term %d?" % (a, r, k),
+                   a * r ** (k - 1), "int", {}, ["%d × %d^%d = %d." % (a, r, k - 1, a * r ** (k - 1))])
+
+    def t_halving():
+        end = random.randint(1, 9) * pick([1, 3, 5])
+        t = [end * 2 ** (5 - i) for i in range(5)]
+        return _tb("What is the next term?  %s, ..." % ", ".join(map(str, t)), end, "int", {},
+                   ["Each term is half the one before: %d ÷ 2 = %d." % (t[-1], end)])
+
+    def t_nth_special():
+        k, n = pick([("square", random.randint(9, 15)), ("triangular", random.randint(6, 12)), ("cube", random.randint(4, 7))])
+        v = {"square": n * n, "triangular": n * (n + 1) // 2, "cube": n ** 3}[k]
+        how = {"square": "%d × %d" % (n, n), "triangular": "%d × %d ÷ 2" % (n, n + 1), "cube": "%d × %d × %d" % (n, n, n)}[k]
+        return _tb("What is the %s %s number?" % (_ord(n), k), v, "int", {}, ["%s = %d." % (how, v)])
+
+    def t_not_square():
+        sq = random.sample([x * x for x in range(3, 13)], 3)
+        odd = pick([x for x in range(10, 145) if int(x ** 0.5) ** 2 != x])
+        shown = sq + [odd]
+        random.shuffle(shown)
+        return _tb("Which of these is NOT a square number?  %s" % ", ".join(map(str, shown)), odd, "int", {},
+                   ["%s are square numbers." % ", ".join(map(str, sorted(sq)))])
+
+    def t_linear_table():
+        lin = random.random() < 0.5
+        a = random.randint(1, 9)
+        s = random.randint(2, 6)
+        vals = [a + s * i for i in range(5)] if lin else [a * 2 ** i for i in range(5)]
+        return _io("The table shows the first five terms of a sequence. Is the sequence linear? (yes or no)",
+                   [[i + 1, v] for i, v in enumerate(vals)], None, "yes" if lin else "no",
+                   ["%s." % ("The terms go up by %d each time" % s if lin else "The differences are not the same")], atype="str")
+
+    def t_increasing():
+        a, r = random.randint(2, 6), pick([2, 3])
+        neg = random.random() < 0.5
+        t = [a * r ** i for i in range(4)] if not neg else [a * r ** 3 // r ** i for i in range(4)]
+        return _tb("Find the common ratio of %s, ... (it may be a fraction)" % ", ".join(map(str, t)),
+                   _fs(Fraction(t[1], t[0])), "frac", {"text": True, "placeholder": "e.g. 3 or 1/2"},
+                   ["%d ÷ %d = %s." % (t[1], t[0], _fs(Fraction(t[1], t[0])))])
+
+    return _pick_t([t_type, t_next_special, t_ratio, t_name, t_fib, t_geo_term, t_halving, t_nth_special, t_not_square,
+                    t_increasing], [t_linear_table])
+
+
+def _ord(n):
+    return "%d%s" % (n, "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th"))
 
 
 @skill("Y7.0.e", "Sequences from patterns and in context", S0)
@@ -279,7 +327,59 @@ def _(d=1):
                    "temperature after %d minutes, in °C?" % (t0, drop, k), t0 - drop * k, "int", {"unit": "°C"},
                    ["%d − %d × %d = %d." % (t0, drop, k, t0 - drop * k)])
 
-    return _pick_t([t_tiles, t_savings, t_tables, t_which_step, t_cooling])
+    def t_sticks_table():
+        add, start = random.randint(2, 5), random.randint(1, 4)
+        n = pick([10, 12, 15, 20])
+        rows = [[k, start + add * k] for k in (1, 2, 3, n)]
+        return _io("A matchstick pattern: the table shows the pattern number and the number of matchsticks. What goes in the "
+                   "empty cell?", rows, 3, start + add * n,
+                   ["Each pattern adds %d: sticks = %dn + %d." % (add, add, start), "%d × %d + %d = %d." % (add, n, start, start + add * n)])
+
+    def t_theatre():
+        first, more = random.randint(12, 24), random.randint(1, 3)
+        r = random.randint(8, 20)
+        return _tb("In a theatre, row 1 has %d seats and each row has %d more seat%s than the row in front. How many seats are "
+                   "in row %d?" % (first, more, "" if more == 1 else "s", r), first + more * (r - 1), "int", {"unit": "seats"},
+                   ["%d + %d × %d = %d." % (first, more, r - 1, first + more * (r - 1))])
+
+    def t_bounce():
+        h = pick([160, 320, 240, 480, 128])
+        k = random.randint(2, 4)
+        return _tb("A ball is dropped from %d cm. Each bounce reaches half the height of the one before. How high is bounce "
+                   "%d, in cm?" % (h, k), _ds(Fraction(h, 2 ** k)), "num", {"unit": "cm"},
+                   ["Halve %d times: %d ÷ %d = %s." % (k, h, 2 ** k, _ds(Fraction(h, 2 ** k)))])
+
+    def t_doubling():
+        s = pick([5, 10, 20, 25, 50])
+        k = random.randint(3, 6)
+        return _tb("A number of cells doubles every hour. There are %d cells at the start. How many after %d hours?" % (s, k),
+                   s * 2 ** k, "int", {"unit": "cells"}, ["%d × 2^%d = %d." % (s, k, s * 2 ** k)])
+
+    def t_formula():
+        add, start = random.randint(2, 6), random.randint(1, 9)
+        return _wq("A pattern has %d tiles in pattern 1, %d in pattern 2 and %d in pattern 3. Write a formula for the number "
+                   "of tiles T in pattern n, like T=3n+2." % (start + add, start + 2 * add, start + 3 * add),
+                   "T=%dn+%d" % (add, start), ["Goes up %d each time, so %dn; %d × 1 + %d = %d." % (add, add, add, start, start + add)],
+                   "e.g. T=3n+2")
+
+    def t_savings_graph():
+        s, w = random.randint(0, 6) * 5, random.randint(2, 8) * 5
+        pts = [("Wk %d" % k, s + w * k) for k in range(5)]
+        return _lg("The graph shows how much is in a savings jar each week. The same amount is added every week. How much "
+                   "will be in the jar in week 10, in pounds?", pts, s + w * 10,
+                   ["%d is added each week." % w, "%d + %d × 10 = %d." % (s, w, s + w * 10)], "£", "Week")
+
+    def t_taxi_over():
+        fee, per = random.randint(2, 5), random.randint(2, 3)
+        lim = random.randint(20, 40)
+        k = (lim - fee) // per + 1
+        return _tb("A taxi costs £%d plus £%d for each mile. What is the smallest whole number of miles for which the fare is "
+                   "more than £%d?" % (fee, per, lim), k, "int", {"unit": "miles"},
+                   ["%d + %d × %d = %d, which is not more than %d." % (fee, per, k - 1, fee + per * (k - 1), lim),
+                    "%d + %d × %d = %d." % (fee, per, k, fee + per * k)])
+
+    return _pick_t([t_tiles, t_savings, t_tables, t_which_step, t_cooling, t_theatre, t_bounce, t_doubling, t_formula,
+                    t_taxi_over], [t_sticks_table, t_savings_graph])
 
 
 # ================================================================== 7.1 ======
@@ -448,7 +548,47 @@ def _(d=1):
         return _io("The machine is: × %d, then + %d. What goes in the empty cell?" % (m, c), rows, k, rows[k][1],
                    ["%d × %d + %d = %d." % (rows[k][0], m, c, rows[k][1])], rule="× %d, + %d" % (m, c))
 
-    return _pick_t([t_output, t_input, t_order_matters, t_expression], [t_find_rule, t_table])
+    def t_divide_first():
+        q = random.randint(2, 15)
+        return _tb("A function machine does: ÷ %d, then − %d. What comes out when %d goes in?" % (m, c, m * q), q - c, "int",
+                   {}, ["%d ÷ %d = %d; − %d = %d." % (m * q, m, q, c, q - c)])
+
+    def t_three_step():
+        a, b, e = random.randint(1, 9), random.randint(2, 5), random.randint(1, 9)
+        return _tb("A function machine does: + %d, then × %d, then − %d. What comes out when %d goes in?" % (a, b, e, x),
+                   (x + a) * b - e, "int", {}, ["%d + %d = %d; × %d = %d; − %d = %d." % (x, a, x + a, b, (x + a) * b, e, (x + a) * b - e)])
+
+    def t_bracket_expr():
+        return _wq("A function machine does: + %d, then × %d. Write the output when x goes in, using brackets (like 3(x+2))."
+                   % (c, m), "%d(x+%d)" % (m, c), ["The adding happens first, so it goes in brackets: %d(x + %d)." % (m, c)],
+                   "e.g. 3(x+2)")
+
+    def t_square_machine():
+        v = random.randint(2, 12)
+        return _tb("A function machine does: square the number, then + %d. What comes out when %d goes in?" % (c, v), v * v + c,
+                   "int", {}, ["%d² = %d; + %d = %d." % (v, v * v, c, v * v + c)])
+
+    def t_find_add():
+        a = random.randint(3, 40)
+        rows = [[v, v + a] for v in random.sample(range(1, 30), 4)]
+        return _io("A function machine adds a number. What number does it add?", rows, None, a,
+                   ["%d − %d = %d." % (rows[0][1], rows[0][0], a)])
+
+    def t_same():
+        same = random.random() < 0.5
+        k2 = m * c if same else c + pick([1, 2, -1])
+        return _wq("Machine A does: × %d, then + %d. Machine B does: + %d, then × %d. Do they always give the same output? "
+                   "(yes or no)" % (m, k2, c, m), "yes" if same else "no",
+                   ["Machine B gives %d(x + %d) = %dx + %d." % (m, c, m, m * c),
+                    "Machine A gives %dx + %d." % (m, k2)], "yes / no")
+
+    def t_negative_in():
+        v = random.randint(-9, -1)
+        return _tb("A function machine does: × %d, then + %d. What comes out when %d goes in?" % (m, c, v), m * v + c, "int", {},
+                   ["%d × (%d) = %d; + %d = %d." % (m, v, m * v, c, m * v + c)])
+
+    return _pick_t([t_output, t_input, t_order_matters, t_expression, t_divide_first, t_three_step, t_bracket_expr,
+                    t_square_machine, t_same, t_negative_in], [t_find_rule, t_table, t_find_add])
 
 
 @skill("Y7.1.e", "Use formulae given in words and symbols", S1)
@@ -487,7 +627,48 @@ def _(d=1):
                    % (fee, per, fee + per * h), h, "int", {"unit": "hours"},
                    ["(%d − %d) ÷ %d = %d." % (fee + per * h, fee, per, h)])
 
-    return _pick_t([t_cost, t_symbols, t_area, t_speed, t_write, t_reverse])
+    def t_chicken():
+        kg = pick([Decimal("1.5"), Decimal("2"), Decimal("2.5"), Decimal("3"), Decimal("1")])
+        mins = int(kg * 2 * 20 + 20)
+        return _tb("To roast a chicken: allow 20 minutes per 500 g, plus 20 minutes. How many minutes for a %s kg chicken?"
+                   % _ds(kg), mins, "int", {"unit": "minutes"},
+                   ["%s kg = %d lots of 500 g." % (_ds(kg), int(kg * 2)), "%d × 20 + 20 = %d." % (int(kg * 2), mins)])
+
+    def t_fahrenheit():
+        cdeg = pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 100, -5, -10])
+        f = cdeg * 9 // 5 + 32
+        return _tb("The formula F = 1.8C + 32 changes °C to °F. Find F when C = %d." % cdeg, f, "int", {"unit": "°F"},
+                   ["1.8 × %d + 32 = %d." % (cdeg, f)])
+
+    def t_miles():
+        mi = random.randint(2, 25) * 5
+        return _tb("To change miles to kilometres: multiply by 8, then divide by 5. How many km is %d miles?" % mi, mi * 8 // 5,
+                   "int", {"unit": "km"}, ["%d × 8 = %d; ÷ 5 = %d." % (mi, mi * 8, mi * 8 // 5)])
+
+    def t_width():
+        w, l = random.randint(2, 12), random.randint(3, 15)
+        return _tb("The area of a rectangle is A = lw. A = %d cm² and l = %d cm. Find w, in cm." % (l * w, l), w, "int",
+                   {"unit": "cm"}, ["w = A ÷ l = %d ÷ %d = %d." % (l * w, l, w)])
+
+    def t_table():
+        per, fee = random.randint(3, 9), random.randint(5, 25)
+        ns = [1, 2, 5, 10]
+        rows = [[n, per * n + fee] for n in ns]
+        k = random.randrange(4)
+        return _io("A club charges C = %dn + %d pounds for n sessions. What goes in the empty cell?" % (per, fee), rows, k,
+                   rows[k][1], ["%d × %d + %d = %d." % (per, rows[k][0], fee, rows[k][1])], rule="C = %dn + %d" % (per, fee))
+
+    def t_mean_formula():
+        a, b, c = random.randint(10, 40), random.randint(10, 40), random.randint(10, 40)
+        s = a + b + c
+        while s % 3:
+            c += 1
+            s = a + b + c
+        return _tb("The formula m = (a + b + c)/3 gives the mean of three numbers. Find m when a = %d, b = %d and c = %d."
+                   % (a, b, c), s // 3, "int", {}, ["(%d + %d + %d) ÷ 3 = %d ÷ 3 = %d." % (a, b, c, s, s // 3)])
+
+    return _pick_t([t_cost, t_symbols, t_area, t_speed, t_write, t_reverse, t_chicken, t_fahrenheit, t_miles, t_width,
+                    t_mean_formula], [t_table])
 
 
 @skill("Y7.1.f", "Vocabulary: expressions, equations, formulae, terms", S1)

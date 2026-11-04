@@ -132,7 +132,28 @@ def _(d=1):
         return _tb("Which angle is larger, %d° or %d°?" % (a, b), max(a, b), "int", {},
                    ["%d° is larger." % max(a, b)])
 
-    return _pick_t([t_classify_num, t_range, t_count, t_compare], [t_classify_pic, t_estimate])
+    def t_clock():
+        h = pick([1, 2, 3, 4, 5, 6, 7, 8])
+        deg = 30 * min(h, 12 - h)
+        kind = _kind(deg)
+        return _wq("At %d o'clock, what kind of angle do the hands make on the inside (the smaller angle)? (acute, right, "
+                   "obtuse or straight)" % h, kind, ["Each hour mark is 30°: the hands are %d° apart." % deg],
+                   "acute / right / obtuse / straight")
+
+    def t_turn_kind():
+        f, name, deg = pick([(1, "a quarter turn", 90), (2, "a half turn", 180), (3, "three quarters of a turn", 270),
+                             (0, "a third of a turn", 120), (0, "an eighth of a turn", 45)])
+        return _wq("What kind of angle is %s: acute, right, obtuse, straight or reflex?" % name, _kind(deg),
+                   ["%s is %d°." % (name.capitalize(), deg)], "angle type")
+
+    def t_shape_angle():
+        name, kind = pick([("square", "right"), ("regular hexagon", "obtuse"), ("equilateral triangle", "acute"),
+                           ("regular octagon", "obtuse"), ("rectangle", "right")])
+        return _wq("What kind of angle is each inside corner of %s %s? (acute, right or obtuse)" % ("an" if name[0] in "aeiou" else "a", name), kind,
+                   ["The inside angles of %s %s are %s." % ("an" if name[0] in "aeiou" else "a", name, kind)], "acute / right / obtuse")
+
+    return _pick_t([t_classify_num, t_range, t_count, t_compare, t_clock, t_turn_kind, t_shape_angle],
+                   [t_classify_pic, t_estimate])
 
 
 @skill("Y5.8.c", "Measure angles in degrees with a protractor", S8)
@@ -166,7 +187,61 @@ def _(d=1):
         return _tb("One angle measures %d° and another measures %d°. What is the difference in degrees?" % (a, b),
                    abs(a - b), "int", {"unit": "°"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
-    return _pick_t([t_reflex_from_inner, t_difference], [t_measure, t_measure, t_scale_trap])
+    def t_two_readings():
+        a = random.randint(1, 8) * 10
+        b = a + random.randint(3, 10) * 10
+        if b > 180:
+            b = 180
+        return _tb("A protractor is placed on an angle. One arm crosses the scale at %d° and the other arm crosses the same "
+                   "scale at %d°. How big is the angle?" % (a, b), b - a, "int", {"unit": "°"},
+                   ["Count from %d to %d: %d − %d = %d." % (a, b, b, a, b - a)])
+
+    def t_reflex_pic():
+        deg = random.randint(3, 16) * 10
+        return {"prompt": "Measure the angle shown. Then work out the reflex angle that goes the other way round. How big "
+                          "is the reflex angle?", "component": "angle",
+                "spec": {"mode": "measure", "degrees": deg, "protractor": True}, "answer": 360 - deg,
+                "answer_type": "num", "tolerance": 2,
+                "solution": ["The angle shown is %d°." % deg, "360 − %d = %d." % (deg, 360 - deg)]}
+
+    def t_wrong_scale():
+        deg = random.randint(2, 16) * 10
+        return _tb("%s measured an angle and read %d°, but used the wrong scale on the protractor. What is the real size of "
+                   "the angle?" % (_who(), 180 - deg), deg, "int", {"unit": "°"},
+                   ["The two scales add up to 180°: 180 − %d = %d." % (180 - deg, deg)])
+
+    def t_between():
+        a, b = random.sample([20, 35, 50, 65, 80, 95, 110, 125, 140, 155, 170], 2)
+        lo_, hi_ = min(a, b), max(a, b)
+        return _tb("How many degrees bigger is an angle of %d° than an angle of %d°?" % (hi_, lo_), hi_ - lo_, "int",
+                   {"unit": "°"}, ["%d − %d = %d." % (hi_, lo_, hi_ - lo_)])
+
+    def t_possible():
+        deg = random.randint(2, 17) * 10 + pick([0, 5])
+        claim = pick(["acute", "obtuse"])
+        ok = _kind(deg) == claim
+        return _wq("%s measures an angle as %d° and says it is %s. Could that be right? (yes or no)"
+                   % (_who(), deg, claim), "yes" if ok else "no", ["%d° is %s." % (deg, _kind(deg))], "yes / no")
+
+    def t_halfway_mark():
+        a = random.randint(1, 16) * 10
+        return _tb("An arm of an angle points exactly halfway between the %d° mark and the %d° mark on a protractor. What "
+                   "reading is that, in degrees?" % (a, a + 10), a + 5, "int", {"unit": "°"},
+                   ["Halfway between %d and %d is %d." % (a, a + 10, a + 5)])
+
+    def t_right_split():
+        a = random.randint(10, 80)
+        return _tb("A right angle is split into two angles. One is measured as %d°. How big is the other, in degrees?" % a,
+                   90 - a, "int", {"unit": "°"}, ["90 − %d = %d." % (a, 90 - a)])
+
+    def t_sum_measured():
+        a, b = random.randint(2, 9) * 10, random.randint(2, 9) * 10 + 5
+        return _tb("Two angles next to each other are measured as %d° and %d°. How big is the angle they make together, in "
+                   "degrees?" % (a, b), a + b, "int", {"unit": "°"}, ["%d + %d = %d." % (a, b, a + b)])
+
+    return _pick_t([t_reflex_from_inner, t_difference, t_two_readings, t_wrong_scale, t_between, t_possible,
+                    t_halfway_mark, t_right_split, t_sum_measured],
+                   [t_measure, t_measure, t_scale_trap, t_reflex_pic])
 
 
 @skill("Y5.8.d", "Angles at a point and whole turns (360°)", S8)
@@ -254,7 +329,37 @@ def _(d=1):
                 "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 180 - deg, "answer_type": "int",
                 "solution": ["180 − %d = %d." % (deg, 180 - deg)]}
 
-    return _pick_t([t_missing, t_three, t_equal, t_half_turn, t_algebra], [t_pic])
+    def t_four():
+        a, b, c = random.randint(15, 50), random.randint(15, 50), random.randint(15, 50)
+        return _tb("Four angles sit together on a straight line. Three of them are %d°, %d° and %d°. How big is the fourth, "
+                   "in degrees?" % (a, b, c), 180 - a - b - c, "int", {"unit": "°"},
+                   ["180 − %d − %d − %d = %d." % (a, b, c, 180 - a - b - c)])
+
+    def t_check():
+        a = random.randint(20, 160)
+        b = 180 - a + pick([0, 0, -10, 10, -5, 5])
+        return _wq("Could angles of %d° and %d° sit together on a straight line? (yes or no)" % (a, b),
+                   "yes" if a + b == 180 else "no", ["%d + %d = %d; a straight line is 180°." % (a, b, a + b)], "yes / no")
+
+    def t_table():
+        rows = []
+        for _ in range(3):
+            x = random.randint(15, 165)
+            rows.append([x, 180 - x])
+        k = random.randrange(3)
+        c = pick([0, 1])
+        ans = rows[k][c]
+        return _dt("Each row shows two angles that sit together on a straight line. What angle belongs in the empty cell, "
+                   "in degrees?", ["Angle A (°)", "Angle B (°)"], rows, ans,
+                   ["180 − %d = %d." % (rows[k][1 - c], ans)], missing=[k, c])
+
+    def t_vertically():
+        a = random.randint(20, 160)
+        return _tb("Two straight lines cross. One of the four angles they make is %d°. The angle next to it on the same line "
+                   "is how many degrees?" % a, 180 - a, "int", {"unit": "°"}, ["They sit on a straight line: 180 − %d = %d." % (a, 180 - a)])
+
+    return _pick_t([t_missing, t_three, t_equal, t_half_turn, t_algebra, t_four, t_check, t_vertically],
+                   [t_pic, t_table])
 
 
 @skill("Y5.8.f", "Right angles, turns and multiples of 90°", S8)
@@ -347,8 +452,41 @@ def _(d=1):
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "points": pts}, "answer": "(%d,%d)" % (x0, y0 + h),
                 "answer_type": "coord", "solution": ["Opposite sides are equal and parallel: (%d,%d)." % (x0, y0 + h)]}
 
+    def t_diagonals():
+        k = random.randint(5, 25)
+        return _tb("One diagonal of a rectangle is %d cm long. How long is the other diagonal, in cm?" % k, k, "int",
+                   {"unit": "cm"}, ["The diagonals of a rectangle are equal."])
+
+    def t_side_from_grid():
+        x0, y0 = random.randint(1, 3), random.randint(1, 3)
+        w, h = random.randint(2, 6), random.randint(2, 5)
+        pts = [[x0, y0, "A"], [x0 + w, y0, "B"], [x0 + w, y0 + h, "C"], [x0, y0 + h, "D"]]
+        ask_w = random.random() < 0.5
+        return {"prompt": "ABCD is a rectangle on a 1 cm grid. How long is side %s, in cm?" % ("AB" if ask_w else "BC"),
+                "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "points": pts,
+                         "polygon": [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]},
+                "answer": w if ask_w else h, "answer_type": "int",
+                "solution": ["Count the squares: %d cm." % (w if ask_w else h)]}
+
+    def t_joined():
+        a, b, h = random.randint(3, 12), random.randint(3, 12), random.randint(2, 9)
+        return _tb("Two rectangles, each %d cm tall, are put side by side to make one big rectangle. Their widths are %d cm "
+                   "and %d cm. What is the perimeter of the big rectangle, in cm?" % (h, a, b), 2 * (a + b + h), "int",
+                   {"unit": "cm"}, ["The big rectangle is %d cm by %d cm." % (a + b, h),
+                                    "2 × (%d + %d) = %d." % (a + b, h, 2 * (a + b + h))])
+
+    def t_square_area():
+        s = random.randint(2, 12)
+        return _tb("A square has an area of %d cm². What is its perimeter, in cm?" % (s * s), 4 * s, "int", {"unit": "cm"},
+                   ["Each side is %d cm because %d × %d = %d." % (s, s, s, s * s), "4 × %d = %d." % (s, 4 * s)])
+
+    def t_corner_sum():
+        return _tb("What do the four inside angles of a rectangle add up to, in degrees?", 360, "int", {"unit": "°"},
+                   ["4 right angles: 4 × 90 = 360."])
+
     return _pick_t([t_opposite, t_perimeter_side, t_angle, t_diagonal_angle, t_square_from_perimeter, t_split,
-                    t_corners], [t_grid])
+                    t_corners, t_diagonals, t_joined, t_square_area, t_corner_sum], [t_grid, t_side_from_grid])
 
 
 @skill("Y5.8.h", "Regular and irregular polygons", S8)
@@ -361,8 +499,9 @@ def _(d=1):
         name, n = pick(POLY)
         eq_s, eq_a = pick([(True, True), (True, False), (False, True), (False, False)])
         ok = eq_s and eq_a
-        return _wq("A %s has %s sides and %s angles. Is it regular? (yes or no)"
-                   % (name, "all equal" if eq_s else "unequal", "all equal" if eq_a else "unequal"),
+        return _wq("%s %s has %s sides and %s angles. Is it regular? (yes or no)"
+                   % ("An" if name[0] in "aeiou" else "A", name, "all equal" if eq_s else "unequal",
+                      "all equal" if eq_a else "unequal"),
                    "yes" if ok else "no", ["A regular polygon has ALL sides equal AND ALL angles equal."], "yes / no")
 
     def t_rhombus():
@@ -375,7 +514,7 @@ def _(d=1):
 
     def t_sides():
         name, n = pick(POLY)
-        return _tb("How many sides does a %s have?" % name, n, "int", {}, ["A %s has %d sides." % (name, n)])
+        return _tb("How many sides does %s %s have?" % ("an" if name[0] in "aeiou" else "a", name), n, "int", {}, ["%s %s has %d sides." % ("An" if name[0] in "aeiou" else "A", name, n)])
 
     def t_perimeter():
         name, n = pick(POLY)
@@ -420,7 +559,7 @@ def _(d=1):
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "polygon": poly, "points": pts,
                          "lines": [{"p1": [m, 0], "p2": [m, 10], "dashed": True, "label": "mirror"}]},
                 "answer": "(%d,%d)" % (2 * m - x, y), "answer_type": "coord",
-                "solution": ["A is %d squares left of the mirror, so its image is %d squares right of it." % (m - x, m - x),
+                "solution": ["A is %s left of the mirror, so its image is %s right of it." % (_pl(m - x, "square"), _pl(m - x, "square")),
                              "(%d,%d)." % (2 * m - x, y)]}
 
     def t_horizontal():
@@ -433,7 +572,7 @@ def _(d=1):
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "polygon": poly, "points": [[x, y, "A"]],
                          "lines": [{"p1": [0, m], "p2": [10, m], "dashed": True, "label": "mirror"}]},
                 "answer": "(%d,%d)" % (x, 2 * m - y), "answer_type": "coord",
-                "solution": ["A is %d squares below the mirror, so its image is %d squares above it." % (m - y, m - y),
+                "solution": ["A is %s below the mirror, so its image is %s above it." % (_pl(m - y, "square"), _pl(m - y, "square")),
                              "(%d,%d)." % (x, 2 * m - y)]}
 
     def t_words():
@@ -452,10 +591,55 @@ def _(d=1):
 
     def t_distance():
         a = random.randint(1, 6)
-        return _tb("A point is %d squares to the left of a mirror line. How far is its reflection from the point, in "
-                   "squares?" % a, 2 * a, "int", {"unit": "squares"}, ["%d to the mirror and %d back: %d." % (a, a, 2 * a)])
+        return _tb("A point is %s to the left of a mirror line. How far is its reflection from the point, in "
+                   "squares?" % _pl(a, "square"), 2 * a, "int", {"unit": "squares"}, ["%d to the mirror and %d back: %d." % (a, a, 2 * a)])
 
-    return _pick_t([t_words, t_unchanged, t_distance], [t_vertical, t_horizontal])
+    def t_words_h():
+        m = random.randint(3, 7)
+        x = random.randint(0, 9)
+        y = random.randint(0, m - 1)
+        return _wq("A point at (%d,%d) is reflected in a horizontal mirror line through y = %d. Where does it go? Write it "
+                   "like (3,4)." % (x, y, m), "(%d,%d)" % (x, 2 * m - y),
+                   ["The x stays the same; y is %d below the mirror, so the image is %d above: %d." % (m - y, m - y, 2 * m - y)],
+                   "(x,y)")
+
+    def t_find_mirror():
+        x = random.randint(0, 4)
+        gap = random.randint(1, 3)
+        y = random.randint(0, 9)
+        return _tb("A point at (%d,%d) is reflected in a vertical mirror line and lands at (%d,%d). The mirror line is "
+                   "x = ? What number is it?" % (x, y, x + 2 * gap, y), x + gap, "int", {},
+                   ["The mirror is halfway: (%d + %d) ÷ 2 = %d." % (x, x + 2 * gap, x + gap)])
+
+    def t_on_line():
+        m = random.randint(3, 7)
+        y = random.randint(0, 9)
+        return _wq("A point at (%d,%d) is reflected in the vertical mirror line x = %d. Where does it go? Write it like (3,4)."
+                   % (m, y, m), "(%d,%d)" % (m, y), ["A point ON the mirror line does not move."], "(x,y)")
+
+    def t_left_right():
+        side = pick(["left", "right"])
+        return _wq("A flag points to the %s. It is reflected in a vertical mirror line. Which way does the image point? "
+                   "(left or right)" % side, "right" if side == "left" else "left",
+                   ["A vertical mirror swaps left and right."], "left / right")
+
+    def t_vertical_low():
+        m = random.randint(4, 6)
+        poly = _poly(random.randint(m, 7), random.randint(1, 6))
+        if max(p[0] for p in poly) > 10 or min(2 * m - p[0] for p in poly) < 0:
+            return t_vertical()
+        k = random.randrange(len(poly))
+        x, y = poly[k]
+        return {"prompt": "The shape is reflected in the dashed vertical mirror line (x = %d). Plot where corner A goes."
+                          % m, "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "polygon": poly, "points": [[x, y, "A"]],
+                         "lines": [{"p1": [m, 0], "p2": [m, 10], "dashed": True, "label": "mirror"}]},
+                "answer": "(%d,%d)" % (2 * m - x, y), "answer_type": "coord",
+                "solution": ["A is %s right of the mirror, so its image is %s left of it." % (_pl(x - m, "square"), _pl(x - m, "square")),
+                             "(%d,%d)." % (2 * m - x, y)]} if x > m else t_vertical()
+
+    return _pick_t([t_words, t_unchanged, t_distance, t_words_h, t_find_mirror, t_on_line, t_left_right],
+                   [t_vertical, t_horizontal, t_vertical_low])
 
 
 @skill("Y5.8.j", "Translation on a grid", S8)
@@ -572,7 +756,44 @@ def _(d=1):
         return _lg("The graph shows the height of a sunflower. How tall was it in %s, in cm?" % weeks[k],
                    list(zip(weeks, h)), h[k], ["Read across: %d cm." % h[k]], "cm", "Week")
 
-    return _pick_t([], [t_read, t_highest, t_when, t_rise, t_plant])
+    def t_lowest():
+        return _lg("Temperature in the playground. What was the lowest temperature, in °C?", list(zip(hrs, vals)),
+                   min(vals), ["The lowest point is %d °C." % min(vals)], "°C", "Time")
+
+    def t_count_above():
+        lim = random.randint(min(vals), max(vals))
+        n = sum(1 for v in vals if v > lim)
+        return _lg("Temperature in the playground. At how many of the times shown was it warmer than %d °C?" % lim,
+                   list(zip(hrs, vals)), n, ["Readings above %d: %s." % (lim, ", ".join(str(v) for v in vals if v > lim) or "none")],
+                   "°C", "Time")
+
+    def t_growth():
+        weeks = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5"]
+        h = sorted(random.sample(range(2, 40), 5))
+        i, j = sorted(random.sample(range(5), 2))
+        return _lg("The graph shows the height of a sunflower. How much did it grow between %s and %s, in cm?"
+                   % (weeks[i], weeks[j]), list(zip(weeks, h)), h[j] - h[i],
+                   ["%d − %d = %d cm." % (h[j], h[i], h[j] - h[i])], "cm", "Week")
+
+    def t_coldest_time():
+        low = min(vals)
+        if vals.count(low) > 1:
+            return t_lowest()
+        return _lg("Temperature in the playground. At what time was it coldest? (type the time, like 10 am)",
+                   list(zip(hrs, vals)), hrs[vals.index(low)], ["The lowest point is at %s." % hrs[vals.index(low)]],
+                   "°C", "Time", atype="str")
+
+    def t_steps():
+        mins = ["0", "10", "20", "30", "40"]
+        st = [random.randint(5, 30) * 10 for _ in mins]
+        st = [sum(st[:k + 1]) for k in range(5)]
+        k = random.randint(1, 4)
+        return _lg("The graph shows the total number of steps %s had walked after each 10 minutes. How many steps had been "
+                   "walked after %s minutes?" % (_who(), mins[k]), list(zip(mins, st)), st[k],
+                   ["Read across from %s minutes: %d." % (mins[k], st[k])], "Steps", "Minutes")
+
+    return _pick_t([], [t_read, t_highest, t_when, t_rise, t_plant, t_lowest, t_count_above, t_growth, t_coldest_time,
+                        t_steps])
 
 
 @skill("Y5.9.b", "Comparison, sum and difference problems from line graphs", S9)
@@ -607,7 +828,7 @@ def _(d=1):
         k = rises.index(top)
         return _lg("Temperature in the playground. Between which two times did the temperature rise the most? Type the "
                    "EARLIER time (like 9 am).", list(zip(hrs, vals)), hrs[k],
-                   ["%s to %s: up %d degrees." % (hrs[k], hrs[k + 1], top)], "°C", "Time", atype="str")
+                   ["%s to %s: up %s." % (hrs[k], hrs[k + 1], _pl(top, "degree"))], "°C", "Time", atype="str")
 
     def t_total():
         days = ["Mon", "Tue", "Wed", "Thu"]
@@ -624,7 +845,35 @@ def _(d=1):
                    [[dd, x, y] for dd, x, y in zip(days, a, b)], abs(a[k] - b[k]),
                    ["%d − %d = %d." % (max(a[k], b[k]), min(a[k], b[k]), abs(a[k] - b[k]))])
 
-    return _pick_t([t_two_lines_words], [t_diff, t_range, t_sales_sum, t_biggest_rise, t_total])
+    def t_how_many_more():
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        s = [random.randint(5, 40) for _ in days]
+        i, j = random.sample(range(5), 2)
+        if s[i] == s[j]:
+            s[i] += 3
+        hi_, lo_ = (i, j) if s[i] > s[j] else (j, i)
+        return _lg("The graph shows ice creams sold each day. How many more were sold on %s than on %s?"
+                   % (days[hi_], days[lo_]), list(zip(days, s)), s[hi_] - s[lo_],
+                   ["%d − %d = %d." % (s[hi_], s[lo_], s[hi_] - s[lo_])], "Ice creams", "Day")
+
+    def t_sum_week():
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        s = [random.randint(5, 40) for _ in days]
+        k = random.randint(2, 4)
+        return _lg("The graph shows ice creams sold each day. How many were sold from Monday to %s inclusive?"
+                   % ["", "", "Wednesday", "Thursday", "Friday"][k], list(zip(days, s)), sum(s[:k + 1]),
+                   ["%s = %d." % (" + ".join(map(str, s[:k + 1])), sum(s[:k + 1]))], "Ice creams", "Day")
+
+    def t_fall_total():
+        falls = [vals[k] - vals[k + 1] for k in range(len(vals) - 1) if vals[k + 1] < vals[k]]
+        if not falls:
+            return t_range()
+        return _lg("Temperature in the playground. Add up every drop in temperature from one reading to the next. How many "
+                   "degrees is that altogether?", list(zip(hrs, vals)), sum(falls),
+                   ["The drops are %s." % ", ".join(map(str, falls)), "Total %d." % sum(falls)], "°C", "Time")
+
+    return _pick_t([t_two_lines_words], [t_diff, t_range, t_sales_sum, t_biggest_rise, t_total, t_how_many_more,
+                                         t_sum_week, t_fall_total])
 
 
 @skill("Y5.9.c", "Complete, read and interpret tables", S9)
@@ -673,7 +922,50 @@ def _(d=1):
         return _dt("The table shows stock in a cupboard. What is the total?", ["Item", "Number"], rows, sum(q),
                    ["%s = %d." % (" + ".join(map(str, q)), sum(q))], missing=[3, 1])
 
-    return _pick_t([], [t_total_col, t_missing_part, t_read_compare, t_most, t_column_total])
+    def t_least():
+        cities = ["Leeds", "York", "Hull", "Bath"]
+        rain = random.sample(range(20, 120), 4)
+        return _dt("The table shows rainfall in mm. Which city had the least rain?", ["City", "Rainfall (mm)"],
+                   [[c, r] for c, r in zip(cities, rain)], cities[rain.index(min(rain))],
+                   ["The smallest is %d mm." % min(rain)], atype="str")
+
+    def t_two_way():
+        sports = ["Swim", "Run", "Cycle"]
+        y5 = [random.randint(3, 20) for _ in sports]
+        y6 = [random.randint(3, 20) for _ in sports]
+        rows = [[s, a, b] for s, a, b in zip(sports, y5, y6)]
+        return _dt("The table shows which sport pupils chose. How many pupils chose altogether, in both years?",
+                   ["Sport", "Year 5", "Year 6"], rows, sum(y5) + sum(y6),
+                   ["Year 5: %d. Year 6: %d." % (sum(y5), sum(y6)), "%d + %d = %d." % (sum(y5), sum(y6), sum(y5) + sum(y6))])
+
+    def t_how_many_more():
+        pets = ["Dog", "Cat", "Fish", "Rabbit"]
+        y5 = [random.randint(2, 15) for _ in pets]
+        y6 = [random.randint(2, 15) for _ in pets]
+        k = random.randrange(4)
+        if y5[k] == y6[k]:
+            y6[k] += 2
+        more = "Year 5" if y5[k] > y6[k] else "Year 6"
+        return _dt("The table shows the pets owned by Year 5 and Year 6. How many more %s owners are in %s than in the other "
+                   "year?" % (pets[k].lower(), more), ["Pet", "Year 5", "Year 6"],
+                   [[p, a, b] for p, a, b in zip(pets, y5, y6)], abs(y5[k] - y6[k]),
+                   ["%d − %d = %d." % (max(y5[k], y6[k]), min(y5[k], y6[k]), abs(y5[k] - y6[k]))])
+
+    def t_tally_total():
+        fruit = ["Apple", "Banana", "Pear", "Grape"]
+        n = [random.randint(4, 25) for _ in fruit]
+        rows = [[f, x] for f, x in zip(fruit, n)]
+        k = random.randrange(4)
+        tot = sum(n)
+        rows.append(["Total", tot])
+        ans = n[k]
+        rows[k][1] = ""
+        return _dt("The table shows favourite fruits and the total. One number is missing. What is it?",
+                   ["Fruit", "Pupils"], rows, ans, ["%d − %s = %d." % (tot, " − ".join(str(x) for i, x in enumerate(n) if i != k), ans)],
+                   missing=[k, 1])
+
+    return _pick_t([], [t_total_col, t_missing_part, t_read_compare, t_most, t_column_total, t_least, t_two_way,
+                        t_how_many_more, t_tally_total])
 
 
 @skill("Y5.9.d", "Read and use timetables", S9)
@@ -727,4 +1019,50 @@ def _(d=1):
                    "(type it like 09:45)" % (k + 1, late), headers, rows, _t(starts[k] + sum(gaps[:2]) + late),
                    ["%s + %d minutes." % (_t(starts[k] + sum(gaps[:2])), late)], atype="time")
 
-    return _pick_t([], [t_journey, t_arrive, t_catch, t_wait, t_late])
+    def t_route():
+        return _dt("Use the bus timetable. How many minutes does the whole route take, from Bridge St to the Station?",
+                   headers, rows, sum(gaps), ["%d + %d + %d = %d minutes." % (gaps[0], gaps[1], gaps[2], sum(gaps))])
+
+    def t_latest():
+        k = random.randrange(3)
+        need = starts[k] + sum(gaps) + random.randint(0, 4)
+        if k < 2 and need >= starts[k + 1] + sum(gaps):
+            need = starts[k + 1] + sum(gaps) - 1
+        return _dt("Use the bus timetable. %s must be at the Station by %s. Which is the latest bus to catch? (type 1, 2 or 3)"
+                   % (_who(), _t(need)), headers, rows, k + 1,
+                   ["Bus %d reaches the Station at %s." % (k + 1, _t(starts[k] + sum(gaps)))])
+
+    def t_missed():
+        k = random.randint(0, 1)
+        return _dt("Use the bus timetable. %s just misses Bus %d at Park Rd. How many minutes until the next bus leaves Park "
+                   "Rd?" % (_who(), k + 1), headers, rows, starts[k + 1] - starts[k],
+                   ["Bus %d is at Park Rd at %s and Bus %d at %s." % (k + 1, _t(starts[k] + gaps[0]), k + 2,
+                                                                      _t(starts[k + 1] + gaps[0]))])
+
+    def t_which_stop():
+        k = random.randrange(3)
+        i = random.randint(1, 3)
+        return _dt("Use the bus timetable. Bus %d arrives at a stop at %s. Which stop is it? (type its name)"
+                   % (k + 1, _t(starts[k] + sum(gaps[:i]))), headers, rows, stops[i],
+                   ["Read down the Bus %d column." % (k + 1)], atype="str")
+
+    def t_later():
+        i, j = sorted(random.sample(range(3), 2))
+        return _dt("Use the bus timetable. How many minutes later than Bus %d does Bus %d reach Market?" % (i + 1, j + 1),
+                   headers, rows, starts[j] - starts[i],
+                   ["%s to %s is %d minutes." % (_t(starts[i] + sum(gaps[:2])), _t(starts[j] + sum(gaps[:2])),
+                                                 starts[j] - starts[i])])
+
+    def t_from_park():
+        k = random.randrange(3)
+        return _dt("Use the bus timetable. %s gets on Bus %d at Park Rd. How many minutes is the ride to the Station?"
+                   % (_who(), k + 1), headers, rows, gaps[1] + gaps[2],
+                   ["%s to %s: %d minutes." % (_t(starts[k] + gaps[0]), _t(starts[k] + sum(gaps)), gaps[1] + gaps[2])])
+
+    def t_leave_market():
+        k = random.randrange(3)
+        return _dt("Use the bus timetable. At what time is Bus %d at Market? (type it like 09:45)" % (k + 1), headers, rows,
+                   _t(starts[k] + sum(gaps[:2])), ["Read down the Bus %d column to Market." % (k + 1)], atype="time")
+
+    return _pick_t([], [t_journey, t_arrive, t_catch, t_wait, t_late, t_route, t_latest, t_missed, t_which_stop,
+                        t_later, t_from_park, t_leave_market])
