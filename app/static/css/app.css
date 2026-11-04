@@ -184,3 +184,15 @@ svg { touch-action:none; max-width:100%; }
   header.signed nav.links a, header.signed nav.links button.linkish { padding:6px 6px; font-size:.86rem; } header.signed .theme-btn { width:32px; height:32px; font-size:.9rem; margin-left:2px; } header.signed .who { padding:0 4px; } }
 @media (max-width:520px) { nav.links a, nav.links button.linkish { padding:6px 7px; font-size:.88rem; } .brand { font-size:1.15rem; } .brand img { width:28px; height:28px; } .wrap { padding:14px 14px 36px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none!important; transition:none!important; } }
+
+/* landing: how it works + benefit lists */
+.steps { counter-reset:step; list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+.steps li { counter-increment:step; position:relative; background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:14px 16px 14px 58px; box-shadow:var(--shadow); }
+.steps li::before { content:counter(step); position:absolute; left:16px; top:50%; transform:translateY(-50%); width:30px; height:30px;
+  border-radius:50%; background:var(--violet); color:#fff; font-weight:800; display:grid; place-items:center; }
+.ticks { list-style:none; padding:0; margin:10px 0 0; }
+.ticks li { position:relative; padding-left:24px; margin:7px 0; color:var(--mut); font-size:.95rem; }
+.ticks li::before { content:"✓"; position:absolute; left:0; color:var(--good); font-weight:800; }
+.grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media (max-width:620px) { .grid.two { grid-template-columns:1fr; } }
