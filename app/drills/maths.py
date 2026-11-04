@@ -32,7 +32,8 @@ async def check(pupil: dict, token: str, value, ms: int | None) -> dict | None:
     if not res.get("ok"):
         return None
     m = await maths_mastery.record_attempt(pid, res["skill"], res["correct"], value)
-    await progress.record(pupil, "maths", res["correct"], ms, res["skill"])
+    await progress.record(pupil, "maths", res["correct"], ms, res["skill"],
+                          res.pop("prompt", ""), res["expected"], value)
     res.update({"score": m["score"], "mastered": m.get("mastered", False),
                 "progress": await maths_mastery.progress(pid, engine_year(pupil.get("year", 3)))})
     return res

@@ -36,7 +36,7 @@ async def next_question(pupil: dict) -> dict:
     else:
         x, y = (a, b) if random.random() < 0.5 else (b, a)
         prompt, answer = f"{x} × {y} =", a * b
-    token = await items.issue(pupil, "tables", answer, {"fact": f"{a}x{b}", "a": a, "b": b})
+    token = await items.issue(pupil, "tables", answer, {"fact": f"{a}x{b}", "a": a, "b": b, "prompt": prompt})
     return {"token": token, "prompt": prompt}
 
 
@@ -64,5 +64,5 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         await db.tables_facts.update_one({"_id": fid}, {"$inc": {"wrong": 1}, "$set": {
             "streak": 0, "pupil_id": pupil["_id"], "family_id": pupil["family_id"], "a": m["a"], "b": m["b"],
             "last_ms": ms}}, upsert=True)
-    await progress.record(pupil, "tables", correct, ms, m["fact"])
+    await progress.record(pupil, "tables", correct, ms, m["fact"], m.get("prompt", ""), it["answer"], value)
     return {"correct": correct, "expected": it["answer"]}

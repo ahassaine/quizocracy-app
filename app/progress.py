@@ -18,12 +18,30 @@ def day_list(n: int) -> list:
     return [(d - datetime.timedelta(days=i)).isoformat() for i in range(n - 1, -1, -1)]
 
 
-async def record(pupil: dict, activity: str, correct: bool, ms: int | None = None, detail: str = "") -> None:
-    await db.attempts.insert_one({
-        "pupil_id": pupil["_id"], "family_id": pupil["family_id"], "activity": activity,
-        "correct": bool(correct), "ms": ms, "detail": detail[:80], "day": today(),
-        "ts": datetime.datetime.utcnow(),
-    })
+async def record(pupil: dict, activity: str, correct: bool, ms: int | None = None, detail: str = "",
+                 question: str = "", expected: str = "", given: str = "") -> None:
+    row = {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "activity": activity,
+           "correct": bool(correct), "ms": ms, "detail": detail[:80], "day": today(),
+           "ts": datetime.datetime.utcnow()}
+    if not correct and question:          # a mistake keeps what was asked, so the parent can go over it later
+        row.update({"q": str(question)[:400], "exp": str(expected)[:200], "got": str(given or "")[:200]})
+    await db.attempts.insert_one(row)
+
+
+async def mistakes(pupil: dict, days: list) -> list:
+    """Wrong answers on these days, newest day first: [{"day", "items": [{activity, q, exp, got, times}]}].
+    The same question missed twice in a day shows once, with a count."""
+    by_day: dict = {}
+    async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": days}, "correct": False,
+                                     "q": {"$exists": True}}).sort("ts", 1):
+        items = by_day.setdefault(r["day"], {})
+        k = (r["activity"], r["q"], r.get("exp", ""))
+        if k in items:
+            items[k]["times"] += 1
+            items[k]["got"] = r.get("got", "")
+        else:
+            items[k] = {"activity": r["activity"], "q": r["q"], "exp": r.get("exp", ""), "got": r.get("got", ""), "times": 1}
+    return [{"day": d, "items": list(by_day[d].values())} for d in sorted(by_day, reverse=True)]
 
 
 async def counts(pupil_ids: list, days: list) -> dict:

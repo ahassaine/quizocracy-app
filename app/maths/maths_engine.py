@@ -224,6 +224,7 @@ async def new_question(skill_key, difficulty=1, pupil=None):
         {"_id": token},
         {"$set": {
             "skill": skill_key,
+            "prompt": q["prompt"],
             "answer": q["answer"],
             "answer_type": q.get("answer_type", "num"),
             "tolerance": q.get("tolerance", 0),
@@ -246,7 +247,7 @@ async def check(token, value, pupil):
     correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0))
     return {"ok": True, "correct": bool(correct),
             "expected": doc["answer"], "solution": doc.get("solution", []),
-            "skill": doc.get("skill")}
+            "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}
 
 # ------------------------------------------------ register Y3 generators ------
 from . import y1_gen_a, y2_gen_a   # noqa: E402,F401

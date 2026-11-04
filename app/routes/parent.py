@@ -88,7 +88,8 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
         "verbs": await verbs.summary(p) if "verbs" in allowed else None,
     }
     return page(request, "child_detail.html", ctx, pupil=p, hist=await progress.history(p, ctx.family, 14),
-                stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]))
+                stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]),
+                mistakes=await progress.mistakes(p, progress.day_list(7)))
 
 
 @router.get("/children/{pid}/edit")

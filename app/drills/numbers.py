@@ -78,5 +78,7 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         correct = _norm(value) == _norm(it["answer"])
     else:
         correct = re.sub(r"[\s,]", "", str(value or "")) == it["answer"]
-    await progress.record(pupil, "numbers", correct, ms, str(it["meta"]["n"]))
+    n, to_words = it["meta"]["n"], it["meta"]["mode"] == "words"
+    await progress.record(pupil, "numbers", correct, ms, str(n),
+                          ("Write %s in words" % f"{n:,}") if to_words else ("Write %s in digits" % words(n)), it["answer"], value)
     return {"correct": correct, "expected": it["answer"]}

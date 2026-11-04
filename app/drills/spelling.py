@@ -96,7 +96,7 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     await db.spelling_words.update_one({"_id": f"{pupil['_id']}:{word}"}, {
         "$set": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": box, "due": due},
         "$inc": {"right" if correct else "wrong": 1}}, upsert=True)
-    await progress.record(pupil, "spelling", correct, ms, word)
+    await progress.record(pupil, "spelling", correct, ms, word, "Spell the word you heard", word, value)
     return {"correct": correct, "expected": word}
 
 

@@ -9,6 +9,25 @@
   <div class="card lift"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">statutory words learned</div></div>
   {% if stats.verbs %}<div class="card lift"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">level {{ stats.verbs.level }} of {{ stats.verbs.levels }}</div></div>{% endif %}
 </div>
+<h2>Mistakes to go over</h2>
+{% if mistakes %}
+<p class="mut small">Wrong answers from the last 7 days, so you can practise them together. The app also brings these questions back by itself.</p>
+{% for d in mistakes %}
+<details class="card mistakes" data-testid="mistakes-day" {% if loop.first %}open{% endif %}>
+  <summary><b>{{ d.day }}</b> <span class="mut">· {{ d['items']|length }} to go over</span></summary>
+  <ul class="mlist">
+    {% for m in d['items'] %}{% set a = ACTIVITIES.get(m.activity, {}) %}
+    <li><img src="{{ a.img }}" alt="{{ a.title }}" title="{{ a.title }}"><div>
+      <div>{{ m.q }}</div>
+      <div class="small"><span class="mut">{{ pupil.name }} wrote</span> <span class="bad-ans">{{ m.got or '(blank)' }}</span>{% if m.times > 1 %} <span class="mut">({{ m.times }} tries)</span>{% endif %}
+        · <span class="mut">answer</span> <b>{{ m.exp }}</b></div></div></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endfor %}
+{% else %}
+<div class="card mut">No mistakes in the last 7 days.</div>
+{% endif %}
 <h2>Last 14 days</h2>
 <div class="card" style="overflow-x:auto">
 <table class="t" data-testid="history">
