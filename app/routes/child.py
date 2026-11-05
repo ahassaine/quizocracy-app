@@ -62,7 +62,9 @@ async def activity_page(request: Request, activity: str, ctx: Ctx = Depends(chil
 async def _day(ctx: Ctx, activity: str) -> dict:
     st = (await progress.board(ctx.family, [ctx.child]))[0]
     it = next((i for i in st["items"] if i["key"] == activity), None)
-    return {"done": it["done"] if it else 0, "target": it["target"] if it else 0, "day_pct": st["pct"]}
+    reward = ctx.family.get("reward") or {}
+    return {"done": it["done"] if it else 0, "target": it["target"] if it else 0, "day_pct": st["pct"],
+            "reward": reward.get("text", "") if st["reward_earned"] else ""}
 
 
 @router.post("/api/{activity}/next")

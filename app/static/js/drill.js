@@ -9,7 +9,7 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-  let reached = null;
+  let reached = null, rewarded = null;
   function setDay(d) {
     if (!d) return;
     const now = d.done >= d.target;
@@ -20,6 +20,13 @@
     $('dayFill').style.width = pct + '%';
     $('dayBar').classList.toggle('done', d.done >= d.target);
     if (d.done >= d.target) $('dayMsg').textContent = 'Target reached for today! You can keep going.';
+    const rw = $('dayReward');
+    if (rw && d.reward) {
+      if (rw.hidden && rewarded === false && window.QZ) QZ.confetti(220);   // the moment the reward is earned
+      rw.querySelector('span').textContent = 'You earned: ' + d.reward;
+      rw.hidden = false;
+    }
+    rewarded = !!d.reward;
   }
 
   window.Drill = function (opts) {

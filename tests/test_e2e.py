@@ -283,7 +283,8 @@ def test_maths_drill_each_year(page, year):
     enter_child(page, "Zak")
     page.goto("/me/maths")
     doc = wait_question(page, "maths", pid)
-    assert doc["skill"].startswith(f"Y{year}.")
+    ks3 = {8: (7, 8), 9: (7, 8, 9)}.get(year, (year,))   # Years 8 and 9 mix in earlier KS3 skills
+    assert doc["skill"].startswith(tuple(f"Y{y}." for y in ks3)), doc["skill"]
     assert page.locator("#mHost").count() == 1 and page.locator("#mHost >> *").count() > 0   # a component rendered
     _answer_maths(page, doc, "definitely wrong")
     assert "Answer:" in page.inner_text("#feedback")
@@ -296,8 +297,7 @@ def test_maths_drill_each_year(page, year):
         else:
             _answer_maths(page, doc, doc["answer"])
         assert "Correct" in page.inner_text("#feedback"), doc
-    m = DB.maths_mastery.find_one({"pupil": pid})
-    assert m and m["score"] > 0
+    assert DB.maths_mastery.find_one({"pupil": pid, "score": {"$gt": 0}})   # a right answer raised a skill
     assert page.inner_text("#dayDone") == "3"
 
 
@@ -356,6 +356,11 @@ def test_reward_board_and_parent_view(page):
         else:
             _answer_simple(page, doc["answer"])
         assert "Correct" in page.inner_text("#feedback"), act
+        if act != "maths":                       # not earned until the last activity is done
+            assert page.locator("[data-testid=reward-earned]").is_hidden(), act
+    # the reward shows in the activity the moment it is earned
+    page.wait_for_selector("[data-testid=reward-earned]", state="visible")
+    assert "You earned: 30 minutes of screen time" in page.inner_text("[data-testid=reward-earned]")
     page.goto("/me")
     assert page.inner_text("[data-testid=day-pct]") == "100%"
     assert "You earned: 30 minutes of screen time" in page.inner_text("[data-testid=reward]")
@@ -364,6 +369,8 @@ def test_reward_board_and_parent_view(page):
     assert "0%" in page.inner_text("[data-testid='board-Omar']")
     unlock_parent(page)
     assert page.inner_text("[data-testid='kid-Sara'] [data-testid=pct]") == "100%"
+    assert "Sara earned: 30 minutes of screen time" in page.inner_text("[data-testid='kid-Sara'] [data-testid=reward-earned]")
+    assert page.locator("[data-testid='kid-Omar'] [data-testid=reward-earned]").count() == 0
     page.goto(f"/children/{pid}")
     assert "100%" in page.inner_text("[data-testid=history]")
 

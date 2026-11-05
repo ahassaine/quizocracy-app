@@ -141,6 +141,7 @@ table.t th, table.t td { text-align:left; padding:8px 8px; border-bottom:1px sol
 .reward.earned { border-style:solid; background:linear-gradient(135deg,color-mix(in srgb,var(--sun) 35%,var(--card)),color-mix(in srgb,var(--coral) 18%,var(--card)));
   animation:pop-in .6s cubic-bezier(.34,1.56,.64,1); }
 .reward.earned img { animation:pop-in .6s ease; }
+.reward[hidden] { display:none; }
 
 /* drills */
 .stage { background:var(--board); color:#EDEBFF; border-radius:var(--r); padding:22px; border:1px solid var(--board-line); box-shadow:var(--shadow-lg); }

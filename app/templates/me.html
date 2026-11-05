@@ -18,5 +18,5 @@
 {% else %}<div class="card">Nothing set for today. Ask a parent.</div>{% endfor %}
 </div>
 <p class="mut small">Your parent can see your answers and progress.</p>
-{% if status.pct >= 100 %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
+{% if status.pct >= 100 or status.reward_earned %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
 {% endblock %}

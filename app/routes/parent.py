@@ -85,7 +85,7 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
         "maths": await maths.summary(p) if "maths" in allowed else None,
         "tables": await tables.mastered_count(p),
         "spelling": await spelling.learned_count(p),
-        "verbs": await verbs.summary(p) if "verbs" in allowed else None,
+        "verbs": await verbs.summary(p) if "verbs" in allowed and p["year"] >= ACTIVITIES["verbs"]["min_year"] else None,
     }
     return page(request, "child_detail.html", ctx, pupil=p, hist=await progress.history(p, ctx.family, 14),
                 stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]),

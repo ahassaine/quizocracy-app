@@ -7,6 +7,7 @@
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="kid-{{ p.name }}">
   <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div><div class="pct" data-testid="pct">{{ b.pct }}%</div></div>
   <div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>
+  {% if b.reward_earned %}<div class="reward earned" data-testid="reward-earned" style="margin-top:10px"><img src="/static/img/trophy.png" alt="">{{ p.name }} earned: {{ ctx.family.reward.text }}</div>{% endif %}
   <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
   <div class="hist" title="Last 7 days">{% for h in hist[p._id] %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endfor %}</div>
   <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a><a class="btn" href="/children/{{ p._id }}/edit">Settings</a></div>
