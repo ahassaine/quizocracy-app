@@ -25,12 +25,13 @@ def _level_done(st: dict, level: int) -> bool:
     return all(st["streaks"].get(v["base"], 0) >= MASTER_STREAK for v in LEVELS[level]["verbs"])
 
 
-async def next_question(pupil: dict) -> dict:
+async def next_question(pupil: dict, focus: str | None = None) -> dict:
+    """focus: a verb to ask again (a mistake being put right)."""
     st = await _state(pupil)
     level = min(st["level"], len(LEVELS) - 1)
     verbs = LEVELS[level]["verbs"]
     todo = [v for v in verbs if st["streaks"].get(v["base"], 0) < MASTER_STREAK] or verbs
-    v = random.choice(todo)
+    v = next((v for b in LEVELS for v in b["verbs"] if v["base"] == focus), None) or random.choice(todo)
     token = await items.issue(pupil, "verbs", {"past": v["past"], "pp": v["pp"]}, {"base": v["base"], "level": level})
     return {"token": token, "base": v["base"], "level": level + 1, "levels": len(LEVELS),
             "level_label": LEVELS[level]["label"]}

@@ -3,7 +3,7 @@ import datetime
 from zoneinfo import ZoneInfo
 
 from . import config
-from .activities import todays_plan
+from .activities import plan_of, todays_plan
 from .db import db
 
 TZ = ZoneInfo(config.TIMEZONE)
@@ -26,6 +26,20 @@ async def record(pupil: dict, activity: str, correct: bool, ms: int | None = Non
     if not correct and question:          # a mistake keeps what was asked, so the parent can go over it later
         row.update({"q": str(question)[:400], "exp": str(expected)[:200], "got": str(given or "")[:200]})
     await db.attempts.insert_one(row)
+
+
+async def open_mistakes(pupil: dict, days: int = 7) -> dict:
+    """Mistakes not put right yet: {activity: [detail, ...]}, the longest-waiting first. A mistake is put right
+    when the same item (fact, word, verb, number, skill or question) is answered correctly afterwards."""
+    last: dict = {}
+    async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": day_list(days)}, "detail": {"$nin": ["", None]}},
+                                    {"activity": 1, "detail": 1, "correct": 1, "ts": 1}).sort("ts", 1):
+        last[(r["activity"], r["detail"])] = (r["correct"], r["ts"])
+    out: dict = {}
+    for (act, det), (ok, ts) in sorted(last.items(), key=lambda kv: kv[1][1]):
+        if not ok:
+            out.setdefault(act, []).append(det)
+    return out
 
 
 async def mistakes(pupil: dict, days: list) -> list:
@@ -71,15 +85,23 @@ def day_status(pupil: dict, family: dict, day_counts: dict) -> dict:
     return {"items": items, "pct": pct}
 
 
+def reward_for(pupil: dict, family: dict) -> dict:
+    """The child's own reward if the parent set one, otherwise the family's; none without the rewards plan."""
+    if not plan_of(family)["rewards"]:
+        return {}
+    own = pupil.get("reward") or {}
+    return own if own.get("text") else (family.get("reward") or {})
+
+
 async def board(family: dict, pupils: list, day: str | None = None) -> list:
     day = day or today()
     c = await counts([p["_id"] for p in pupils], [day])
-    reward = family.get("reward") or {}
     out = []
     for p in pupils:
         st = day_status(p, family, c.get(p["_id"], {}).get(day, {}))
+        reward = reward_for(p, family)
         earned = bool(reward.get("text")) and st["pct"] >= int(reward.get("threshold") or 100)
-        out.append({"pupil": p, **st, "reward_earned": earned})
+        out.append({"pupil": p, **st, "reward": reward, "reward_earned": earned})
     return out
 
 

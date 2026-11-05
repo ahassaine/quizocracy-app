@@ -60,8 +60,9 @@ def _pick(year: int) -> int:
     return n
 
 
-async def next_question(pupil: dict) -> dict:
-    n = _pick(pupil.get("year", 3))
+async def next_question(pupil: dict, focus: str | None = None) -> dict:
+    """focus: a number to write again (a mistake being put right)."""
+    n = int(focus) if str(focus or "").isdigit() else _pick(pupil.get("year", 3))
     to_words = random.random() < 0.65
     if to_words:
         token = await items.issue(pupil, "numbers", words(n), {"mode": "words", "n": n})

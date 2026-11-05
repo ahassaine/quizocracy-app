@@ -1,5 +1,6 @@
 """Times tables: multiplication and division facts, weighted towards the ones a child gets wrong or slow."""
 import random
+import re
 
 from ..db import db
 from .. import items, progress
@@ -24,12 +25,17 @@ def _weight(f: dict | None) -> float:
     return w
 
 
-async def next_question(pupil: dict) -> dict:
+async def next_question(pupil: dict, focus: str | None = None) -> dict:
+    """focus: a fact such as "7x8" to ask again (a mistake being put right)."""
     tabs = tables_for_year(pupil.get("year", 4))
-    facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
-    pool = [(a, b) for a in tabs for b in range(1, 13)]
-    weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
-    a, b = random.choices(pool, weights=weights, k=1)[0]
+    m = re.fullmatch(r"(\d+)x(\d+)", focus or "")
+    if m:
+        a, b = int(m.group(1)), int(m.group(2))
+    else:
+        facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
+        pool = [(a, b) for a in tabs for b in range(1, 13)]
+        weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
+        a, b = random.choices(pool, weights=weights, k=1)[0]
     divide = pupil.get("year", 4) >= 3 and random.random() < 0.3
     if divide:
         prompt, answer = f"{a * b} ÷ {a} =", b

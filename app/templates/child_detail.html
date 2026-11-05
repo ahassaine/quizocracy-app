@@ -7,6 +7,7 @@
   {% if stats.maths %}<div class="card lift"><div class="act-head"><img src="/static/img/maths.png" alt="" style="width:46px;height:46px;animation:none"><b>Maths</b></div><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered</div></div>{% endif %}
   <div class="card lift"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts answered right 3 times running</div></div>
   <div class="card lift"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">statutory words learned</div></div>
+  {% for k in ("grammar", "science") %}{% if stats[k] %}<div class="card lift" data-testid="card-{{ k }}"><div class="act-head"><img src="/static/img/{{ k }}.png" alt="" style="width:46px;height:46px;animation:none"><b>{{ ACTIVITIES[k].title }}</b></div><div class="pct">{{ stats[k].mastered }}/{{ stats[k].total }}</div><div class="mut small">Year {{ stats[k].year }} skills mastered</div></div>{% endif %}{% endfor %}
   {% if stats.verbs %}<div class="card lift"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">level {{ stats.verbs.level }} of {{ stats.verbs.levels }}</div></div>{% endif %}
 </div>
 <h2>Mistakes to go over</h2>
@@ -28,6 +29,14 @@
 {% else %}
 <div class="card mut">No mistakes in the last 7 days.</div>
 {% endif %}
+<h2>How to help</h2>
+<div class="grid tips" data-testid="tips">
+{% for a in plan_items %}{% if TIPS.get(a.key) %}
+  <details class="card"><summary class="act-head"><img src="{{ a.img }}" alt="" style="width:34px;height:34px;animation:none"><b>{{ a.title }}</b></summary>
+    <ul class="ticks">{% for t in TIPS[a.key] %}<li>{{ t }}</li>{% endfor %}</ul></details>
+{% endif %}{% endfor %}
+</div>
+
 <h2>Last 14 days</h2>
 <div class="card" style="overflow-x:auto">
 <table class="t" data-testid="history">

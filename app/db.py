@@ -10,7 +10,7 @@ db = client[config.DB_NAME]
 # Every collection that holds a family's data. Deleting a family walks this list.
 FAMILY_COLLECTIONS = (
     "accounts", "pupils", "sessions", "attempts", "maths_lab_q", "maths_attempts", "maths_mastery",
-    "tables_facts", "spelling_words", "verbs_state", "items",
+    "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
 )
 
 
@@ -27,8 +27,9 @@ async def ensure_indexes():
     await db.maths_lab_q.create_index([("created", ASCENDING)], expireAfterSeconds=7 * 86400)
     await db.maths_mastery.create_index([("pupil", ASCENDING)])
     await db.maths_attempts.create_index([("pupil", ASCENDING), ("ts", DESCENDING)])
-    for c in ("tables_facts", "spelling_words", "verbs_state", "items"):
+    for c in ("tables_facts", "spelling_words", "verbs_state", "bank_state", "items"):
         await db[c].create_index([("pupil_id", ASCENDING)])
+    await db.bank_mastery.create_index([("pupil_id", ASCENDING), ("subject", ASCENDING)])
     await db.items.create_index([("created", ASCENDING)], expireAfterSeconds=2 * 86400)
     await db.login_failures.create_index([("ts", ASCENDING)], expireAfterSeconds=3600)
     await db.team_messages.create_index([("tid", ASCENDING), ("time", ASCENDING)])

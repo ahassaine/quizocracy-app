@@ -6,11 +6,12 @@ import re
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
 
-from ..activities import ACTIVITIES, ORDER, YEARS, default_activities, plan_of
+from ..activities import ACTIVITIES, ORDER, YEARS, default_activities, plan_of, todays_plan
 from ..db import FAMILY_COLLECTIONS, db
 from ..deps import Ctx, family_page, own_pupil, parent_page
-from ..drills import maths, spelling, tables, verbs
+from ..drills import bank, maths, spelling, tables, verbs
 from .. import progress
+from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page
 
@@ -46,7 +47,7 @@ def _form_activities(form, year: int) -> dict:
 async def child_new_form(request: Request, ctx: Ctx = Depends(parent_page)):
     if len(await _pupils(ctx)) >= plan_of(ctx.family)["max_children"]:
         return page(request, "upgrade.html", ctx, reason="children")
-    return page(request, "child_form.html", ctx, pupil=None, years=YEARS, acts=default_activities(3))
+    return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=None, years=YEARS, acts=default_activities(3))
 
 
 @router.post("/children/new")
@@ -68,11 +69,11 @@ async def child_new(request: Request, ctx: Ctx = Depends(parent_page)):
     elif not PIN_RE.match(pin):
         err = "The PIN must be 4 digits."
     if err:
-        return page(request, "child_form.html", ctx, pupil={"name": name, "year": year}, years=YEARS,
+        return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil={"name": name, "year": year}, years=YEARS,
                     acts=default_activities(year or 3), error=err, status_code=400)
     acts = _form_activities(form, year) if form.get("custom") else default_activities(year)
     p = {"_id": new_id("p"), "family_id": ctx.family["_id"], "name": name, "year": year, "pin": hash_secret(pin),
-         "activities": acts, "created": datetime.datetime.utcnow()}
+         "activities": acts, "reward": _form_reward(form, ctx.family), "created": datetime.datetime.utcnow()}
     await db.pupils.insert_one(p)
     return RedirectResponse(f"/children/{p['_id']}?added=1", 303)
 
@@ -86,16 +87,36 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
         "tables": await tables.mastered_count(p),
         "spelling": await spelling.learned_count(p),
         "verbs": await verbs.summary(p) if "verbs" in allowed and p["year"] >= ACTIVITIES["verbs"]["min_year"] else None,
+        "grammar": await bank.grammar.summary(p) if "grammar" in allowed else None,
+        "science": await bank.science.summary(p) if "science" in allowed else None,
     }
     return page(request, "child_detail.html", ctx, pupil=p, hist=await progress.history(p, ctx.family, 14),
                 stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]),
-                mistakes=await progress.mistakes(p, progress.day_list(7)))
+                mistakes=await progress.mistakes(p, progress.day_list(7)),
+                plan_items=todays_plan(p, ctx.family), TIPS=TIPS)
+
+
+def _form_reward(form, family: dict) -> dict | None:
+    """The child's own reward from the form; None (use the family's) when left empty or without the plan."""
+    text = (form.get("reward_text") or "").strip()[:120]
+    if not text or not plan_of(family)["rewards"]:
+        return None
+    try:
+        threshold = int(form.get("reward_threshold") or 100)
+    except ValueError:
+        threshold = 100
+    return {"text": text, "threshold": max(10, min(100, threshold))}
+
+
+def _acts(p: dict) -> dict:
+    """The child's plan, with any activity added since they were set up at its default."""
+    return {**default_activities(p["year"]), **(p.get("activities") or {})}
 
 
 @router.get("/children/{pid}/edit")
 async def child_edit_form(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     p = await own_pupil(ctx, pid)
-    return page(request, "child_form.html", ctx, pupil=p, years=YEARS, acts=p.get("activities") or default_activities(p["year"]))
+    return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p))
 
 
 @router.post("/children/{pid}/edit")
@@ -109,11 +130,12 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
         year = p["year"]
     if year not in YEARS:
         year = p["year"]
-    upd = {"name": name or p["name"], "year": year, "activities": _form_activities(form, year)}
+    upd = {"name": name or p["name"], "year": year, "activities": _form_activities(form, year),
+           "reward": _form_reward(form, ctx.family)}
     pin = (form.get("pin") or "").strip()
     if pin:
         if not PIN_RE.match(pin):
-            return page(request, "child_form.html", ctx, pupil=p, years=YEARS, acts=p.get("activities"),
+            return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p),
                         error="The PIN must be 4 digits.", status_code=400)
         upd["pin"] = hash_secret(pin)
     await db.pupils.update_one({"_id": p["_id"]}, {"$set": upd})
@@ -123,7 +145,7 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
 async def _delete_pupils(ids: list) -> None:
     for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
         await db[c].delete_many({"pupil": {"$in": ids}})
-    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "items"):
+    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items"):
         await db[c].delete_many({"pupil_id": {"$in": ids}})
     await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None}})
     await db.pupils.delete_many({"_id": {"$in": ids}})
@@ -159,7 +181,7 @@ async def export(request: Request, ctx: Ctx = Depends(parent_page)):
     data = {"exported": datetime.datetime.utcnow().isoformat(), "family": ctx.family,
             "accounts": [{k: v for k, v in a.items() if k != "pw"} async for a in db.accounts.find({"family_id": fid})],
             "children": [{k: v for k, v in p.items() if k != "pin"} for p in pupils]}
-    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state"):
+    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery"):
         data[c] = [d async for d in db[c].find({"pupil_id": {"$in": ids}}, {"_id": 0})]
     data["maths_mastery"] = [d async for d in db.maths_mastery.find({"pupil": {"$in": ids}}, {"_id": 0})]
     body = json.dumps(data, default=str, indent=1)

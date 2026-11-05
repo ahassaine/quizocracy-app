@@ -9,6 +9,12 @@
     <select id="year" name="year" required>{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select></div>
   <div class="field"><label for="pin">{% if editing %}New 4-digit PIN <span class="mut">(leave blank to keep)</span>{% else %}4-digit PIN for your child{% endif %}</label>
     <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off"></div>
+  {% if plan.rewards %}
+  <h2 style="display:flex;align-items:center;gap:8px"><img src="/static/img/trophy.png" alt="" style="width:30px">Own reward <span class="mut small" style="font-weight:400">(optional)</span></h2>
+  <p class="mut small">Leave it empty to use the family reward from Settings{% if ctx.family.reward and ctx.family.reward.text %} ("{{ ctx.family.reward.text }}"){% endif %}.</p>
+  <div class="field"><label for="reward_text">Reward for this child</label><input id="reward_text" name="reward_text" type="text" maxlength="120" placeholder="A trip to the park" value="{{ pupil.reward.text if pupil and pupil.reward else '' }}"></div>
+  <div class="field"><label for="reward_threshold">Earned at (% of the day)</label><input id="reward_threshold" name="reward_threshold" type="number" min="10" max="100" value="{{ pupil.reward.threshold if pupil and pupil.reward else 100 }}" style="max-width:120px"></div>
+  {% endif %}
   <h2>Daily plan</h2>
   <p class="mut small">Targets count correct answers. Activities the plan does not include, or that start above this school year, stay off.</p>
   <input type="hidden" name="custom" value="1">

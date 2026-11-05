@@ -12,8 +12,12 @@ ACTIVITIES = {
                  "blurb": "Write numbers in words, and words in numbers.", "img": "/static/img/numbers.png"},
     "verbs":    {"title": "Irregular verbs", "icon": "📝", "target": 10, "min_year": 3, "free": False,
                  "blurb": "Go, went, gone: the verbs that break the rules.", "img": "/static/img/verbs.png"},
+    "grammar":  {"title": "Grammar and punctuation", "icon": "✏️", "target": 5, "min_year": 1, "free": False,
+                 "blurb": "Word classes, sentences and punctuation, year by year.", "img": "/static/img/grammar.png"},
+    "science":  {"title": "Science", "icon": "🔬", "target": 5, "min_year": 1, "free": False,
+                 "blurb": "Biology, chemistry and physics from the national curriculum.", "img": "/static/img/science.png"},
 }
-ORDER = ["maths", "tables", "spelling", "numbers", "verbs"]
+ORDER = ["maths", "tables", "spelling", "grammar", "science", "numbers", "verbs"]
 
 PLANS = {
     "free":   {"title": "Free", "max_children": 1, "activities": [k for k in ORDER if ACTIVITIES[k]["free"]],
@@ -38,10 +42,11 @@ def default_activities(year: int) -> dict:
 def todays_plan(pupil: dict, family: dict) -> list:
     """Activities this child should do today, respecting the family's plan."""
     allowed = plan_of(family)["activities"]
-    acts = pupil.get("activities") or default_activities(pupil.get("year", 3))
+    defaults = default_activities(pupil.get("year", 3))
+    acts = pupil.get("activities") or defaults
     out = []
     for k in ORDER:
-        a = acts.get(k) or {}
+        a = acts.get(k) or defaults[k]          # an activity added after the child was set up starts on
         if a.get("on") and k in allowed and pupil.get("year", 1) >= ACTIVITIES[k]["min_year"]:
             out.append({**ACTIVITIES[k], "key": k, "target": max(1, int(a.get("target") or ACTIVITIES[k]["target"]))})
     return out

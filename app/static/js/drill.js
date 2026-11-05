@@ -10,6 +10,7 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   let reached = null, rewarded = null;
+  const FIX = new URLSearchParams(location.search).has('fix');      // ?fix=1: wrong answers come back first
   function setDay(d) {
     if (!d) return;
     const now = d.done >= d.target;
@@ -37,11 +38,13 @@
       answered = false; busy = true;
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
-      const q = await post('/api/' + act + '/next');
+      const q = await post('/api/' + act + '/next', FIX ? { fix: 1 } : {});
       if (my !== seq) return;              // a newer request superseded this one
       busy = false;
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
       token = q.token; setDay(q.day);
+      if (FIX && $('fixMsg')) $('fixMsg').textContent = q.fixing
+        ? 'Putting a mistake right · ' + q.fix_left + ' left' : 'No mistakes left to fix here. Well done!';
       opts.render(q);
       document.body.dataset.qtoken = q.token;      // which question is on screen (used by the tests)
       shownAt = Date.now();

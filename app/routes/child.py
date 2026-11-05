@@ -8,13 +8,14 @@ from ..activities import todays_plan
 from ..config import BASE_DIR
 from ..db import db
 from ..deps import Ctx, child_api, child_page, family_page, own_pupil
-from ..drills import maths, numbers, spelling, tables, verbs
+from ..drills import bank, maths, numbers, spelling, tables, verbs
 from .. import items, progress
 from ..security import verify_secret
 from ..web import page
 
 router = APIRouter()
-DRILLS = {"maths": maths, "tables": tables, "spelling": spelling, "numbers": numbers, "verbs": verbs}
+DRILLS = {"maths": maths, "tables": tables, "spelling": spelling, "numbers": numbers, "verbs": verbs,
+          "grammar": bank.grammar, "science": bank.science}
 AUDIO_DIR = BASE_DIR / "static" / "audio" / "words"
 
 
@@ -44,7 +45,10 @@ async def enter(request: Request, pid: str, ctx: Ctx = Depends(family_page), pin
 @router.get("/me")
 async def me(request: Request, ctx: Ctx = Depends(child_page)):
     b = await progress.board(ctx.family, [ctx.child])
-    return page(request, "me.html", ctx, status=b[0], reward=ctx.family.get("reward") or {})
+    plan = {a["key"] for a in b[0]["items"]}
+    fix = {k: len(v) for k, v in (await progress.open_mistakes(ctx.child)).items() if k in plan}
+    return page(request, "me.html", ctx, status=b[0], reward=b[0]["reward"], fix=fix,
+                fix_first=next((a["key"] for a in b[0]["items"] if fix.get(a["key"])), None))
 
 
 def _allowed(ctx: Ctx, activity: str) -> bool:
@@ -62,19 +66,21 @@ async def activity_page(request: Request, activity: str, ctx: Ctx = Depends(chil
 async def _day(ctx: Ctx, activity: str) -> dict:
     st = (await progress.board(ctx.family, [ctx.child]))[0]
     it = next((i for i in st["items"] if i["key"] == activity), None)
-    reward = ctx.family.get("reward") or {}
+    reward = st["reward"]
     return {"done": it["done"] if it else 0, "target": it["target"] if it else 0, "day_pct": st["pct"],
             "reward": reward.get("text", "") if st["reward_earned"] else ""}
 
 
 @router.post("/api/{activity}/next")
-async def api_next(activity: str, ctx: Ctx = Depends(child_api)):
+async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = Depends(child_api)):
     if activity not in DRILLS or not _allowed(ctx, activity):
         raise HTTPException(403, "activity not available")
-    q = await DRILLS[activity].next_question(ctx.child)
+    todo = (await progress.open_mistakes(ctx.child)).get(activity, []) if payload.get("fix") else []
+    q = await DRILLS[activity].next_question(ctx.child, focus=todo[0] if todo else None)
     if not q:
         return JSONResponse({"ok": False, "error": "no_question"}, status_code=500)
-    return {"ok": True, **q, "day": await _day(ctx, activity)}
+    fix = {"fixing": bool(todo), "fix_left": len(todo)} if payload.get("fix") else {}
+    return {"ok": True, **q, **fix, "day": await _day(ctx, activity)}
 
 
 @router.post("/api/{activity}/check")

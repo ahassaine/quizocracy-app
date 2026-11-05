@@ -341,14 +341,26 @@ def test_reward_board_and_parent_view(page):
     page.fill("#reward_threshold", "100")
     page.click("form[action='/settings'] button[type=submit]")
     page.wait_for_url("**/settings?saved=1")
-    pid = add_child(page, "Sara", 4, targets={"maths": 1, "tables": 1, "spelling": 1, "numbers": 1, "verbs": 1})
+    pid = add_child(page, "Sara", 4, targets={"maths": 1, "tables": 1, "spelling": 1, "numbers": 1, "verbs": 1,
+                                              "grammar": 1, "science": 1})
     add_child(page, "Omar", 4)
     enter_child(page, "Sara")
     assert "At 100%: 30 minutes of screen time" in page.inner_text("[data-testid=reward]")
-    for act in ("tables", "spelling", "numbers", "verbs", "maths"):
+    for act in ("tables", "spelling", "numbers", "verbs", "grammar", "science", "maths"):
         page.goto(f"/me/{act}")
         doc = wait_question(page, act, pid)
-        if act == "maths":
+        if act in ("grammar", "science"):
+            key = doc["answer"]
+            if key["t"] == "mcq":
+                page.click(f"[data-testid=opt-{key['right']}]")
+            elif key["t"] == "tap":
+                for i in key["hits"]:
+                    page.click(f"[data-testid=word-{i}]")
+            else:
+                page.fill("#answer", str(key["a"] if key["t"] == "num" else key["a"][0]))
+            page.click("#check")
+            page.wait_for_selector("#feedback.yes, #feedback.no")
+        elif act == "maths":
             _answer_maths(page, doc, doc["answer"])
         elif act == "verbs":
             page.fill("#past", doc["answer"]["past"][0]); page.fill("#pp", doc["answer"]["pp"][0]); page.click("#check")

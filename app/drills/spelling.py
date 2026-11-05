@@ -63,14 +63,17 @@ def _today() -> datetime.date:
     return datetime.date.fromisoformat(progress.today())
 
 
-async def next_question(pupil: dict) -> dict:
+async def next_question(pupil: dict, focus: str | None = None) -> dict:
+    """focus: a word to spell again (a mistake being put right)."""
     words = list_for_year(pupil.get("year", 3))
     state = {d["word"]: d async for d in db.spelling_words.find({"pupil_id": pupil["_id"]})}
     last = (pupil.get("_last_spelling") or "")
     today = _today().isoformat()
     due = [w for w in words if w in state and state[w].get("due", "") <= today and w != last]
     new = [w for w in words if w not in state]
-    if due:
+    if focus and (BASE_DIR / "static" / "audio" / "words" / audio_file(focus)).exists():
+        word = focus
+    elif due:
         due.sort(key=lambda w: (state[w].get("box", 0), state[w].get("due", "")))
         word = due[0]
     elif new:

@@ -10,9 +10,10 @@ def engine_year(year: int) -> int:
     return max([y for y in ENGINE_YEARS if y <= max(int(year or 1), 1)])
 
 
-async def next_question(pupil: dict) -> dict | None:
+async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
+    """focus: a skill to practise again (a mistake being put right)."""
     pid, year = pupil["_id"], engine_year(pupil.get("year", 3))
-    picked = await maths_mastery.next_skill(pid, year)
+    picked = (focus, "fix") if focus in maths_engine.GENERATORS else await maths_mastery.next_skill(pid, year)
     if not picked:
         return None
     skill_key, reason = picked

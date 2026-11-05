@@ -204,3 +204,24 @@ ul.mlist { list-style:none; padding:0; margin:10px 0 0; }
 ul.mlist li { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line); overflow-wrap:anywhere; }
 ul.mlist li img { width:26px; height:26px; flex:none; margin-top:2px; }
 .bad-ans { color:var(--bad); }
+
+/* grammar and science questions */
+.bq { font-size:clamp(1.15rem, 3.6vw, 1.45rem); font-weight:700; line-height:1.4; margin:6px 0 16px; }
+.opts { display:grid; gap:10px; }
+.opt, .word { font:inherit; color:#EDEBFF; background:#1B2338; border:2px solid #2C3650; border-radius:12px; cursor:pointer; }
+.opt { text-align:left; padding:12px 14px; font-size:1.05rem; font-weight:600; }
+.words { display:flex; flex-wrap:wrap; gap:8px; font-size:1.25rem; }
+.word { padding:6px 10px; font-weight:600; }
+.opt.sel, .word.sel { border-color:#8B7CFF; background:#2A2560; }
+.opt.right, .word.right { border-color:#22c55e; background:#123524; }
+.opt.wrong, .word.wrong { border-color:#f85149; background:#3A1620; }
+.opt:disabled, .word:disabled { cursor:default; }
+textarea.write { width:100%; font:inherit; font-size:1.15rem; padding:10px 12px; background:#0B1120; border:2px solid #2C3650; color:#fff; border-radius:12px; resize:vertical; }
+input.answer.wide { max-width:420px; text-align:left; font-size:1.25rem; }
+.unit { font-weight:700; font-size:1.2rem; align-self:center; }
+.why { font-weight:600; font-size:.98rem; color:#C7CFE2; margin-top:6px; }
+.tofix { color:var(--bad); font-weight:800; }
+#fixMsg { color:var(--sun); margin-top:4px; min-height:0; }
+.tips details summary { cursor:pointer; list-style:none; }
+.tips details summary::-webkit-details-marker { display:none; }
+.tips details[open] summary { margin-bottom:6px; }

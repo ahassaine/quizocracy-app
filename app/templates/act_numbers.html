@@ -6,7 +6,7 @@
   <input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" aria-label="Your answer" style="max-width:100%;text-align:left">
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=6"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=7"></script><script>
 Drill({ activity: 'numbers',
   render(q) { document.getElementById('ask').textContent = q.ask; const el = document.getElementById('q');
     el.textContent = q.prompt; el.className = 'q' + (q.mode === 'digits' ? ' words' : '');
