@@ -65,6 +65,8 @@ def load() -> dict:
         for sk in getattr(mod, "SKILLS", []):
             subject = next((s for s, p in PREFIX.items() if str(sk.get("key", "")).startswith(p)), None)
             qs = [dict(q, id=_qid(sk["key"], q)) for q in sk.get("qs", []) if _usable(q)]
+            if subject == "science":                 # "the axle" is as right as "axle" (not so in grammar)
+                qs = [dict(q, loose=True) if q["t"] == "text" else q for q in qs]
             if not subject or not qs:
                 continue
             skill = {**sk, "qs": qs, "subject": subject}
@@ -120,6 +122,8 @@ def serve(q: dict) -> tuple[dict, dict]:
         key["words"] = words
     elif t == "text":
         key["a"] = q["a"]
+        if q.get("loose"):
+            key["loose"] = True
     elif t == "write":
         pub["s"] = q["s"]
         key["a"] = q["a"]
@@ -137,6 +141,10 @@ def _quotes(s: str) -> str:
 def norm_text(s: str) -> str:
     s = " ".join(_quotes(s).lower().split())
     return s.rstrip(".?!").strip()                    # a short answer's end mark does not matter
+
+
+def no_article(s: str) -> str:
+    return re.sub(r"^(a|an|the) (?=\S)", "", s)
 
 
 def norm_write(s: str) -> str:
@@ -191,6 +199,8 @@ def mark(key: dict, value) -> bool:
             return False
     if t == "text":
         v = norm_text(value)
+        if key.get("loose"):
+            return bool(no_article(v)) and no_article(v) in {no_article(norm_text(a)) for a in key["a"]}
         return bool(v) and v in {norm_text(a) for a in key["a"]}
     if t == "write":
         v = norm_write(value)

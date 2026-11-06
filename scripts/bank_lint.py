@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 TYPES = {"mcq", "tap", "text", "write", "num"}
 KEY_RE = re.compile(r"^(GP|SC)([1-9])\.(\d{2})$")
 BANNED = re.compile(r"\b(all|none) of (the )?(above|these)\b|\b(god|gods|magic|wizard|witch|ghost|zombie|vampire)\b", re.I)
-AMERICAN = re.compile(r"\b(color|colors|favorite|center|meter|meters|liter|liters|gray|mom|math|neighbor|behavior|"
+AMERICAN = re.compile(r"\b(color|colors|favorite|center|(?<!light )(?<!parking )meter|meters|liter|liters|gray|mom|math|neighbor|behavior|"
                       r"flavor|harbor|honor|vapor|odor|fiber|aluminum|sulfur dioxide)\b")
 MIN_QS, MIN_TYPES = 20, 3
 
@@ -82,7 +82,7 @@ def check_q(q, where, out):
         a = q.get("a")
         if not isinstance(a, list) or not a or not all(isinstance(x, str) and x.strip() for x in a):
             return out.append(f"{where}: {t} needs a list of accepted answers")
-        if t == "text" and max(len(x.split()) for x in a) > 4:
+        if t == "text" and len(a[0].split()) > 4:                 # the shown answer; other accepted forms may be longer
             out.append(f"{where}: text answers should be 1-4 words")
         if t == "write":
             if not q.get("s"):

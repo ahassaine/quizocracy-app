@@ -65,6 +65,9 @@ def test_every_question_marks_right_and_wrong():
 def test_marking_rules():
     k = {"t": "text", "a": ["evaporation"]}
     assert engine.mark(k, " Evaporation. ") and engine.mark(k, "evaporation?") and not engine.mark(k, "condensation") and not engine.mark(k, "")
+    k = {"t": "text", "a": ["the axle", "pivot"], "loose": True}           # science: an article may be left off or added
+    assert engine.mark(k, "axle") and engine.mark(k, "an axle") and engine.mark(k, "The pivot") and not engine.mark(k, "the")
+    assert not engine.mark({"t": "text", "a": ["the dog"]}, "dog")             # grammar: the article counts
     k = {"t": "write", "a": ["Sam's dog can't swim."]}
     assert engine.mark(k, "Sam’s dog can’t  swim.")             # curly apostrophes, double space
     assert not engine.mark(k, "sam's dog can't swim.")                     # capitals count
