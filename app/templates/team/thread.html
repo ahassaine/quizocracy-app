@@ -24,3 +24,7 @@
   {% if me.role in ('admin', 'bot') and t.status == 'open' %}<button class="btn" name="status" value="awaiting_retest">Awaiting retest</button>{% endif %}
 </form>
 {% endblock %}
+{% block scripts %}<script>
+// Open at the latest message (its top, so a long one is read from the start); an explicit #anchor wins.
+if (!location.hash) { const m = document.querySelectorAll('[data-testid="msg"]'); if (m.length) m[m.length - 1].scrollIntoView({block: 'start'}); }
+</script>{% endblock %}
