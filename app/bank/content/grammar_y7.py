@@ -581,7 +581,7 @@ SKILLS = [
              "why": "'While' (or 'as', 'when') shows two things happening at the same time."},
             {"t": "write", "q": "Join the two sentences using 'because'.",
              "s": "Mia was tired. She had run five miles.",
-             "a": ["Mia was tired because she had run five miles."],
+             "a": ["Mia was tired because she had run five miles.", "Because she had run five miles, Mia was tired."],
              "why": "'Because' joins the main clause to a subordinate clause giving the reason."},
             {"t": "write", "q": "Join the two sentences using 'but'.",
              "s": "The shop was open. It had no bread.",

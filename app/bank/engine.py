@@ -143,8 +143,9 @@ def norm_text(s: str) -> str:
     return s.rstrip(".?!").strip()                    # a short answer's end mark does not matter
 
 
-def no_article(s: str) -> str:
-    return re.sub(r"^(a|an|the) (?=\S)", "", s)
+def loose(s: str) -> str:
+    """Science: "the non-contact force" = "non contact force" = "noncontact force"."""
+    return re.sub(r"[\s-]+", "", re.sub(r"^(a|an|the) (?=\S)", "", s))
 
 
 def norm_write(s: str) -> str:
@@ -200,7 +201,7 @@ def mark(key: dict, value) -> bool:
     if t == "text":
         v = norm_text(value)
         if key.get("loose"):
-            return bool(no_article(v)) and no_article(v) in {no_article(norm_text(a)) for a in key["a"]}
+            return bool(loose(v)) and loose(v) in {loose(norm_text(a)) for a in key["a"]}
         return bool(v) and v in {norm_text(a) for a in key["a"]}
     if t == "write":
         v = norm_write(value)

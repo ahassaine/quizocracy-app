@@ -67,6 +67,8 @@ def test_marking_rules():
     assert engine.mark(k, " Evaporation. ") and engine.mark(k, "evaporation?") and not engine.mark(k, "condensation") and not engine.mark(k, "")
     k = {"t": "text", "a": ["the axle", "pivot"], "loose": True}           # science: an article may be left off or added
     assert engine.mark(k, "axle") and engine.mark(k, "an axle") and engine.mark(k, "The pivot") and not engine.mark(k, "the")
+    k = {"t": "text", "a": ["non-contact force"], "loose": True}
+    assert engine.mark(k, "non contact force") and engine.mark(k, "noncontact force") and not engine.mark(k, "contact force")
     assert not engine.mark({"t": "text", "a": ["the dog"]}, "dog")             # grammar: the article counts
     k = {"t": "write", "a": ["Sam's dog can't swim."]}
     assert engine.mark(k, "Sam’s dog can’t  swim.")             # curly apostrophes, double space
