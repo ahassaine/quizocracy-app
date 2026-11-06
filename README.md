@@ -16,7 +16,10 @@ data export and deletion. No AI runs at serve time.
 ## Deploy (quizocracy VM)
 
     rsync -a --delete --exclude .git --exclude src --exclude tests --exclude venv --exclude .env \
-          --exclude mobile --exclude __pycache__ ./ quizocracy.com:projects/qz/
+          --exclude mobile --exclude __pycache__ --exclude releases --exclude /data ./ quizocracy.com:projects/qz/
+
+`/data` (team-board uploads) lives only on the server: never sync it, or `--delete` wipes real uploads with the
+local test ones.
     ssh quizocracy.com 'export PATH=~/.nvm/versions/node/v20.13.1/bin:$PATH; cd ~/projects/qz && venv/bin/pip install -q -r requirements.txt && pm2 restart qzprod && pm2 save'
 
 Settings live in `~/projects/qz/.env` (mode 600; see `.env.example`). Nightly dump: `deploy/backup.sh` (cron 02:30).
