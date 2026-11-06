@@ -44,6 +44,8 @@ def _(d=1):
 
     def t_sub():
         x, y = max(a, b), min(a, b)
+        if x == y:                                    # 1/2 − 2/4 would be 0
+            return t_add()
         return _fq("Work out  %s − %s" % (_fs(x), _fs(y)), x - y, ["Use a common denominator: %s." % _fs(x - y)])
 
     def t_simplest():
@@ -58,7 +60,7 @@ def _(d=1):
 
     def t_word():
         x, y = max(a, b), min(a, b)
-        if x + y > 1:
+        if x + y >= 1:
             return t_sub()
         who = _who()
         return _fq("%s spends %s of the money in a purse on a book and %s on a game. What fraction is left?" % (who, _fs(x), _fs(y)),
@@ -80,6 +82,8 @@ def _(d=1):
                    ["You cannot add the denominators. Common denominator %d: %s." % (ad * bd // _gcd(ad, bd), _fs(a + b))])
 
     def t_lcd():
+        if a.denominator != ad or b.denominator != bd:
+            return t_add()
         return _tb("What is the lowest common denominator of %d/%d and %d/%d?" % (an, ad, bn, bd), ad * bd // _gcd(ad, bd), "int",
                    {}, ["The LCM of %d and %d is %d." % (ad, bd, ad * bd // _gcd(ad, bd))])
 
@@ -130,7 +134,7 @@ def _(d=1):
     def t_whole_minus():
         w = random.randint(3, 8)
         f = _rf(d)[0]
-        return _wq("Work out %d − %s." % (w, _mixed(1 + f)), _mixed(w - 1 - f), ["= %s." % _mixed(w - 1 - f)], "e.g. 2 1/3")
+        return _fq("Work out %d − %s." % (w, _mixed(1 + f)), w - 1 - f, ["= %s." % _mixed(w - 1 - f)], "e.g. 2 1/3")
 
     def t_word():
         return _wq("A plank is %s m long. %s m is cut off. How much is left, in metres? (mixed number, simplest form)"
@@ -148,8 +152,8 @@ def _(d=1):
 
     def t_exchange():
         den = pick([3, 4, 5, 6, 8])
-        p = random.randint(1, den - 2)
-        q = random.randint(p + 1, den - 1)
+        p = random.choice([v for v in range(1, den - 1) if _gcd(v, den) == 1])
+        q = random.choice([v for v in range(p + 1, den) if _gcd(v, den) == 1])
         w1, w2 = random.randint(3, 8), random.randint(1, 2)
         x, y = w1 + Fraction(p, den), w2 + Fraction(q, den)
         return _wq("Work out %s − %s. (Mixed number, simplest form.)" % (_mixed(x), _mixed(y)), _mixed(x - y),
@@ -159,8 +163,8 @@ def _(d=1):
     def t_hours():
         x = random.randint(1, 3) + pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)])
         y = random.randint(1, 3) + pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4), Fraction(1, 3)])
-        return _wq("A film is %s hours long and another is %s hours. How long are they altogether, in hours? (mixed number)"
-                   % (_mixed(x), _mixed(y)), _mixed(x + y), ["%s + %s = %s." % (_mixed(x), _mixed(y), _mixed(x + y))], "e.g. 3 1/4")
+        return _fq("A film is %s hours long and another is %s hours. How long are they altogether, in hours? (mixed number)"
+                   % (_mixed(x), _mixed(y)), x + y, ["%s + %s = %s." % (_mixed(x), _mixed(y), _mixed(x + y))], "e.g. 3 1/4")
 
     def t_perimeter():
         s = [random.randint(1, 4) + _rf(d)[0] for _ in range(3)]
@@ -347,8 +351,8 @@ def _(d=1):
                    "int", {"unit": "£"}, ["%s of %d = %d." % (_fs(f), x, int(f * x)), "%d %s %d = %d." % (x, "+" if up else "−", int(f * x), int(new))])
 
     def t_ages():
-        f = pick([Fraction(1, 3), Fraction(2, 5), Fraction(3, 5), Fraction(3, 8), Fraction(1, 4)])
-        dad = f.denominator * random.randint(6, 12)
+        f = pick([Fraction(1, 4), Fraction(1, 5), Fraction(1, 6), Fraction(1, 8), Fraction(2, 15)])
+        dad = f.denominator * random.randint(-(-56 // f.denominator), 90 // f.denominator)
         w = _who()
         return _tb("%s's age is %s of their grandad's age. Their grandad is %d. How old is %s?" % (w, _fs(f), dad, w),
                    int(f * dad), "int", {"unit": "years"}, ["%s of %d = %d." % (_fs(f), dad, int(f * dad))])
@@ -416,7 +420,7 @@ def _(d=1):
                 "tolerance": 2, "solution": ["Read from 0 on the scale along the first arm: %d°." % deg]}
 
     def t_reflex():
-        a = random.randint(20, 170)
+        a = random.choice([v for v in range(20, 171) if v != 90])
         return _tb("The acute or obtuse angle between two arms is %d°. What is the reflex angle?" % a, 360 - a, "int",
                    {"unit": "°"}, ["360 − %d = %d." % (a, 360 - a)])
 
@@ -662,7 +666,7 @@ def _(d=1):
 
     def t_missing():
         k = 5
-        angles = [random.randint(90, 130) for _ in range(k - 1)]
+        angles = [random.randint(95, 130) for _ in range(k - 1)]
         return _tb("Four angles of a pentagon are %s. Find the fifth." % ", ".join("%d°" % a for a in angles), 540 - sum(angles),
                    "int", {"unit": "°"}, ["Pentagon total = 540°.", "540 − %d = %d." % (sum(angles), 540 - sum(angles))])
 
@@ -682,7 +686,7 @@ def _(d=1):
         q, ans = pick([("Two lines that meet at a right angle are called what?", "perpendicular"),
                        ("Two lines that never meet and stay the same distance apart are called what?", "parallel"),
                        ("A line that cuts another line exactly in half at 90° is called the perpendicular what?", "bisector"),
-                       ("Which tool, apart from a ruler, is used for standard constructions?", "compasses")])
+                       ("Which tool, apart from a ruler, is used for standard constructions? (a pair of ...)", "compasses")])
         return _wq(q + " (one word)", ans, ["Key vocabulary."], "one word")
 
     def t_bisect_angle():
@@ -739,6 +743,8 @@ def _(d=1):
             ex += 1
         x0, y0 = random.randint(0, 3), random.randint(0, 3)
         x1, y1 = random.randint(4, 6), random.randint(0, 2)
+        if ex * dy == ey * dx and (x1 - x0) * dy == (y1 - y0) * dx:
+            y1 = (y1 + 1) % 3
         return {"prompt": "Line AB goes from (%d,%d) to (%d,%d). Line CD goes from (%d,%d) to (%d,%d). Are the lines parallel? "
                           "(yes or no)" % (x0, y0, x0 + dx, y0 + dy, x1, y1, x1 + ex, y1 + ey), "component": "coordinate_grid",
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "typed": True, "placeholder": "yes / no",

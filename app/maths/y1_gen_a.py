@@ -88,7 +88,7 @@ def _(d=1):
                    ["%s." % ", ".join(str(n - i) for i in range(1, k + 1))])
 
     def t_to_100():
-        n = random.randint(95, 98) if d == 2 else random.randint(36, 89)
+        n = random.randint(94, 97) if d == 2 else random.randint(36, 89)
         return _tb("Count on:  %d, %d, %d, ___" % (n, n + 1, n + 2), n + 3, "int", {}, ["After %d comes %d." % (n + 2, n + 3)])
 
     def t_line_back():
@@ -431,7 +431,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a = random.randint(1, _by(d, 10, 15, 19))
-    b = random.randint(0, 20 - a)
+    b = random.randint(1, 20 - a)
 
     def t_add():
         return _tb("%d + %d = ___" % (a, b), a + b, "int", {}, ["Count on %d from %d." % (b, a)])
@@ -496,7 +496,7 @@ def _(d=1):
                    ["%d − %d = %d." % (a + b, b, a)])
 
     def t_take_bar():
-        return _strip("There are %d children. %d %s girls. How many are boys?" % (a + b, b, "is a" if b == 1 else "are"),
+        return _strip("There are %d children. %s. How many are boys?" % (a + b, "1 is a girl" if b == 1 else "%d are girls" % b),
                       {"mode": "part_whole", "totalLabel": str(a + b), "partLabel": str(b), "unknown": "part", "parts": 2}, a,
                       ["%d − %d = %d." % (a + b, b, a)]) if b > 0 else t_add()
 
@@ -615,7 +615,7 @@ def _(d=1):
 @skill("Y1.2.a", "Equal groups and arrays", S2)
 def _(d=1):
     d = _d(d)
-    g, p = random.randint(2, 5), pick([2, 5, 10]) if d else random.randint(2, 5)
+    g, p = random.randint(2, 5), pick([2, 5, 10]) if d else pick([2, 10])
 
     def t_groups():
         return {"prompt": "How many altogether? There are %d groups of %d." % (g, p), "component": "equal_groups",
@@ -1012,8 +1012,9 @@ def _(d=1):
                    ["It is halfway from %d to %d." % (h, h % 12 + 1)])
 
     def t_which_first():
-        a, b = random.sample(range(1, 12), 2)
-        return _tb("Which time is earlier in the day: %d o'clock or %d o'clock? Type the hour." % (a, b), min(a, b), "int", {},
+        a, b = random.sample(range(1, 10), 2)
+        return _tb("Both times are after lunch on the same day. Which is earlier: %d o'clock or %d o'clock? Type the hour." % (a, b),
+                   min(a, b), "int", {},
                    ["%d o'clock comes before %d o'clock." % (min(a, b), max(a, b))])
 
     def t_half_or_oclock():

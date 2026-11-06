@@ -38,13 +38,17 @@ def words(n: int) -> str:
 
 
 def _norm(s: str) -> str:
-    s = str(s or "").lower().replace("-", " ").replace(",", " ")
+    s = str(s or "").lower()
+    for ch in "-\u2010\u2011\u2012\u2013\u2014,.!":
+        s = s.replace(ch, " ")
     s = re.sub(r"\band\b", " ", s)
+    s = re.sub(r"\bnought\b", "zero", s)
+    s = re.sub(r"^\s*a\s+(?=hundred\b|thousand\b|million\b)", "one ", s)
     return " ".join(s.split())
 
 
 def max_for_year(year: int) -> int:
-    return {1: 20, 2: 100, 3: 1000, 4: 10000, 5: 100000}.get(year, 1_000_000)
+    return {1: 20, 2: 100, 3: 1000, 4: 10000, 5: 1_000_000}.get(year, 10_000_000)
 
 
 def _pick(year: int) -> int:

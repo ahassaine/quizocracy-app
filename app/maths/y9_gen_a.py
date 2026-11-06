@@ -147,7 +147,7 @@ def _(d=1):
         thing, x = pick([("the width of a human hair, in metres", Decimal("0.00008")),
                          ("the mass of a grain of sand, in grams", Decimal("0.0006")),
                          ("the diameter of a red blood cell, in metres", Decimal("0.000007"))])
-        return _wq("Write %s, %s, in standard form (like 3.2x10^-4)." % (thing, _ds(x)), _sf(x)[0], ["= %s." % _sf(x)[0]], "e.g. 8x10^-5")
+        return _wq("Write %s, %s, in standard form (like 3.2x10^-4)." % (thing, _ds(x)), _sf(x)[0], ["= %s." % _sf(x)[0]], "e.g. 3.2x10^-4")
 
     return _pick_t([t_small_to_sf, t_sf_to_small, t_order, t_power, t_context])
 
@@ -181,7 +181,7 @@ def _(d=1):
         e = random.randint(2, 5)
         p = Decimal(k * k) * Decimal(10) ** (2 * e)
         return _wq("Work out (%dx10^%d)². Give your answer in standard form." % (k, e), _sf(p)[0], ["%d² = %d; power × 2." % (k, k * k)],
-                   "e.g. 9x10^6")
+                   "e.g. 2.5x10^7")
 
     def t_subtract():
         e = random.randint(3, 6)
@@ -306,8 +306,8 @@ def _(d=1):
     p, q = [random.choice([v for v in range(lo, hi + 1) if v]) for _ in range(2)]
 
     def t_expand():
-        return _wq("Expand and simplify %s%s (like x^2+5x+6)." % (_bracket(p), _bracket(q)), _poly(p + q, p * q),
-                   ["x² + %dx + %dx + %d." % (p, q, p * q), "= %s." % _poly(p + q, p * q)], "e.g. x^2+5x+6")
+        return _wq("Expand and simplify %s%s (like x^2+5x-3)." % (_bracket(p), _bracket(q)), _poly(p + q, p * q),
+                   ["x² %s %s %s %s %s %d." % ("+" if p > 0 else "−", ("" if abs(p) == 1 else abs(p)) and "%dx" % abs(p) or "x", "+" if q > 0 else "−", ("" if abs(q) == 1 else abs(q)) and "%dx" % abs(q) or "x", "+" if p * q > 0 else "−", abs(p * q)), "= %s." % _poly(p + q, p * q)], "e.g. x^2+5x-3")
 
     def t_coef():
         return _tb("Expand %s%s. What is the coefficient of x?" % (_bracket(p), _bracket(q)), p + q, "int", {},
@@ -317,8 +317,8 @@ def _(d=1):
         return _tb("Expand %s%s. What is the constant term?" % (_bracket(p), _bracket(q)), p * q, "int", {}, ["%d × %d = %d." % (p, q, p * q)])
 
     def t_square():
-        return _wq("Expand %s² (like x^2+6x+9)." % _bracket(p), _poly(2 * p, p * p), ["%s%s = %s." % (_bracket(p), _bracket(p), _poly(2 * p, p * p))],
-                   "e.g. x^2+6x+9")
+        return _wq("Expand %s² (like x^2+5x+4)." % _bracket(p), _poly(2 * p, p * p), ["%s%s = %s." % (_bracket(p), _bracket(p), _poly(2 * p, p * p))],
+                   "e.g. x^2+5x+4")
 
     def t_coef2():
         a = random.randint(2, 4)
@@ -353,12 +353,15 @@ def _(d=1):
 
     def t_dots():
         k = random.randint(2, 12)
-        return _wq("Factorise x^2-%d (like (x+3)(x-3))." % (k * k), "(x+%d)(x-%d)" % (k, k), ["Difference of two squares: x² − %d²." % k],
-                   "e.g. (x+3)(x-3)")
+        return _wq("Factorise x^2-%d. Write the + bracket first, like (x+20)(x-20)." % (k * k), "(x+%d)(x-%d)" % (k, k), ["Difference of two squares: x² − %d²." % k],
+                   "e.g. (x+20)(x-20)")
 
     def t_solve():
         lo, hi = sorted([p, q])
         roots = sorted([-p, -q])
+        if p == q:
+            return _tb("Solve %s = 0." % _poly(p + q, p * q), -p, "int", {},
+                       ["%s%s = 0." % (_bracket(p), _bracket(p)), "Both brackets give the same answer: x = %d." % -p])
         return {"prompt": "Solve %s = 0. Type both answers like -3, 2." % _poly(p + q, p * q), "component": "number",
                 "spec": {"text": True, "placeholder": "e.g. -3, 2"}, "answer": "%d, %d" % tuple(roots), "answer_type": "set",
                 "solution": ["%s%s = 0." % (_bracket(lo), _bracket(hi)), "x = %d or x = %d." % tuple(roots)]}
@@ -476,7 +479,7 @@ def _(d=1):
 
     def t_bracket_pow():
         p = random.randint(2, 4)
-        return _wq("Simplify (%dx^%d)^2 (like 9x^6)." % (p, a), "%dx^%d" % (p * p, 2 * a), ["Square the number and double the power."], "e.g. 9x^6")
+        return _wq("Simplify (%dx^%d)^2 (like 25x^8)." % (p, a), "%dx^%d" % (p * p, 2 * a), ["Square the number and double the power."], "e.g. 25x^8")
 
     def t_divide_terms():
         p, q = random.randint(2, 6), random.randint(2, 6)
@@ -527,7 +530,7 @@ def _(d=1):
         a, b = random.randint(2, 5), random.randint(2, 5)
         if a == b:
             b += 1
-        return _wq("Write x/%d + x/%d as a single fraction (like 5x/6)." % (a, b), "%dx/%d" % (a + b, a * b) if _g(a + b, a * b) == 1
+        return _wq("Write x/%d + x/%d as a single fraction in its simplest form (like 9x/14)." % (a, b), "%dx/%d" % (a + b, a * b) if _g(a + b, a * b) == 1
                    else "%dx/%d" % ((a + b) // _g(a + b, a * b), a * b // _g(a + b, a * b)),
                    ["Common denominator %d." % (a * b)], "e.g. 5x/6")
 
@@ -567,12 +570,12 @@ def _(d=1):
 
     def t_solve_linear_frac():
         a, k = random.randint(1, 3), random.randint(4, 6)
-        x, c = random.randint(1, 12), random.randint(-4, 4)
+        x, c = random.randint(1, 12), random.choice([-4, -3, -2, -1, 1, 2, 3, 4])
         b = k * (x + c) - a * x
-        return _tb("Solve (%sx %s)/%d = x %s." % ("" if a == 1 else a, ("+ %d" % b) if b >= 0 else ("− %d" % -b), k,
-                                                   ("+ %d" % c) if c >= 0 else ("− %d" % -c)), x, "int", {},
-                   ["Multiply by %d: %sx %s %d = %dx %s %d." % (k, "" if a == 1 else a, "+" if b >= 0 else "−", abs(b), k,
-                                                                 "+" if k * c >= 0 else "−", abs(k * c)),
+        ax = "%sx" % ("" if a == 1 else a)
+        num = ("%s %s %d" % (ax, "+" if b > 0 else "−", abs(b))) if b else ax
+        return _tb("Solve %s/%d = x %s." % (("(%s)" % num) if b else num, k, ("+ %d" % c) if c >= 0 else ("− %d" % -c)), x, "int", {},
+                   ["Multiply by %d: %s = %dx %s %d." % (k, num, k, "+" if k * c >= 0 else "−", abs(k * c)),
                     "x = %d." % x])
 
     def t_substitute():

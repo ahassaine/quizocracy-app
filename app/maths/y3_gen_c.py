@@ -356,7 +356,7 @@ def _(d=1):
                                 "%d × %d = %d." % (per, den, total)])
 
     if t == 4:                                          # visual model
-        return {"prompt": "Shade %s of this bar, then work out %s of %d below."
+        return {"prompt": "Shade %s of this bar. Then use the bar to work out %s of %d in your head."
                           % (_frac_words(n, den), _frac_words(n, den), total),
                 "component": "fraction_bar", "spec": {"parts": den, "mode": "shade"},
                 "answer": "%d/%d" % (n, den), "answer_type": "frac",
@@ -408,10 +408,10 @@ def _(d=1):
         den = pick(_dens(d))
         n = random.randint(1, den - 1)
         return _num_q("A number line from 0 to 1 is split into %d equal parts. "
-                      "What fraction is at the %s mark?" % (den, _ord(n)),
+                      "What fraction is at the %s mark after 0?" % (den, _ord(n)),
                       "%d/%d" % (n, den), "frac", text=True, placeholder="e.g. 3/4",
                       solution=["Each part is 1/%d." % den,
-                                "The %s mark is %d/%d." % (_ord(n), n, den)])
+                                "The %s mark after 0 is %d/%d." % (_ord(n), n, den)])
 
     if t == 5:                    # NEW: graph the smaller / larger fraction
         den = pick(_dens(d, terminating=True))
@@ -535,6 +535,8 @@ def _(d=1):
                       [(1, 3), (2, 3), (3, 4), (2, 5), (3, 5), (5, 6)]))
     n, den = base
     k = _by_d(d, 2, random.randint(2, 4), random.randint(2, 5))
+    while den * k > 12 and k > 2:          # Y3: small denominators, and every one has a word
+        k -= 1
     t = _pick_t([1, 1, 2, 1, 2, 1, 2])
 
     if t == 0:                                          # missing numerator
@@ -834,7 +836,7 @@ _UNIT_LENGTH = [
     ("the length of an ant", "millimetres"),
     ("the length of a shoe", "centimetres"),
     ("the height of a tree", "metres"),
-    ("the width of a fingernail", "millimetres"),
+    ("the thickness of a fingernail", "millimetres"),
 ]
 
 _UNIT_MASS = [
@@ -1140,7 +1142,7 @@ def _(d=1):
     if t == 3:                                          # how much more to fill
         v = random.randrange(stepml, 1000, stepml)
         return {"prompt": "The jug shows some juice. How much MORE juice is needed "
-                          "to make 1 litre?",
+                          "to make 1 litre, in ml?",
                 "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"},
                 "answer": 1000 - v, "answer_type": "int",
@@ -1241,7 +1243,7 @@ def _(d=1):
 
     if t == 5:                    # NEW: choose the appropriate measuring tool
         job, tool = pick([
-            ("how long a table is", "ruler"),
+            ("how long a pencil case is", "ruler"),
             ("how heavy a bag of apples is", "scales"),
             ("how much water a bottle holds", "measuring jug"),
             ("how tall a wall is", "tape measure"),
@@ -1657,15 +1659,16 @@ def _(d=1):
                              "That is %s." % _hm(h, 60 - mm)]}
 
     # real-life context
-    event = pick([("school starts", 9, 0), ("break time", 10, 30), ("lunch", 12, 15),
+    event = pick([("registration", 9, 0), ("break time", 10, 30), ("lunch", 12, 15),
                   ("home time", 3, 30), ("swimming", 4, 45), ("bedtime", 8, 0)])
     label, eh, em = event
     return {"prompt": "%s is at %s. Set the clock to that time."
                       % (label.capitalize(), _hm(eh, em)),
             "component": "clock", "spec": {"mode": "set"},
             "answer": _hm(eh, em), "answer_type": "time",
-            "solution": ["Put the hour hand near %d and the minute hand on %d minutes."
-                         % (eh, em)]}
+            "solution": ["The minute hand points to %d minutes." % em,
+                         ("The hour hand points to %d." % eh) if em == 0 else
+                         ("The hour hand is between %d and %d." % (eh, eh % 12 + 1))]}
 
 
 @skill("Y3.8.b", "Analogue to digital time", S8)
@@ -1715,7 +1718,7 @@ def _(d=1):
     # minutes to -> clock (visual)
     m = pick(_by_d(d, [15], [5, 10, 15, 20, 25], [5, 10, 20, 25]))
     nh = 1 if h == 12 else h + 1
-    return {"prompt": "Set the clock to %d minutes to %d, then read it as digital time."
+    return {"prompt": "Set the clock to %d minutes to %d."
                       % (m, nh),
             "component": "clock", "spec": {"mode": "set"},
             "answer": _hm(h, 60 - m), "answer_type": "time",
@@ -1730,7 +1733,7 @@ def _(d=1):
     t = _pick_t([1, 1, 2, 1, 1])
 
     if t == 0:                                          # number -> numeral
-        return _num_q("Write %d as a Roman numeral (as on a clock face)." % n,
+        return _num_q("Write %d as a Roman numeral." % n,
                       roman(n), "str", text=True, placeholder="e.g. VII",
                       solution=["%d is written %s." % (n, roman(n))])
 
@@ -1759,7 +1762,7 @@ def _(d=1):
 
     # missing number in a sequence
     n = random.randint(1, 11)
-    return _num_q("On a clock face, which Roman numeral comes straight after %s?" % roman(n),
+    return _num_q("Counting in Roman numerals, which numeral comes straight after %s?" % roman(n),
                   roman(n + 1), "str", text=True, placeholder="e.g. VIII",
                   solution=["%s = %d, and %d comes next." % (roman(n), n, n + 1),
                             "%d is written %s." % (n + 1, roman(n + 1))])
@@ -1921,8 +1924,12 @@ def _(d=1):
 
     if t == 3:                                          # word problem
         who = pick(NAMES)
-        return _num_q("%s practises for %d %s every day. How many %s is that?"
-                      % (who, v, big, small),
+        ctx = {"minutes": "%s reads a book for %d minutes.",
+               "hours": "%s's coach trip lasts %d hours.",
+               "days": "%s's school trip lasts %d days.",
+               "weeks": "%s's swimming course lasts %d weeks.",
+               "years": "%s has lived in the same house for %d years."}[big]
+        return _num_q((ctx + " How many %s is that?") % (who, v, small),
                       v * factor, "int", unit=small,
                       solution=["%s." % fact,
                                 "%d × %d = %d %s." % (v, factor, v * factor, small)])
@@ -2201,8 +2208,10 @@ def _(d=1):
 
     # riddle / real-life (typed)
     nm, ff, ee, vv = pick(pool)
-    return _num_q("A solid has %d faces, %d edges and %d vertices. What is it called?"
-                  % (ff, ee, vv),
+    extra = {"cube": " All of its faces are squares of the same size.",
+             "cuboid": " Its faces are rectangles, and they are not all the same size."}.get(nm, "")
+    return _num_q("A solid has %d faces, %d edges and %d vertices.%s What is it called?"
+                  % (ff, ee, vv, extra),
                   nm, "str", text=True, placeholder="solid name",
                   solution=["%d faces, %d edges and %d vertices describe a %s."
                             % (ff, ee, vv, nm)])
@@ -2338,7 +2347,7 @@ def _(d=1):
         case, ans = pick([("the two long rails of a ladder", "parallel"),
                           ("the two lines in the letter L", "perpendicular"),
                           ("the two edges of a straight road", "parallel"),
-                          ("the corner of a picture frame", "perpendicular"),
+                          ("the two sides that meet at a corner of a picture frame", "perpendicular"),
                           ("railway tracks", "parallel")])
         return _num_q("Are %s parallel or perpendicular? (type the word)" % case,
                       ans, "str", text=True, placeholder="parallel / perpendicular",
@@ -2700,8 +2709,8 @@ def _(d=1):
                       % (", ".join(data), labels[k]),
                       counts[k], "int", unit="x marks",
                       solution=["Count how many times %s appears in the data." % labels[k],
-                                "It appears %d times, so draw %d x marks."
-                                % (counts[k], counts[k])])
+                                "It appears %s, so draw %s."
+                                % (_pl(counts[k], "time"), _pl(counts[k], "x mark"))])
 
     # busiest day from a chart (visual)
     spec = {"categories": days, "values": vals, "mode": "read"}
@@ -2823,21 +2832,24 @@ def _(d=1):
             temps.append(temps[-1] + random.randint(1, _by_d(d, 3, 5, 7)))
         graph = "; ".join("%s %d°C" % (hh, tt) for hh, tt in zip(hours, temps))
         a, b = sorted(random.sample(range(5), 2))
+        lg = {"points": [[hh, tt] for hh, tt in zip(hours, temps)], "yLabel": "°C", "xLabel": "Time"}
         if random.random() < 0.35:
-            return _num_q("The line graph shows the temperature each hour. %s. Interpret "
+            return dict(_num_q("The line graph shows the temperature each hour. %s. Interpret "
                           "the line graph: what was the temperature at %s, in °C?"
                           % (graph, hours[b]),
                           temps[b], "int", unit="°C",
                           solution=["Read the point on the line graph above %s." % hours[b],
-                                    "The temperature was %d°C." % temps[b]])
-        return _num_q("The line graph shows the temperature each hour. %s. Interpret the "
+                                    "The temperature was %d°C." % temps[b]]),
+                        component="line_graph", spec=lg)
+        return dict(_num_q("The line graph shows the temperature each hour. %s. Interpret the "
                       "line graph: by how many degrees did the temperature rise from %s "
                       "to %s?" % (graph, hours[a], hours[b]),
                       temps[b] - temps[a], "int", unit="°C",
                       solution=["%d°C at %s and %d°C at %s."
                                 % (temps[a], hours[a], temps[b], hours[b]),
                                 "%d − %d = %d°C." % (temps[b], temps[a],
-                                                     temps[b] - temps[a])])
+                                                     temps[b] - temps[a])]),
+                    component="line_graph", spec=lg)
 
     if t == 6:                    # NEW: which line graph is correct?
         start = random.randint(2, 6)

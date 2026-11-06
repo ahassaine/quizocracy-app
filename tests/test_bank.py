@@ -127,3 +127,14 @@ def test_question_picker_avoids_repeats():
         seen.append(q["id"])
     q = pick_question(sk, seen, random.Random(99))                       # all seen: not one of the last 3
     assert q["id"] not in seen[-3:]
+
+
+def test_gap_questions_accept_the_whole_sentence():
+    """A child who types the completed sentence back, not only the missing words, is right (Meriem, 6 Nov)."""
+    q = {"t": "text", "q": "Make 'Chefs must wash their hands.' passive: 'Hands ___ ___ ___.'", "a": ["must be washed"], "why": ""}
+    pub, key = engine.serve(q)
+    assert pub["gap"] and engine.mark(key, "must be washed") and engine.mark(key, "hands must be washed")
+    assert not engine.mark(key, "be washed")
+    assert engine.gap_sentences("To keep healthy, eat lots of fruit and v_____.", ["vegetables"]) == \
+        ["To keep healthy, eat lots of fruit and vegetables."]
+    assert engine.gap_sentences("Finish the verb: The baby was ___ (cry).", ["crying"]) == ["The baby was crying."]

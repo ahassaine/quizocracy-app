@@ -464,7 +464,8 @@ def _x31e(d):
     def t_spot_wrong():
         a, b = two()
         c, e = two()
-        wrong = c + e + pick([-1, 1]) * (100 if not to10 else 20)
+        off = 30 if to10 else 300
+        wrong = c + e + pick([s for s in (-1, 1) if 10 < c + e + s * off < 1000]) * off
         first_wrong = random.random() < 0.5
         A = "%d + %d = %d" % (c, e, wrong) if first_wrong else "%d + %d = %d" % (a, b, a + b)
         B = "%d + %d = %d" % (a, b, a + b) if first_wrong else "%d + %d = %d" % (c, e, wrong)
@@ -1291,12 +1292,17 @@ def _x34h(d):
                    ["%d × %d = %d, so %d ÷ %d = %d." % (ins[miss], t, ins[miss] * t, ins[miss] * t, t, ins[miss])], rule="÷ %d" % t)
 
     def t_not_family():
-        others = [k * t2 for t2 in (2, 3, 4, 5, 8, 10) if k * t2 != p]
+        if t == k:
+            return t_times10()
+
+        def lone(o):
+            ns = [t, k, p, o]
+            return o not in (t, k, p) and sum(ns[i] * ns[j] == ns[l] for i in range(4) for j in range(i + 1, 4)
+                                              for l in range(4) if l not in (i, j)) == 1
+        others = [k * t2 for t2 in (2, 3, 4, 5, 8, 10) if lone(k * t2)]
         odd = pick(others) if others else p + 1
         nums = [t, k, p, odd]
         random.shuffle(nums)
-        if t == k:
-            return t_times10()
         return _tb("Three of these numbers make a multiplication fact family. Which number does NOT belong?   %s" % _lst(nums), odd,
                    "int", {}, ["%d × %d = %d and %d ÷ %d = %d." % (t, k, p, p, t, k), "%d does not belong." % odd])
 
@@ -1862,7 +1868,7 @@ def _x36i(d):
                    % (x, _pl(a, "slice"), y, _pl(b, "slice")), Fraction(a + b, 8), ["%d/8 + %d/8 = %d/8." % (a, b, a + b)], "e.g. 3/8")
 
     def t_repeat():
-        k = random.randint(2, 4)
+        k = random.randint(2, min(4, den - 1))
         a = random.randint(1, (den - 1) // k)
         return _fq("Add %d/%d to itself %s altogether (%s). What is the total?" % (a, den, {2: "twice", 3: "three times", 4: "four times"}[k],
                    " + ".join(["%d/%d" % (a, den)] * k)), Fraction(a * k, den), ["%d × %d = %d, so the total is %d/%d." % (a, k, a * k, a * k, den)],
@@ -2007,8 +2013,8 @@ def _x38b(d):
 
     def t_roman():
         m5 = random.randint(1, 11)
-        return _time("On a clock with Roman numerals, the hour hand is just past %s and the minute hand points to %s. Write the time "
-                     "in digital form (h:mm)." % (_RN[h % 12], _RN[m5]), h, 5 * m5,
+        return _time("On a clock with Roman numerals, the hour hand is between %s and %s and the minute hand points to %s. Write the time "
+                     "in digital form (h:mm)." % (_RN[h % 12], _RN[(h + 1) % 12], _RN[m5]), h, 5 * m5,
                      ["%s is %d, so it is after %d o'clock." % (_RN[h % 12], h, h), "The minute hand on %s means %d minutes past." % (_RN[m5], 5 * m5)])
 
     def t_points_to():
@@ -2057,9 +2063,11 @@ def _x38d(d):
 
     def t_tv():
         shows = random.sample(["Cartoons", "News", "Quiz", "Nature", "Music"], 3)
-        starts = [0]
-        for _ in range(3):
-            starts.append(starts[-1] + 5 * random.randint(2, 4))
+        starts = [60]
+        while starts[-1] >= 60:
+            starts = [0]
+            for _ in range(3):
+                starts.append(starts[-1] + 5 * random.randint(2, 4))
         i = random.randrange(3)
         return _dt("The TV guide shows start times. Each show ends when the next one starts. How many minutes long is %s?" % shows[i],
                    ["Show", "Starts"], [[sh, _hm(h, st)] for sh, st in zip(shows, starts)] + [["Bedtime story", _hm(h, starts[3])]],
@@ -2182,6 +2190,8 @@ def _x39h(d):
     def t_shop():
         items = random.sample([("apple", 20), ("banana", 15), ("orange", 25), ("pear", 30)], 2)
         a, b = random.randint(1, 3), random.randint(1, 2)
+        while a * items[0][1] + b * items[1][1] >= 100:
+            a, b = random.randint(1, 3), random.randint(1, 2)
         cost = a * items[0][1] + b * items[1][1]
         return _dt("The price list shows a fruit stall. %s buys %d %s and %d %s and pays with a £1 coin. How much change, in pence?"
                    % (pick(NAMES), a, items[0][0] + ("s" if a > 1 else ""), b, items[1][0] + ("s" if b > 1 else "")),
@@ -2378,7 +2388,7 @@ def _(d=1):
                    ["%d − %d = %d hours." % (b, a, b - a)])
 
     def t_film_end():
-        s = 60 * (h12 + 12) + 5 * random.randint(6, 11)
+        s = 60 * (min(h12, 10) + 12) + 5 * random.randint(6, 11)
         l = 5 * random.randint(4, 10)
         e = s + l
         return _wq("A film starts at %d:%02d and lasts %d minutes. What time does it end? Use the 24-hour clock (like 19:45)." % (s // 60, s % 60, l),

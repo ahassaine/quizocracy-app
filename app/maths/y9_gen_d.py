@@ -394,11 +394,11 @@ def _(d=1):
                    ["All points the same distance from a point lie on a circle."], "one word")
 
     def t_locus_two():
-        return _wq("Points that are the same distance from A and from B lie on which line? (two words: the perpendicular ...)", "bisector",
+        return _wq("Points that are the same distance from A and from B lie on the perpendicular ______ of AB. Type the missing word.", "bisector",
                    ["It is the perpendicular bisector of AB."], "one word")
 
     def t_angle_bisector():
-        return _wq("Points the same distance from two lines that meet lie on which line? (two words: the angle ...)", "bisector",
+        return _wq("Points the same distance from two lines that meet lie on the angle ______. Type the missing word.", "bisector",
                    ["It is the angle bisector."], "one word")
 
     def t_goat():

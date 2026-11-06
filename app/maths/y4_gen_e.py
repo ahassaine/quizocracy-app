@@ -210,7 +210,7 @@ def _(d=1):
 
     if t == 2:                                        # visual: name it
         nm, sd = pick([s for s in pool if s in _DRAWN_NAMEABLE] or _DRAWN_NAMEABLE)
-        return {"prompt": "What is the name of this polygon?",
+        return {"prompt": "What is the name of this polygon? (type one word)",
                 "component": "shape", "spec": {"kind": "2d", "name": nm, "ask": "name"},
                 "answer": nm, "answer_type": "str",
                 "solution": ["It has %d straight sides." % sd,
@@ -249,8 +249,9 @@ def _(d=1):
                           "How many sides does it have?" % (thing, _a(nm)),
                           sd, "int", unit="sides",
                           solution=["%s has %d straight sides." % (_a(nm).capitalize(), sd)])
-        return _num_q("In the real world, %s is shaped like a polygon with %d equal sides. "
-                      "What is that polygon called?" % (thing, sd),
+        return _num_q("In the real world, %s is shaped like a regular polygon with %d sides "
+                      "(all sides and all angles equal). What is that polygon called? "
+                      "(type one word)" % (thing, sd),
                       nm, "str", text=True, placeholder="polygon name",
                       solution=["A regular polygon with %d sides is %s." % (sd, _a(nm))])
 
@@ -587,7 +588,7 @@ def _(d=1):
 
     if t == 2:                                        # right angles
         quad, par, ra, eq, sym = pick(_QUADS)
-        return _num_q("How many right angles does %s have?" % _a(quad),
+        return _num_q("How many right angles must %s always have?" % _a(quad),
                       ra, "int", unit="right angles",
                       solution=["%s has %s." % (_a(quad).capitalize(),
                                                 _pl(ra, "right angle") if ra else
@@ -597,7 +598,7 @@ def _(d=1):
         quad, per = pick([("square", 4), ("rectangle", 4), ("rhombus", 0),
                           ("parallelogram", 0), ("kite", 0)])
         return _num_q("Two sides are perpendicular when they meet at a right angle. "
-                      "How many pairs of perpendicular sides meet at the corners of %s?"
+                      "How many pairs of perpendicular sides must %s always have at its corners?"
                       % _a(quad),
                       per, "int", unit="pairs",
                       solution=["A pair of perpendicular sides meets at a right angle.",
@@ -682,7 +683,7 @@ def _(d=1):
     b = random.randint(50, 120)
     c = random.randint(40, max(41, 350 - a - b - 20))
     rest = 360 - a - b - c
-    while not (20 <= rest <= 200):
+    while not (20 <= rest <= 170):
         a, b = random.randint(50, 120), random.randint(50, 120)
         c = random.randint(40, 130)
         rest = 360 - a - b - c
@@ -2237,8 +2238,9 @@ def _(d=1):
 
     # two-step from the pictogram
     give = random.randint(1, min(vals) - 1) if min(vals) > 1 else 1
-    return {"prompt": "Use the pictogram. %d of the %s are given away. How many %s are "
-                      "left?" % (give, cats[i].lower(), cats[i].lower()),
+    return {"prompt": "Use the pictogram. %d of the %s %s given away. How many %s are "
+                      "left?" % (give, cats[i].lower(), "is" if give == 1 else "are",
+                                 cats[i].lower()),
             "component": "pictogram", "spec": spec,
             "answer": vals[i] - give, "answer_type": "int",
             "solution": ["The pictogram shows %d %s." % (vals[i], cats[i].lower()),
@@ -2399,7 +2401,7 @@ def _(d=1):
     labels = labels[:n]
     step = _by_d(d, 5, 2, 1)
     vals = sorted(random.sample(range(lo, hi + 1, step), n))
-    if random.random() < 0.5:
+    if random.random() < 0.5 and title != "Height of a sunflower":
         random.shuffle(vals)
     while len(set(vals)) != n:
         vals = random.sample(range(lo, hi + 1, step), n)
@@ -2646,7 +2648,7 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     cats, vals = _chart(d, 4, pool=["Rovers", "United", "City", "Albion", "Wanderers"])
-    unit = pick(["goals", "points", "tickets", "stickers"])
+    unit = pick(["goals", "points", "runs"])
     bar = {"categories": cats, "values": vals, "mode": "read"}
     tbl_rows = [[c, str(v)] for c, v in zip(cats, vals)]
     tbl = {"caption": "%s scored" % unit.capitalize(),
@@ -2844,9 +2846,9 @@ def _(d=1):
         total_a = random.randint(8, hi + 8)
         both = random.randint(1, total_a - 1)
         return _num_q("In a Venn diagram, %d children are inside the 'plays the recorder' "
-                      "ring. %d of them are also inside the 'sings in the choir' ring. How "
+                      "ring. %d of them %s also inside the 'sings in the choir' ring. How "
                       "many children play the recorder but do NOT sing in the choir?"
-                      % (total_a, both),
+                      % (total_a, both, "is" if both == 1 else "are"),
                       total_a - both, "int", unit="children",
                       solution=["%d − %d = %d." % (total_a, both, total_a - both)])
 
@@ -2935,8 +2937,9 @@ def _(d=1):
     if t == 6:                                        # spinner
         parts = pick([4, 5, 6, 8, 10])
         wins = random.randint(1, parts - 1)
-        return _num_q("A spinner has %d equal sections and %d of them are green. Write the "
-                      "fraction of the spinner that is green." % (parts, wins),
+        return _num_q("A spinner has %d equal sections and %d of them %s green. Write the "
+                      "fraction of the spinner that is green."
+                      % (parts, wins, "is" if wins == 1 else "are"),
                       "%d/%d" % (wins, parts), "frac", text=True, placeholder="e.g. 3/8",
                       solution=["%s out of %d %s green." % (_pl(wins, "section"), parts, "is" if wins == 1 else "are"),
                                 "The fraction is %d/%d." % (wins, parts)])
@@ -3233,7 +3236,7 @@ def _(d=1):
     # multi-step with a scaling comparison
     small = random.randint(4, _by_d(d, 12, 25, 45))
     mult = pick([2, 3, 4])
-    extra = random.randint(2, 20)
+    extra = random.randint(2, min(20, small * mult - 1))
     one, two = _two_names()
     return _num_q("%s has %d marbles. %s starts with %d times as many, then loses %d. "
                   "How many marbles does %s have now?"

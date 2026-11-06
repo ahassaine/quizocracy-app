@@ -119,7 +119,7 @@ def _(d=1):
     d = _d(d)
     step = pick([4, 50, 100] if d == 0 else [4, 8, 50, 100])
     kmax = {0: 6, 1: 12, 2: 18}[d]
-    start = random.randint(2, kmax) * step
+    start = random.randint(2, max(2, min(kmax, (1000 - 4 * step) // step))) * step   # every term stays within 1,000
 
     def t_next():
         back = d >= 1 and random.random() < 0.4 and start - 3 * step >= 0
@@ -331,7 +331,8 @@ def _(d=1):
             m = 10
         step, major = (10, 50) if d == 0 else (10, 100)
         return _nl("Place %d on the number line." % m, m, step, major,
-                   ["%d sits between %d and %d." % (m, (m // major) * major, (m // major) * major + major)])
+                   [("%d sits between %d and %d." % (m, (m // major) * major, (m // major) * major + major))
+                    if m % major else "%d is exactly %d tens, so it sits on a big mark." % (m, m // 10)])
 
     def t_place_shifted():
         amt = pick([10, 100]) if d >= 1 else 10
@@ -578,6 +579,8 @@ def _(d=1):
 
     def t_two_part():
         if d == 0:
+            if not o:
+                return t_missing_part()
             first = t * 10
             return _tb("Complete:  %d = %d + ___" % (n, first), n - first, "int", {},
                        ["%d − %d = %d." % (n, first, n - first)])
@@ -687,8 +690,9 @@ def _(d=1):
 
     def t_figures():
         n = random.randint(3, 12) if d == 0 else random.randint(11, 99)
-        return _tb("Write the ordinal number for position %d (in figures, e.g. 4th)." % n,
-                   ordinal(n), "str", {"text": True, "placeholder": "e.g. 4th"},
+        ex = "4th" if n != 4 else "6th"
+        return _tb("Write the ordinal number for position %d (in figures, e.g. %s)." % (n, ex),
+                   ordinal(n), "str", {"text": True, "placeholder": "e.g. " + ex},
                    ["Position %d is written %s." % (n, ordinal(n))])
 
     def t_who():
@@ -703,8 +707,10 @@ def _(d=1):
         total = random.randint(6, top)
         pos = random.randint(2, total - 1)
         who = pick(NAMES)
-        return _tb("There are %d children in a queue. %s is %s from the FRONT. What position is %s from the BACK?"
-                   % (total, who, ordinal(pos), who), total - pos + 1, "int", {},
+        return _tb("There are %d children in a queue. %s is %s from the FRONT. What position is %s from the BACK? "
+                   "(write it in figures, like 1st, 2nd, 3rd)"
+                   % (total, who, ordinal(pos), who), ordinal(total - pos + 1), "str",
+                   {"text": True, "placeholder": "e.g. 1st, 2nd, 3rd"},
                    ["%d − %d = %d %s behind %s."
                     % (total, pos, total - pos, "child is" if total - pos == 1 else "children are", who),
                     "So %s is %s from the back." % (who, ordinal(total - pos + 1))])
@@ -734,7 +740,7 @@ def _(d=1):
                    ["Look at the ones digit (%d)." % (n % 10), "%d is %s." % (n, ans)])
 
     def t_next():
-        n = _n(d)
+        n = min(_n(d), 998)          # the answer stays within 1,000
         want = pick(["even", "odd"])
         m = n + 1
         while (m % 2 == 0) != (want == "even"):
@@ -747,6 +753,8 @@ def _(d=1):
         n = _n(d)
         want = pick(["even", "odd"])
         after = random.random() < 0.5
+        if after:
+            n = min(n, 998)          # the answer stays within 1,000
         m = n + 1 if after else n - 1
         while (m % 2 == 0) != (want == "even"):
             m = m + 1 if after else m - 1
@@ -1175,6 +1183,8 @@ def _(d=1):
 
     def t_sub():
         a, b = pair()
+        while rnd(a) == rnd(b):          # an estimate of 0 is pointless
+            a, b = pair()
         if a < b:
             a, b = b, a
         ra, rb = rnd(a), rnd(b)
@@ -1231,7 +1241,7 @@ def _(d=1):
     d = _d(d)
     steps = {0: [2, 5, 10], 1: [3, 4, 5, 8, 10, 25], 2: [6, 7, 9, 25, 50]}[d]
     step = pick(steps)
-    start = random.randint(3, 20) * step
+    start = random.randint(3, min(20, (1000 - 5 * step) // step)) * step   # every term stays within 1,000
 
     def terms_of(back, count=4):
         sg = -step if back else step
@@ -1317,7 +1327,7 @@ def _(d=1):
     d = _d(d)
     steps = {0: [2, 5, 10], 1: [3, 4, 5, 8, 10, 50], 2: [6, 7, 9, 25, 50, 100]}[d]
     step = pick(steps)
-    start = random.randint(3, 15) * step
+    start = random.randint(3, min(15, (1000 - 4 * step) // step)) * step   # every term stays within 1,000
     terms = [start + i * step for i in range(5)]
 
     def t_one():

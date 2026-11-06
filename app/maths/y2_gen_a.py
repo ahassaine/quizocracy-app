@@ -511,7 +511,8 @@ def _(d=1):
         cost, pay = random.randint(11, 90), pick([50, 100])
         if cost >= pay:
             pay = 100
-        return _tb("%s buys a toy for %dp and pays with %dp. How much change?" % (kid, cost, pay), pay - cost, "int", {"unit": "p"},
+        return _tb("%s buys a toy for %dp and pays with %s. How much change, in pence?" % (kid, cost, "£1" if pay == 100 else "50p"),
+                   pay - cost, "int", {"unit": "p"},
                    ["%d − %d = %d." % (pay, cost, pay - cost)])
 
     def t_more():
@@ -587,8 +588,8 @@ def _(d=1):
         return _tb("Double %d = ___" % k, 2 * k, "int", {}, ["Double means × 2: %d × 2 = %d." % (k, 2 * k)])
 
     def t_which_table():
-        n = pick([2, 5, 10]) * random.randint(1, 12)
         x = pick([2, 5, 10])
+        n = x * random.randint(1, 12) if random.random() < 0.5 else pick([v for v in range(3, 12 * x + 1) if v % x])
         return _wq("Is %d in the %d times table? (yes or no)" % (n, x), "yes" if n % x == 0 else "no",
                    ["%d %s in the %d times table." % (n, "is" if n % x == 0 else "is not", x)], "yes / no")
 
@@ -648,6 +649,9 @@ def _(d=1):
     def t_groups():
         n = random.randint(2, 10)
         extra = pick([0, 1])
+        if extra:
+            return _wq("%d counters are put into pairs. One counter is left without a partner. Is %d odd or even?" % (2 * n + 1, 2 * n + 1),
+                       "odd", ["One is left without a partner, so it is odd."], "odd / even")
         return {"prompt": "Here are %d counters in pairs%s. Is %d odd or even?" % (2 * n + extra, " and one more" if extra else "",
                                                                                    2 * n + extra),
                 "component": "equal_groups", "spec": {"mode": "read", "groups": n, "per": 2}, "answer": "odd" if extra else "even",
@@ -760,12 +764,12 @@ def _(d=1):
     d = _d(d)
 
     def t_shade():
-        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (2, 3)])
+        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (1, 2)])
         return {"prompt": "Shade %d/%d of the bar." % f, "component": "fraction_bar", "spec": {"parts": f[1], "mode": "shade"},
                 "answer": "%d/%d" % f, "answer_type": "frac", "solution": ["Shade %d of the %d equal parts." % f]}
 
     def t_read():
-        f = pick([(1, 3), (1, 4), (3, 4), (2, 3), (1, 2)])
+        f = pick([(1, 3), (1, 4), (3, 4), (2, 4), (1, 2)])
         return _area("What fraction of the shape is shaded?", {"mode": "fraction_read", "parts": f[1], "shaded": f[0]},
                      "%d/%d" % f, ["%d out of %d equal parts." % f], atype="frac")
 
@@ -783,7 +787,7 @@ def _(d=1):
                    "%d/%d" % (f[1] - f[0], f[1]), ["%d out of %d pieces are left." % (f[1] - f[0], f[1])], "e.g. 1/4")
 
     def t_grid():
-        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (2, 3)])
+        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (1, 2)])
         parts = f[1] * pick([1, 2, 3])
         return _area("Shade %d/%d of the shape." % f, {"mode": "fraction", "parts": parts}, "%d/%d" % f,
                      ["%d/%d of %d squares is %s." % (f[0], f[1], parts, _pn(parts * f[0] // f[1], "square"))], atype="frac")
@@ -1048,7 +1052,7 @@ def _(d=1):
 
     def t_change():
         cost = random.randint(5, 95)
-        pay = 100 if cost > 50 else pick([50, 100])
+        pay = 100 if cost >= 50 else pick([50, 100])
         return _tb("A comic costs %dp. You pay with %s. How much change, in pence?" % (cost, "£1" if pay == 100 else "50p"),
                    pay - cost, "int", {"unit": "p"}, ["%d − %d = %d." % (pay, cost, pay - cost)])
 
@@ -1089,7 +1093,7 @@ def _(d=1):
 
     def t_change_pounds():
         cost = random.randint(2, 9)
-        pay = pick([10, 20]) if cost > 5 else pick([5, 10])
+        pay = pick([10, 20]) if cost >= 5 else pick([5, 10])
         return _tb("A book costs £%d. You pay with a £%d note. How much change, in pounds?" % (cost, pay), pay - cost, "int", {"unit": "£"},
                    ["%d − %d = %d." % (pay, cost, pay - cost)])
 
@@ -1134,7 +1138,8 @@ def _(d=1):
 
     def t_long_hand():
         return _tb("The long hand points to %d. How many minutes past the hour is that?" % (m // 5 or 12), m if m else 0, "int", {},
-                   ["Each number is 5 minutes: %d × 5 = %d." % (m // 5, m)])
+                   ["Each number is 5 minutes: %d × 5 = %d." % (m // 5, m)] if m else
+                   ["When the long hand points to 12 it is o'clock: 0 minutes past."])
 
     def t_type_time():
         mm = pick([5, 10, 20, 25])

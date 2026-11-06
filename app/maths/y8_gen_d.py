@@ -179,9 +179,19 @@ def _seq_table(prompt, a, b, solution_prefix, caption="Sequence",
     ans = a * ns[i] + b
     rows = [[str(n), "" if n == ns[i] else str(a * n + b)] for n in ns]
     return _dtq(prompt, [header, "Term"], rows, ans,
-                solution_prefix + ["Position %d: %d x %d + %d = %d."
-                                   % (ns[i], a, ns[i], b, ans)],
+                solution_prefix + ["Position %d: %d x %d %s = %d."
+                                   % (ns[i], a, ns[i], _pm(b), ans)],
                 missing=(i, 1), caption=caption)
+
+
+def _pm(v):
+    """'+ 3' / '- 3' for a constant term in a worked solution line."""
+    return ("+ %d" % v) if v >= 0 else ("- %d" % -v)
+
+
+def _br(v):
+    """Bracket a negative number being multiplied: 3 -> '3', -2 -> '(-2)'."""
+    return ("(%d)" % v) if v < 0 else ("%d" % v)
 
 
 def _ineq_spec(op, value, lo, hi):
@@ -444,7 +454,8 @@ def _(d=1):
         ca2 = random.randint(1, hi)
         cb1 = random.randint(2, hi)
         cb2 = random.randint(1, hi)
-        expr = "%sa + %sb + %sa + %sb" % (ca1, cb1, ca2, cb2)
+        expr = "%s + %s + %s + %s" % (_coef(ca1, "a"), _coef(cb1, "b"),
+                                      _coef(ca2, "a"), _coef(cb2, "b"))
         ans = _two_var_str(ca1 + ca2, "a", cb1 + cb2, "b")
         return _exprq("Simplify %s by collecting like terms." % expr, ans,
                       ["a terms: %d + %d = %d." % (ca1, ca2, ca1 + ca2),
@@ -509,6 +520,14 @@ def _(d=1):
     def already_simplified():
         a = random.randint(2, hi)
         c = random.randint(1, hi)
+        if random.random() < 0.5:
+            a2 = random.randint(1, a - 1)
+            messy = "%s + %d + %s" % (_coef(a - a2, "x"), c, _coef(a2, "x"))
+            return _wordq("Is the expression %s already fully simplified (are there no "
+                          "like terms left to collect)? Type yes or no." % messy, "no",
+                          ["%s and %s are like terms, so it simplifies to %s."
+                           % (_coef(a - a2, "x"), _coef(a2, "x"), _lin_str(a, c))],
+                          placeholder="yes or no")
         return _wordq("Is the expression %s already fully simplified (are there no like "
                       "terms left to collect)? Type yes or no." % _lin_str(a, c), "yes",
                       ["%s has one x term and one number, so it is fully simplified."
@@ -763,6 +782,15 @@ def _(d=1):
         k = random.randint(2, 6)
         b = random.randint(2, 6)
         c = _coprime_c(b, 6)
+        if random.random() < 0.5:
+            return _wordq("Is %d(%s) the fully factorised form of %s? Type yes or no."
+                          % (k, _lin_str(2 * b, 2 * c), _lin_str(2 * k * b, 2 * k * c)),
+                          "no",
+                          ["The highest common factor of %d and %d is %d, not %d."
+                           % (2 * k * b, 2 * k * c, 2 * k, k),
+                           "Fully factorised: %s = %s."
+                           % (_lin_str(2 * k * b, 2 * k * c), _fac_str(2 * k, b, c))],
+                          placeholder="yes or no")
         return _wordq("Is %d(%s) the fully factorised form of %s? Type yes or no."
                       % (k, _lin_str(b, c), _lin_str(k * b, k * c)), "yes",
                       ["Expanding %d(%s) gives %s, so yes."
@@ -949,6 +977,14 @@ def _(d=1):
         a1 = random.randint(2, hi)
         a2 = random.randint(1, hi)
         c = random.randint(1, hi)
+        if random.random() < 0.5:
+            bad = a1 * a2 if a1 * a2 != a1 + a2 else a1 + a2 + 1
+            return _wordq("Are %s + %s + %d and %s equivalent? Type yes or no."
+                          % (_coef(a1, "x"), _coef(a2, "x"), c, _lin_str(bad, c)), "no",
+                          ["Collecting like terms: %s + %s = %s, not %s."
+                           % (_coef(a1, "x"), _coef(a2, "x"), _coef(a1 + a2, "x"),
+                              _coef(bad, "x")),
+                           "So they are not equivalent."], placeholder="yes or no")
         return _wordq("Are %s + %s + %d and %s equivalent? Type yes or no."
                       % (_coef(a1, "x"), _coef(a2, "x"), c,
                          _lin_str(a1 + a2, c)), "yes",
@@ -976,7 +1012,7 @@ def _(d=1):
         a = random.randint(2, hi)
         b = random.randint(1, hi)
         correct = _lin_str(a, a * b)
-        wrong = _lin_str(a, a + b)
+        wrong = _lin_str(a, b)  # forgot to multiply the number; b != a*b as a >= 2
         options = [correct, wrong]
         random.shuffle(options)
         return _exprq("Which of these is equivalent to %d(%s): %s or %s? Type the one "
@@ -1226,6 +1262,14 @@ def _(d=1):
         b = random.randint(1, 6)
         n = random.randint(4, 9)
         val = a * n + b
+        if d < 2 and random.random() < 0.5:  # d2 already has not_term_in
+            val += random.randint(1, a - 1)
+            return _wordq("The nth term of a sequence is %s. Is %d a term in this "
+                          "sequence? Type yes or no." % (_lin_str(a, b, "n"), val), "no",
+                          ["Solve %dn + %d = %d: %dn = %d, and %d / %d is not a whole "
+                           "number, so %d is not a term." % (a, b, val, a, val - b,
+                                                             val - b, a, val)],
+                          placeholder="yes or no")
         return _wordq("The nth term of a sequence is %s. Is %d a term in this sequence? "
                       "Type yes or no." % (_lin_str(a, b, "n"), val), "yes",
                       ["%d = %d x %d + %d, which is the %s term."
@@ -1526,9 +1570,10 @@ def _(d=1):
         y = _nz(-r + 2, r - 2)
         dx = _nz(-2, 2)
         dy = _nz(-2, 2)
-        return {"prompt": "Point P is at (%d, %d). Plot the point after translating it %d "
-                          "right and %d up (a negative number means left or down)."
-                          % (x, y, dx, dy),
+        return {"prompt": "Point P is at (%d, %d). Plot the point after translating it "
+                          "%d %s and %d %s."
+                          % (x, y, abs(dx), "right" if dx > 0 else "left",
+                             abs(dy), "up" if dy > 0 else "down"),
                 "component": "coordinate_grid",
                 "spec": {"mode": "plot", "xmin": -r, "xmax": r, "ymin": -r,
                          "ymax": r, "points": [[x, y, "P"]]},
@@ -1560,6 +1605,11 @@ def _(d=1):
 
     def on_axis():
         x = _nz(-r, r)
+        if random.random() < 0.5:
+            return _wordq("The point (0, %d) lies on one of the axes. Which axis is it on? "
+                          "Type x or y." % x, "y",
+                          ["The x-coordinate is 0, so the point is on the y-axis."],
+                          placeholder="x or y")
         return _wordq("The point (%d, 0) lies on one of the axes. Which axis is it on? "
                       "Type x or y." % x, "x",
                       ["The y-coordinate is 0, so the point is on the x-axis."],
@@ -1682,10 +1732,14 @@ def _(d=1):
         a = random.randint(2, 6)
         x = random.randint(2, 8)
         b = random.randint(1, hi)
+        t = x if random.random() < 0.5 else x + pick([-1, 1])
+        ok = t == x
         return _wordq("Is x = %d the solution of %dx + %d = %d? Type yes or no."
-                      % (x, a, b, a * x + b), "yes",
-                      ["%d x %d + %d = %d, which is correct."
-                       % (a, x, b, a * x + b)], placeholder="yes or no")
+                      % (t, a, b, a * x + b), "yes" if ok else "no",
+                      ["%d x %d + %d = %d, %s %d."
+                       % (a, t, b, a * t + b, "which is correct: it equals" if ok
+                          else "which does not equal", a * x + b)],
+                      placeholder="yes or no")
 
     opts = [add, subtract, multiply, divide, two_step, two_step_sub,
             word_two_step, check_solution]
@@ -1920,10 +1974,13 @@ def _(d=1):
         c = random.randint(1, a - 1)
         x = random.randint(2, 6)
         e = (a - c) * x
+        t = x if random.random() < 0.5 else x + pick([-1, 1])
+        ok = t == x
         return _wordq("Is x = %d the solution of %s = %s + %d? Type yes or no."
-                      % (x, _coef(a, "x"), _coef(c, "x"), e), "yes",
-                      ["%d x %d = %d and %d x %d + %d = %d, and both are equal."
-                       % (a, x, a * x, c, x, e, c * x + e)], placeholder="yes or no")
+                      % (t, _coef(a, "x"), _coef(c, "x"), e), "yes" if ok else "no",
+                      ["%d x %d = %d and %d x %d + %d = %d, so the two sides are %s."
+                       % (a, t, a * t, c, t, e, c * t + e,
+                          "equal" if ok else "not equal")], placeholder="yes or no")
 
     def geometry():
         a = random.randint(3, 6)
@@ -2122,9 +2179,9 @@ def _(d=1):
                       _ineq_spec(op, v, lo, hi), "x%s%d" % (op, v),
                       ["The circle is at %d and the arrow points %s."
                        % (v, "right (greater)" if op in (">", ">=") else "left (less)"),
-                       "A %s circle means the value is %s included, so x %s %d."
+                       "A %s circle means the value is %s, so x %s %d."
                        % ("filled" if op in ("<=", ">=") else "hollow",
-                          "" if op in ("<=", ">=") else "not", op, v)],
+                          "included" if op in ("<=", ">=") else "not included", op, v)],
                       answer_type="str", placeholder="e.g. x>3")
 
     def boundary_value():
@@ -2147,29 +2204,25 @@ def _(d=1):
                        "(< or >) does not."], answer_type="str",
                       placeholder="yes or no")
 
-    def satisfies():
-        op = pick([">", ">="])
-        v = random.randint(-2, 4)
+    def _sat(op, v):
         lo, hi = _bounds(v)
-        ans = v + 2  # safely satisfies both > and >=
-        return {"prompt": "Type a whole number that satisfies the inequality shown on "
-                          "the number line.",
-                "component": "inequality_line",
-                "spec": {"op": op, "value": v, "min": lo, "max": hi},
-                "answer": str(ans), "answer_type": "int", "tolerance": 0,
-                "solution": ["Any number greater than %d works, e.g. %d." % (v, ans)]}
+        t = v + random.randint(-2, 2)
+        ok = {"<": t < v, "<=": t <= v, ">": t > v, ">=": t >= v}[op]
+        return _ineqq("Does the whole number %d satisfy the inequality shown on the "
+                      "number line? Type yes or no." % t,
+                      _ineq_spec(op, v, lo, hi), "yes" if ok else "no",
+                      ["The number line shows x %s %d (a %s circle at %d)."
+                       % (op, v, "filled" if op in ("<=", ">=") else "hollow", v),
+                       "%d %s it, so the answer is %s."
+                       % (t, "satisfies" if ok else "does not satisfy",
+                          "yes" if ok else "no")],
+                      answer_type="str", placeholder="yes or no")
+
+    def satisfies():
+        return _sat(pick([">", ">="]), random.randint(-2, 4))
 
     def satisfies_less():
-        op = pick(["<", "<="])
-        v = random.randint(0, 5)
-        lo, hi = _bounds(v)
-        ans = v - 2
-        return {"prompt": "Type a whole number that satisfies the inequality shown on "
-                          "the number line.",
-                "component": "inequality_line",
-                "spec": {"op": op, "value": v, "min": lo, "max": hi},
-                "answer": str(ans), "answer_type": "int", "tolerance": 0,
-                "solution": ["Any number less than %d works, e.g. %d." % (v, ans)]}
+        return _sat(pick(["<", "<="]), random.randint(0, 5))
 
     def direction():
         op = pick(["<", "<=", ">", ">="])
@@ -2327,15 +2380,15 @@ def _(d=1):
         return _dtq("This table is for the line y = %s. Work out the missing y-value "
                     "when x = %d." % (_lin_str(m, c), xs[i]),
                     ["x", "y"], rows, ans,
-                    ["Substitute x = %d: y = %d x %d + %d = %d."
-                     % (xs[i], m, xs[i], c, ans)],
+                    ["Substitute x = %d: y = %d x %s %s = %d."
+                     % (xs[i], m, _br(xs[i]), _pm(c), ans)],
                     missing=(i, 1), caption="y = %s" % _lin_str(m, c))
 
     def value_of_y():
         x = random.randint(-3, 4)
         return _numq("For the line y = %s, work out the value of y when x = %d."
                      % (_lin_str(m, c), x), m * x + c,
-                     ["y = %d x %d + %d = %d." % (m, x, c, m * x + c)],
+                     ["y = %d x %s %s = %d." % (m, _br(x), _pm(c), m * x + c)],
                      placeholder="y =")
 
     def value_of_x():
@@ -2356,7 +2409,7 @@ def _(d=1):
         return _gridq("A table of values is built from y = %s. Work out the y-value when "
                       "x = %d, then plot the point (x, y)."
                       % (_lin_str(m, c), x), x, y,
-                      ["When x = %d, y = %d x %d + %d = %d." % (x, m, x, c, y),
+                      ["When x = %d, y = %d x %d %s = %d." % (x, m, x, _pm(c), y),
                        "Plot (%d, %d)." % (x, y)], r=r)
 
     def complete_pair():
@@ -2364,15 +2417,17 @@ def _(d=1):
         y = m * x + c
         return _numq("A table of values for y = %s includes the column x = %d. What is "
                      "the y-value in that column?" % (_lin_str(m, c), x), y,
-                     ["y = %d x %d + %d = %d." % (m, x, c, y)], placeholder="y =")
+                     ["y = %d x %s %s = %d." % (m, _br(x), _pm(c), y)], placeholder="y =")
 
     def which_point_on():
+        if d == 0 and random.random() < 0.5:  # d1/d2 already include which_point_not
+            return which_point_not()
         x = random.randint(1, 4)
         y = m * x + c
         return _wordq("Is the point (%d, %d) in the table of values for y = %s? Type yes "
                       "or no." % (x, y, _lin_str(m, c)), "yes",
-                      ["When x = %d, y = %d x %d + %d = %d, so yes."
-                       % (x, m, x, c, y)], placeholder="yes or no")
+                      ["When x = %d, y = %d x %d %s = %d, so yes."
+                       % (x, m, x, _pm(c), y)], placeholder="yes or no")
 
     def which_point_not():
         x = random.randint(1, 4)
@@ -2387,8 +2442,8 @@ def _(d=1):
         y = m * x + c
         if not (-r <= y <= r):
             x, y = 0, c
-        return _gridq("Plot the point (%d, %d) from the table of values."
-                      % (x, y), x, y,
+        return _gridq("A table of values for y = %s includes the point (%d, %d). Plot "
+                      "this point." % (_lin_str(m, c), x, y), x, y,
                       ["Go to x = %d, y = %d and plot the point." % (x, y)], r=r)
 
     def indep_dep():
@@ -2450,8 +2505,8 @@ def _(d=1):
                 "component": "coordinate_grid", "spec": spec,
                 "answer": "(%d,%d)" % (px, py), "answer_type": "coord",
                 "tolerance": 0,
-                "solution": ["When x = %d, y = %d x %d + %d = %d."
-                             % (px, m, px, c, py),
+                "solution": ["When x = %d, y = %d x %s %s = %d."
+                             % (px, m, _br(px), _pm(c), py),
                              "Plot (%d, %d), which lies on the line." % (px, py)]}
 
     def read_y():
@@ -2549,8 +2604,9 @@ def _(d=1):
         return {"prompt": "A straight line is drawn on the grid. What is its gradient?",
                 "component": "coordinate_grid", "spec": _spec(m, c),
                 "answer": m, "answer_type": "int", "tolerance": 0,
-                "solution": ["For every 1 unit right, the line goes %d up/down."
-                             % m, "The gradient is %d." % m]}
+                "solution": ["For every 1 unit right, the line goes %d %s."
+                             % (abs(m), "up" if m > 0 else "down"),
+                             "The gradient is %d." % m]}
 
     def intercept():
         m, c = _mc()

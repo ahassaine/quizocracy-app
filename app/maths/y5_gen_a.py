@@ -89,7 +89,10 @@ def _(d=1):
     def t_value():
         p, name = pick(nz)
         dg = _digit_at(n, p)
-        return _tb("What is the value of the digit %d in %s?" % (dg, _c(n)), dg * p, "int", {},
+        same = [q for q, _ in places if _digit_at(n, q) == dg]       # left to right
+        which = "" if len(same) == 1 else " (the %s %d from the left)" % (
+            ["first", "second", "third", "fourth", "fifth", "sixth"][same.index(p)], dg)
+        return _tb("What is the value of the digit %d%s in %s?" % (dg, which, _c(n)), dg * p, "int", {},
                    ["The %d is in the %s place." % (dg, name), "Its value is %s." % _c(dg * p)])
 
     def t_which_place():
@@ -151,6 +154,8 @@ def _(d=1):
     step = pick(_by(d, [10, 100, 1000], [100, 1000, 10000], [1000, 10000, 100000]))
     base = random.randint(_by(d, 1000, 20000, 100000), _by(d, 90000, 700000, 800000))
     back = random.random() < 0.45 and base - 9 * step >= 0
+    if not back and base + 9 * step > 1_000_000:          # Year 5 works to 1,000,000
+        base = random.randint(0, 1_000_000 // step - 10) * step + base % step
 
     def seq(k=5):
         sg = -step if back else step
@@ -185,10 +190,13 @@ def _(d=1):
 
     def t_cross():
         # crossing a boundary changes more than one digit
-        b = (base // (step * 10) + 1) * step * 10 - step * random.randint(1, 2)
-        ans = b + 3 * step
-        return _tb("Count on 3 lots of %s from %s." % (_c(step), _c(b)), ans, "int", {},
-                   ["%s + %s = %s." % (_c(b), _c(3 * step), _c(ans))])
+        st = step if step < 100000 else 10000              # 100,000s could only cross 1,000,000
+        b = (base // (st * 10) + 1) * st * 10 - st * random.randint(1, 2)
+        if b + 3 * st > 1_000_000:
+            b -= 10 * st
+        ans = b + 3 * st
+        return _tb("Count on 3 lots of %s from %s." % (_c(st), _c(b)), ans, "int", {},
+                   ["%s + %s = %s." % (_c(b), _c(3 * st), _c(ans))])
 
     def t_table():
         s = seq(5)
@@ -209,6 +217,8 @@ def _(d=1):
     step = pick(_by(d, [10, 100, 1000], [1000, 10000, 100000], [10000, 100000, 1000, 100]))
     if n <= step:
         n += step
+    if n + step > 1_000_000:                              # keep every number within 1,000,000
+        n -= step
     more = random.random() < 0.5
 
     def t_plain():
@@ -238,12 +248,13 @@ def _(d=1):
                    ["%s %s %s = %s." % (_c(n), "+" if more else "−", _c(step), _c(ans))])
 
     def t_boundary():
-        b = (n // (step * 10)) * step * 10 + 9 * step + random.randint(0, step - 1)
-        if b >= 1_000_000 - step:
-            b -= 10 * step
-        return _tb("What is %s more than %s?" % (_c(step), _c(b)), b + step, "int", {},
-                   ["Adding %s changes more than one digit here." % _c(step),
-                    "%s + %s = %s." % (_c(b), _c(step), _c(b + step))])
+        st = step if step < 100000 else 10000             # a 100,000 carry would pass 1,000,000
+        b = (n // (st * 10)) * st * 10 + 9 * st + random.randint(0, st - 1)
+        if b + st > 1_000_000:
+            b -= 10 * st
+        return _tb("What is %s more than %s?" % (_c(st), _c(b)), b + st, "int", {},
+                   ["Adding %s changes more than one digit here." % _c(st),
+                    "%s + %s = %s." % (_c(b), _c(st), _c(b + st))])
 
     def t_table():
         nums = random.sample(range(step + 1000, 890000), 3)
@@ -610,6 +621,8 @@ def _(d=1):
     p = pick([10, 100, 1000, 10000])
     b = a + random.choice([-1, 1]) * random.randint(1, 9) * p
     b = abs(b) or a + p
+    if b > 1_000_000:
+        b = 2 * a - b                                     # the rival below instead
 
     def t_symbol():
         sym = "<" if a < b else ">"
@@ -911,8 +924,8 @@ def _(d=1):
 
     def t_which():
         good = target + random.randint(-u // 2, u // 2 - 1)
-        bad = [target + u // 2 + random.randint(0, u // 3), target - u // 2 - random.randint(1, u // 3),
-               target + u + random.randint(-u // 3, u // 3)]
+        bad = [target + u // 2 + random.randint(0, u // 3), target - u // 2 - random.randint(1, u // 3)]
+        bad.append(target + u + random.choice([x for x in range(-u // 3, u // 3 + 1) if target + u + x not in bad]))
         opts = [good] + random.sample(bad, 2)
         random.shuffle(opts)
         return _tb("Which of these rounds to %s (nearest %s)?  %s" % (_c(target), _c(u),

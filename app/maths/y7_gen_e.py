@@ -101,7 +101,7 @@ def _(d=1):
 
     def t_scale():
         ev, val = pick([("an impossible event", 0), ("a certain event", 1), ("an even chance", Fraction(1, 2))])
-        return _tb("What number on the 0–1 probability scale shows %s?" % ev, _ds(val), "num", {},
+        return _tb("What number on the 0–1 probability scale shows %s?" % ev, _ds(val), "frac", {"text": True},
                    ["0 = impossible, 0.5 = even chance, 1 = certain."])
 
     def t_missing():
@@ -131,7 +131,8 @@ def _(d=1):
 
     def t_count():
         a, b = pick([("a coin", 2), ("a dice", 6), ("a 4-sided spinner", 4)]), pick([("a coin", 2), ("a dice", 6), ("a 3-colour spinner", 3)])
-        return _tb("%s and %s are used together. How many possible outcomes are there?" % (a[0].capitalize(), b[0]), a[1] * b[1],
+        who = ("Two coins" if a[0] == "a coin" else "Two dice") if a[0] == b[0] else "%s and %s" % (a[0].capitalize(), b[0])
+        return _tb("%s are used together. How many possible outcomes are there?" % who, a[1] * b[1],
                    "int", {}, ["%d × %d = %d." % (a[1], b[1], a[1] * b[1])])
 
     def t_two_dice_sum():
@@ -211,7 +212,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     n = random.randint(4, 7)
-    m = random.randint(5, 40)
+    m = random.randint(8, 40)
     vals = [m + random.randint(-6, 6) for _ in range(n - 1)]
     vals.append(m * n - sum(vals))
     if vals[-1] < 0:

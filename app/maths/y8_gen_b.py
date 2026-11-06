@@ -254,7 +254,8 @@ def _frac_result_q(base_prompt, res, solution):
     a = -res if res < 0 else res
     w = a.numerator // a.denominator
     rn = a.numerator % a.denominator
-    return _mixq(base_prompt + " Give your answer as a mixed number.",
+    return _mixq(base_prompt + " Give your answer as a mixed number "
+                 "in its simplest form.",
                  sign * w, rn, a.denominator, solution=solution)
 
 
@@ -831,12 +832,14 @@ def _(d=1):
         # ensure exact mean at 1-2 dp
         n = len(vals)
         tot = sum(vals)
-        m = _D(tot) / n
-        m = _rnd(m, 2)
+        exact = _D(tot) / n
+        m = _rnd(exact, 2)
         return _nq("Find the mean of %s. Give your answer to 2 decimal places."
                    % ", ".join(_txt(v) for v in vals), m,
                    ["Total = %s." % _txt(tot),
-                    "%s ÷ %d = %s." % (_txt(tot), n, _txt(m))], tol=1e-6)
+                    "%s ÷ %d %s %s." % (_txt(tot), n,
+                                        "=" if exact == m else "≈", _txt(m))],
+                   tol=1e-6)
 
     def perimeter():
         L = _mk(1, 21, 85)
@@ -860,7 +863,7 @@ def _(d=1):
                     "%s + %s = %s." % (_txt(a * j), _txt(b * k), _txt(r))])
 
     def recipe_scale():
-        per = _mk(1, 12, 45)
+        per = _mk(2, 12, 45)            # 0.12-0.45 kg per person
         base = random.randint(2, 4)
         want = base * random.randint(2, 3)
         one = per
@@ -977,7 +980,7 @@ def _(d=1):
 
     def line_add():
         a = random.randint(-8, 8)
-        b = random.randint(-8, 8)
+        b = random.randint(max(-8, -12 - a), min(8, 12 - a))   # answer stays on the line
         s = a + b
         op = "%d + (%d)" % (a, b) if b < 0 else "%d + %d" % (a, b)
         return _nlq("The number line runs from −12 to 12. Mark the answer to "
@@ -1199,9 +1202,9 @@ def _(d=1):
     def dec_div_neg():
         b = -random.randint(2, 6)
         q = _mk(1, 12, 45)
-        a = q * b
+        a = -q * b                      # positive dividend, negative divisor
         return _nq("Work out %s ÷ (%d)" % (_txt(a), b), -q,
-                   ["Negative ÷ positive = negative.",
+                   ["Positive ÷ negative = negative.",
                     "%s ÷ (%d) = %s." % (_txt(a), b, _txt(-q))])
 
     def compare_rational():
@@ -1211,11 +1214,12 @@ def _(d=1):
         b = _D(random.randint(-40, 40)).scaleb(-1)
         while a == b:
             b = _D(random.randint(-40, 40)).scaleb(-1)
-        bigger = _txt(a) if a > b else _txt(b)
-        return _sq("Which is larger: %s or %s? Type the number."
-                   % (_txt(a), _txt(b)), bigger,
-                   placeholder="a number",
-                   solution=["On a number line, %s is further right." % bigger])
+        big = a if a > b else b
+        bigger = _txt(big)
+        return _nq("Which is larger: %s or %s? Type the number."
+                   % (_txt(a), _txt(b)), big,
+                   ["On a number line, %s is further right." % bigger],
+                   text=True, placeholder="a number")
 
     def mixed_two_step():
         a = _mk(1, 12, 45)
@@ -1233,8 +1237,8 @@ def _(d=1):
 
     def line_neg():
         a = _D(random.randint(-70, 70)).scaleb(-1)
-        b = _D(random.randint(10, 70)).scaleb(-1)
-        r = a - b  # a + (-b), may be negative
+        b = _D(random.randint(10, min(70, int(a * 10) + 80))).scaleb(-1)
+        r = a - b  # a + (-b), may be negative; stays on the −8..8 line
         return _nlq("The number line runs from −8 to 8 in tenths. Mark the "
                     "answer to %s + (−%s)." % (_txt(a), _txt(b)), r, -8, 8,
                     Decimal("0.1"), Decimal("1"),
@@ -1473,6 +1477,8 @@ def _(d=1):
     def _unsimplified():
         base_d = pick([2, 3, 4, 5, 6, 8])
         base_n = random.randint(1, base_d - 1)
+        while _hcf(base_n, base_d) != 1:        # 2/6 is not in simplest form
+            base_n = random.randint(1, base_d - 1)
         k = random.randint(*_by_d(d, (2, 4), (2, 6), (3, 9)))
         return base_n, base_d, base_n * k, base_d * k
 
@@ -1558,12 +1564,11 @@ def _(d=1):
         rows = [["%d/%d" % good], ["%d/%d" % bads[0]], ["%d/%d" % bads[1]]]
         random.shuffle(rows)
         return _dtq("Which fraction in the table is equivalent to %d/%d? Type "
-                    "it as a fraction like %d/%d."
-                    % (bn, bd, good[0], good[1]), ["Fraction"], rows,
-                    "%d/%d" % good, "frac",
+                    "it exactly as it appears in the table." % (bn, bd),
+                    ["Fraction"], rows, "%d/%d" % good, "str",
                     ["%d/%d = %d/%d (both parts doubled)."
                      % (bn, bd, good[0], good[1])],
-                    placeholder="e.g. %d/%d" % (good[0], good[1]))
+                    placeholder="e.g. 1/2")
 
     def word_simplify():
         who = pick(NAMES)
@@ -1596,6 +1601,8 @@ def _(d=1):
         w = random.randint(*_by_d(d, (1, 3), (2, 5), (3, 8)))
         dd = pick([2, 3, 4, 5, 6, 8])
         n = random.randint(1, dd - 1)
+        while _hcf(n, dd) != 1:         # keep the fraction part in lowest terms
+            n = random.randint(1, dd - 1)
         return w, n, dd
 
     def imp_to_mixed():
@@ -1744,7 +1751,7 @@ def _(d=1):
         dens = [2, 3, 4, 6]
         fr = []
         seen = set()
-        for _ in range(_by_d(d, 3, 4, 4)):
+        while len(fr) < _by_d(d, 3, 4, 4):
             dd = pick(dens)
             n = random.randint(1, dd - 1)
             f = Fraction(n, dd)
@@ -1981,12 +1988,13 @@ def _(d=1):
     def diff_den_add():
         d1, d2 = pick([(2, 3), (3, 4), (2, 5), (4, 6), (2, 6), (3, 6),
                        (4, 8), (3, 8)])
-        n1 = random.randint(1, d1 - 1)
-        n2 = random.randint(1, d2 - 1)
         L = _lcm(d1, d2)
-        num = n1 * (L // d1) + n2 * (L // d2)
-        if num >= L:  # keep proper for core
-            num = min(num, L - 1)
+        while True:                     # keep the sum proper (below 1)
+            n1 = random.randint(1, d1 - 1)
+            n2 = random.randint(1, d2 - 1)
+            num = n1 * (L // d1) + n2 * (L // d2)
+            if num < L:
+                break
         sn, sd = _simp(num, L)
         return _fq("Work out %d/%d + %d/%d. Give your answer as a fraction in "
                    "its simplest form." % (n1, d1, n2, d2), sn, sd,
@@ -2001,6 +2009,9 @@ def _(d=1):
         n2 = random.randint(1, d2 - 1)
         v1 = n1 * (L // d1)
         v2 = n2 * (L // d2)
+        while v1 == v2:                 # 3/6 − 2/4 would be 0
+            n2 = random.randint(1, d2 - 1)
+            v2 = n2 * (L // d2)
         if v1 <= v2:
             v1, v2, d1, d2, n1, n2 = v2, v1, d2, d1, n2, n1
         num = v1 - v2
@@ -2030,14 +2041,15 @@ def _(d=1):
     def mixed_sub():
         dd = pick([3, 4, 5, 6])
         w1 = random.randint(3, 6)
-        w2 = random.randint(1, w1 - 1)
+        w2 = random.randint(1, w1 - 2)  # result stays above 1
         n1 = random.randint(1, dd - 1)
         n2 = random.randint(1, dd - 1)
         f1 = Fraction(w1 * dd + n1, dd)
         f2 = Fraction(w2 * dd + n2, dd)
         r = f1 - f2
         w, rn, rd = _improper_to_mixed(r.numerator, r.denominator)
-        return _mixq("Work out %s − %s. Give your answer as a mixed number."
+        return _mixq("Work out %s − %s. Give your answer as a mixed number "
+                     "in its simplest form."
                      % (_mixed_str(w1, n1, dd), _mixed_str(w2, n2, dd)),
                      w, rn, rd,
                      solution=["Write both over %d and subtract." % dd,
@@ -2143,7 +2155,8 @@ def _(d=1):
             return _iq("Work out %s × %d." % (_mixed_str(w, n, dd), k), w2,
                        ["%s = %d/%d." % (_mixed_str(w, n, dd), imp, dd),
                         "%d/%d × %d = %d." % (imp, dd, k, w2)])
-        return _mixq("Work out %s × %d. Give your answer as a mixed number."
+        return _mixq("Work out %s × %d. Give your answer as a mixed number "
+                     "in simplest form."
                      % (_mixed_str(w, n, dd), k), w2, rn, rd,
                      solution=["%s = %d/%d." % (_mixed_str(w, n, dd), imp, dd),
                                "%d/%d × %d = %s."
@@ -2198,8 +2211,8 @@ def _(d=1):
         dd = pick([4, 5, 6, 8, 10])
         w = random.randint(2, min(dd - 1, _by_d(d, 3, 4, 5)))
         return _agread(
-            "Multiply the fraction by the whole number. Choose the area model "
-            "that shows 1/%d shaded %d times, then read off the product. What "
+            "Multiply the fraction by the whole number. The area model shows "
+            "1/%d shaded %d times; read off the product. What "
             "is 1/%d × %d? Give your answer as a fraction."
             % (dd, w, dd, w), dd, w, "%d/%d" % (w, dd), "frac",
             ["1/%d added %d times fills %d of the %d equal parts."
@@ -2312,14 +2325,19 @@ def _(d=1):
                    solution=["%d × %d/%d = %d g." % (base, n, dd, val)])
 
     def compare_of():
-        whole = pick([60, 80, 100, 120])
-        a = whole // 4 * 3   # 3/4
-        b = whole // 5 * 3   # 3/5
-        bigger = "3/4" if a > b else "3/5"
-        return _sq("Which is more: 3/4 of %d or 3/5 of %d? Type 3/4 or 3/5."
-                   % (whole, whole), bigger, placeholder="3/4 or 3/5",
-                   solution=["3/4 of %d = %d; 3/5 of %d = %d."
-                             % (whole, a, whole, b),
+        (n1, d1), (n2, d2) = random.sample(pick([
+            [(3, 4), (3, 5)], [(2, 3), (3, 4)], [(4, 5), (3, 4)],
+            [(2, 5), (1, 3)], [(3, 5), (2, 3)], [(5, 6), (4, 5)]]), 2)
+        whole = _lcm(d1, d2) * random.randint(2, 6)
+        a = whole // d1 * n1
+        b = whole // d2 * n2
+        f1, f2 = "%d/%d" % (n1, d1), "%d/%d" % (n2, d2)
+        bigger = f1 if a > b else f2
+        return _sq("Which is more: %s of %d or %s of %d? Type %s or %s."
+                   % (f1, whole, f2, whole, f1, f2), bigger,
+                   placeholder="%s or %s" % (f1, f2),
+                   solution=["%s of %d = %d; %s of %d = %d."
+                             % (f1, whole, a, f2, whole, b),
                              "So %s of %d is more." % (bigger, whole)])
 
     def word_class():
@@ -2427,7 +2445,7 @@ def _(d=1):
         w2, rn, rd = _improper_to_mixed(sn, sd)
         if w2 > 0 and rn > 0:
             return _mixq("Work out %s ÷ %d. Give your answer as a mixed "
-                         "number." % (_mixed_str(w, n, dd), k), w2, rn, rd,
+                         "number in simplest form." % (_mixed_str(w, n, dd), k), w2, rn, rd,
                          solution=["%s = %d/%d." % (_mixed_str(w, n, dd), imp,
                                                     dd),
                                    "%d/%d ÷ %d = %s." % (imp, dd, k,
@@ -2558,7 +2576,8 @@ def _(d=1):
                             % (a, dd, b, dd, s, dd),
                             "× %d = %d." % (k, sn)])
         if w2 > 0:
-            return _mixq("Work out (%d/%d + %d/%d) × %d. Give a mixed number."
+            return _mixq("Work out (%d/%d + %d/%d) × %d. Give a mixed number in "
+                         "simplest form."
                          % (a, dd, b, dd, k), w2, rn, rd,
                          solution=["%d/%d + %d/%d = %d/%d." % (a, dd, b, dd, s,
                                                                dd),
@@ -2617,7 +2636,7 @@ def _(d=1):
         dd = pick([4, 6, 8])
         n3 = 1
         res = Fraction(n1, d1 * w) - Fraction(n3, dd)
-        if res < 0:  # keep non-negative for this framing
+        if res <= 0:  # keep positive for this framing
             res = Fraction(n1, d1 * w)
             n3 = 0
             prompt = "Work out %d/%d ÷ %d." % (n1, d1, w)
@@ -2755,7 +2774,7 @@ def _(d=1):
         n = random.randint(1, dd - 1)
         total = dd * random.randint(*_by_d(d, (4, 8), (6, 15), (8, 25)))
         val = total // dd * n
-        item = pick(["books", "apples", "pupils", "cars", "seats", "tickets"])
+        item = pick(["books", "apples", "pens", "toy cars", "mugs", "tickets"])
         return _iq("A shop has %d %s. %d/%d of them are sold. How many are "
                    "sold?" % (total, item, n, dd), val,
                    ["%d ÷ %d = %d, × %d = %d." % (total, dd, total // dd, n,
@@ -2812,12 +2831,14 @@ def _(d=1):
         # is a/b closer to 0, 1/2 or 1?
         dd = pick([5, 6, 7, 8, 9, 10])
         n = random.randint(1, dd - 1)
+        while n * 4 in (dd, 3 * dd):    # 1/4 and 3/4 are equally close to two targets
+            n = random.randint(1, dd - 1)
         f = n / dd
         target = min([0, 0.5, 1], key=lambda t: abs(f - t))
         label = {0: "0", 0.5: "1/2", 1: "1"}[target]
         return _sq("Is %d/%d closest to 0, 1/2 or 1? Type 0, 1/2 or 1."
                    % (n, dd), label, placeholder="0, 1/2 or 1",
-                   solution=["%d/%d ≈ %.2f." % (n, dd, f),
+                   solution=["%d/%d ≈ %s." % (n, dd, format(_rnd(Decimal(n) / dd, 2), "f")),
                              "That is closest to %s." % label])
 
     return _pick_opts({

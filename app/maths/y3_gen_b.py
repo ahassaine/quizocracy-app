@@ -372,8 +372,8 @@ def _(d=1):
 def _(d=1):
     d = _lvl(d)
     if d == 0:
-        a = random.randint(21, 59)
-        b = pick([random.randint(2, 9 - (a % 10) if a % 10 < 8 else 2),
+        a = random.choice([n for n in range(21, 60) if n % 10 <= 7])
+        b = pick([random.randint(2, 9 - (a % 10)),
                   random.choice([10, 20, 30])])
     elif d == 1:
         a = random.randint(23, 79)
@@ -437,8 +437,8 @@ def _(d=1):
 def _(d=1):
     d = _lvl(d)
     if d == 0:
-        a = random.randint(35, 69)
-        b = pick([random.randint(2, max(2, a % 10)), random.choice([10, 20])])
+        a = random.choice([n for n in range(35, 70) if n % 10 >= 2])
+        b = pick([random.randint(2, a % 10), random.choice([10, 20])])
     elif d == 1:
         a = random.randint(35, 99)
         b = pick([random.randint(2, 9), random.choice([10, 20, 30])])
@@ -575,7 +575,7 @@ def _(d=1):
     d = _lvl(d)
     if d == 0:                      # no exchange needed
         ao = random.randint(4, 9); bo = random.randint(1, ao)
-        at = random.randint(4, 9); bt = random.randint(1, at)
+        at = random.randint(4, 9); bt = random.randint(1, at - 1)
         a = at * 10 + ao; b = bt * 10 + bo
         if b < 11:
             b = 11
@@ -727,9 +727,10 @@ def _(d=1):
 
     def sub_word():
         who = pick(NAMES); thing = pick(_OBJ)
+        top = a if a - b >= 5 else a + b
         return _numq("%s had %d %s and gave away %d. How many are left?"
-                     % (who, a, thing, b), a - b,
-                     ["%d − %d = %d." % (a, b, a - b)], unit=thing)
+                     % (who, top, thing, b), top - b,
+                     ["%d − %d = %d %s." % (top, b, top - b, thing)], unit=thing)
 
     def money_word():
         who = pick(NAMES)
@@ -797,7 +798,7 @@ def _(d=1):
 
     def bare():
         return _numq("Work out %d + %d (mentally)." % (a, b), tot,
-                     ["Only the %s change: %d + %d = %d."
+                     ["Add the %s: %d + %d = %d."
                       % ("hundreds" if b % 100 == 0 else
                          ("tens" if b % 10 == 0 else "ones"), a, b, tot)])
 
@@ -878,7 +879,9 @@ def _(d=1):
 
     def io_add():
         step = pick([100, 110, 120, 200, 210, 220, 130, 140])
-        rows = _io_rows(110, 780 - step, step)
+        pool = [i for i in range(110, 781 - step)
+                if (i // 10) % 10 + (step // 10) % 10 < 10]
+        rows = [[i, i + step] for i in sorted(random.sample(pool, 4))]
         m = random.randrange(len(rows))
         return _ioq("Complete this addition input/output table with three-digit "
                     "numbers. Add %d to each In number and type the missing Out "
@@ -977,7 +980,9 @@ def _(d=1):
 
     def io_sub():
         step = pick([100, 110, 120, 200, 210, 130, 140, 150])
-        rows = _io_rows(step + 105, 999, -step)
+        pool = [i for i in range(step + 105, 1000)
+                if (i // 10) % 10 >= (step // 10) % 10]
+        rows = [[i, i - step] for i in sorted(random.sample(pool, 4))]
         m = random.randrange(len(rows))
         return _ioq("Complete this subtraction input/output table with three-digit "
                     "numbers. Subtract %d from each In number and type the missing "
@@ -1139,7 +1144,7 @@ def _(d=1):
     def two_step_line():
         start = (a // 10) * 10
         j1 = pick([100, 200])
-        j2 = pick([20, 50, 100])
+        j2 = pick([20, 50]) if j1 == 100 else pick([20, 50, 100])
         return _lineq("Start at %d, jump forward %d, then jump back %d. Mark where "
                       "you land." % (start, j1, j2), start + j1 - j2, [start],
                       ["%d + %d = %d." % (start, j1, start + j1),
@@ -1744,7 +1749,8 @@ def _(d=1):
         n = random.randint(1, max(1, k - 1))
         return _numq("Divide using repeated subtraction. Start at %d and subtract %d "
                      "%s. What number is left?" % (a, b, "once" if n == 1
-                                                   else "%d times" % n), a - n * b,
+                                                   else "twice" if n == 2
+                                                   else n_words(n) + " times"), a - n * b,
                      ["%d × %d = %d." % (n, b, n * b),
                       "%d − %d = %d." % (a, n * b, a - n * b)])
 
@@ -1779,10 +1785,11 @@ def _(d=1):
                      placeholder="whole number part")
 
     def array_model():
-        rows, cols = (b, k) if k <= 12 else (k, b)
-        return _arrayq("%d counters are put into rows of %d. Build the full rows "
-                       "(the leftovers stay out), then type how many counters are "
-                       "in the array." % (a, b), rows, cols,
+        rows, cols = b, k
+        return _arrayq("%d counters are shared equally into %d rows, with as many "
+                       "as possible in each row. Build the array (the leftovers "
+                       "stay out), then type how many counters are in the array."
+                       % (a, b), rows, cols,
                        ["%d ÷ %d = %d remainder %d." % (a, b, k, r),
                         "The full rows hold %d counters." % (b * k)])
 

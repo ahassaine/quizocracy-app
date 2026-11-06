@@ -122,6 +122,10 @@ def serve(q: dict) -> tuple[dict, dict]:
         key["words"] = words
     elif t == "text":
         key["a"] = q["a"]
+        full = gap_sentences(q["q"], q["a"])
+        if full:
+            pub["gap"] = True
+            key["full"] = full
         if q.get("loose"):
             key["loose"] = True
     elif t == "write":
@@ -131,6 +135,25 @@ def serve(q: dict) -> tuple[dict, dict]:
         pub["unit"] = q.get("unit", "")
         key["a"], key["tol"] = q["a"], q.get("tol", 0)
     return pub, key
+
+
+_BLANKS = re.compile(r"[A-Za-z]*_{2,}(?:\s+_{2,})*(?:\s*\([^)]*\))?")   # "___ ___", "v_____", "___ (cry)"
+
+
+def gap_sentences(prompt: str, answers: list) -> list:
+    """The sentence with the gap filled in, for each accepted answer:
+    "Make ... passive: 'Hands ___ ___ ___.'" + "must be washed" -> "Hands must be washed.";
+    "To keep healthy, eat lots of fruit and v_____." + "vegetables" -> the whole sentence.
+    A child who types the whole sentence back, not only the missing words, is right too."""
+    quoted = [f for f in re.findall(r"'([^']*_{2,}[^']*)'|\"([^\"]*_{2,}[^\"]*)\"", prompt) for f in f if f]
+    if quoted:
+        frame = quoted[-1]
+    else:
+        frame = prompt.rsplit(":", 1)[-1] if "_" in prompt.rsplit(":", 1)[-1] else prompt
+        frame = next((x for x in re.split(r"(?<=[.?!])\s+", frame.strip()) if "__" in x), "")
+    if len(_BLANKS.findall(frame)) != 1:
+        return []
+    return [" ".join(_BLANKS.sub(lambda m: a, frame).split()) for a in answers]
 
 
 def _quotes(s: str) -> str:
@@ -200,9 +223,10 @@ def mark(key: dict, value) -> bool:
             return False
     if t == "text":
         v = norm_text(value)
+        ok = key["a"] + key.get("full", [])
         if key.get("loose"):
-            return bool(loose(v)) and loose(v) in {loose(norm_text(a)) for a in key["a"]}
-        return bool(v) and v in {norm_text(a) for a in key["a"]}
+            return bool(loose(v)) and loose(v) in {loose(norm_text(a)) for a in ok}
+        return bool(v) and v in {norm_text(a) for a in ok}
     if t == "write":
         v = norm_write(value)
         return bool(v) and v in {norm_write(a) for a in key["a"]}

@@ -50,7 +50,17 @@
       const dataMin = n ? Math.min(...vals) : 0;
       const lo = Math.min(0, dataMin);
       const hi = Math.max(dataMax, lo + 1e-9);
-      const step = niceStep(Math.max(hi - lo, Math.abs(hi) || 1), 6);
+      let step = niceStep(Math.max(hi - lo, Math.abs(hi) || 1), 6);
+      // Every plotted value must sit on a gridline, or a child cannot read it exactly: if one does not,
+      // use the largest finer nice step (5, 2.5, 2, 1 x 10^k) that holds them all, with at most 20 gridlines.
+      const onGrid = (s) => vals.every(v => Math.abs(v / s - Math.round(v / s)) < 1e-6);
+      if (!onGrid(step)) {
+        const k0 = Math.floor(Math.log10(step) + 1e-9);
+        const finer = [];
+        for (let k = k0; k >= k0 - 3; k--) [5, 2.5, 2, 1].forEach(m => { const s = m * Math.pow(10, k); if (s < step - 1e-12) finer.push(s); });
+        const s = finer.find(s => onGrid(s) && (hi - lo) / s <= 20);
+        if (s) step = s;
+      }
       const yMin = Math.floor((lo / step) + 1e-9) * step;
       let yMax = Math.ceil((hi / step) - 1e-9) * step;
       if (yMax <= yMin) yMax = yMin + step;

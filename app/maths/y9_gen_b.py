@@ -47,7 +47,7 @@ def _(d=1):
                    ["%dx − %dx = %d − (%d)." % (a, c, e, b), "%dx = %d, x = %d." % (a - c, e - b, x)])
 
     def t_brackets():
-        k, m = random.randint(2, 5), random.choice([v for v in range(-6, 7) if v])
+        k, m = random.randint(3, 6), random.choice([v for v in range(-6, 7) if v])
         rhs = k * (x + m) - 2 * x
         if rhs == 0:
             return t_both()
@@ -119,8 +119,9 @@ def _(d=1):
             x += next(k for k in range(1, p + 1) if (q * (x + k + a) - p * (x + k)) % p == 0)
             num = q * (x + a) - p * x
         b = num // p
-        return _tb("Solve  (x %s)/%d = (x %s)/%d" % (_t(a), p, _t(b), q), x, "int", {},
-                   ["Cross-multiply: %d(x %s) = %d(x %s)." % (q, _t(a), p, _t(b)), "x = %d." % x])
+        _f = lambda c, k: ("x/%d" % k) if c == 0 else "(x %s)/%d" % (_t(c), k)
+        return _tb("Solve  %s = %s" % (_f(a, p), _f(b, q)), x, "int", {},
+                   ["Cross-multiply: %d%s = %d%s." % (q, "x" if a == 0 else "(x %s)" % _t(a), p, "x" if b == 0 else "(x %s)" % _t(b)), "x = %d." % x])
 
     def t_reciprocal():
         x = pick([2, 3, 4, 5, 6, 8])
@@ -133,7 +134,7 @@ def _(d=1):
         return _tb("Solve %dx² = %d. Give the positive answer." % (a, a * k * k), k, "int", {}, ["x² = %d." % (k * k), "x = %d." % k])
 
     def t_bracket_square():
-        h, k = random.randint(-6, 6), random.randint(2, 9)
+        h, k = random.choice([v for v in range(-6, 7) if v]), random.randint(2, 9)
         return _tb("Solve (x %s)² = %d. Give the LARGER answer." % (_t(-h), k * k), h + k, "int", {},
                    ["x %s = ±%d." % (_t(-h), k), "x = %d or x = %d." % (h + k, h - k)])
 
@@ -175,7 +176,7 @@ def _(d=1):
                    ["Subtract: %s = %d." % (_k(a - c), (a - c) * x), "x = %d." % x])
 
     def t_substitute():
-        m, c = random.randint(1, 4), random.randint(-5, 5)
+        m, c = random.randint(1, 4), random.choice([v for v in range(-5, 6) if v])
         k = random.randint(1, 3)
         yy = m * x + c
         return _tb("y = %s %s and x + %s = %d. Find x." % (_k(m), _t(c), _k(k, "y"), x + k * yy), x, "int", {},
@@ -206,7 +207,7 @@ def _(d=1):
     d = _d(d)
     x0 = random.randint(-6, 10)
     k = random.randint(2, 6)
-    c = random.randint(-10, 10)
+    c = random.choice([v for v in range(-10, 11) if v])
 
     def t_basic():
         return _tb("Solve  %dx %s > %d. The answer is x > ___ ." % (k, _t(c), k * x0 + c), x0, "int", {},
@@ -291,7 +292,7 @@ def _(d=1):
 
     def t_rearrange():
         a = random.randint(2, 5)
-        return _tb("Write %dy = %dx %s in the form y = mx + c. What is m?" % (a, a * m, _t(a * c)), m, "int", {}, ["Divide by %d." % a])
+        return _tb("Write %dy = %dx%s in the form y = mx + c. What is m?" % (a, a * m, (" " + _t(a * c)) if c else ""), m, "int", {}, ["Divide by %d." % a])
 
     def t_x_intercept():
         k = random.choice([v for v in range(-5, 6) if v])
@@ -321,7 +322,7 @@ def _(d=1):
                 "solution": ["It factorises to (x %s)(x %s)." % (_t(-p), _t(-q))]}
 
     def t_turning():
-        h, k = random.choice([v for v in range(-4, 5) if v]), random.randint(-6, 6)
+        h, k = random.choice([v for v in range(-4, 5) if v]), random.choice([v for v in range(-6, 7) if v])
         return _wq("y = (x %s)² %s. Write the coordinates of the lowest point, like (2,-3)." % (_t(-h), _t(k)), "(%d,%d)" % (h, k),
                    ["The squared part is 0 when x = %d, giving y = %d." % (h, k)], "(x,y)")
 
@@ -381,7 +382,7 @@ def _(d=1):
 
     def t_gradient_meaning():
         q, a = pick([("On a distance–time graph, what does the gradient show? (one word)", "speed"),
-                     ("On a distance–time graph, what does a horizontal line show? (one word: the person is ...)", "stationary")])
+                     ("On a distance–time graph, does a horizontal line show the person is moving or stationary? (type moving or stationary)", "stationary")])
         return _wq(q, a, ["Gradient = distance ÷ time."], "one word")
 
     def t_conversion():

@@ -526,7 +526,7 @@ def _(d=1):
 
     def t_named_value():
         n = _distinct(d)
-        pos, place = pick(_places_of(n))
+        pos, place = pick([pw for pw in _places_of(n) if (n // pw[0]) % 10])
         dig = (n // pos) % 10
         return _tb("What is the value of the digit %d in the number %s?" % (dig, _c(n)),
                    dig * pos, "int", {},
@@ -734,8 +734,8 @@ def _(d=1):
         a = _bignum(max(d, 1))
         amt = pick([1000, 10000, 100000])
         b = a + amt + pick([-1, 1]) * random.randint(1, 9) * 100
-        return _tb("%s adds %s to %s. Is the result greater or less than %s? Type "
-                   "the result." % (pick(NAMES), _c(amt), _c(a), _c(b)),
+        return _tb("%s adds %s to %s, then checks whether the result is greater or "
+                   "less than %s. What is the result? Type the number." % (pick(NAMES), _c(amt), _c(a), _c(b)),
                    a + amt, "int", {},
                    ["%s + %s = %s." % (_c(a), _c(amt), _c(a + amt)),
                     "%s is %s %s." % (_c(a + amt), "greater than" if a + amt > b
@@ -865,8 +865,8 @@ def _(d=1):
         swapped = ns[:]
         swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
         return _tb("These numbers should be in order, smallest first, but two have "
-                   "been swapped:   %s.  Type the number that should come FIRST of "
-                   "the two swapped ones." % _lst(swapped), ns[i], "int", {},
+                   "been swapped:   %s.  Find the two swapped numbers and type the "
+                   "SMALLER of the two." % _lst(swapped), ns[i], "int", {},
                    ["The correct order is %s." % _lst(ns),
                     "%s should come before %s." % (_c(ns[i]), _c(ns[i + 1]))])
 
@@ -1198,7 +1198,7 @@ def _(d=1):
     R = {0: 10, 1: 20, 2: 50}[d]
 
     def _temp():
-        return random.randint(-R, R)
+        return random.randint(-R, min(R, 35))
 
     def t_colder():
         a, b = _temp(), _temp()
@@ -1260,7 +1260,7 @@ def _(d=1):
                    {"unit": "£"},
                    ["%d is further from zero on the negative side than %d."
                     % (worse, max(a, b)),
-                    "%s has the balance of £%d." % (name, worse)])
+                    "%s has the balance of −£%d." % (name, -worse)])
 
     def t_floors():
         a = -random.randint(1, 4)
@@ -1287,8 +1287,8 @@ def _(d=1):
         step = random.randint(2, 5)
         k = random.randint(2, 4)
         ans = start - step * k
-        return _tb("Count back in %ds from %d. What is the %s number you say?"
-                   % (step, start, ordinal(k)), ans, "int", {},
+        return _tb("Start at %d and count back in %ds. What number do you reach after "
+                   "%d jumps?" % (start, step, k), ans, "int", {},
                    ["%d − %d = %d." % (start, step * k, ans)])
 
     def t_line():
@@ -1310,7 +1310,7 @@ def _(d=1):
 
     def t_table():
         cities = random.sample(_CITIES, 4)
-        temps = random.sample(range(-R, R + 1), 4)
+        temps = random.sample(range(-min(R, 30), min(R, 30) + 1), 4)
         rows = [[c, "%d °C" % t] for c, t in zip(cities, temps)]
         cold = random.random() < 0.5
         ans = min(temps) if cold else max(temps)
@@ -1324,7 +1324,7 @@ def _(d=1):
 
     def t_graph():
         hrs = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]
-        temps = [random.randint(-R, R) for _ in range(6)]
+        temps = [random.randint(-min(R, 30), min(R, 30)) for _ in range(6)]
         cold = random.random() < 0.5
         ans = min(temps) if cold else max(temps)
         return _lg("The graph shows the temperature through one day. What was the "
@@ -1520,8 +1520,8 @@ def _(d=1):
 
     return _pick_t([t_rise, t_fall, t_difference, t_how_much_rise, t_how_much_fall,
                     t_two_step, t_start, t_lift, t_bank],
-                   [t_line, t_line_diff, t_table, t_graph, t_sub_line,
-                    t_sub_line_neg])
+                   [t_line, t_line_diff, t_table, t_graph, t_sub_line]
+                   + ([t_sub_line_neg] if d == 2 else []))
 
 
 @skill("Y6.0.j", "Place-value and parity reasoning", S0)
@@ -2113,6 +2113,8 @@ def _(d=1):
 
     def t_partial_sum():
         a, b = _pair()
+        if b % 10 == 0:
+            b += 1
         p1 = a * (b % 10)
         p2 = a * (b // 10) * 10
         return _tb("In a long multiplication of %s × %d the two partial products are "
@@ -2290,7 +2292,7 @@ def _(d=1):
         rows = [["%d %s" % (i, big), "%s %s" % (_c(i * f), small)] for i in ins]
         r = random.randint(0, 3)
         return _dt("Complete the conversion table. What number belongs in the empty "
-                   "cell?", ["%s" % big.upper(), "%s" % small.upper()], rows,
+                   "cell?", [big, small], rows,
                    ins[r] * f,
                    ["1 %s = %s %s." % (big, _c(f), small),
                     "%d × %s = %s." % (ins[r], _c(f), _c(ins[r] * f))],
@@ -3177,13 +3179,15 @@ def _(d=1):
         who = pick(NAMES)
         a = random.randint(3, 12)
         b = random.randint(10, 99)
-        cc = random.randint(1, 50)
-        return _tb("%s buys %d packs of cards costing %d p each and pays with %s %d p "
-                   "voucher. Write a calculation for the amount still to pay, then "
-                   "work it out." % (who, a, b, "an" if str(a * b + cc)[0] == "8" or a * b + cc in (11, 18) else "a",
-                                     a * b + cc), cc, "int", {"unit": "p"},
+        cc = random.randint(1, min(50, a * b - 10))
+        v = a * b - cc
+        return _tb("%s buys %d packs of cards costing %dp each and uses %s %dp "
+                   "voucher towards the cost. Write a calculation for the amount still "
+                   "to pay, then work it out."
+                   % (who, a, b, "an" if str(v)[0] == "8" or v in (11, 18) else "a", v),
+                   cc, "int", {"unit": "p"},
                    ["%d × %d = %d." % (a, b, a * b),
-                    "%d − %d = %d." % (a * b + cc, a * b, cc)])
+                    "%d − %d = %d." % (a * b, v, cc)])
 
     def t_table():
         rows = []
@@ -3403,7 +3407,7 @@ def _(d=1):
     def t_pict():
         cats = random.sample(_TOWNS, 4)
         key = pick([5, 10, 20])
-        counts = [random.randint(2, 9) for _ in range(4)]
+        counts = random.sample(range(2, 10), 4)
         vals = [cc * key for cc in counts]
         i, j = sorted(random.sample(range(4), 2))
         return _pict("The pictogram shows tickets sold. How many more tickets were "
@@ -3446,7 +3450,7 @@ def _(d=1):
         return pick([("boxes", "box", "tea", "teabags"),
                      ("crates", "crate", "apples", "apples"),
                      ("packs", "pack", "pencils", "pencils"),
-                     ("sacks", "sack", "flour", "bread rolls")])
+                     ("sacks", "sack", "potatoes", "potatoes")])
 
     def t_extra_info():
         pl, sg, goods, inner = _info_case()
@@ -3483,15 +3487,16 @@ def _(d=1):
         random.shuffle(given)
         opts = ["the number of %s" % pl, "the price of each %s" % sg,
                 "the number of %s in each %s" % (inner, sg)]
-        return _wq("This word problem has missing information.   %s   The question "
-                   "is: what is the total cost of the %s of %s? Type the "
-                   "information that is still needed: '%s', '%s' or '%s'."
-                   % ("   ".join(given), pl, goods, opts[0], opts[1], opts[2]), ans,
+        return _tb("This word problem has missing information.   %s   The question "
+                   "is: what is the total cost of the %s of %s? Which information is "
+                   "still needed? Type 1, 2 or 3.   1. %s   2. %s   3. %s"
+                   % ("   ".join(given), pl, goods, opts[0].capitalize(),
+                      opts[1].capitalize(), opts[2].capitalize()),
+                   opts.index(ans) + 1, "int", {},
                    ["The total cost needs the number of %s and the price of each %s."
                     % (pl, sg),
-                    "The word problem does not give %s, so that is the missing "
-                    "information." % ans],
-                   "type the missing information")
+                    "The word problem does not give %s, so the answer is %d."
+                    % (ans, opts.index(ans) + 1)])
 
     return _pick_t([t_shopping, t_share_after, t_rate, t_boxes_left, t_tiles,
                     t_money_split, t_compare_totals, t_journey, t_missing_step,
@@ -3574,14 +3579,15 @@ def _(d=1):
         q = random.randint(10, 90)
         r = random.randint(1, n - 1)
         total = q * n + r
-        return _tb("%d cakes are shared equally between %d people, and the last cake "
-                   "is cut up. Each person gets %d whole cakes and a fraction of "
-                   "another. Type that fraction, for example 3/8."
+        return _tb("%d cakes are shared equally between %d people. The cakes left "
+                   "over are cut up and shared equally too. Each person gets %d whole "
+                   "cakes and a fraction of a cake more. Type that fraction, for "
+                   "example 3/8."
                    % (total, n, q), "%d/%d" % (r, n), "frac",
                    {"text": True, "placeholder": "e.g. 3/8"},
                    ["%d ÷ %d = %d remainder %d." % (total, n, q, r),
-                    "The %d remaining cakes shared between %d people is %d/%d each."
-                    % (r, n, r, n)])
+                    "Sharing %s between %d people gives %d/%d each."
+                    % (_pl(r, "remaining cake"), n, r, n)])
 
     def t_rounded():
         n = random.randint(3, 12)

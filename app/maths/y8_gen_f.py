@@ -1163,8 +1163,9 @@ def _(d):
     a, b = max(a, b), min(a, b)
     unit = random.randint(2, 15)
     things = pick(["stickers", "marbles", "cards", "sweets"])
+    n1, n2 = random.sample(NAMES, 2)
     return _int("%s and %s share some %s in the ratio %d : %d. %s gets %d more than %s. How many %s are there altogether?"
-                % ("Ali", "Ben", things, a, b, "Ali", (a - b) * unit, "Ben", things), (a + b) * unit,
+                % (n1, n2, things, a, b, n1, (a - b) * unit, n2, things), (a + b) * unit,
                 ["The difference is %d − %d = %s = %d, so one part is %d." % (a, b, _pl(a - b, "part"), (a - b) * unit, unit),
                  "Total: %d parts × %d = %d." % (a + b, unit, (a + b) * unit)])
 
@@ -1477,8 +1478,8 @@ def _(d):
     per = pick(["0.05", "0.1", "0.08", "0.15", "0.2"])
     n = random.randint(20, 200)
     tot = fee + Decimal(per) * n
-    return _num("A phone plan costs £%d a month plus £%s for each text. How much does a month with %d texts cost, in pounds?"
-                % (fee, per, n), tot, ["%d × £%s = %s." % (n, per, _gbp(Decimal(per) * n)), "%d + %s = %s." % (fee, _ds(Decimal(per) * n), _gbp(tot))], "£")
+    return _num("A phone plan costs £%d a month plus %s for each text. How much does a month with %d texts cost, in pounds?"
+                % (fee, _gbp(per), n), tot, ["%d × %s = %s." % (n, _gbp(per), _gbp(Decimal(per) * n)), "%d + %s = %s." % (fee, _ds(Decimal(per) * n), _gbp(tot))], "£")
 
 
 @_more("Y8.4.i", 6)
@@ -1686,7 +1687,7 @@ def _(d):
     p1, p2 = Fraction(100 * s1, o1), Fraction(100 * s2, o2)
     return _wq("%s scored %d out of %d in test A and %d out of %d in test B. In which test did they do better? Type A or B."
                % (_who(), s1, o1, s2, o2), "A" if p1 > p2 else "B",
-               ["A: %s%%. B: %s%%." % (str(round(float(p1), 1)).rstrip("0").rstrip("."), str(round(float(p2), 1)).rstrip("0").rstrip(".")),
+               ["A: %s%%. B: %s%%." % (_ds(_round(Decimal(100 * s1) / o1, 1)), _ds(_round(Decimal(100 * s2) / o2, 1))),
                 "Test %s is the higher percentage." % ("A" if p1 > p2 else "B")], "A or B")
 
 
@@ -2076,7 +2077,7 @@ def _(d):
         k, b, c = random.randint(2, 9), random.randint(1, 6), random.randint(1, 9)
         if gcd(b, c) == 1:
             break
-    return _wq("A rectangle has area %s cm² and width %d cm. Write an expression for its length (like 2x+3)." % (_expr((k * b, "x"), (k * c, "")), k),
+    return _wq("A rectangle has area (%s) cm² and width %d cm. Write an expression for its length (like 2x+3)." % (_expr((k * b, "x"), (k * c, "")), k),
                _expr((b, "x"), (c, "")), ["Length = area ÷ width.", "%s = %d(%s), so the length is %s." % (_expr((k * b, "x"), (k * c, "")), k, _expr((b, "x"), (c, "")), _expr((b, "x"), (c, "")))],
                "e.g. 2x+3")
 
@@ -2144,12 +2145,12 @@ def _(d):
 @_more("Y8.6.f", 7)
 def _(d):
     a, b = random.randint(1, 9), random.randint(1, 9)
-    rows = [["x", "x²", "%dx" % b], ["+%d" % a, "%dx" % a, str(a * b)]]
+    rows = [["x", "x²", _expr((b, "x"))], ["+%d" % a, _expr((a, "x")), str(a * b)]]
     if random.random() < 0.5:
         return _dt("The grid expands (x + %d)(x + %d). What number goes in the empty cell?" % (a, b), ["×", "x", "+%d" % b], rows,
                    a * b, ["%d × %d = %d." % (a, b, a * b)], missing=(1, 2))
     return _dt("The grid expands (x + %d)(x + %d). Add up the cells: what is the coefficient of x in the answer?" % (a, b),
-               ["×", "x", "+%d" % b], rows, a + b, ["%dx + %dx = %dx." % (b, a, a + b)])
+               ["×", "x", "+%d" % b], rows, a + b, ["%s + %s = %dx." % (_expr((b, "x")), _expr((a, "x")), a + b)])
 
 
 @_more("Y8.6.f", 7)
@@ -2187,9 +2188,9 @@ def _(d):
 @_more("Y8.6.g", 11)
 def _(d):
     a, b, c, e = random.randint(2, 9), random.randint(2, 9), random.randint(1, 8), random.randint(1, 8)
-    if a == c:
-        a += 1
-    ex = "%dx + %dy − %s + %dy" % (a, b, "x" if c == 1 else "%dx" % c, e)
+    while a <= c:
+        a, c = random.randint(2, 9), random.randint(1, 8)
+    ex = "%dx + %dy − %s + %s" % (a, b, "x" if c == 1 else "%dx" % c, "y" if e == 1 else "%dy" % e)
     return _wq("Simplify %s (like 3x+5y)." % ex, _expr((a - c, "x"), (b + e, "y")),
                ["x terms: %d − %d = %d." % (a, c, a - c), "y terms: %d + %d = %d." % (b, e, b + e)], "e.g. 3x+5y")
 
@@ -2421,8 +2422,9 @@ def _(d):
     b = random.randint(1, 15)
     e = (a - c) * x + b
     op = pick([">", "<", ">=", "<="])
-    return _wq("Solve %dx + %d %s %dx + %d (like x>4)." % (a, b, _sym(op), c, e), "x%s%d" % (op, x),
-               ["Subtract %dx from both sides: %dx + %d %s %d." % (c, a - c, b, _sym(op), e), "%dx %s %d, so x %s %d." % (a - c, _sym(op), e - b, _sym(op), x)], "e.g. x>4")
+    return _wq("Solve %s %s %s (like x>4)." % (_expr((a, "x"), (b, "")), _sym(op), _expr((c, "x"), (e, ""))), "x%s%d" % (op, x),
+               ["Subtract %s from both sides: %s %s %d." % (_expr((c, "x")), _expr((a - c, "x"), (b, "")), _sym(op), e),
+                "%s %s %d, so x %s %d." % (_expr((a - c, "x")), _sym(op), e - b, _sym(op), x)], "e.g. x>4")
 
 
 @_more("Y8.7.g", 10)
@@ -2925,7 +2927,7 @@ def _(d):
 def _(d):
     r = random.randint(2, 12)
     return {"prompt": "A circle has an area of %dπ cm². What is its radius, in cm?" % (r * r), "component": "circle",
-            "spec": {"radius": r, "show": "radius", "label": "r = ?"}, "answer": r, "answer_type": "int",
+            "spec": {"show": "radius", "label": "r = ?"}, "answer": r, "answer_type": "int",
             "solution": ["πr² = %dπ, so r² = %d." % (r * r, r * r), "r = %d cm." % r]}
 
 
@@ -2958,7 +2960,7 @@ def _(d):
 def _(d):
     r = random.randint(2, 15)
     return {"prompt": "A circle has a circumference of %dπ cm. What is its radius, in cm?" % (2 * r), "component": "circle",
-            "spec": {"radius": r, "show": "circumference", "label": "C = %dπ cm" % (2 * r)}, "answer": r, "answer_type": "int",
+            "spec": {"show": "circumference", "label": "C = %dπ cm" % (2 * r)}, "answer": r, "answer_type": "int",
             "solution": ["C = 2πr = %dπ." % (2 * r), "r = %d ÷ 2 = %d cm." % (2 * r, r)]}
 
 

@@ -407,7 +407,7 @@ def _(d=1):
                    "numbers is the %d worth more? Write that number."
                    % (dig, a_txt, b_txt, dig), _D(bigger),
                    solution=["In %s the %d is in the %s place, worth %s."
-                             % (bigger, dig, _PLACE_NAME[big_i][:-1],
+                             % (bigger, dig, _PLACE_NAME[big_i],
                                 _txt(_PLACE_VAL[big_i] * dig)),
                              "In the other number it is only worth %s, so %s."
                              % (_txt(_PLACE_VAL[small_i] * dig), bigger)])
@@ -511,7 +511,7 @@ def _(d=1):
     if t == 13:                      # estimate a product by rounding
         whole = random.randint(2, 9)
         a = _D(random.randint(11, 99)) / 10
-        while _D(a * 10) % 10 == 5:
+        while _D(a * 10) % 10 in (0, 5):
             a = _D(random.randint(11, 99)) / 10
         ra = _rnd(a, 0)
         return _iq("Estimate %s × %d by first rounding %s to the nearest whole number." % (_txt(a), whole, _txt(a)),
@@ -528,13 +528,13 @@ def _(d=1):
         v = _v(more_than=1)
         return _nq("Round %s to one decimal place." % _txt(v), _rnd(v, 1),
                    solution=["Look at the hundredths digit to decide.",
-                             "%s rounds to %s." % (_txt(v), _txt(_rnd(v, 1)))])
+                             "%s rounds to %s." % (_txt(v), format(_rnd(v, 1), "f"))])
 
     if t == 2:                       # to two decimal places
         v = _v(3, more_than=2)
         return _nq("Round %s to two decimal places." % _txt(v), _rnd(v, 2),
                    solution=["Look at the thousandths digit to decide.",
-                             "%s rounds to %s." % (_txt(v), _txt(_rnd(v, 2)))])
+                             "%s rounds to %s." % (_txt(v), format(_rnd(v, 2), "f"))])
 
     if t == 3:                       # exactly halfway
         places = pick([0, 1, 2])
@@ -564,7 +564,7 @@ def _(d=1):
                    "decimal place, how long is the plank in metres?"
                    % (who, _txt(v)), _rnd(v, 1), unit="m",
                    solution=["The hundredths digit decides which tenth is nearest.",
-                             "%s m rounds to %s m." % (_txt(v), _txt(_rnd(v, 1)))])
+                             "%s m rounds to %s m." % (_txt(v), format(_rnd(v, 1), "f"))])
 
     if t == 5:                       # round then place on a number line
         v = _mk(2, 101, 899)
@@ -576,7 +576,7 @@ def _(d=1):
                       "on the number line." % _txt(v), r, lo, lo + 1,
                       _D("0.1"), _D("0.5"),
                       ["The hundredths digit of %s decides." % _txt(v),
-                       "%s rounds to %s." % (_txt(v), _txt(r))])
+                       "%s rounds to %s." % (_txt(v), format(r, "f"))])
 
     if t == 6:                       # inverse: largest / smallest
         target = _mk(1, 11, 89)
@@ -603,9 +603,10 @@ def _(d=1):
         w = random.randint(2, 20)
         a = _D(w) - _D(random.randint(1, 49)) / 100
         b = _D(w) - _D(random.randint(51, 99)) / 100
+        first, second = (a, b) if random.random() < 0.5 else (b, a)
         return _nq("Which of these rounds to %d when rounded to the nearest "
                    "whole number: %s or %s? Write that number."
-                   % (w, _txt(a), _txt(b)), a,
+                   % (w, _txt(first), _txt(second)), a,
                    solution=["%s rounds to %d." % (_txt(a), w),
                              "%s rounds to %d instead, so the answer is %s."
                              % (_txt(b), w - 1, _txt(a))])
@@ -637,7 +638,7 @@ def _(d=1):
                        unit="£",
                        solution=["The thousandths digit decides the nearest penny.",
                                  "£%s rounds to £%s."
-                                 % (_txt(v), _txt(_rnd(v, 2)))])
+                                 % (_txt(v), format(_rnd(v, 2), "f"))])
         p = random.randint(150, 4990)
         return _iq("A jacket costs %s. Rounded to the nearest pound, how much "
                    "is that?" % _lb(p), _rnd(_D(p) / 100, 0), unit="£",
@@ -660,7 +661,7 @@ def _(d=1):
                "nearest whole number? %s"
                % (w, ", ".join(_txt(v) for v in vals)), hits,
                solution=["Round each number in turn.",
-                         "%d of them round to %d." % (hits, w)])
+                         "%d of them %s to %d." % (hits, "rounds" if hits == 1 else "round", w)])
 
 
 @skill("Y6.5.c", "Compare and order decimals to three places", S5)
@@ -813,7 +814,7 @@ def _(d=1):
         return _iq("How many of these numbers are greater than %s? %s"
                    % (_txt(cut), ", ".join(_txt(v) for v in vs)), n_more,
                    solution=["Compare each number with %s." % _txt(cut),
-                             "%d of them are greater." % n_more])
+                             "%d of them %s greater." % (n_more, "is" if n_more == 1 else "are")])
 
     # place the number exactly halfway between two decimals
     w = random.randint(0, 8)
@@ -918,7 +919,7 @@ def _(d=1):
                       "line." % (_txt(a), _txt(b)), total, lo, lo + 1,
                       _D("0.01"), _D("0.1"),
                       ["Write %s as %s so the places line up."
-                       % (_txt(b), _txt(b.quantize(Decimal("0.01")))),
+                       % (_txt(b), format(b.quantize(Decimal("0.01")), "f")),
                        "%s + %s = %s." % (_txt(a), _txt(b), _txt(total))])
 
     if t == 7:                       # receipt table
@@ -1086,7 +1087,7 @@ def _(d=1):
              "A nail is %s cm long. How long is the nail in mm?"),
         ])
         if random.random() < 0.5:                    # small -> big (divide)
-            n = random.randint(105, 9950)
+            n = random.randint(105, 9950) if k > 10 else random.randint(11, 199)
             text = s_up % ((who, "{:,}".format(n)) if "%s walks" in s_up
                            else "{:,}".format(n))
             return _nq(text, _D(n) / k, unit=big,
@@ -1095,7 +1096,7 @@ def _(d=1):
                                  "%s ÷ %s = %s %s."
                                  % ("{:,}".format(n), "{:,}".format(k),
                                     _txt(_D(n) / k), big)])
-        v = _mk(_by_d(d, 1, 2, 3), 105, 995)         # big -> small (multiply)
+        v = _mk(_by_d(d, 1, 2, 3), _by_d(d, 11, 105, 105), _by_d(d, 99, 995, 995))   # big -> small (multiply)
         text = s_down % ((who, _txt(v)) if "%s walks" in s_down else _txt(v))
         return _nq(text, v * k, unit=small,
                    solution=["1 %s is %s %s." % (big, "{:,}".format(k), small),
@@ -1236,8 +1237,8 @@ def _(d=1):
                    solution=["Ignore the point: %s × %d = %s."
                              % (_txt(a * (10 ** _dp(a))), n,
                                 _txt(a * n * (10 ** _dp(a)))),
-                             "Put the point back %s place(s) from the right: %s."
-                             % (n_words(_dp(a)), _txt(a * n))])
+                             "Put the point back %s from the right: %s."
+                             % (_places(10 ** _dp(a)), _txt(a * n))])
 
     if t == 1:                       # cost of several items
         who = pick(NAMES)
@@ -1382,8 +1383,8 @@ def _(d=1):
         n = int(a * 10 ** _dp(a))
         return _nq("Work out %s × %d." % (_txt(a), k), a * k,
                    solution=["%d × %d = %d." % (n, k, n * k),
-                             "%s has %s, so the answer does too: %s."
-                             % (_txt(a), _pl(_dp(a), "decimal place"), _txt(a * k))])
+                             "%s has %s, so divide by %d: %d ÷ %d = %s."
+                             % (_txt(a), _pl(_dp(a), "decimal place"), 10 ** _dp(a), n * k, 10 ** _dp(a), _txt(a * k))])
 
     if t == 1:                       # hundredths × whole number
         a = _D(random.randint(1, 9)) / 100
@@ -1472,7 +1473,7 @@ def _(d=1):
         item = pick(["pen", "apple", "stamp", "notebook", "rubber"])
         return _nq("One %s costs £%s. How much do %d of them cost, in pounds?" % (item, "%.2f" % p, k), p * k, unit="£",
                    solution=["%d × %dp = %dp." % (k, int(p * 100), int(p * 100) * k),
-                             "That is £%s." % _txt(p * k)])
+                             "That is %s." % _lb(int(p * k * 100))])
 
     if t == 13:                      # spot the place-value mistake
         a, k = _one(), _k()
@@ -1548,7 +1549,7 @@ def _(d=1):
                              % (_txt(a), n, _txt(_rnd(exact, 4))),
                              "Rounded to %s that is %s."
                              % ("one decimal place" if places == 1
-                                else "two decimal places", _txt(r))])
+                                else "two decimal places", format(r, "f"))])
 
     if t == 4:                       # missing divisor / dividend
         a, n, q = _exact()
@@ -1739,7 +1740,7 @@ def _(d=1):
                    % (n, ", ".join(_txt(v) for v in vals)), mean, unit="cm",
                    solution=["The total height is %s cm." % _txt(tot),
                              "%s ÷ %d = %s cm to one decimal place."
-                             % (_txt(tot), n, _txt(mean))])
+                             % (_txt(tot), n, format(mean, "f"))])
 
     if t == 5:                       # cutting lengths (round down) or leftover
         piece = _mk(2, 25, 95)
@@ -1789,7 +1790,7 @@ def _(d=1):
                    solution=["%d ÷ %d = %s." % (km, litres,
                                                 _txt(_rnd(_D(km) / litres, 3))),
                              "To one decimal place that is %s km per litre."
-                             % _txt(rate)])
+                             % format(rate, "f")])
 
     if t == 8:                       # estimate by rounding, then the real value
         a = _mk(2, 205, 895)
@@ -1812,7 +1813,7 @@ def _(d=1):
                    _fl(_rnd(tot, 1)), "num",
                    ["The exact total is %s km." % _txt(tot),
                     "Rounded to one decimal place that is %s km."
-                    % _txt(_rnd(tot, 1))], tolerance=1e-6)
+                    % format(_rnd(tot, 1), "f")], tolerance=1e-6)
 
 
 # =============================================================== 6.6 =========
@@ -2030,7 +2031,7 @@ def _(d=1):
         return _fq("Write %s as a fraction with a denominator of %d."
                    % (_txt(v), base), int(v * base), base,
                    placeholder="e.g. 37/100",
-                   solution=["%s has %d decimal place(s)." % (_txt(v), _dp(v)),
+                   solution=["%s has %s." % (_txt(v), _pl(_dp(v), "decimal place")),
                              "So %s = %d/%d."
                              % (_txt(v), int(v * base), base)])
 

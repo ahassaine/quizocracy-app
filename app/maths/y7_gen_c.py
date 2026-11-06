@@ -58,7 +58,7 @@ def _(d=1):
 
     def t_p_to_f():
         p = pick([5, 12, 15, 35, 45, 64, 72, 85, 2, 8, 24, 55])
-        return _fq("Write %d%% as a fraction in its simplest form." % p, Fraction(p, 100),
+        return _wq("Write %d%% as a fraction in its simplest form." % p, _fs(Fraction(p, 100)),
                    ["%d/100 = %s." % (p, _fs(Fraction(p, 100)))])
 
     def t_d_to_p():
@@ -95,7 +95,7 @@ def _(d=1):
 
     def t_thousandths():
         n = pick([5, 15, 25, 45, 75, 125, 375, 8, 64])
-        return _fq("Write 0.%03d as a fraction in its simplest form." % n, Fraction(n, 1000),
+        return _wq("Write 0.%03d as a fraction in its simplest form." % n, _fs(Fraction(n, 1000)),
                    ["%d/1000 = %s." % (n, _fs(Fraction(n, 1000)))])
 
     def t_same():
@@ -244,7 +244,7 @@ def _(d=1):
 
     def t_fraction():
         den = pick([3, 4, 5, 6, 8, 10])
-        num = random.randint(1, den - 1)
+        num = pick([k for k in range(1, den) if Fraction(k, den).denominator == den])
         x = den * random.randint(3, _by(d, 15, 40, 120))
         return _tb("Work out %d/%d of %d." % (num, den, x), x // den * num, "int", {},
                    ["%d ÷ %d × %d = %d." % (x, den, num, x // den * num)])
@@ -291,7 +291,7 @@ def _(d=1):
 
     def t_money_frac():
         den = pick([4, 5, 8, 10, 20])
-        num = random.randint(1, den - 1)
+        num = pick([k for k in range(1, den) if Fraction(k, den).denominator == den])
         x = pick([10, 20, 30, 40, 50, 60])
         return _tb("Work out %d/%d of £%d, in pounds." % (num, den, x), _ds(Fraction(num * x, den)), "num", {"unit": "£"},
                    ["£%d ÷ %d × %d = £%s." % (x, den, num, format(Decimal(num * x) / den, ".2f"))])
@@ -417,7 +417,7 @@ def _(d=1):
     def t_neg_answer():
         a = random.randint(100, 999)
         b = a + random.randint(50, 900)
-        return _tb("Work out %d − %d." % (a, b), a - b, "int", {}, ["%d − %d = −%d, so the answer is negative." % (b, a, b - a)])
+        return _tb("Work out %d − %d." % (a, b), a - b, "int", {}, ["%d − %d = %d, and %d is bigger than %d, so %d − %d = −%d." % (b, a, b - a, b, a, a, b, b - a)])
 
     return _pick_t([t_int, t_dec, t_missing, t_perimeter, t_money, t_minus_missing, t_journey, t_neg_answer],
                    [t_receipt, t_temps_line])
@@ -620,8 +620,8 @@ def _(d=1):
                    ["%d × %d = %d; %s %d = %d." % (a, r, a * r, "subtract" if r > b else "add", a, a * b)])
 
     def t_subtract_comp():
-        a = random.randint(300, 999)
         b = pick([198, 299, 99, 499, 397])
+        a = random.randint(b + 101, 999)
         r = (b + 5) // 100 * 100
         return _tb("Work out %d − %d in your head. (Hint: subtract %d, then adjust.)" % (a, b, r), a - b, "int", {},
                    ["%d − %d = %d; add back %d: %d." % (a, r, a - r, r - b, a - b)])

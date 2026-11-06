@@ -131,7 +131,7 @@ def _(d=1):
         q, a = pick([("The number of people painting a fence and the time it takes", "inverse"),
                      ("The number of tickets bought and the total cost", "direct"),
                      ("The speed of a car and the time a fixed journey takes", "inverse"),
-                     ("The length of a fence and the number of posts needed", "direct")])
+                     ("The number of litres of petrol bought and the total cost", "direct")])
         return _wq("%s: is this direct or inverse proportion?" % q, a, ["Direct: both increase together. Inverse: one goes up as the other goes down."],
                    "direct / inverse")
 
@@ -333,7 +333,7 @@ def _(d=1):
             yrs += 1
         return _tb("£%d is invested at %d%% compound interest per year. After how many whole years will it first be worth more than £%s?"
                    % (P, r, _ds(P * target)), yrs, "int", {"unit": "years"},
-                   ["Keep multiplying by %s: after %d years it is £%s." % (_ds(1 + Decimal(r) / 100), yrs, format(v.quantize(Decimal("0.01")), "f"))])
+                   ["Keep multiplying by %s: after %d years it is £%s." % (_ds(1 + Decimal(r) / 100), yrs, format(v.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP"), "f"))])
 
     def t_rate_from_multiplier():
         k = random.randint(1, 30)
@@ -386,7 +386,7 @@ def _(d=1):
 
     def t_reverse_down():
         p = pick([10, 20, 25, 30, 40])
-        orig = random.randint(2, 40) * 10
+        orig = random.randint(2, 40) * 20
         new = orig * (100 - p) // 100
         return _tb("In a %d%% sale, a coat costs £%d. What was the price before the sale, in pounds?" % (p, new), orig, "int", {"unit": "£"},
                    ["%d%% = £%d." % (100 - p, new), "£%d ÷ %s = £%d." % (new, _ds(Fraction(100 - p, 100)), orig)])
@@ -403,7 +403,7 @@ def _(d=1):
                    _ds(Fraction((new - old) * 100, old)), "num", {}, ["(%d − %d) ÷ %d × 100." % (new, old, old)])
 
     def t_profit():
-        cost = random.randint(2, 30) * 10
+        cost = random.randint(2, 30) * 20
         p = pick([10, 20, 25, 40, 50])
         return _tb("A shop buys a bike for £%d and sells it for £%d. What is the percentage profit?" % (cost, cost * (100 + p) // 100), p,
                    "int", {}, ["Profit £%d." % (cost * p // 100), "%d ÷ %d × 100 = %d%%." % (cost * p // 100, cost, p)])
@@ -423,7 +423,7 @@ def _(d=1):
 
     def t_pay_rise():
         p = pick([2, 4, 5, 10])
-        old = random.randint(10, 60) * 50
+        old = random.randint(10, 60) * 100
         who = _who()
         return _tb("After a %d%% pay rise, %s earns £%s a month. How much did they earn before the rise, in pounds?" % (p, who, _c(old * (100 + p) // 100)),
                    old, "int", {"unit": "£"}, ["%d%% = £%s." % (100 + p, _c(old * (100 + p) // 100)), "÷ %s = £%s." % (_ds(Fraction(100 + p, 100)), _c(old))])

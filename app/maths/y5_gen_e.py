@@ -498,6 +498,8 @@ def _(d=1):
     def t_regular():
         name, n = pick(POLY)
         eq_s, eq_a = pick([(True, True), (True, False), (False, True), (False, False)])
+        if n == 3:
+            eq_a = eq_s
         ok = eq_s and eq_a
         return _wq("%s %s has %s sides and %s angles. Is it regular? (yes or no)"
                    % ("An" if name[0] in "aeiou" else "A", name, "all equal" if eq_s else "unequal",
@@ -550,7 +552,7 @@ def _(d=1):
 
     def t_vertical():
         m = random.randint(4, 6)
-        poly = _poly(random.randint(0, m - 3), random.randint(1, 6))
+        poly = _poly(random.randint(max(0, 2 * m - 10), m - 3), random.randint(1, 6))
         k = random.randrange(len(poly))
         x, y = poly[k]
         pts = [[px, py, "A" if i == k else ""] for i, (px, py) in enumerate(poly) if i == k]
@@ -564,7 +566,7 @@ def _(d=1):
 
     def t_horizontal():
         m = random.randint(4, 6)
-        poly = _poly(random.randint(1, 6), random.randint(0, m - 3))
+        poly = _poly(random.randint(1, 6), random.randint(max(0, 2 * m - 10), m - 3))
         k = random.randrange(len(poly))
         x, y = poly[k]
         return {"prompt": "The shape is reflected in the dashed horizontal mirror line (y = %d). Plot where corner A "
@@ -708,7 +710,7 @@ def _(d=1):
 
 # ================================================================== 5.9 ======
 def _temps():
-    hrs = ["8 am", "9 am", "10 am", "11 am", "12 pm", "1 pm"]
+    hrs = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00"]
     v = random.randint(4, 12)
     vals = []
     for _ in hrs:
@@ -736,9 +738,9 @@ def _(d=1):
         top = max(vals)
         if vals.count(top) > 1:
             return t_read()
-        return _lg("Temperature in the playground. At what time was it warmest? (type the time, like 10 am)",
+        return _lg("Temperature in the playground. At what time was it warmest? (type the time, like 10:00)",
                    list(zip(hrs, vals)), hrs[vals.index(top)], ["The highest point is at %s." % hrs[vals.index(top)]],
-                   "°C", "Time", atype="str")
+                   "°C", "Time", atype="time")
 
     def t_rise():
         k = random.randrange(len(hrs) - 1)
@@ -779,9 +781,9 @@ def _(d=1):
         low = min(vals)
         if vals.count(low) > 1:
             return t_lowest()
-        return _lg("Temperature in the playground. At what time was it coldest? (type the time, like 10 am)",
+        return _lg("Temperature in the playground. At what time was it coldest? (type the time, like 10:00)",
                    list(zip(hrs, vals)), hrs[vals.index(low)], ["The lowest point is at %s." % hrs[vals.index(low)]],
-                   "°C", "Time", atype="str")
+                   "°C", "Time", atype="time")
 
     def t_steps():
         mins = ["0", "10", "20", "30", "40"]
@@ -827,8 +829,8 @@ def _(d=1):
             return t_diff()
         k = rises.index(top)
         return _lg("Temperature in the playground. Between which two times did the temperature rise the most? Type the "
-                   "EARLIER time (like 9 am).", list(zip(hrs, vals)), hrs[k],
-                   ["%s to %s: up %s." % (hrs[k], hrs[k + 1], _pl(top, "degree"))], "°C", "Time", atype="str")
+                   "EARLIER time (like 09:00).", list(zip(hrs, vals)), hrs[k],
+                   ["%s to %s: up %s." % (hrs[k], hrs[k + 1], _pl(top, "degree"))], "°C", "Time", atype="time")
 
     def t_total():
         days = ["Mon", "Tue", "Wed", "Thu"]

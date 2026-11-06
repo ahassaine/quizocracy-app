@@ -457,7 +457,7 @@ def _(d=1):
     def which_stronger():
         # two mixtures a1:b1 and a2:b2; which has the higher proportion of first
         one, two = pick([("orange", "water"), ("blackcurrant", "water"),
-                         ("red paint", "white paint")])
+                         ("lemon", "water")])
         a1, b1 = random.randint(1, 5), random.randint(2, 6)
         a2, b2 = random.randint(1, 5), random.randint(2, 6)
         f1, f2 = Fraction(a1, a1 + b1), Fraction(a2, a2 + b2)
@@ -488,8 +488,9 @@ def _(d=1):
         off = pick([1, 2])
         return _wordq("Are the ratios %d : %d and %d : %d equal? Type yes or no."
                       % (a * k1, b * k1 + off, a, b), "no",
-                      ["%d : %d would need %d : %d to match, but the second part "
-                       "is %d." % (a * k1, b * k1, a * k1, b * k1, b * k1 + off)],
+                      ["%d × %d = %d, so to match %d : %d the second part would "
+                       "need to be %d × %d = %d." % (a, k1, a * k1, a, b, b, k1, b * k1),
+                       "It is %d, so the ratios are not equal." % (b * k1 + off)],
                       placeholder="yes or no")
 
     def word_scale():
@@ -508,27 +509,31 @@ def _(d=1):
         while n2 == n1:
             n2 = random.randint(3, 8)
         each = random.randint(20, 90)
-        # A is cheaper per item by construction
         pa = each
         pb = each + random.randint(2, 15)
         who = "A"
+        if random.random() < 0.5:
+            pa, pb = pb, pa
+            who = "B"
         return _wordq("Shop A sells %d pens for %s. Shop B sells %d pens for %s. "
                       "Which shop is cheaper per pen? Type A or B."
                       % (n1, money(n1 * pa), n2, money(n2 * pb)), who,
                       ["Shop A: %d ÷ %d = %dp each." % (n1 * pa, n1, pa),
                        "Shop B: %d ÷ %d = %dp each." % (n2 * pb, n2, pb),
-                       "Shop A is cheaper."], placeholder="A or B")
+                       "Shop %s is cheaper." % who], placeholder="A or B")
 
     def combine_ratios():
         # a:b and b:c -> find a:c style, ask the a part when scaled so b matches
         a, b = _coprime_pair(2, 5)
         c = random.randint(2, 6)
+        k = random.randint(3, 12) * 5
         # ratio A:B = a:b, B:C = b:c already share b
         return _numq("In a recipe, flour : sugar = %d : %d and sugar : butter = "
                      "%d : %d. If %d g of sugar is used, how much flour is used, "
-                     "in grams?" % (a, b, b, c, b), a,
-                     ["Flour : sugar = %d : %d, and %d g of sugar means %d g of "
-                      "flour." % (a, b, b, a)], unit="g")
+                     "in grams?" % (a, b, b, c, b * k), a * k,
+                     ["One part is %d ÷ %d = %d g." % (b * k, b, k),
+                      "Flour = %d × %d = %d g. (The butter is not needed.)"
+                      % (a, k, a * k)], unit="g")
 
     def table_compare():
         a, b = _coprime_pair(2, 6)
@@ -716,14 +721,18 @@ def _(d=1):
         n1, n2 = random.randint(4, 10), random.randint(4, 10)
         while n2 == n1:
             n2 = random.randint(4, 10)
-        cheap = random.randint(12, 35)
-        dear = cheap + random.randint(3, 12)
+        pa = random.randint(12, 35)
+        pb = pa + random.randint(3, 12)
+        who = "A"
+        if random.random() < 0.5:
+            pa, pb = pb, pa
+            who = "B"
         return _wordq("Bottle A: %d litres for %s. Bottle B: %d litres for %s. "
                       "Which is better value per litre? Type A or B."
-                      % (n1, money(n1 * cheap), n2, money(n2 * dear)), "A",
-                      ["A: %d ÷ %d = %dp per litre." % (n1 * cheap, n1, cheap),
-                       "B: %d ÷ %d = %dp per litre." % (n2 * dear, n2, dear),
-                       "Bottle A is cheaper per litre."], placeholder="A or B")
+                      % (n1, money(n1 * pa), n2, money(n2 * pb)), who,
+                      ["A: %d ÷ %d = %dp per litre." % (n1 * pa, n1, pa),
+                       "B: %d ÷ %d = %dp per litre." % (n2 * pb, n2, pb),
+                       "Bottle %s is cheaper per litre." % who], placeholder="A or B")
 
     def exchange():
         rate = pick([5, 6, 8, 10, 12])
@@ -1570,10 +1579,12 @@ def _(d=1):
         step = 100 // g
         total = step * random.randint(2, 12)
         ans = total * pct // 100
-        one, two = pick(_PEOPLE)
-        return _numq("A school has %d %s. %d%% of them are also %s. How many are "
-                     "%s?" % (total, one, pct, two, two), ans,
-                     ["%d%% of %d = %d." % (pct, total, ans)], unit=two)
+        one, two = pick([("pupils", "in the choir"), ("pupils", "in a sports team"),
+                         ("pupils", "in the school orchestra"),
+                         ("teachers", "part-time"), ("pupils", "in the chess club")])
+        return _numq("A school has %d %s. %d%% of them are %s. How many %s are "
+                     "%s?" % (total, one, pct, two, one, two), ans,
+                     ["%d%% of %d = %d." % (pct, total, ans)], unit=one)
 
     def bar_pct():
         pct = pick([10, 20, 25, 50])
@@ -1804,9 +1815,10 @@ def _(d=1):
         g = _hcf(pct, 100)
         pay = (100 // g) * random.randint(10, 40)
         ans = pay + pay * pct // 100
+        nm = pick(NAMES)
         return _numq("%s earns %s a week. %s gets a %d%% pay rise. What is the new "
                      "weekly pay, in pounds?"
-                     % (pick(NAMES), _pounds(pay), "That worker", pct), ans,
+                     % (nm, _pounds(pay), nm, pct), ans,
                      ["Rise = %d%% of %s = %s." % (pct, _pounds(pay),
                                                    _pounds(pay * pct // 100)),
                       "New pay = %s." % _pounds(ans)], unit="£")
@@ -1878,8 +1890,8 @@ def _(d=1):
 
     def after_increase():
         pct = pick([10, 20, 25, 50])
-        orig = pick([20, 40, 50, 80, 60, 100, 120, 200]) if d == 0 else \
-            random.randint(2, 25) * 10
+        orig = pick([20, 40, 160, 80, 60, 100, 120, 200]) if d == 0 else \
+            random.randint(1, 13) * 20
         new = orig + orig * pct // 100
         return _numq("After a %d%% increase, a price is %s. What was the original "
                      "price, in pounds?" % (pct, _pounds(new)), orig,
@@ -1890,7 +1902,7 @@ def _(d=1):
 
     def after_decrease():
         pct = pick([10, 20, 25, 50])
-        orig = random.randint(2, 25) * 10
+        orig = random.randint(1, 13) * 20
         new = orig - orig * pct // 100
         return _numq("After a %d%% decrease, a price is %s. What was the original "
                      "price, in pounds?" % (pct, _pounds(new)), orig,
@@ -1900,7 +1912,7 @@ def _(d=1):
 
     def sale_reverse():
         pct = pick([10, 20, 25, 50])
-        orig = random.randint(3, 20) * 10
+        orig = random.randint(2, 10) * 20
         new = orig - orig * pct // 100
         return _numq("A coat is reduced by %d%% in a sale and now costs %s. What "
                      "was the original price, in pounds?" % (pct, _pounds(new)),
@@ -1911,7 +1923,7 @@ def _(d=1):
 
     def find_original_amount():
         pct = pick([10, 20, 25, 50])
-        orig = random.randint(2, 20) * 10
+        orig = random.randint(1, 10) * 20
         part = orig * pct // 100
         return _numq("%d%% of a number is %d. What is the number?" % (pct, part),
                      orig,
@@ -1921,7 +1933,7 @@ def _(d=1):
 
     def wage_reverse():
         pct = pick([10, 20, 25])
-        orig = random.randint(20, 60) * 10
+        orig = random.randint(10, 30) * 20
         new = orig + orig * pct // 100
         return _numq("After a %d%% pay rise, a weekly wage is %s. What was the "
                      "wage before the rise, in pounds?" % (pct, _pounds(new)),
@@ -1942,9 +1954,9 @@ def _(d=1):
 
     def reverse_table():
         pct = pick([10, 20, 25, 50])
-        origs = sorted(set(random.randint(2, 25) * 10 for _ in range(4)))
+        origs = sorted(set(random.randint(1, 13) * 20 for _ in range(4)))
         while len(origs) < 4:
-            origs = sorted(set(origs + [random.randint(2, 25) * 10]))
+            origs = sorted(set(origs + [random.randint(1, 13) * 20]))
         origs = origs[:4]
         i = random.randrange(4)
         rows = [["" if j == i else str(o), str(o - o * pct // 100)]
@@ -2005,7 +2017,7 @@ def _(d=1):
     d = _t(d)
 
     def what_pct_change():
-        base = random.randint(2, 20) * 10
+        base = random.randint(1, 10) * 20
         pct = pick([10, 20, 25, 50])
         rise = base * pct // 100
         newv = base + rise
@@ -2015,7 +2027,7 @@ def _(d=1):
                       "%d ÷ %d × 100 = %d%%." % (rise, base, pct)], unit="%")
 
     def pct_decrease_change():
-        base = random.randint(2, 20) * 10
+        base = random.randint(1, 10) * 20
         pct = pick([10, 20, 25, 50, 40])
         fall = base * pct // 100
         newv = base - fall
@@ -2056,7 +2068,7 @@ def _(d=1):
                       "100%% = %d." % x])
 
     def two_shops():
-        base = random.randint(2, 20) * 10
+        base = random.randint(1, 10) * 20
         shopA_off = pick([10, 20, 25])
         shopB_off = pick([10, 20, 25])
         while shopB_off == shopA_off:
@@ -2073,7 +2085,7 @@ def _(d=1):
                        "Shop %s is cheaper." % cheaper], placeholder="A or B")
 
     def pct_more_than():
-        a = random.randint(2, 12) * 10
+        a = random.randint(1, 6) * 20
         pct = pick([10, 20, 25, 50])
         b = a + a * pct // 100
         return _numq("B is %d and A is %d. B is what percentage MORE than A?"
@@ -2083,7 +2095,7 @@ def _(d=1):
 
     def bar_compare():
         cats = ["2022", "2023"]
-        base = random.randint(2, 12) * 10
+        base = random.randint(1, 6) * 20
         pct = pick([10, 20, 25, 50])
         newv = base + base * pct // 100
         return _barq("The bar chart shows a shop's sales (in £1000s) in two "
@@ -2276,15 +2288,19 @@ def _(d=1):
         n1, n2 = random.randint(4, 12), random.randint(4, 12)
         while n2 == n1:
             n2 = random.randint(4, 12)
-        cheap = random.randint(10, 30)
-        dear = cheap + random.randint(2, 12)
+        pa = random.randint(10, 30)
+        pb = pa + random.randint(2, 12)
+        who = "A"
+        if random.random() < 0.5:
+            pa, pb = pb, pa
+            who = "B"
         return _wordq("Pack A: %d %s for %s. Pack B: %d %s for %s. Which pack is "
                       "the best buy (lowest price per %s)? Type A or B."
-                      % (n1, plur, money(n1 * cheap), n2, plur,
-                         money(n2 * dear), sing), "A",
-                      ["A: %d ÷ %d = %dp each." % (n1 * cheap, n1, cheap),
-                       "B: %d ÷ %d = %dp each." % (n2 * dear, n2, dear),
-                       "Pack A is the best buy."], placeholder="A or B")
+                      % (n1, plur, money(n1 * pa), n2, plur,
+                         money(n2 * pb), sing), who,
+                      ["A: %d ÷ %d = %dp each." % (n1 * pa, n1, pa),
+                       "B: %d ÷ %d = %dp each." % (n2 * pb, n2, pb),
+                       "Pack %s is the best buy." % who], placeholder="A or B")
 
     def best_buy_table():
         rows = []
@@ -2293,26 +2309,32 @@ def _(d=1):
         counts = random.sample(range(3, 12), 3)
         unit_prices = [cheap, cheap + random.randint(2, 8),
                        cheap + random.randint(3, 10)]
-        best_i = 0
+        random.shuffle(unit_prices)
+        best_i = unit_prices.index(cheap)
         for i in range(3):
             rows.append([packs[i], str(counts[i]),
                          money(counts[i] * unit_prices[i])])
         return _dtq("The table shows three packs of %s. Which pack is the best "
                     "value per %s? Type the pack letter." % (plur, sing),
-                    ["Pack", "Number", "Price"], rows, "A",
-                    ["Work out price ÷ number for each pack.",
-                     "Pack A is %dp each, the lowest." % cheap],
+                    ["Pack", "Number", "Price"], rows, packs[best_i],
+                    ["Work out price ÷ number for each pack: %s."
+                     % ", ".join("%s = %dp each" % (packs[j], unit_prices[j])
+                                 for j in range(3)),
+                     "Pack %s is %dp each, the lowest." % (packs[best_i], cheap)],
                     caption="Which is the best buy?", answer_type="str")
 
     def cost_per_100g():
         grams = pick([250, 500, 200, 400])
         per100 = random.randint(15, 60)
-        price = grams // 100 * per100
+        if grams == 250 and per100 % 2:
+            per100 += 1
+        price = grams * per100 // 100
+        lots = _dstr(Decimal(grams) / 100)
         return _numq("A %d g tub of yoghurt costs %s. What is the cost per 100 g, "
                      "in pence?" % (grams, money(price)), per100,
-                     ["%d g is %d lots of 100 g." % (grams, grams // 100),
-                      "%d ÷ %d = %dp per 100 g." % (price, grams // 100,
-                                                    per100)], unit="p")
+                     ["%d g is %s lots of 100 g." % (grams, lots),
+                      "%d ÷ %s = %dp per 100 g." % (price, lots, per100)],
+                     unit="p")
 
     def how_much_cheaper():
         n = random.randint(4, 10)
@@ -2470,9 +2492,11 @@ def _(d=1):
     def two_step_pct():
         pct1 = pick([10, 20, 25, 50])
         pct2 = pick([10, 20, 25, 50])
-        g = _hcf(pct1, 100) * _hcf(pct2, 100)
-        base = 100 * random.randint(2, 8)
-        after1 = base * pct1 // 100
+        while True:
+            base = 100 * random.randint(2, 8)
+            after1 = base * pct1 // 100
+            if (after1 * pct2) % 100 == 0:
+                break
         ans = after1 * pct2 // 100
         return _numq("A club has %d members. %d%% are juniors. Of the juniors, "
                      "%d%% play in a team. How many juniors play in a team?"
@@ -2529,7 +2553,7 @@ def _(d=1):
         total = 100
         both = random.randint(5, 20)
         likeA = random.randint(both + 5, 60)
-        likeB = random.randint(both + 5, 60)
+        likeB = random.randint(both + 5, min(60, 100 - likeA + both))
         onlyA = likeA - both
         return _numq("In a class survey of 100 pupils, %d pupils own a bike and "
                      "%d own skates. %d pupils own BOTH. How many own a bike but "
@@ -2539,15 +2563,19 @@ def _(d=1):
                       "Bike only = %d − %d = %d." % (likeA, both, onlyA)])
 
     def pct_of_remainder():
-        base = 100 * random.randint(2, 6)
         pct1 = pick([20, 25, 50, 40])
-        spent = base * pct1 // 100
-        left = base - spent
         pct2 = pick([10, 20, 25, 50])
+        while True:
+            base = 100 * random.randint(2, 6)
+            spent = base * pct1 // 100
+            left = base - spent
+            if (left * pct2) % 100 == 0:
+                break
         second = left * pct2 // 100
+        nm = pick(NAMES)
         return _numq("%s has %s. %s spends %d%% on a coat, then %d%% of what is "
                      "LEFT on shoes. How much is spent on shoes, in pounds?"
-                     % (pick(NAMES), _pounds(base), "That person", pct1, pct2),
+                     % (nm, _pounds(base), nm, pct1, pct2),
                      second,
                      ["Coat = %d%% of %s = %s, leaving %s."
                       % (pct1, _pounds(base), _pounds(spent), _pounds(left)),
@@ -2555,7 +2583,7 @@ def _(d=1):
                       % (pct2, _pounds(left), _pounds(second))], unit="£")
 
     def profit_pct():
-        cost = random.randint(2, 20) * 10
+        cost = random.randint(1, 10) * 20
         pct = pick([10, 20, 25, 50])
         profit = cost * pct // 100
         sell = cost + profit

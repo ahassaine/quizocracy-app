@@ -210,7 +210,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, b, c, e = [random.randint(_by(d, 1, -5, -9), _by(d, 9, 12, 15)) for _ in range(4)]
-    a, c = a or 2, c or 3
+    a, c, b, e = a or 2, c or 3, b or 4, e or 5
 
     def _lin(p, q, v="x"):
         s = ("" if p == 1 else "-" if p == -1 else str(p)) + v if p else ""
@@ -219,7 +219,7 @@ def _(d=1):
         return s or "0"
 
     def t_one_var():
-        return _wq("Simplify  %dx + %dx" % (abs(a), abs(c)), _lin(abs(a) + abs(c), 0),
+        return _wq("Simplify  %s + %s" % (_lin(abs(a), 0), _lin(abs(c), 0)), _lin(abs(a) + abs(c), 0),
                    ["%d + %d = %d." % (abs(a), abs(c), abs(a) + abs(c))], "e.g. 7x")
 
     def t_with_const():
@@ -232,12 +232,12 @@ def _(d=1):
     def t_two_vars():
         p, q, r, s2 = [random.randint(1, 9) for _ in range(4)]
         ans = "%sx+%sy" % (p + r if p + r != 1 else "", q + s2 if q + s2 != 1 else "")
-        return _wq("Simplify  %dx + %dy + %dx + %dy  (like 5x+3y)" % (p, q, r, s2), ans,
+        return _wq("Simplify  %s + %s + %s + %s  (like 5x+3y)" % (_lin(p, 0), _lin(q, 0, "y"), _lin(r, 0), _lin(s2, 0, "y")), ans,
                    ["x: %d + %d = %d. y: %d + %d = %d." % (p, r, p + r, q, s2, q + s2)], "e.g. 5x+3y")
 
     def t_subtract():
         p, r = random.randint(5, 15), random.randint(1, 4)
-        return _wq("Simplify  %da − %da" % (p, r), "%da" % (p - r) if p - r != 1 else "a", ["%d − %d = %d." % (p, r, p - r)],
+        return _wq("Simplify  %da − %s" % (p, "a" if r == 1 else "%da" % r), "%da" % (p - r) if p - r != 1 else "a", ["%d − %d = %d." % (p, r, p - r)],
                    "e.g. 4a")
 
     def t_perimeter():
@@ -333,17 +333,23 @@ def _(d=1):
     d = _d(d)
 
     def t_value_big():
-        n = random.randint(10_000_000, 999_999_999)
-        s = str(n)
-        i = random.randint(0, 3)
+        while True:
+            n = random.randint(10_000_000, 999_999_999)
+            s = str(n)
+            i = random.randint(0, 3)
+            if s[i] != "0" and s.count(s[i]) == 1:
+                break
         place = 10 ** (len(s) - 1 - i)
         return _tb("What is the value of the digit %s in %s?" % (s[i], _c(n)), int(s[i]) * place, "int", {},
                    ["It is worth %s." % _c(int(s[i]) * place)])
 
     def t_value_small():
-        x = Decimal(random.randint(0, 9999) * 10 + random.randint(1, 9)) / 10 ** random.randint(3, 4)   # last digit not 0
-        s = format(x, "f").split(".")[1]
-        i = max(k for k in range(len(s)) if s[k] != "0")
+        while True:
+            x = Decimal(random.randint(0, 9999) * 10 + random.randint(1, 9)) / 10 ** random.randint(3, 4)   # last digit not 0
+            s = format(x, "f").split(".")[1]
+            i = max(k for k in range(len(s)) if s[k] != "0")
+            if format(x, "f").count(s[i]) == 1:
+                break
         return _tb("What is the value of the digit %s in %s? Write it as a decimal." % (s[i], _ds(x)),
                    _ds(Decimal(s[i]) / 10 ** (i + 1)), "num", {}, ["Place %d after the point." % (i + 1)])
 
@@ -406,7 +412,7 @@ def _(d=1):
                    ["Compare digit by digit: %s and %s." % (format(a, ".3f"), format(b, ".3f"))])
 
     def t_partition():
-        x = Decimal(random.randint(1001, 99999)) / 1000
+        x = Decimal(random.randint(1, 99) * 1000 + random.randint(1, 999)) / 1000
         s = format(x, "f")
         w, f = s.split(".")
         parts = [int(w)] + [Decimal(int(ch)) / 10 ** (i + 1) for i, ch in enumerate(f)]
@@ -436,8 +442,9 @@ def _(d=1):
         f, dec = pick([("1/4", "0.25"), ("1/5", "0.2"), ("3/4", "0.75"), ("2/5", "0.4"), ("1/8", "0.125")])
         wrong = pick(["0.14", "0.5", "0.35", "0.04"])
         same = random.random() < 0.5
-        return _wq("Write = or ≠ :  %s ___ %s" % (f, dec if same else wrong), "=" if same else "≠",
-                   ["%s = %s." % (f, dec)], "= or ≠")
+        return _wq("Does = or ≠ go in the gap?  %s ___ %s   (type equal for =, or not equal for ≠)" % (f, dec if same else wrong),
+                   "equal" if same else "not equal",
+                   ["%s = %s, so the sign is %s." % (f, dec, "=" if same else "≠")], "equal / not equal")
 
     def t_order():
         vals = random.sample([Decimal(random.randint(-50, 50)) / pick([1, 10]) for _ in range(6)], 4)
@@ -469,7 +476,8 @@ def _(d=1):
     def t_line():
         v = Decimal(random.randint(-40, 40)) / 10
         return _nld("Place %s on the number line." % _ds(v), v, -5, 5, Decimal("0.1"), 1,
-                    ["%s is between %d and %d." % (_ds(v), int(v // 1), int(v // 1) + 1)])
+                    ["%s is between %d and %d." % (_ds(v), int(v.to_integral_value(rounding="ROUND_FLOOR")),
+                                                   int(v.to_integral_value(rounding="ROUND_FLOOR")) + 1)])
 
     return _pick_t([t_symbol, t_neq, t_order, t_mixed, t_inequality_int], [t_line])
 
@@ -506,7 +514,7 @@ def _(d=1):
 
     def t_measure():
         what, unit, lo, hi = pick([("A runner's time", "seconds", 9000, 99999), ("A baby's mass", "kg", 2000, 5000),
-                                   ("The length of a leaf", "cm", 1000, 25000), ("A bottle holds", "litres", 500, 3000)])
+                                   ("The length of a leaf", "cm", 1000, 25000), ("A bottle's capacity", "litres", 500, 3000)])
         v = Decimal(random.randint(lo, hi)) / 1000
         k = random.randint(1, 2)
         r1 = v.quantize(Decimal(1).scaleb(-k), rounding="ROUND_HALF_UP")

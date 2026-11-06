@@ -36,7 +36,7 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
         pool = [(a, b) for a in tabs for b in range(1, 13)]
         weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
         a, b = random.choices(pool, weights=weights, k=1)[0]
-    divide = pupil.get("year", 4) >= 3 and random.random() < 0.3
+    divide = pupil.get("year", 4) >= 2 and random.random() < 0.3
     if divide:
         prompt, answer = f"{a * b} ÷ {a} =", b
     else:

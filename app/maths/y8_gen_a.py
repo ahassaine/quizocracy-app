@@ -378,7 +378,7 @@ def _(d=1):
         x = _dec()
         place, pos = pick(_PLACES[:dp])
         digit = int((x * (10 ** pos)) % 10)
-        while digit == 0:
+        while digit == 0 or _fmt(x).count(str(digit)) > 1:   # the digit must be unique
             x = _dec()
             digit = int((x * (10 ** pos)) % 10)
         opts = " / ".join(p for p, q in _PLACES[:dp])
@@ -483,8 +483,10 @@ def _(d=1):
         return Decimal("%d.%s" % (whole, frac))
 
     def t_dp():
-        x = _dec()
         dp = random.randint(1, 3 if d else 2)
+        x = _dec()
+        while _dround(x, dp) == x:                    # the number must need rounding
+            x = _dec()
         ans = _dround(x, dp)
         return _numq("Round %s to %d decimal place%s." % (_fmt(x), dp, "" if dp == 1 else "s"),
                      _fmt(ans),
@@ -624,14 +626,12 @@ def _(d=1):
 
     def t_between():
         lo = random.randint(-5, 5)
-        a = lo + 2
-        b = lo + 5
-        ans = lo + 3 + random.randint(0, 1)
-        return _nl("Place a whole number on the line that is greater than %d and less "
+        a = lo + 2 + random.randint(0, 1)
+        b = a + 2
+        ans = a + 1
+        return _nl("Place the whole number on the line that is greater than %d and less "
                    "than %d." % (a, b), ans, lo, lo + 8, 1, 4,
-                   ["The whole numbers between %d and %d are %d and %d."
-                    % (a, b, a + 1, b - 1),
-                    "%d works." % ans])
+                   ["The only whole number between %d and %d is %d." % (a, b, ans)])
 
     def t_rounded():
         x = Decimal(random.randint(1, 8)) + Decimal(random.randint(1, 9)) / 10
@@ -658,7 +658,7 @@ def _(d=1):
         ans = start + step * jumps
         return _nl("Start at %d and count on %d jumps of %d. Place where you land."
                    % (start, jumps, step), ans, min(start, ans) - 2,
-                   min(start, ans) - 2 + 12, 1, 5,
+                   min(start, ans) - 2 + 20, 1, 5,
                    ["%d + %d × %d = %d." % (start, jumps, step, ans)])
 
     def t_temp_line():
@@ -764,10 +764,11 @@ def _(d=1):
         num = random.randint(2, 9) * pick([2, 3, 4])
         den = pick([2, 3, 4])
         f = Fraction(num, den)
-        return _yn("Is %s an integer? (yes/no)" % _fmt_frac(f),
+        return _yn("Is %d/%d an integer? (yes/no)" % (num, den),
                    "yes" if f.denominator == 1 else "no",
-                   ["%s = %s." % (_fmt_frac(f), _fmt_frac(f)) if f.denominator != 1
-                    else "%s = %d, a whole number." % ("%d/%d" % (num, den), num // den)])
+                   ["%d ÷ %d leaves a remainder of %d, so it is not a whole number."
+                    % (num, den, num % den) if f.denominator != 1
+                    else "%d/%d = %d, a whole number." % (num, den, num // den)])
 
     def t_terminating():
         den = pick([2, 3, 4, 5, 6, 8, 9, 11])
@@ -916,7 +917,7 @@ def _(d=1):
         value = random.randint(-4, 6)
         disp = {"<": "<", ">": ">", "<=": "<=", ">=": ">="}[op]
         return _ineq("Read the inequality shown on the number line and type it (use x, "
-                     "like x>3).", op, value, value - 6, value + 6,
+                     "like x>3; type ≤ as <= and ≥ as >=).", op, value, value - 6, value + 6,
                      "x%s%d" % (disp, value),
                      ["The circle is %s and the arrow points %s."
                       % ("open" if op in ("<", ">") else "filled",
@@ -1155,7 +1156,7 @@ def _(d=1):
         real = a * b
         A, B = _r1sf(a), _r1sf(b)
         est = A * B
-        claim = real if random.random() < 0.5 else real + random.choice([-1, 1]) * random.randint(200, 900)
+        claim = real if random.random() < 0.5 else pick([real * 10, real // 10])   # a place-value slip
         return _yn("%s worked out %d × %d and got %d. Rounding each number to 1 s.f. "
                    "gives an estimate of %d. Is %d a reasonable answer? (yes/no)"
                    % (pick(NAMES), a, b, claim, est, claim),
@@ -1193,10 +1194,13 @@ def _(d=1):
                     "%d × %d = %d." % (A, B, good)])
 
     def t_check_div():
-        b = pick([19, 21, 29, 31, 39, 41])
-        q = random.randint(15, 45)
-        a = b * q + random.randint(0, b - 1)
-        A, B = _r1sf(a), _r1sf(b)
+        for _ in range(200):                          # the rounded division must be exact
+            b = pick([19, 21, 29, 31, 39, 41])
+            q = random.randint(15, 45)
+            a = b * q + random.randint(0, b - 1)
+            A, B = _r1sf(a), _r1sf(b)
+            if A % B == 0:
+                break
         est = A // B if B else 0
         return _tb("Estimate %d ÷ %d by rounding each number to 1 significant figure "
                    "(give a whole-number estimate)." % (a, b), est, "int", {},
@@ -1454,7 +1458,8 @@ def _(d=1):
 @skill("Y8.1.c", "Prime factorisation in index form", S1)
 def _(d=1):
     d = _d(d)
-    FMT = "Use ^ for powers and x between factors, like 2^3x3x5 (no spaces)."
+    FMT = ("Write the primes from smallest to largest, using ^ for powers and x "
+           "between factors, like 2^3x3x5 (no spaces).")
 
     def t_full():
         n = _make_composite(d)
@@ -1539,7 +1544,7 @@ def _(d=1):
         r_i = random.randint(0, 2)
         want = _pf_str(_pf(ns[r_i]))
         return _dt("Complete the table. Write the missing prime factorisation in index "
-                   "form (like 2^3x3x5, no spaces).",
+                   "form, smallest prime first (like 2^3x3x5, no spaces).",
                    ["Number", "Prime factorisation"], rows, want,
                    ["%d = %s." % (ns[r_i], want)], missing=[r_i, 1], atype="str")
 
@@ -1799,6 +1804,13 @@ def _(d=1):
                    ["LCM(%d, %d) = %d minutes." % (a, b, _lcm(a, b))])
 
     def t_which_op():
+        if random.random() < 0.5:
+            a, b = random.sample([6, 8, 9, 10, 12, 15], 2)
+            return _wq("Buns come in packs of %d and rolls in packs of %d. To buy the same "
+                       "number of buns and rolls, using the fewest packs, do you need the "
+                       "HCF or the LCM? (type 'HCF' or 'LCM')" % (a, b), "LCM",
+                       ["'Smallest number both pack sizes go into' means the lowest "
+                        "common multiple.", "You need the LCM."], "HCF or LCM")
         h = random.randint(4, 9)
         a = h * random.randint(3, 6)
         b = h * random.randint(3, 6)

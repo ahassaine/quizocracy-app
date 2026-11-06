@@ -237,7 +237,7 @@ def _(d=1):
 
     def t_three():
         ans = base + 3 * step
-        return _tb("Start at %s and count on in %ss. What is the THIRD number you say?"
+        return _tb("Start at %s and count on in %ss. What number do you land on after 3 jumps?"
                    % (_c(base), _c(step)), ans, "int", {},
                    ["3 × %s = %s." % (_c(step), _c(3 * step)),
                     "%s + %s = %s." % (_c(base), _c(3 * step), _c(ans))])
@@ -306,10 +306,11 @@ def _(d=1):
         s = random.randint(1, 5) * st
         ans = s + k * st
         major = {6: 30, 7: 35, 9: 45, 25: 100, 1000: 5000}[st]
+        lo, hi = (0, 10000) if st == 1000 else (None, None)
         return _nl("Start at %s and count on %d lots of %s. Place the number you land on."
                    % (_c(s), k, _c(st)), ans, st, major,
                    ["%d × %s = %s." % (k, _c(st), _c(k * st)),
-                    "%s + %s = %s." % (_c(s), _c(k * st), _c(ans))])
+                    "%s + %s = %s." % (_c(s), _c(k * st), _c(ans))], lo=lo, hi=hi)
 
     def t_blocks():
         st = step if step <= 25 else 100
@@ -329,7 +330,7 @@ def _(d=1):
                    rows, miss, rows[miss][1],
                    ["Each Out is %s more than the one above." % _c(step),
                     "%s + %s = %s." % (_c(rows[miss - 1][1]), _c(step), _c(rows[miss][1]))],
-                   rule="+ %s" % _c(step))
+                   rule="× %s, then + %s" % (_c(step), _c(base)))
 
     return _pick_t([t_next, t_three, t_missing, t_back_zero, t_word, t_inverse, t_will_say],
                    [t_line, t_blocks, t_table])
@@ -456,7 +457,7 @@ def _(d=1):
         gap = pick([500, 1000])
         ans = k * gap
         return _tb("A number line runs from 0 to %s with a mark every %s. "
-                   "What number is at the %s mark?" % (_c(10 * gap), _c(gap), ordinal(k)),
+                   "What number is at the %s mark after 0?" % (_c(10 * gap), _c(gap), ordinal(k)),
                    ans, "int", {},
                    ["%d × %s = %s." % (k, _c(gap), _c(ans))])
 
@@ -479,6 +480,8 @@ def _(d=1):
 
     def t_blocks_part():
         n = _thousands(max(d, 1))
+        while n % 1000 == 0:
+            n = _thousands(max(d, 1))
         part = n % 1000
         return _bt("Here is the number %s. Build the part that is left when the thousands "
                    "are taken away." % _c(n), part,
@@ -718,8 +721,9 @@ def _(d=1):
         b = random.randint(1, 9)
         cc = random.randint(1, 9)
         val = a * 1000 + b * 100 + cc * 10
-        return _tb("%s has %d £1,000 notes, %d £100 notes and %d £10 notes. "
-                   "How much money does %s have altogether?" % (who, a, b, cc, who),
+        return _tb("%s has %d bundle%s of notes worth £1,000 each, %d bundle%s worth £100 each "
+                   "and %d £10 note%s. How much money does %s have altogether?"
+                   % (who, a, "" if a == 1 else "s", b, "" if b == 1 else "s", cc, "" if cc == 1 else "s", who),
                    val, "int", {"unit": "£"},
                    ["%s + %s + %d = %s." % (_c(a * 1000), _c(b * 100), cc * 10, _c(val))])
 
@@ -1094,7 +1098,7 @@ def _(d=1):
                     "%d is written %s." % (ans, _rom(ans))], "e.g. XIV")
 
     def t_sequence():
-        step = pick([1, 2, 5, 10])
+        step = pick([s for s in [1, 2, 5, 10] if 4 * s < hi])
         start = random.randint(1, max(1, (hi - 4 * step)))
         terms = [start + i * step for i in range(4)]
         ans = terms[-1] + step
@@ -1338,9 +1342,9 @@ def _(d=1):
 
     def t_graph_integer():
         ans = pick([-1, 1]) * random.randint(1, min(9, span))
-        return _nl("Graph the integer %d on the number line." % ans, ans, 1, 5, lo=-10, hi=10,
-                   solution=["Integers below zero are graphed to the left of zero; "
-                             "integers above zero are graphed to the right.",
+        return _nl("Mark the number %d on the number line." % ans, ans, 1, 5, lo=-10, hi=10,
+                   solution=["Numbers below zero go to the left of zero; "
+                             "numbers above zero go to the right.",
                              "%d is %d to the %s of 0."
                              % (ans, abs(ans), "left" if ans < 0 else "right")])
 
@@ -1349,8 +1353,8 @@ def _(d=1):
         move = random.randint(1, 5)
         back = random.random() < 0.5
         ans = start - move if back else start + move
-        return _nl("Start at the integer %d and count %s %d. "
-                   "Graph the integer you reach on the number line."
+        return _nl("Start at %d and count %s %d. "
+                   "Mark the number you reach on the number line."
                    % (start, "back" if back else "on", move), ans, 1, 5, lo=-10, hi=10,
                    solution=["%d %s %d = %d." % (start, "−" if back else "+", move, ans)])
 
@@ -1372,7 +1376,7 @@ def _(d=1):
         hours = ["6 am", "9 am", "12 pm", "3 pm", "6 pm"]
         vals = [-random.randint(2, 6)]
         for _i in range(4):
-            vals.append(vals[-1] + random.randint(1, 4))
+            vals.append(vals[-1] + random.randint(1, 3))
         idx = random.randint(0, 4)
         return _lg("This graph shows the temperature during one day. "
                    "What was the temperature at %s?" % hours[idx],
@@ -1384,7 +1388,7 @@ def _(d=1):
         hours = ["6 am", "8 am", "10 am", "12 pm", "2 pm"]
         vals = [-random.randint(3, 7)]
         for _i in range(4):
-            vals.append(vals[-1] + random.randint(1, 4))
+            vals.append(vals[-1] + random.randint(1, 3))
         return _lg("This graph shows the temperature during one morning. "
                    "How many degrees did the temperature rise between 6 am and 2 pm?",
                    list(zip(hours, vals)), vals[-1] - vals[0],
@@ -1974,6 +1978,8 @@ def _(d=1):
 
     def t_sub():
         a, b = pair(unit)
+        while _r(a, unit) == _r(b, unit):
+            a, b = pair(unit)
         if a < b:
             a, b = b, a
         ra, rb = _r(a, unit), _r(b, unit)
@@ -1996,6 +2002,8 @@ def _(d=1):
 
     def t_word_sub():
         a, b = pair(unit)
+        while _r(a, unit) == _r(b, unit):
+            a, b = pair(unit)
         if a < b:
             a, b = b, a
         ra, rb = _r(a, unit), _r(b, unit)
@@ -2065,6 +2073,8 @@ def _(d=1):
     def t_table_diff():
         towns = random.sample(["Ashby", "Redhill", "Newport", "Stanton"], 2)
         vals = random.sample(range(1050, 8950), 2)
+        while _r1000(vals[0]) == _r1000(vals[1]):
+            vals = random.sample(range(1050, 8950), 2)
         vals.sort(reverse=True)
         rows = [[towns[i], _c(vals[i])] for i in range(2)]
         ans = _r1000(vals[0]) - _r1000(vals[1])
@@ -2747,7 +2757,7 @@ def _(d=1):
                    rows, miss, rows[miss][1],
                    ["Each extra %s adds %d sticks." % (name[:-1], add),
                     "%d %s %d sticks." % (rows[miss][0], name + " need" if rows[miss][0] != 1 else name[:-1] + " needs", rows[miss][1])],
-                   rule="sticks")
+                   rule="× %d, then + %d" % (add, first - add))
 
     def t_table():
         name, first, add = pick(PATTERNS)

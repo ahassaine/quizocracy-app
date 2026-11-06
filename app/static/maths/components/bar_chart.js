@@ -56,7 +56,7 @@
       inputWrap.style.cssText = 'margin-top:12px';
       const input = document.createElement('input');
       input.type = 'text';
-      input.inputMode = 'numeric';
+      input.inputMode = 'decimal';
       input.className = 'm-input';
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');

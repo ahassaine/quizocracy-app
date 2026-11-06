@@ -202,8 +202,8 @@
         }));
         const bits = [];
         if (showAngles) bits.push(num(s.angle) + '°');
-        if (showPercents) bits.push(num(s.frac * 100) + '%');
-        const main = s.label + '  —  ' + num(s.value, 2);
+        if (showPercents && !(i === hi && spec.hideValue)) bits.push(num(s.frac * 100) + '%');
+        const main = s.label + '  —  ' + (i === hi && spec.hideValue ? '?' : num(s.value, 2));   // the outlined value is the answer
         g.appendChild(mk('text', {
           x: 54, y: y + 1, fill: i === hi ? ACCENT : INK, 'font-size': 14,
           'font-weight': i === hi ? 700 : 400

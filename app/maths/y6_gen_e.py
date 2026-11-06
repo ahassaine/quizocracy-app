@@ -283,7 +283,10 @@ def _(d=1):
                 "component": "shape",
                 "spec": {"kind": "2d", "name": nm, "ask": "lines_of_symmetry"},
                 "answer": lines, "answer_type": "int",
-                "solution": ["A regular polygon has one line of symmetry for each side.",
+                "solution": ["A regular polygon has one line of symmetry for each side."
+                             if nm != "rectangle" else
+                             "A rectangle is not regular: it has one line of symmetry across "
+                             "the middle each way.",
                              "%s has %s of symmetry."
                              % (_a(label).capitalize(), _pl(lines, "line"))]}
 
@@ -728,7 +731,9 @@ def _(d=1):
         ])
         return _num_q("Which three-dimensional figure is being described? The figure has "
                       "%s. (type the name)" % desc,
-                      nm, "str", text=True, placeholder="e.g. cube / cylinder",
+                      nm, "str", text=True,
+                      placeholder="cube / cuboid / square-based pyramid / triangular-based "
+                                  "pyramid / triangular prism / cylinder / cone / sphere",
                       solution=["Check the faces, edges and vertices of each solid.",
                                 "The figure being described is %s." % _a(nm)])
 
@@ -743,12 +748,13 @@ def _(d=1):
                     "answer": nm, "answer_type": "str",
                     "solution": ["Imagine folding the net along every line.",
                                  "The net makes %s." % _a(nm)]}
+        flat = faces - 1 if key in ("cylinder", "cone") else faces   # curved surface is not flat
         return {"prompt": "This is the net of a three-dimensional figure. How many flat "
                           "faces will the folded figure have?",
                 "component": "net", "spec": {"solid": key},
-                "answer": faces, "answer_type": "int",
+                "answer": flat, "answer_type": "int",
                 "solution": ["The net folds into %s." % _a(nm),
-                             "%s has %d faces." % (_a(nm).capitalize(), faces)]}
+                             "%s has %s." % (_a(nm).capitalize(), _pl(flat, "flat face"))]}
 
     if t == 13:                                       # viewed from different perspectives
         desc, view, ans = pick([
@@ -868,7 +874,7 @@ def _(d=1):
     if t == 7:                                        # description -> name
         desc, nm = pick([
             ("6 square faces, all the same size", "cube"),
-            ("6 rectangular faces", "cuboid"),
+            ("6 rectangular faces that are not all squares", "cuboid"),
             ("a square base and 4 triangular faces meeting at a point",
              "square-based pyramid"),
             ("2 triangular faces and 3 rectangular faces", "triangular prism"),
@@ -877,7 +883,9 @@ def _(d=1):
             ("4 triangular faces", "triangular-based pyramid"),
         ])
         return _num_q("A 3-D shape has %s. What is it called? (type the name)" % desc,
-                      nm, "str", text=True, placeholder=_NET_NAMES,
+                      nm, "str", text=True,
+                      placeholder="cube / cuboid / square-based pyramid / "
+                                  "triangular-based pyramid / triangular prism / cylinder / cone",
                       solution=["A solid with %s is %s." % (desc, _a(nm))])
 
     if t == 8:                                        # combined count
@@ -1439,8 +1447,11 @@ def _(d=1):
 
     # word problem
     who = pick(NAMES)
-    a = random.randint(25, 70)
+    a = random.randint(25, 50)
     b = a + random.randint(10, 40)
+    while 180 - a - b <= b:                           # the third angle must really be the largest
+        a = random.randint(25, 50)
+        b = a + random.randint(10, 40)
     c = 180 - a - b
     return _num_q("%s draws a triangle. The smallest angle is %d° and the next angle is "
                   "%d° larger than the smallest. How many degrees is the largest angle?"
@@ -3907,7 +3918,7 @@ def _(d=1):
 
 _SHOP = [("pencil", 45), ("notebook", 185), ("ruler", 65), ("rubber", 35),
          ("pen", 95), ("folder", 275), ("glue stick", 120), ("calculator", 640),
-         ("water bottle", 350), ("lunch box", 425)]
+         ("water bottle", 350), ("pencil case", 425)]
 
 
 @skill("Y6.9.d", "Money problems", S9)
@@ -3919,11 +3930,13 @@ def _(d=1):
     if t == 0:                                        # change from a note
         item, price = pick(_SHOP)
         n = random.randint(2, _by_d(d, 3, 5, 9))
+        while n > 1 and n * price >= 5000:            # keep it payable with a £50 note at most
+            n -= 1
         total = n * price
-        note = pick([p for p in (500, 1000, 2000, 5000) if p > total] or [10000])
-        return _num_q("%s buys %d %s%s at %s each and pays with a %s note. How much "
+        note = pick([p for p in (500, 1000, 2000, 5000) if p > total])
+        return _num_q("%s buys %d %s%s at %s each and pays with a £%d note. How much "
                       "change is given? Answer in pounds."
-                      % (who, n, item, "" if n == 1 else "s", money(price), money(note)),
+                      % (who, n, item, "" if n == 1 else "s", money(price), note // 100),
                       (note - total) / 100.0, "num", unit="£", tolerance=0.005,
                       solution=["%d × %s = %s." % (n, money(price), money(total)),
                                 "%s − %s = %s." % (money(note), money(total),
@@ -3952,7 +3965,7 @@ def _(d=1):
         unit = pick([25, 30, 40, 45, 50])
         p1 = n1 * unit
         n2 = n1 * 2
-        p2 = n2 * unit - pick([10, 20, 30, 40])
+        p2 = n2 * (unit - pick([1, 2, 3, 5]))       # whole pence per pen in both packs
         cheaper = "B"
         return _num_q("A pack of %d pens costs %s. A pack of %d of the same pens costs "
                       "%s. How much cheaper is ONE pen in the larger pack, in pence?"
@@ -3991,14 +4004,16 @@ def _(d=1):
 
     if t == 5:                                        # unit price / how many affordable
         item, price = pick(_SHOP)
-        budget = pick([500, 1000, 1500, 2000, 3000])
+        budget = pick([b for b in (500, 1000, 1500, 2000, 3000) if b >= 2 * price])
         n = budget // price
         return _num_q("%s has %s to spend. One %s costs %s. What is the greatest number "
                       "of %ss %s can buy?" % (who, money(budget), item, money(price),
                                               item, who),
                       n, "int", unit=item + "s",
-                      solution=["%s ÷ %s = %d with some money left over."
-                                % (money(budget), money(price), n),
+                      solution=["%s ÷ %s = %d%s."
+                                % (money(budget), money(price), n,
+                                   (" with %s left over" % money(budget % price))
+                                   if budget % price else " exactly"),
                                 "%s can buy %d." % (who, n)])
 
     if t == 6:                                        # two items and change
@@ -4492,10 +4507,11 @@ def _(d=1):
     n = 5
     step = 2
     vals = sorted(random.sample(range(lo, hi + 1, step), n))
-    if random.random() < 0.35:
+    if labels[0] == "0 min":                          # distance travelled is 0 at the start
+        vals = [0] + sorted(random.sample(range(lo + step, hi + 1, step), n - 1))
+    # only a temperature or a water level can go down; a height or distance never does
+    if title.startswith(("Temperature", "Depth")) and random.random() < 0.35:
         random.shuffle(vals)
-    while len(set(vals)) != n:
-        vals = random.sample(range(lo, hi + 1, step), n)
     pts = [[lab, v] for lab, v in zip(labels, vals)]
     spec = {"points": pts, "yLabel": ylab, "xLabel": xlab}
     i, j = random.sample(range(n), 2)
@@ -4560,6 +4576,9 @@ def _(d=1):
 
     if t == 6:                                        # steepest rise (typed)
         rises = [vals[k + 1] - vals[k] for k in range(n - 1)]
+        if max(rises) <= 0 or rises.count(max(rises)) > 1:
+            t = 7                                     # no single biggest rise: ask the range
+    if t == 6:
         k = rises.index(max(rises))
         return {"prompt": "%s. Use the graph. Between which point and the NEXT point does "
                           "the graph rise the most? (type the label of the earlier point)"
@@ -4873,7 +4892,7 @@ def _(d=1):
                       med, "int",
                       solution=["In order: %s." % ", ".join(str(v) for v in sorted(vals)),
                                 "The middle value of %d numbers is the %s: %d."
-                                % (n, "%dth" % (n // 2 + 1), med)])
+                                % (n, {3: "3rd", 4: "4th", 5: "5th"}[n // 2 + 1], med)])
 
     if t == 2:                                        # range
         vals = random.sample(range(1, _by_d(d, 25, 50, 100)), n)

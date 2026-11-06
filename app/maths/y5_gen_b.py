@@ -29,6 +29,8 @@ def _pairs(n):
 def _(d=1):
     d = _d(d)
     a, b = _big(d), _big(d)
+    while a + b > 999999:                                 # Year 5 numbers go to 1,000,000
+        a, b = _big(d), _big(d)
     if d == 0:
         b = random.randint(1000, 9999)
 
@@ -39,6 +41,8 @@ def _(d=1):
 
     def t_three():
         c = random.randint(1000, 99999)
+        if a + b + c > 999999:
+            return t_plain()
         return _tb("Add these three numbers: %s, %s and %s." % (_c(a), _c(b), _c(c)), a + b + c, "int",
                    {}, ["%s + %s = %s." % (_c(a), _c(b), _c(a + b)),
                         "%s + %s = %s." % (_c(a + b), _c(c), _c(a + b + c))])
@@ -205,7 +209,7 @@ def _(d=1):
         return _tb("Double %s." % _c(x), 2 * x, "int", {}, ["%s + %s = %s." % (_c(x), _c(x), _c(2 * x))])
 
     def t_half():
-        x = random.randint(11, 98) * pick([2000, 20000])
+        x = pick([random.randint(11, 98) * 2000, random.randint(6, 49) * 20000])
         return _tb("Halve %s." % _c(x), x // 2, "int", {}, ["%s ÷ 2 = %s." % (_c(x), _c(x // 2))])
 
     def t_sub_round():
@@ -254,6 +258,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, b = _big(d), random.randint(1000, 99999)
+    a = min(a, 999999 - b)                                # keep a + b within 1,000,000
 
     def t_add_missing():
         return _tb("Find the missing number:  %s + ___ = %s" % (_c(a), _c(a + b)), b, "int", {},
@@ -473,7 +478,7 @@ def _(d=1):
                                           "%s + %s = %s." % (_c(a - b), _c(c), _c(a - b + c))])
 
     def t_true():
-        a, b = random.randint(100, 999) * u, random.randint(100, 999) * u
+        a, b = random.randint(100, 499) * u, random.randint(100, 499) * u
         rhs = a + b if random.random() < 0.5 else a + b + pick([-1, 1]) * pick([u, 10 * u])
         ok = rhs == a + b
         return _wq("Is this number sentence true or false?  %s + %s = %s" % (_c(a), _c(b), _c(rhs)),
@@ -556,7 +561,7 @@ def _(d=1):
 
     def t_count():
         hi = random.randint(5, 10) * 10
-        return _tb("How many multiples of %d are there between 1 and %d?" % (m, hi), hi // m, "int", {},
+        return _tb("How many multiples of %d are there from 1 to %d?" % (m, hi), hi // m, "int", {},
                    ["%d ÷ %d = %d (ignore any remainder)." % (hi, m, hi // m)])
 
     def t_nearest():
@@ -603,7 +608,7 @@ def _(d=1):
         lo = random.randint(2, 10) * 10
         hi = lo + random.randint(3, 8) * 10
         ms = [x for x in range(lo + 1, hi) if x % m == 0]
-        return _tb("How many multiples of %d are there between %d and %d?" % (m, lo, hi), len(ms), "int", {},
+        return _tb("How many multiples of %d are there between %d and %d? (Do not count %d or %d themselves.)" % (m, lo, hi, lo, hi), len(ms), "int", {},
                    ["They are %s." % (", ".join(map(str, ms)) or "none")])
 
     def t_rows():
@@ -859,8 +864,9 @@ def _(d=1):
         return _wq("Is %d a prime number? (yes or no)" % n, "yes" if p else "no", [why], "yes / no")
 
     def t_list_small():
-        return _wq("Write all the prime numbers less than 20, separated by commas.",
-                   "2, 3, 5, 7, 11, 13, 17, 19", ["A prime has exactly two factors."], "e.g. 2, 3, 5")
+        return _tb("Write all the prime numbers less than 20, separated by commas.",
+                   "2, 3, 5, 7, 11, 13, 17, 19", "set", {"text": True, "placeholder": "e.g. 2, 3, 5"},
+                   ["A prime has exactly two factors."])
 
     def t_between():
         lo = random.randint(1, 8) * 10
@@ -868,8 +874,9 @@ def _(d=1):
         ps = [p for p in PRIMES if lo < p < hi]
         if not ps:
             return t_is()
-        return _wq("List the prime numbers between %d and %d, separated by commas." % (lo, hi),
-                   ", ".join(map(str, ps)), ["Check each odd number for factors."], "e.g. 11, 13")
+        return _tb("List the prime numbers between %d and %d, separated by commas." % (lo, hi),
+                   ", ".join(map(str, ps)), "set", {"text": True, "placeholder": "e.g. 11, 13"},
+                   ["Check each odd number for factors."])
 
     def t_odd_one():
         ps = random.sample([p for p in PRIMES if p < _by(d, 30, 60, 100)], 3)
@@ -1012,7 +1019,7 @@ def _(d=1):
     def t_count_composite():
         lo = random.randint(1, 8) * 10
         cs = [x for x in range(lo + 1, lo + 10) if x not in PRIMES]
-        return _tb("How many composite numbers are there between %d and %d?" % (lo, lo + 10), len(cs), "int", {},
+        return _tb("How many composite numbers are there between %d and %d? (Do not count %d or %d themselves.)" % (lo, lo + 10, lo, lo + 10), len(cs), "int", {},
                    ["Composite: %s." % ", ".join(map(str, cs))])
 
     return _pick_t([t_composite, t_prime_factors, t_product, t_largest, t_missing, t_vocab, t_how_many,
@@ -1057,7 +1064,7 @@ def _(d=1):
         a = random.randint(10, 80)
         b = a + random.randint(30, 60)
         sqs = [i * i for i in range(1, 16) if a < i * i < b]
-        return _tb("How many square numbers are there between %d and %d?" % (a, b), len(sqs), "int", {},
+        return _tb("How many square numbers are there between %d and %d? (Do not count %d or %d themselves.)" % (a, b, a, b), len(sqs), "int", {},
                    ["%s." % (", ".join(map(str, sqs)) or "None")])
 
     def t_sum():
@@ -1223,8 +1230,8 @@ def _(d=1):
     def t_packs():
         a, b = random.sample([6, 8, 9, 10, 12], 2)
         lcm = a * b // _gcd(a, b)
-        return _tb("Rolls come in packs of %d and sausages in packs of %d. What is the smallest number "
-                   "of each you can buy so that there are the same number of rolls and sausages?"
+        return _tb("Rolls come in packs of %d and sausages in packs of %d. You want exactly the same number of "
+                   "rolls as sausages. What is the smallest number of rolls you can buy?"
                    % (a, b), lcm, "int", {}, ["The first common multiple of %d and %d is %d." % (a, b, lcm)])
 
     def t_prime_age():

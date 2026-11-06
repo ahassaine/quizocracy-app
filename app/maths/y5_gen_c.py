@@ -31,7 +31,7 @@ def _(d=1):
                    ["Double %d is %d; double again is %d." % (n, 2 * n, 4 * n)])
 
     def t_partition():
-        n = random.randint(12, _by(d, 39, 99, 199))
+        n = random.choice([v for v in range(12, _by(d, 39, 99, 199) + 1) if v % 10])
         m = random.randint(3, 9)
         t, o = (n // 10) * 10, n % 10
         return _tb("Work out %d × %d by partitioning %d into %d and %d." % (n, m, n, t, o), n * m, "int",
@@ -136,7 +136,7 @@ def _(d=1):
                    int(h), "int", {}, ["%s ÷ %d = %s." % (_c(p), m, _c(n))])
 
     def t_table():
-        nums = random.sample(range(1000, 9999), 4)
+        nums = random.sample(range(_by(d, 100, 1000, 1000), _by(d, 999, 4999, 9999) + 1), 4)
         rows = [[x, x * m] for x in nums]
         k = random.randrange(4)
         return _io("Every Out number is the In number × %d. What goes in the empty cell?" % m, rows, k,
@@ -150,7 +150,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     n = random.randint(_by(d, 12, 120, 1000), _by(d, 99, 999, 4999))
-    m = random.randint(_by(d, 11, 12, 21), _by(d, 19, 39, 99))
+    m = random.choice([v for v in range(_by(d, 11, 12, 21), _by(d, 19, 39, 99) + 1) if v % 10])
 
     def t_plain():
         t, o = (m // 10) * 10, m % 10
@@ -220,7 +220,7 @@ def _(d=1):
 
     def t_partition():
         m = random.randint(3, 8)
-        q = random.randint(12, 39)
+        q = random.choice([v for v in range(12, 40) if v % 10])
         n = q * m
         t = (q // 10) * 10 * m
         return _tb("Work out %d ÷ %d by splitting %d into %d and %d." % (n, m, n, t, n - t), q, "int", {},
@@ -285,7 +285,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     m = random.randint(_by(d, 2, 3, 6), _by(d, 5, 9, 9))
-    q = random.randint(_by(d, 21, 101, 201), _by(d, 199, 999, 1666))
+    q = random.randint(_by(d, 21, 101, 201), min(_by(d, 199, 999, 1666), (10000 - m) // m))
     r = 0 if d == 0 or random.random() < 0.5 else random.randint(1, m - 1)
     n = q * m + r
 
@@ -382,10 +382,12 @@ def _(d=1):
     def t_share_fraction():
         k = pick([2, 3, 4, 5])
         pz = k * random.randint(1, 4) + random.randint(1, k - 1)
-        return _wq("%d pizzas are shared equally between %d people. How much pizza does each person get? Write it as a "
-                   "mixed number (like 2 1/4)." % (pz, k), _mixed(Fraction(pz, k)),
+        return _tb("%d pizzas are shared equally between %d people. How much pizza does each person get? Write it as a "
+                   "mixed number (like 2 1/4)." % (pz, k), _mixed(Fraction(pz, k)), "frac",
+                   {"text": True, "placeholder": "e.g. 2 1/4"},
                    ["%d ÷ %d = %d remainder %d." % (pz, k, pz // k, pz % k),
-                    "The %d left over %s shared too: %d/%d each." % (pz % k, "is" if pz % k == 1 else "are", pz % k, k)], "e.g. 2 1/4")
+                    "The %d left over %s shared too: %d/%d each." % (pz % k, "is" if pz % k == 1 else "are", pz % k, k),
+                    "So each person gets %s." % _mixed(Fraction(pz, k))])
 
     def t_weeks():
         days = random.randint(3, 12) * 7 + random.randint(1, 6)
@@ -773,7 +775,8 @@ def _(d=1):
 
     def t_think():
         x = random.randint(3, 25)
-        m, s = random.randint(2, 6), random.randint(1, 20)
+        m = random.randint(2, 6)
+        s = random.randint(1, min(20, x * m - 1))
         return _tb("I think of a number, multiply it by %d and then subtract %d. The answer is %d. What was my number?"
                    % (m, s, x * m - s), x, "int", {},
                    ["Work backwards: %d + %d = %d." % (x * m - s, s, x * m), "%d ÷ %d = %d." % (x * m, m, x)])
@@ -1042,7 +1045,7 @@ def _(d=1):
     d = _d(d)
     den = pick(_by(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], [6, 7, 8, 9, 12]))
     w = random.randint(1, _by(d, 3, 5, 9))
-    r = random.randint(1, den - 1)
+    r = random.choice([v for v in range(1, den) if Fraction(v, den).denominator == den])
     imp = w * den + r
 
     def t_to_improper():
@@ -1068,10 +1071,10 @@ def _(d=1):
         if not pairs:
             return t_to_mixed()
         x, y = pick(pairs)
-        return _wq("Work out %d/%d + %d/%d and write the answer as a mixed number." % (x, den, y, den),
-                   "%d %d/%d" % ((x + y) // den, (x + y) % den, den),
+        return _tb("Work out %d/%d + %d/%d and write the answer as a mixed number." % (x, den, y, den),
+                   _mixed(Fraction(x + y, den)), "frac", {"text": True, "placeholder": "e.g. 1 1/4"},
                    ["%d/%d + %d/%d = %d/%d." % (x, den, y, den, x + y, den),
-                    "= %d %d/%d." % ((x + y) // den, (x + y) % den, den)], "e.g. 1 1/4")
+                    "= %s." % _mixed(Fraction(x + y, den))])
 
     def t_line():
         return _nld("Place %d/%d on the number line." % (imp, den), Fraction(imp, den), 0, w + 2,
@@ -1262,10 +1265,9 @@ def _(d=1):
     def t_from_mixed():
         w = random.randint(1, 3)
         x = random.randint(1, big - 1)
-        return _wq("Work out %d − %d/%d. Write the answer as a mixed number." % (w + 1, x, big),
-                   _mixed(Fraction(w + 1) - Fraction(x, big)),
-                   ["%d − %d/%d = %s." % (w + 1, x, big, _mixed(Fraction(w + 1) - Fraction(x, big)))],
-                   "e.g. 1 3/4")
+        return _tb("Work out %d − %d/%d. Write the answer as a mixed number." % (w + 1, x, big),
+                   _mixed(Fraction(w + 1) - Fraction(x, big)), "frac", {"text": True, "placeholder": "e.g. 1 3/4"},
+                   ["%d − %d/%d = %s." % (w + 1, x, big, _mixed(Fraction(w + 1) - Fraction(x, big)))])
 
     def t_word():
         if b is None:
@@ -1289,7 +1291,7 @@ def _(d=1):
             return t_from_one()
         return _nld("Start at %d/%d and count back %d/%d. Mark where you land." % (x, big, y, big),
                     Fraction(x - y, big), 0, 1, Fraction(1, big), Fraction(1, big) if big <= 6 else
-                    Fraction(1, 2), ["%d/%d − %d/%d = %d/%d." % (x, big, y, big, x - y, big)])
+                    Fraction(1, base), ["%d/%d − %d/%d = %d/%d." % (x, big, y, big, x - y, big)])
 
     def t_missing():
         if b is None:
@@ -1359,7 +1361,7 @@ def _(d=1):
 
     def t_whole_plus():
         w = random.randint(2, 6)
-        return _wq("Work out %d + %d %d/%d." % (w, w1, a, den), _mixed(w + A),
+        return _wq("Work out %d + %s." % (w, _mixed(A)), _mixed(w + A),
                    ["Add the wholes: %d." % (w + w1)], "e.g. 5 2/3")
 
     def t_word():
@@ -1387,7 +1389,7 @@ def _(d=1):
     def t_whole_minus():
         w = w1 + w2 + 1
         return _wq("Work out %d − %s. Write the answer as a mixed number." % (w, _mixed(A)), _mixed(w - A),
-                   ["%d − %d = %d." % (w, w1, w - w1), "%d − %d/%d = %s." % (w - w1, a, den, _mixed(w - A))], "e.g. 2 1/3")
+                   ["%d − %d = %d." % (w, w1, w - w1), "%d − %s = %s." % (w - w1, _fs(A - w1), _mixed(w - A))], "e.g. 2 1/3")
 
     def t_missing():
         return _fq("%s + ___ = %s. What is the missing number? (fraction or mixed number)" % (_mixed(A), _mixed(A + B)), B,
@@ -1705,7 +1707,7 @@ def _(d=1):
 
     def t_order():
         a_ = Fraction(w * den + r, den)
-        b_ = a_ + Fraction(pick([1, 2, 3]), den)
+        b_ = a_ + Fraction(pick([v for v in (1, 2, 3) if v < den]), den)
         c_ = a_ + 1
         vals = [a_, b_, c_]
         shown = [_fs(a_), _mixed(b_), _fs(c_)]

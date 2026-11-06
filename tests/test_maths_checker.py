@@ -78,3 +78,24 @@ def test_fair_forms_accepted_and_near_misses_refused():
 def _same(at, a, v):
     """A bumped digit can land on an equal value ('-0'); that is not a near miss."""
     return at not in ("num", "int", "frac", "set", "coord", "time") and e._sn(a) == e._sn(v)
+
+
+def test_natural_forms_of_an_answer():
+    """Forms a child types that used to be refused: units, £ for pence, ≤/≥, ratio spaces, 24-hour times,
+    remainders, am/pm spacing, a leading article, "and" in a list."""
+    assert e.check_answer("num", 186, "£1.86", 0, "p") and not e.check_answer("num", 30, "£0.30")
+    ok = [("num", 98, "98m²"), ("num", -5, "-5°C"), ("num", 40, "40%"),
+          ("num", 3, "3 litres"), ("str", "25 r 3", "25r3"), ("str", "25 r 3", "25 remainder 3"),
+          ("str", "10 am", "10am"), ("str", "x>=-1", "x ≥ -1"), ("str", "2:3", "2 : 3"),
+          ("str", "09:45", "9:45"), ("str", "09:45", "9.45"), ("str", "045", "045°"),
+          ("str", "elephant", "an elephant"), ("set", "2, 3, 5, 7", "2, 3, 5 and 7")]
+    bad = [("num", 3, "4"), ("str", "x>=2", "x>=-2"), ("str", "13:20", "1:20"), ("num", 186, "£1.86"),
+           ("str", "25 r 3", "25 r 4"), ("str", "2:3", "3:2")]
+    assert [t for t in ok if not e.check_answer(*t)] == []
+    assert [t for t in bad if e.check_answer(*t)] == []
+
+
+def test_pie_answer_hidden_from_the_legend():
+    spec = {"slices": [["A", 12], ["B", 30]], "highlight": 1}
+    assert e.hide_pie_answer(spec, 30).get("hideValue") is True
+    assert "hideValue" not in e.hide_pie_answer(spec, 90)            # the angle is asked, the value may show

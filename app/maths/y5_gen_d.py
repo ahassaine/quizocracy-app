@@ -43,9 +43,10 @@ def _(d=1):
     dec = s.split(".")[1]
 
     def t_value():
-        k = random.randrange(len(dec))
-        while dec[k] == "0":
-            k = random.randrange(len(dec))
+        ks = [i for i in range(len(dec)) if dec[i] != "0" and s.count(dec[i]) == 1]
+        if not ks:
+            return t_thousandths()
+        k = pick(ks)
         v = Decimal(dec[k]) / (10 ** (k + 1))
         return _tb("What is the value of the digit %s in %s? Write it as a decimal." % (dec[k], s), _ds(v),
                    "num", {}, ["The %s is in the %s place, so it is worth %s." % (dec[k], DPLACE[k + 1], _ds(v))])
@@ -59,7 +60,7 @@ def _(d=1):
                    "tenths / hundredths / thousandths")
 
     def t_count():
-        p = pick([10, 100, 1000][: len(dec)])
+        p = pick([10, 100, 1000][len(dec) - 1:])
         name = {10: "tenths", 100: "hundredths", 1000: "thousandths"}[p]
         return _tb("How many %s are there altogether in %s?" % (name, s), int(x * p), "int", {},
                    ["%s × %d = %s, so %s whole %s." % (s, p, _ds(x * p), int(x * p), name)])
@@ -331,7 +332,7 @@ def _(d=1):
     def t_smallest_to():
         t = Decimal(random.randint(10, 99)) / 10
         return _tb("A number with 2 decimal places rounds to %s to one decimal place. What is the SMALLEST it could be?"
-                   % _ds(t), _ds(t - Decimal("0.05")), "num", {},
+                   % format(t, ".1f"), _ds(t - Decimal("0.05")), "num", {},
                    ["%s rounds up to %s." % (_ds(t - Decimal("0.05")), _ds(t))])
 
     def t_estimate():
@@ -555,7 +556,9 @@ def _(d=1):
 
     def t_rain():
         days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-        vals = [Decimal(random.randint(0, 60)) / 10 for _ in days]
+        vals = [Decimal(random.randint(0, 6)) / 2 for _ in days]
+        if max(vals) < 2:
+            vals[random.randrange(5)] = Decimal("2.5")
         i, j = random.sample(range(5), 2)
         return _lg("The graph shows rainfall each day, in cm. How much rain fell on %s and %s altogether, in cm?"
                    % (days[i], days[j]), [(dd, float(v)) for dd, v in zip(days, vals)], _ds(vals[i] + vals[j]),
@@ -696,9 +699,8 @@ def _(d=1):
         q = random.randint(1, 99)
         if g * 100 == q:
             q += 1
-        return _wq("Which is greater, %s or %d%%? Type the one that is greater." % (_fs(g), q),
-                   _fs(g) if g * 100 > q else "%d%%" % q, ["%s = %d%%." % (_fs(g), int(g * 100))],
-                   "e.g. 3/4 or 70%")
+        return _tb("Which is greater, %s or %d%%? Give the greater one as a percentage (number only)." % (_fs(g), q),
+                   max(int(g * 100), q), "int", {}, ["%s = %d%%." % (_fs(g), int(g * 100))])
 
     def t_score():
         den = pick([10, 20, 25, 50])
@@ -896,9 +898,10 @@ def _(d=1):
     def t_compare():
         x = random.randint(1, 9)
         y = x * f + pick([-1, 1]) * random.randint(1, f // 2)
-        bigger = "%d %s" % (x, big) if x * f > y else "%d %s" % (y, small)
-        return _wq("Which is more: %d %s or %d %s? Type it exactly as written." % (x, big, y, small), bigger,
-                   ["%d %s = %d %s." % (x, big, x * f, small)], "e.g. 3 kg")
+        bigger = big if x * f > y else small
+        return _wq("Which is more: %d %s or %d %s? Type the unit of the larger amount (%s or %s)."
+                   % (x, big, y, small, big, small), bigger,
+                   ["%d %s = %d %s." % (x, big, x * f, small)], "%s or %s" % (big, small))
 
     def t_add():
         a = Decimal(random.randint(11, 99)) / 10
@@ -983,7 +986,7 @@ def _(d=1):
         unit = "foot" if f == 1 else "feet"
         return _wq("Which is longer, %d %s or %d cm? (1 foot is about 30 cm.) Type %s or cm." % (f, unit, cm, unit),
                    unit if f * 30 > cm else "cm",
-                   ["%d × 30 = %d cm." % (f, f * 30)], "feet or cm")
+                   ["%d × 30 = %d cm." % (f, f * 30)], "%s or cm" % unit)
 
     def t_stone():
         st = random.randint(5, 12)
@@ -1537,7 +1540,7 @@ def _(d=1):
 
     def t_graph():
         wk = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5"]
-        vals = sorted(Decimal(v) / 10 for v in random.sample(range(10, 60), 5))
+        vals = sorted(Decimal(v) / 2 for v in random.sample(range(2, 13), 5))
         i, j = sorted(random.sample(range(5), 2))
         return _lg("The graph shows a puppy's mass each week, in kg. How much heavier was it in %s than in %s, in kg?"
                    % (wk[j], wk[i]), [(a, float(v)) for a, v in zip(wk, vals)], _ds(vals[j] - vals[i]),
@@ -1638,7 +1641,8 @@ def _(d=1):
         qa = random.randint(1, 3)
         tot = Decimal(menu[a][1] * qa + menu[b][1]) / 100
         return _dt("Use the price list. How much do %s %s%s and one %s cost altogether, in pounds?"
-                   % (n_words(qa), menu[a][0].lower(), "" if qa == 1 else "s", menu[b][0].lower()), ["Item", "Price"], rows,
+                   % (n_words(qa), menu[a][0].lower(), "" if qa == 1 else ("es" if menu[a][0] == "Sandwich" else "s"),
+                      menu[b][0].lower()), ["Item", "Price"], rows,
                    _ds(tot), ["%d × £%s + £%s = £%s." % (qa, format(Decimal(menu[a][1]) / 100, ".2f"),
                                                          format(Decimal(menu[b][1]) / 100, ".2f"), format(tot, ".2f"))],
                    atype="num")

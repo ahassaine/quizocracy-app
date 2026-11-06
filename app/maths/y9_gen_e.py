@@ -444,7 +444,7 @@ def _(d=1):
         mids = [Fraction(a + b, 2) for a, b in groups]
         m = sum(mp * x for mp, x in zip(mids, f)) / sum(f)
         q = _dt("The table shows %s. Estimate the mean, to 1 decimal place." % desc, hdr, rows, round(float(m) + 1e-12, 1),
-                ["Use midpoints: Σ(midpoint × f) ÷ Σf = %.3f." % float(m)], atype="num")
+                ["Use midpoints: Σ(midpoint × f) ÷ Σf = %s." % format((Decimal(m.numerator) / m.denominator).quantize(Decimal("0.001"), rounding="ROUND_HALF_UP"), "f")], atype="num")
         q["tolerance"] = 0.051
         return q
 
@@ -636,7 +636,7 @@ def _(d=1):
                 ys = [random.randint(5, 30) for _ in xs]
         else:
             ys = [(2 * x if kind == "positive" else 32 - 2 * x) + random.randint(-3, 3) for x in xs]
-        return {"prompt": "Describe the correlation shown: positive, negative or none?", "component": "scatter_plot",
+        return {"prompt": "Describe the correlation shown. Type one word: positive, negative or none.", "component": "scatter_plot",
                 "spec": {"points": sorted([[x, y] for x, y in zip(xs, ys)]), "xLabel": xl, "yLabel": yl}, "answer": kind, "answer_type": "str",
                 "solution": [{"positive": "As one rises, so does the other.", "negative": "As one rises, the other falls.",
                               "none": "There is no clear pattern."}[kind]]}

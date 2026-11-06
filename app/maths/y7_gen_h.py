@@ -241,8 +241,9 @@ def _(d=1):
     def t_reverse():
         a, b = random.randint(1, 4), random.randint(1, 4)
         qx, qy = random.randint(-2, 6), random.randint(-2, 6)
-        return _wq("After a translation %d right and %d up, a point is at (%d,%d). Where was it before? Write it like (1,2)."
-                   % (a, b, qx, qy), "(%d,%d)" % (qx - a, qy - b), ["Undo it: %d left and %d down." % (a, b)], "(x,y)")
+        return _tb("After a translation %d right and %d up, a point is at (%d,%d). Where was it before? Write it like (1,2)."
+                   % (a, b, qx, qy), "(%d,%d)" % (qx - a, qy - b), "coord", {"text": True, "placeholder": "(x,y)"},
+                   ["Undo it: %d left and %d down." % (a, b)])
 
     def t_triangle():
         k = pick([0, 1, -1])
@@ -256,9 +257,9 @@ def _(d=1):
 
     def t_invariant():
         on = random.randint(-6, 6)
-        return _wq("Which point stays in the same place when it is reflected in the x-axis: (%d,%d) or (%d,0)? Write it like "
-                   "(1,2)." % (on, 3, on), "(%d,0)" % on,
-                   ["Points on the mirror line do not move."], "(x,y)")
+        return _tb("Which point stays in the same place when it is reflected in the x-axis: (%d,%d) or (%d,0)? Write it like "
+                   "(1,2)." % (on, 3, on), "(%d,0)" % on, "coord", {"text": True, "placeholder": "(x,y)"},
+                   ["Points on the mirror line do not move."])
 
     def t_two_steps():
         a = random.randint(1, 4)

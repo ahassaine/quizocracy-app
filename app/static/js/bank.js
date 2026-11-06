@@ -43,6 +43,7 @@ function BankDrill(activity) {
       } else {
         const row = document.createElement('div'); row.className = 'row';
         const i = input(q.kind === 'num' ? { inputMode: 'decimal', className: 'answer' } : { className: 'answer wide' });
+        if (q.gap) i.placeholder = 'Type the missing word(s)';
         row.appendChild(i);
         if (q.kind === 'num' && q.unit) { const u = document.createElement('span'); u.className = 'unit'; u.textContent = q.unit; row.appendChild(u); }
         area.appendChild(row); i.focus();

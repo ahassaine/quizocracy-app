@@ -58,8 +58,11 @@ def _(d=1):
 
     def t_estimate():
         n = random.randint(15, 95)
-        return _nl("Estimate where %d goes on the line from 0 to 100. Mark it." % n, n, 1, 10, ["%d is a little %s %d." % (
-            n, "more than" if n % 10 < 5 else "less than", (n // 10) * 10 if n % 10 < 5 else (n // 10 + 1) * 10)], lo=0, hi=100)
+        o, t = n % 10, (n // 10) * 10
+        why = ("%d is exactly %d tens." % (n, n // 10) if o == 0 else
+               "%d is halfway between %d and %d." % (n, t, t + 10) if o == 5 else
+               "%d is a little more than %d." % (n, t) if o < 5 else "%d is a little less than %d." % (n, t + 10))
+        return _nl("Estimate where %d goes on the line from 0 to 100. Mark it." % n, n, 1, 10, [why], lo=0, hi=100)
 
     def t_place_value_chart():
         t, o = random.randint(1, 9), random.randint(0, 9)

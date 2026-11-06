@@ -14,6 +14,17 @@ import random
 from fractions import Fraction
 from .maths_engine import skill, pick, money, NAMES, ordinal
 
+
+def _half_up(x, places=0):
+    """Round half UP on the exact value, as taught in English schools: 19.625 -> 19.63.
+    Python's round() rounds halves to even and works on the binary float."""
+    from decimal import Decimal, ROUND_HALF_UP
+    if isinstance(x, Fraction):
+        d = Decimal(x.numerator) / Decimal(x.denominator)
+    else:
+        d = Decimal(str(x))
+    return float(d.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+
 S8 = "8.8 Geometry, transformations & Pythagoras"
 S9 = "8.9 Mensuration, statistics & probability"
 
@@ -272,17 +283,17 @@ def _(d=1):
             ("add up to 90°, together making a right angle", "complementary"),
             ("add up to 180°, together making a straight line", "supplementary"),
             ("are the equal angles opposite each other where two straight lines "
-             "cross", "vertical"),
+             "cross", "vertically opposite"),
             ("sit next to each other, sharing a vertex and one arm", "adjacent"),
             ("are exactly equal in size (the same number of degrees)", "congruent"),
         ])
         return _num_q("Two angles %s. Identify this relationship: are they "
-                      "complementary, supplementary, vertical, adjacent or congruent? "
-                      "(type one word)" % desc, ans, "str", text=True,
-                      placeholder="complementary / supplementary / vertical / adjacent "
-                                  "/ congruent",
+                      "complementary, supplementary, vertically opposite, adjacent or "
+                      "congruent? (type the name)" % desc, ans, "str", text=True,
+                      placeholder="complementary / supplementary / vertically opposite / "
+                                  "adjacent / congruent",
                       solution=["Complementary add to 90°, supplementary to 180°, "
-                                "vertical angles are opposite and equal, adjacent angles "
+                                "vertically opposite angles are equal, adjacent angles "
                                 "are side by side, congruent angles are equal.",
                                 "These angles are %s." % ans])
 
@@ -381,9 +392,8 @@ def _(d=1):
         while c <= 10:
             a, b = random.randint(30, 70), random.randint(20, 60)
             c = 180 - a - b
-        return _num_q("Two straight lines cross, making four angles. Two of the angles "
-                      "next to each other are %d° and %d°. What must the value of the "
-                      "third, unknown angle beside them be, in degrees?" % (a, b),
+        return _num_q("Three angles sit side by side on a straight line. Two of them "
+                      "are %d° and %d°. How many degrees is the third angle?" % (a, b),
                       c, "int", unit="degrees",
                       solution=["The three angles lie on a straight line and add to 180°.",
                                 "180 − %d − %d = %d°." % (a, b, c)])
@@ -501,11 +511,12 @@ def _(d=1):
 
 
 _QUADS8 = [("square", "4 equal sides and 4 right angles"),
-           ("rectangle", "opposite sides equal and 4 right angles"),
+           ("rectangle", "4 right angles but sides that are not all equal"),
            ("rhombus", "4 equal sides but no right angles"),
-           ("parallelogram", "opposite sides equal and parallel, no right angles"),
+           ("parallelogram", "opposite sides equal and parallel, adjacent sides of "
+                             "different lengths and no right angles"),
            ("trapezium", "exactly one pair of parallel sides"),
-           ("kite", "two pairs of adjacent equal sides")]
+           ("kite", "two pairs of adjacent equal sides, but not all four sides equal")]
 _TRIS8 = [("equilateral", "3 equal sides and 3 equal angles"),
           ("isosceles", "2 equal sides and 2 equal angles"),
           ("scalene", "all sides and all angles different"),
@@ -581,11 +592,12 @@ def _(d=1):
     if t == 4:                                        # triangle by angles
         kind, angs = pick([
             ("acute", (60, 70, 50)), ("right-angled", (90, 55, 35)),
-            ("obtuse", (110, 40, 30)), ("equilateral", (60, 60, 60)),
+            ("obtuse", (110, 40, 30)), ("acute", (80, 55, 45)),
+            ("obtuse", (125, 30, 25)), ("acute", (75, 65, 40)),
         ])
         return _num_q("A triangle has angles of %d°, %d° and %d°. Describe the triangle "
                       "by its angles. (type one word)" % angs, kind, "str", text=True,
-                      placeholder="acute / right-angled / obtuse / equilateral",
+                      placeholder="acute / right-angled / obtuse",
                       solution=["Look at the largest angle.",
                                 "This triangle is %s." % (kind if kind == "equilateral"
                                                           else kind + (" -angled"
@@ -1013,7 +1025,7 @@ def _(d=1):
                              "The net folds into %s." % _a(nm)]}
 
     if t == 1:                                        # net -> count faces (visual)
-        key, nm, faces = pick(_NETS8)
+        key, nm, faces = pick(_NETS8[:4])
         return {"prompt": "This net folds into a 3-D solid. How many flat faces will the "
                           "finished solid have?",
                 "component": "net", "spec": {"solid": key},
@@ -1052,7 +1064,7 @@ def _(d=1):
                                 "The view is %s." % _a(ans)])
 
     if t == 4:                                        # count faces/edges/vertices
-        nm, f, e, v = pick(_SOLIDS8)
+        nm, f, e, v = pick(_SOLIDS8[:4])
         prop, val = pick([("faces", f), ("edges", e), ("vertices", v)])
         return _num_q("How many %s does %s have?" % (prop, _a(nm)), val, "int",
                       solution=["Count the %s of %s carefully." % (prop, _a(nm)),
@@ -1176,8 +1188,8 @@ def _(d=1):
                       % _a(shape), order, "int",
                       solution=["The order of rotational symmetry is how many times the "
                                 "shape looks the same in one full turn.",
-                                "A %s has rotational symmetry of order %d."
-                                % (shape, order)])
+                                "%s has rotational symmetry of order %d."
+                                % (_a(shape).capitalize(), order)])
 
     if t == 0:                                        # reflect in an axis (plot image)
         x, y = _pt()
@@ -1878,11 +1890,11 @@ def _(d=1):
 
 # ================================================================== 8.9 ======
 _METRIC8 = [("km", "m", 1000), ("m", "cm", 100), ("cm", "mm", 10),
-            ("kg", "g", 1000), ("l", "ml", 1000), ("tonne", "kg", 1000),
+            ("kg", "g", 1000), ("l", "ml", 1000), ("t", "kg", 1000),
             ("m", "mm", 1000)]
 _UNITWORD = {"km": "kilometres", "m": "metres", "cm": "centimetres", "mm": "millimetres",
              "kg": "kilograms", "g": "grams", "l": "litres", "ml": "millilitres",
-             "tonne": "tonnes"}
+             "t": "tonnes"}
 
 
 @skill("Y8.9.a", "Convert and estimate metric units", S9)
@@ -2138,18 +2150,18 @@ def _(d=1):
         dp = pick([1, 2])
         if dp == 1:                                   # 2 decimals in, round to 1
             dec = random.randint(1, 99)
-            while dec % 10 == 5:                      # avoid ambiguous halves
+            while dec % 10 in (0, 5):                 # avoid halves and trivial cases
                 dec = random.randint(1, 99)
             v = whole + dec / 100.0
         else:                                         # 3 decimals in, round to 2
             dec = random.randint(1, 999)
-            while dec % 10 == 5:
+            while dec % 10 in (0, 5):
                 dec = random.randint(1, 999)
             v = whole + dec / 1000.0
         res = round(v, dp)
         return _num_q("Round %s to %d decimal place%s."
                       % (_f(v), dp, "" if dp == 1 else "s"), res, "num",
-                      tolerance=0.5 * 10 ** (-dp),
+                      tolerance=0,
                       solution=["Look at the digit after the %s decimal place."
                                 % ("first" if dp == 1 else "second"),
                                 "%s rounds to %s." % (_f(v), _f(res))])
@@ -2163,7 +2175,7 @@ def _(d=1):
         from math import log10, floor
         digits = int(floor(log10(v)))
         f = 10 ** (digits - sf + 1)
-        res = int(round(v / f) * f)
+        res = (v + f // 2) // f * f                    # round half up, as taught
         return _num_q("Round %d to %d significant figure%s." % (v, sf, "" if sf == 1
                                                                 else "s"),
                       res, "int",
@@ -2440,7 +2452,7 @@ def _(d=1):
         Wd = random.randint(3, 8)
         r = random.randint(2, 6)
         rect = L * Wd
-        quarter = round(3.14 * r * r / 4.0, 2)
+        quarter = _half_up(Fraction(314 * r * r, 400), 2)
         total = round(rect + quarter, 2)
         return _num_q("A compound figure is made of a rectangle with a quarter circle "
                       "attached to one corner. The rectangle measures %d cm by %d cm and "
@@ -2514,7 +2526,7 @@ def _(d=1):
     if t == 4:                                        # border / frame area
         W = random.randint(8, 16)
         H = random.randint(6, 14)
-        m = random.randint(1, 3)
+        m = random.randint(1, min(3, (min(W, H) - 2) // 2))
         outer = W * H
         inner = (W - 2 * m) * (H - 2 * m)
         return _num_q("A photo frame is %s cm by %d cm rectangle with a rectangular "
@@ -2778,7 +2790,7 @@ def _(d=1):
 
 _CHART8 = [
     ("Favourite sport", ["Football", "Netball", "Tennis", "Cricket"], "students"),
-    ("Books read this month", ["Mon", "Tue", "Wed", "Thu"], "books"),
+    ("Books read this week", ["Mon", "Tue", "Wed", "Thu"], "books"),
     ("How students travel to school", ["Walk", "Bus", "Car", "Cycle"], "students"),
     ("Goals scored", ["Team A", "Team B", "Team C", "Team D"], "goals"),
 ]
@@ -3010,12 +3022,12 @@ def _(d=1):
 
 
 _PIE8 = [
-    ("how 60 students travel to school", ["Walk", "Bus", "Car", "Cycle"], "students"),
-    ("the favourite fruit of 40 children", ["Apple", "Banana", "Grape", "Pear"],
+    ("how %d students travel to school", ["Walk", "Bus", "Car", "Cycle"], "students"),
+    ("the favourite fruit of %d children", ["Apple", "Banana", "Grape", "Pear"],
      "children"),
-    ("how 36 people voted", ["Red", "Blue", "Green", "Yellow"], "people"),
-    ("how 90 minutes of a lesson were spent", ["Reading", "Writing", "Talking",
-                                               "Testing"], "minutes"),
+    ("how %d people voted", ["Red", "Blue", "Green", "Yellow"], "people"),
+    ("how %d minutes of lessons were spent", ["Reading", "Writing", "Talking",
+                                              "Testing"], "minutes"),
 ]
 
 
@@ -3026,7 +3038,7 @@ def _pie_parts(total):
     while True:
         cuts = sorted(random.sample(range(1, total), 3))
         parts = [cuts[0], cuts[1] - cuts[0], cuts[2] - cuts[1], total - cuts[2]]
-        if all(p >= 2 for p in parts):
+        if all(p >= 2 for p in parts) and len(set(parts)) == 4:
             return parts
 
 
@@ -3035,6 +3047,9 @@ def _(d=1):
     d = _tier(d)
     topic, cats, who = pick(_PIE8)
     total = pick([36, 40, 60, 72, 90, 120])          # all divide 360
+    topic = topic % total
+    one = {"students": "student", "children": "child", "people": "person",
+           "minutes": "minute"}[who]
     unit = 360 // total
     parts = _pie_parts(total)
     slices = [[c, p] for c, p in zip(cats, parts)]
@@ -3057,7 +3072,7 @@ def _(d=1):
                 "component": "pie_chart",
                 "spec": {"slices": slices, "highlight": i, "showAngles": True},
                 "answer": parts[i], "answer_type": "int",
-                "solution": ["Each %s is 360 ÷ %d = %d°." % (who[:-1], total, unit),
+                "solution": ["Each %s is 360 ÷ %d = %d°." % (one, total, unit),
                              "%d ÷ %d = %d %s." % (ang, unit, parts[i], who)]}
 
     if t == 2:                                        # largest / smallest (visual)
@@ -3087,14 +3102,14 @@ def _(d=1):
         return _num_q("On a pie chart of %d %s, one category has %d %s. How many degrees "
                       "is its sector angle?" % (total, who, share, who),
                       unit * share, "int", unit="degrees",
-                      solution=["Each %s is 360 ÷ %d = %d°." % (who[:-1], total, unit),
+                      solution=["Each %s is 360 ÷ %d = %d°." % (one, total, unit),
                                 "%d × %d = %d°." % (share, unit, unit * share)])
 
     if t == 5:                                        # percentage -> angle
         pct = pick([10, 20, 25, 40, 50, 75])
         return _num_q("A sector is %d%% of a pie chart. How many degrees is its angle?"
                       % pct, 360 * pct // 100, "int", unit="degrees",
-                      solution=["The whole pie is 360° and 1%% is 3.6°.",
+                      solution=["The whole pie is 360° and 1% is 3.6°.",
                                 "%d × 3.6 = %d°." % (pct, 360 * pct // 100)])
 
     if t == 6:                                        # remaining sector
@@ -3496,7 +3511,7 @@ def _(d=1):
                           "point does not fit the pattern (an outlier). Type the "
                           "x-value of that outlier point.",
                 "component": "scatter_plot",
-                "spec": {"points": pts, "xLabel": xlab, "yLabel": ylab, "highlight": idx},
+                "spec": {"points": pts, "xLabel": xlab, "yLabel": ylab},
                 "answer": ox, "answer_type": "int",
                 "solution": ["Most points rise together, but one sits well below the "
                              "trend.",

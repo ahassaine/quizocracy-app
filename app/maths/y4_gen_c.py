@@ -291,7 +291,7 @@ def _(d=1):
         n = random.randint(4, 24)
         m = pick([10, 100])
         return _numq("%s packs %s into %s of %d. How many %s does %s pack "
-                     "altogether?" % (who, "counters", _pl(n, "box"), m,
+                     "altogether?" % (who, "counters", _pl(n, "box", "boxes"), m,
                                       "counters", who), n * m,
                      ["%d × %d = %d counters." % (n, m, n * m)], unit="counters")
 
@@ -345,11 +345,14 @@ def _(d=1):
                       % (a * 10, a * 100, a)])
 
     def on_line():
-        a = random.randint(2, 9)
-        m = pick([10, 100])
+        if d == 2:
+            a, m, hi = random.randint(11, 19), 10, 200
+        else:
+            a, m = random.randint(2, 9), pick([10, 100])
+            hi = 10 * m
         val = a * m
         return _nlq("Work out %d × %d and mark the answer on the number line."
-                    % (a, m), val, 0, 10 * m, m, 5 * m,
+                    % (a, m), val, 0, hi, m, 5 * m,
                     ["%d × %d = %d." % (a, m, val),
                      "Count %s of %d from 0." % (_pl(a, "step"), m)])
 
@@ -565,8 +568,9 @@ def _(d=1):
         k = random.randrange(4)
         n = random.randint(3, 6)
         rows = [[items[i], money(prices[i])] for i in range(4)]
+        plural = {"Torch": "torches"}.get(items[k], items[k].lower() + "s")
         return _dtq("This price list shows the cost of each item. How much do %d "
-                    "%ss cost altogether, in pence?" % (n, items[k].lower()),
+                    "%s cost altogether, in pence?" % (n, plural),
                     ["Item", "Price"], rows, prices[k] * n,
                     ["One %s costs %s, which is %dp."
                      % (items[k].lower(), money(prices[k]), prices[k]),
@@ -613,7 +617,7 @@ def _(d=1):
     def estimate():
         n = random.randint(196, 812)
         k = random.randint(3, 6)
-        rounded = int(round(n / 100.0)) * 100
+        rounded = (n + 50) // 100 * 100
         return _numq("Estimate %d × %d by rounding %d to the nearest hundred "
                      "first. What is the estimate?" % (n, k, n), rounded * k,
                      ["%d rounded to the nearest hundred is %d." % (n, rounded),
@@ -794,9 +798,10 @@ def _(d=1):
         h = a // 100
         if h < b:
             return bare()
-        return _numq("Short division starts with the hundreds. In %d ÷ %d, how "
-                     "many whole %ss are there in %s?"
-                     % (a, b, b, _pl(h, "hundred")), h // b,
+        return _numq("Short division starts with the hundreds digit. In %d ÷ %d, "
+                     "the hundreds digit is %d. How many times does %d go into %d "
+                     "(ignore any remainder)? This is the first digit of the "
+                     "answer." % (a, b, h, b, h), h // b,
                      ["%d ÷ %d = %d remainder %d." % (h, b, h // b, h % b),
                       "So the first digit of the answer is %d." % (h // b)])
 
@@ -994,7 +999,7 @@ def _(d=1):
     def money_word():
         each = random.randint(3, 9)
         n = random.randint(3, 7)
-        rem = random.randint(1, each - 1) if each > 1 else 1
+        rem = random.randint(1, n - 1)
         tot = each * n + rem
         return _numq("%s is shared equally between %d children, in whole pence. "
                      "How many pence are left over?" % (money(tot), n), rem,
@@ -1215,9 +1220,9 @@ def _(d=1):
         vals = [total, random.randint(20, 90), random.randint(20, 90)]
         return _barq("The chart shows how much fruit was picked. The apples are "
                      "packed into bags of %d. How many bags of apples are there?"
-                     % per, cats, vals, groups,
+                     % groups, cats, vals, per,
                      ["There are %d apples." % total,
-                      "%d ÷ %d = %d bags." % (total, per, groups)])
+                      "%d ÷ %d = %d bags." % (total, groups, per)])
 
     def picto():
         key = pick([5, 10])
@@ -1274,7 +1279,7 @@ def _(d=1):
     def money_table():
         items = ["Cinema", "Museum", "Zoo", "Aquarium"]
         n = random.randint(3, 8)
-        eaches = random.sample(range(120, 460), 4)
+        eaches = random.sample(range(30, 999 // n + 1), 4)
         i = random.randrange(4)
         rows = [[items[j], money(eaches[j] * n)] for j in range(4)]
         return _dtq("This table shows the total cost for a group of %d children "
@@ -1416,7 +1421,7 @@ def _(d=1):
         who = pick(NAMES)
         n = random.randint(3, 9)
         per = random.randint(11, 40)
-        spent = random.randint(5, 40)
+        spent = random.randint(5, min(40, n * per - 1))
         return _numq("%s buys %d packs of cards with %d cards in each pack, then "
                      "gives away %d cards. How many cards does %s have left?"
                      % (who, n, per, spent, who), n * per - spent,
@@ -1564,9 +1569,9 @@ def _(d=1):
 
     def write_slot_add():
         k = random.randint(3, 40)
-        return _numq("A number %s is %d more than a number %s. The expression is "
-                     "%s + ___ . Type the missing number."
-                     % (var, k, var, var), k,
+        return _numq("A number is %d more than %s. The expression for the number "
+                     "is %s + ___ . Type the missing number."
+                     % (k, var, var), k,
                      ["'%d more than %s' means add %d." % (k, var, k),
                       "The expression is %s + %d." % (var, k)])
 
@@ -1916,9 +1921,10 @@ def _(d=1):
     def proper_from_parts():
         den = pick([6, 8, 9, 10, 12, 100])
         num = random.randint(1, den - 1)
-        return _fracq("A shape is split into %d equal parts and %s are shaded. "
+        return _fracq("A shape is split into %d equal parts and %s %s shaded. "
                       "Write the proper fraction that is shaded."
-                      % (den, _pl(num, "part")), num, den,
+                      % (den, _pl(num, "part"), "is" if num == 1 else "are"),
+                      num, den,
                       ["%d shaded out of %d equal parts." % (num, den),
                        "The fraction is %d/%d, which is less than 1 whole."
                        % (num, den)])
@@ -2021,7 +2027,7 @@ def _(d=1):
                     en / float(ed), 0, 1, 1.0 / line_den, 1.0 / line_den,
                     ["%s = %d/%d." % (_frac_words(en, ed).capitalize(),
                                       en * line_den // ed, line_den),
-                     "Count %d steps from 0." % (en * line_den // ed)])
+                     "Count %s from 0." % _pl(en * line_den // ed, "step")])
 
     def graph_larger():
         den = pick([4, 5, 8, 10])
@@ -2121,7 +2127,7 @@ def _(d=1):
 
     def sequence_tenths():
         step = _by_d(d, 2, 2, 3)
-        start = random.randint(1, max(1, 10 - 3 * step))
+        start = random.randint(1, max(1, 10 - (3 if d < 2 else 2) * step))
         seq = [start + i * step for i in range(3)]
         return _fracq("What comes next?  %s, ___"
                       % ", ".join("%d/10" % v for v in seq),
@@ -2183,7 +2189,7 @@ def _(d=1):
         return _fbq("This bar is one whole split into tenths. Count in tenths and "
                     "shade %s." % _pl(n, "tenth"), 10, n,
                     ["Each part of the bar is one tenth.",
-                     "Shade %d parts to show %d/10." % (n, n)])
+                     "Shade %s to show %d/10." % (_pl(n, "part"), n)])
 
     def hundredths_grid():
         k = pick([5, 10, 15, 20, 25, 30, 40, 50])
@@ -2301,10 +2307,11 @@ def _(d=1):
                     "on the line." % (line_den, _frac_words(en, ed)),
                     en / float(ed), 0, 1, 1.0 / line_den, 1.0 / line_den,
                     ["%d/%d = %d/%d." % (en, ed, en * line_den // ed, line_den),
-                     "Count %d steps from 0." % (en * line_den // ed)])
+                     "Count %s from 0." % _pl(en * line_den // ed, "step")])
 
     def how_many():
-        word = _FRAC_WORDS.get(den * k, "%dth" % (den * k)) + "s"
+        word = (_FRAC_WORDS[den * k] + "s" if den * k in _FRAC_WORDS
+                else "1/%d parts" % (den * k))
         return _numq("How many %s are the same as %s?"
                      % (word, _frac_words(n, den)), n * k,
                      ["%d/%d = %d/%d." % (n, den, n * k, den * k),
@@ -2471,8 +2478,8 @@ def _(d=1):
                        % (sn, sd, ans)], placeholder="A or B")
 
     def shade_simplest():
-        return _fbq("This bar has %d equal parts. Shade it to show %d/%d, which "
-                    "has been written in its simplest form." % (sd, bn, bd),
+        return _fbq("This bar has %d equal parts. Write %d/%d in its simplest "
+                    "form, then shade the bar to show it." % (sd, bn, bd),
                     sd, sn,
                     ["%d/%d = %d/%d in its simplest form." % (bn, bd, sn, sd),
                      "Shade %d of the %d parts." % (sn, sd)])

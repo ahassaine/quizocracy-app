@@ -621,8 +621,8 @@ def _(d=1):
 
     def t_steeper():
         m2 = m + pick([1, 2]) if m > 0 else m - pick([1, 2])
-        return _wq("Which line is steeper: y = %sx + 1 or y = %sx + 1? (type the number in front of x)"
-                   % (str(m).replace("-", "−"), str(m2).replace("-", "−")),
+        return _wq("Which line is steeper: %s or %s? (type the number in front of x)"
+                   % (_yx(m, 1), _yx(m2, 1)),
                    str(m2), ["The bigger the number in front of x (ignoring its sign), the steeper the line."], "e.g. 3")
 
     return _pick_t([t_on_line, t_intercept, t_horizontal, t_missing_coord, t_find_x, t_negative_x, t_steeper],

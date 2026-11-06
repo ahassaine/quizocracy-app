@@ -105,7 +105,7 @@ def _(d=1):
                    ["Horizontal goes side to side; vertical goes straight up and down."], "horizontal / vertical")
 
     def t_letters():
-        letter, h, v = pick([("T", 1, 1), ("H", 1, 2), ("E", 3, 1), ("L", 1, 1), ("F", 2, 1), ("I", 0, 1)])
+        letter, h, v = pick([("T", 1, 1), ("H", 1, 2), ("E", 3, 1), ("L", 1, 1), ("F", 2, 1)])
         kind = pick(["horizontal", "vertical"])
         return _tb("Look at the capital letter %s. How many %s lines does it have?" % (letter, kind),
                    h if kind == "horizontal" else v, "int", {},
@@ -113,7 +113,7 @@ def _(d=1):
 
     def t_shape():
         name, h, v = pick([("square", 2, 2), ("rectangle", 2, 2)])
-        return _tb("A %s sits flat on the floor. How many of its sides are vertical?" % name, v, "int", {},
+        return _tb("A %s is drawn on the board with its bottom side horizontal. How many of its sides are vertical?" % name, v, "int", {},
                    ["Two sides go up and down."])
 
     def t_plot():
@@ -129,7 +129,7 @@ def _(d=1):
                                                                "height" if horiz else "across position")]}
 
     def t_perp():
-        return _wq("A horizontal line and a vertical line meet. What kind of angle do they make? (one word)", "right",
-                   ["Horizontal and vertical lines are perpendicular: they meet at a right angle."], "one word")
+        return _wq("A horizontal line and a vertical line meet. Is the angle they make acute, right or obtuse?", "right",
+                   ["Horizontal and vertical lines are perpendicular: they meet at a right angle."], "acute / right / obtuse")
 
     return _pick_t([t_name, t_letters, t_shape, t_perp], [t_plot])

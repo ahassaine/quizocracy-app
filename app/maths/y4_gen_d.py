@@ -862,8 +862,8 @@ def _(d=1):
                                 % _dec_text((a + b) // 2)])
 
     # place the answer to a small step question
-    base = random.randrange(0, 190, 10)
     k = random.randint(1, 5)
+    base = random.randrange(0, 200 - k * 10 + 1, 10)
     return _line_q("Count on %s from %s and place the number you reach on the "
                    "number line." % (_pl(k, "tenth"), _dec_text(base)),
                    _h(base + k * 10), 0, 2, 0.1, 0.5,
@@ -1035,7 +1035,7 @@ def _(d=1):
                       % (_dec_text(cut), ", ".join(_dec_text(v) for v in vs)),
                       n_more, "int",
                       solution=["Compare each number with %s." % _dec_text(cut),
-                                "%d of them are greater." % n_more])
+                                "%d of them %s greater." % (n_more, "is" if n_more == 1 else "are")])
 
     # money comparison
     a = random.randint(105, 995)
@@ -1189,7 +1189,7 @@ def _(d=1):
     if t == 12:                      # mass / time contexts
         who = pick(NAMES)
         v = random.randint(105, 995)
-        what, unit = pick([("%s's parcel weighs %s kg.", "kg"), ("%s ran for %s minutes.", "minutes"),
+        what, unit = pick([("%s's parcel weighs %s kg.", "kg"), ("%s's rope is %s m long.", "m"),
                            ("%s's pumpkin weighs %s kg.", "kg")])
         return _num_q((what % (who, _dec_text(v))) + " Round this to the nearest whole number.",
                       _round_half_up(v / 100.0), "int", unit=unit,
@@ -1288,11 +1288,13 @@ def _(d=1):
                         "%d ÷ 10 = %s." % (n, _n(n / 10.0))])
 
     if t == 8:                       # what was divided by what
-        n = random.randint(2, 9) * 100 + random.randint(0, 99)
+        n = random.randint(2, 9) * 100 + random.randint(1, 99)
+        by = pick([10, 100])
         return _num_q("%s ÷ ___ = %s. Write the missing number (10 or 100)."
-                      % (_n(n / 1.0), _n(n / 100.0)), 100, "int",
-                      solution=["The digits have moved two places to the right.",
-                                "So the number was divided by 100."])
+                      % (_n(n / 1.0), _n(n / float(by))), by, "int",
+                      solution=["The digits have moved %s to the right."
+                                % ("one place" if by == 10 else "two places"),
+                                "So the number was divided by %d." % by])
 
     # single digit ÷ 100
     n = random.randint(1, 9)
@@ -1529,8 +1531,7 @@ def _(d=1):
     if t == 7:                       # conversion table with a missing cell
         rows = []
         vals = []
-        for _i in range(3):
-            v = random.randint(2, 12)
+        for v in random.sample(range(2, 13), 3):
             vals.append(v)
             rows.append(["%d %s" % (v, big), "%d %s" % (v * factor, small)])
         k = random.randrange(3)
@@ -1543,7 +1544,7 @@ def _(d=1):
                         missing=(k, 1))
 
     if t == 8:                       # decimal conversion
-        v = random.randint(105, 995)
+        v = random.randrange(110, 1000, 10) if factor == 1000 else random.randint(105, 995)
         return _num_q("Write %d %s in %s as a decimal."
                       % (v, small, _uname(big)),
                       round(v / float(factor), 3), "num", unit=big,
@@ -1627,7 +1628,7 @@ def _(d=1):
                 "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g"},
                 "answer": v, "answer_type": "int",
                 "solution": ["The pointer is at %d g." % v,
-                             "That is %s of a kilogram." % _n(v / 1000.0)]}
+                             "That is %s of a kilogram." % ("%.3f" % (v / 1000.0)).rstrip("0").rstrip(".")]}
 
     if t == 5:                       # comparison
         kg = random.randint(1, 6)
@@ -1660,8 +1661,7 @@ def _(d=1):
     if t == 8:                       # conversion table
         rows = []
         vals = []
-        for _i in range(3):
-            v = random.randint(1, 9)
+        for v in random.sample(range(1, 10), 3):
             vals.append(v)
             rows.append(["%d kg" % v, "%d g" % (v * 1000)])
         k = random.randrange(3)
@@ -1806,8 +1806,7 @@ def _(d=1):
     if t == 8:                       # conversion table
         rows = []
         vals = []
-        for _i in range(3):
-            v = random.randint(1, 9)
+        for v in random.sample(range(1, 10), 3):
             vals.append(v)
             rows.append(["%d l" % v, "%d ml" % (v * 1000)])
         k = random.randrange(3)
@@ -1905,14 +1904,15 @@ def _(d=1):
         thing, unit = pick(_UNIT_CHOICE)
         return _num_q("Which unit would you use to measure %s: millimetres, "
                       "centimetres, metres, kilometres, grams, kilograms, "
-                      "millilitres or litres? Type the unit." % thing,
-                      unit, "str", text=True, placeholder="type the unit",
+                      "millilitres or litres? Type the unit name in full, as it "
+                      "is written in the list." % thing,
+                      unit, "str", text=True, placeholder="type the unit name",
                       solution=["%s is best measured in %s."
                                 % (thing.capitalize(), unit)])
 
     if t == 4:                       # choose the measuring tool
         job, tool = pick([
-            ("how long a table is", "tape measure"),
+            ("how long the school playground is", "tape measure"),
             ("how heavy a bag of apples is", "scales"),
             ("how much water a bottle holds", "measuring jug"),
             ("how long a pencil is", "ruler"),
@@ -2094,8 +2094,7 @@ def _(d=1):
     # imperial conversion table
     rows = []
     vals = []
-    for _i in range(3):
-        v = random.randint(1, 9)
+    for v in random.sample(range(1, 10), 3):
         vals.append(v)
         rows.append(["%d" % v, "%d" % (v * 12)])
     k = random.randrange(3)
@@ -2142,14 +2141,14 @@ def _(d=1):
 
     if t == 10:                      # which collection shows more money?
         g1, s1, g2, s2 = _two_groups()
-        return _num_q("Each picture shows a collection of coins. Picture A has %s. "
-                      "Picture B has %s. Which picture shows more money? Type A or B."
+        return _num_q("Here are two collections of coins. Collection A has %s. "
+                      "Collection B has %s. Which collection is worth more? Type A or B."
                       % (_coin_list(g1), _coin_list(g2)),
                       "A" if s1 > s2 else "B", "str", text=True,
                       placeholder="A or B",
-                      solution=["Picture A is worth %s and picture B is "
+                      solution=["Collection A is worth %s and collection B is "
                                 "worth %s." % (money(s1), money(s2)),
-                                "Picture %s shows more money."
+                                "Collection %s is worth more."
                                 % ("A" if s1 > s2 else "B")])
 
     if t == 11:                      # how much more money does one collection show?
@@ -2474,9 +2473,10 @@ def _(d=1):
         names, prices, rows = _list(4, 60, 400)
         budget = random.randint(150, 500)
         n_afford = len([p for p in prices if p <= budget])
+        who = pick(NAMES)
         return _table_q("Use the price list. %s has %s. How many of the four items "
                         "could %s afford to buy, one at a time?"
-                        % (NAMES[0], money(budget), NAMES[0]),
+                        % (who, money(budget), who),
                         ["Item", "Price"], rows, n_afford, "int",
                         ["Compare each price with %s." % money(budget),
                          "%d of the items cost %s or less." % (n_afford,
@@ -2541,15 +2541,15 @@ def _(d=1):
                     "answer": _hm(h24 - 12, m), "answer_type": "time",
                     "solution": ["%s in 12-hour time is %s."
                                  % (_hm24(h24, m), _hm(h24 - 12, m)),
-                                 "Put the hour hand just past %d and the minute "
-                                 "hand on %d minutes." % (h24 - 12, m)]}
+                                 "Put the hour hand %s %d and the minute "
+                                 "hand on %d minutes." % ("exactly on" if m == 0 else "just past", h24 - 12, m)]}
         return {"prompt": "A digital clock shows %s. Set the analogue clock so that "
                           "it matches the digital clock." % _hm(h, m),
                 "component": "clock", "spec": {"mode": "set"},
                 "answer": _hm(h, m), "answer_type": "time",
                 "solution": ["The two clocks match when they show the same time.",
-                             "Put the hour hand just past %d and the minute hand "
-                             "on %d minutes." % (h, m)]}
+                             "Put the hour hand %s %d and the minute hand "
+                             "on %d minutes." % ("exactly on" if m == 0 else "just past", h, m)]}
 
     if t == 10:                      # analogue words -> matching digital clock
         mm = pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
@@ -2576,7 +2576,7 @@ def _(d=1):
         return {"prompt": "Set the clock to %s." % _hm(h, m),
                 "component": "clock", "spec": {"mode": "set"},
                 "answer": _hm(h, m), "answer_type": "time",
-                "solution": ["The hour hand goes just past %d." % h,
+                "solution": ["The hour hand goes %s %d." % ("exactly on" if m == 0 else "just past", h),
                              "The minute hand shows %d minutes." % m]}
 
     if t == 1:                       # set from words
@@ -2630,7 +2630,7 @@ def _(d=1):
 
     if t == 5:                       # before or after midday
         hh = random.randint(1, 12)
-        mm = pick([0, 15, 30, 45])
+        mm = pick([15, 30, 45]) if hh == 12 else pick([0, 15, 30, 45])
         half = pick(["am", "pm"])
         return _num_q("Is %s %s before or after midday? Type before or after."
                       % (_hm(hh, mm), half),
@@ -2694,7 +2694,7 @@ def _(d=1):
                                 % (h12, h12 + 12, _hm24(h12 + 12, mins))])
 
     if t == 2:                       # morning: hour number only
-        h12 = random.randint(1, 11)
+        h12 = random.randint(8, 11)
         return _num_q("A lesson starts at %s am. In 24-hour time, what is the hour "
                       "number?" % _hm(h12, mins), h12, "int",
                       solution=["Morning hours keep the same number in 24-hour time.",
@@ -2727,7 +2727,7 @@ def _(d=1):
                          "As a 12-hour time that is %s." % ans])
 
     if t == 5:                       # is a 24-hour time morning or afternoon
-        h24 = random.randint(0, 23)
+        h24 = random.randint(6, 17)
         return _num_q("Is %s in 24-hour time in the morning or the afternoon? "
                       "Type morning or afternoon." % _hm24(h24, mins),
                       "morning" if h24 < 12 else "afternoon", "str", text=True,
@@ -2763,7 +2763,7 @@ def _(d=1):
             "component": "clock", "spec": {"mode": "set"},
             "answer": _hm(h24 - 12, mins), "answer_type": "time",
             "solution": ["%s is %s pm." % (_hm24(h24, mins), _hm(h24 - 12, mins)),
-                         "Set the hour hand just past %d." % (h24 - 12)]}
+                         "Set the hour hand %s %d." % ("exactly on" if mins == 0 else "just past", h24 - 12)]}
 
 
 @skill("Y4.7.k", "Convert units of time", S7)
@@ -2856,8 +2856,7 @@ def _(d=1):
     if t == 8:                       # conversion table
         rows = []
         vals = []
-        for _i in range(3):
-            v = random.randint(1, 9)
+        for v in random.sample(range(1, 10), 3):
             vals.append(v)
             rows.append(["%d" % v, "%d" % (v * 60)])
         k = random.randrange(3)
@@ -2907,7 +2906,8 @@ def _(d=1):
         i = random.randrange(3)
         j = random.randrange(i + 1, 4)
         return _table_q("The timeline shows four events and the year each one "
-                        "happened. How many years are there between %s and %s?"
+                        "happened. How many years are there between the year %s "
+                        "and the year %s?"
                         % (events[i], events[j]),
                         ["Year", "Event"], rows, years[j] - years[i], "int",
                         ["%s in %d and %s in %d."
@@ -3015,19 +3015,20 @@ def _(d=1):
 
     if t == 5:                       # days in a month
         name, days = pick(_MONTHS)
-        return _num_q("How many days are there in %s?" % name, days, "int",
-                      unit="days",
+        return _num_q("How many days are there in %s%s?"
+                      % (name, " in an ordinary year (not a leap year)" if name == "February" else ""),
+                      days, "int", unit="days",
                       solution=["%s has %d days in an ordinary year." % (name, days)])
 
     if t == 6:                       # calendar: date of the next same weekday
         name, days = pick(_MONTHS)
         day = pick(_DAYS)
-        date = random.randint(1, days - 14)
         k = random.randint(1, 3)
-        return _num_q("The %s of %s is a %s. What is the date of the %s %s "
-                      "in %s?" % (_ord(date), name, day,
-                                  "next" if k == 1 else _ord(k) + " following",
-                                  day, name),
+        date = random.randint(1, days - 7 * k)
+        return _num_q("The %s of %s is a %s. What is the date of the %s "
+                      "%s later, in %s?" % (_ord(date), name, day, day,
+                                            "1 week" if k == 1 else "%d weeks" % k,
+                                            name),
                       date + 7 * k, "int",
                       solution=["The same weekday comes round every 7 days.",
                                 "%d + %d = %d." % (date, 7 * k, date + 7 * k)])
@@ -3036,7 +3037,7 @@ def _(d=1):
         name, days = pick(_MONTHS)
         a = random.randint(1, days - 5)
         b = random.randint(a + 2, days)
-        return _num_q("How many days are there from the %s of %s to the %s of %s?"
+        return _num_q("How many days after the %s of %s is the %s of %s?"
                       % (_ord(a), name, _ord(b), name), b - a, "int", unit="days",
                       solution=["%d − %d = %d days." % (b, a, b - a)])
 

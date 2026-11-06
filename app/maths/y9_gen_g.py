@@ -218,14 +218,14 @@ def _(d=1):
 
     def t_best_buy():
         g1, g2 = pick([(200, 500), (250, 400), (300, 750), (400, 1000), (500, 800)])
-        u1 = random.randint(30, 80)
-        u2 = u1 + pick([-6, -4, -3, 3, 4, 6])
+        u1 = random.randint(15, 40) * 2
+        u2 = u1 + pick([-6, -4, 4, 6])
         p1, p2 = Decimal(u1 * g1) / 10000, Decimal(u2 * g2) / 10000
         return _tb("Cereal: %d g for £%s, or %d g for £%s. What is the price per 100 g of the BETTER buy, in pence?" % (g1, _money(p1), g2, _money(p2)),
                    min(u1, u2), "int", {"unit": "p"}, ["Per 100 g: %dp and %dp." % (u1, u2), "The cheaper per 100 g is %dp." % min(u1, u2)])
 
     def t_statement():
-        bal = random.randint(600, 1500)
+        bal = random.randint(700, 1500)
         moves = [("Wages", random.randint(300, 900)), ("Rent", -random.randint(200, 500)), ("Shopping", -random.randint(20, 120)),
                  ("Refund", random.randint(5, 40))]
         random.shuffle(moves)
@@ -264,7 +264,7 @@ def _(d=1):
                    ["%s − %s − %s − %s = %s." % (_c(gross), _c(tax), _c(ni), _c(pen), _c(gross - tax - ni - pen))], missing=[4, 1])
 
     def t_discount():
-        price = random.randint(4, 30) * 10
+        price = random.randint(2, 15) * 20
         pct, cash = pick([10, 20, 25]), random.randint(2, 8) * 5
         a, b = price * (100 - pct) // 100, price - cash
         if a == b:
@@ -311,18 +311,21 @@ def _(d=1):
     d = _d(d)
 
     def _equal_pair():
-        x = random.randint(5, 25)
-        a, c = random.sample(range(2, 8), 2)
-        if a < c:
-            a, c = c, a
-        b = random.randint(-10, 20)
+        while True:
+            x = random.randint(5, 25)
+            a, c = random.sample(range(2, 8), 2)
+            if a < c:
+                a, c = c, a
+            b = random.randint(-10, 20)
+            if 0 < a * x + b < 180:
+                break
         e = (a - c) * x + b
         return a, b, c, e, x
 
     def t_corresponding():
         a, b, c, e, x = _equal_pair()
         return _tb("Two corresponding angles on parallel lines are (%s)° and (%s)°. Find x." % (_ex(a, b), _ex(c, e)), x, "int", {},
-                   ["Corresponding angles are equal: %s = %s." % (_ex(a, b), _ex(c, e)), "%dx = %d, so x = %d." % (a - c, e - b, x)])
+                   ["Corresponding angles are equal: %s = %s." % (_ex(a, b), _ex(c, e)), "%sx = %d, so x = %d." % ("" if a - c == 1 else a - c, e - b, x)])
 
     def t_alternate_size():
         a, b, c, e, x = _equal_pair()
@@ -330,8 +333,8 @@ def _(d=1):
         if not 0 < ang < 180:
             return t_corresponding()
         return _tb("Two alternate angles on parallel lines are (%s)° and (%s)°. How big is each angle?" % (_ex(a, b), _ex(c, e)), ang, "int", {"unit": "°"},
-                   ["Alternate angles are equal: %s = %s, so x = %d." % (_ex(a, b), _ex(c, e), x), "Each angle is %d × %d %s = %d°." % (
-                       a, x, ("+ %d" % b) if b >= 0 else ("− %d" % -b), ang)])
+                   ["Alternate angles are equal: %s = %s, so x = %d." % (_ex(a, b), _ex(c, e), x), "Each angle is %d × %d%s = %d°." % (
+                       a, x, (" + %d" % b) if b > 0 else (" − %d" % -b) if b < 0 else "", ang)])
 
     def t_co_interior():
         while True:
@@ -509,7 +512,7 @@ def _(d=1):
 
     def t_above():
         i = random.randint(1, k - 1)
-        return _bar("The bar chart shows grouped %s. How many values are more than %d?" % (desc, groups[i][0]), cats, f, sum(f[i:]),
+        return _bar("The bar chart shows grouped %s (each bar includes its upper value). How many values are more than %d?" % (desc, groups[i][0]), cats, f, sum(f[i:]),
                     ["Add the bars from %s up: %d." % (cats[i], sum(f[i:]))])
 
     def t_modal():
@@ -555,9 +558,9 @@ def _(d=1):
         tot = sum(v * x for v, x in zip(vals, ff))
         m = Fraction(tot, sum(ff))
         if m.denominator not in (1, 2, 4, 5, 10):
-            return _bar("The vertical line chart shows how many goals a team scored per match. In how many matches did they score at least 3?",
+            return _bar("The bar chart shows how many goals a team scored per match. In how many matches did they score at least 3?",
                         [str(v) for v in vals], ff, sum(ff[3:]), ["%d + %d + %d = %d." % (ff[3], ff[4], ff[5], sum(ff[3:]))])
-        return _bar("The vertical line chart shows how many goals a team scored per match. What is the mean number of goals?", [str(v) for v in vals], ff,
+        return _bar("The bar chart shows how many goals a team scored per match. What is the mean number of goals?", [str(v) for v in vals], ff,
                     _ds(m), ["Total goals %d in %d matches." % (tot, sum(ff)), "%d ÷ %d = %s." % (tot, sum(ff), _ds(m))], atype="num")
 
     def t_pie():

@@ -13,6 +13,8 @@ LISTS = json.load(open(BASE_DIR / "data" / "nc_spelling.json", encoding="utf-8")
 KS3 = json.load(open(BASE_DIR / "data" / "ks3_spelling.json", encoding="utf-8"))["lists"]
 INTERVALS = [0, 1, 3, 7, 21]          # days until the next review, by box
 LEARNED_BOX = 3                       # three correct answers on separate days
+# Other standard British spellings that also count as right (lower case).
+VARIANTS = {"coordinates": ("co-ordinates",), "Mr": ("mr.",), "Mrs": ("mrs.",)}
 
 # Words that sound like other words: the child gets a sentence with a gap. Written by hand.
 CUES = {
@@ -33,6 +35,15 @@ CUES = {
     "past": "We walked ___ the shop.", "dessert": "We had ice cream for ___.",
     "muscle": "Your heart is a ___.", "rhyme": "Cat and hat ___.", "queue": "Wait in the ___.",
     "programme": "We watched a TV ___.", "practise": "I ___ the piano every day.",
+    # More words that sound like others (Years 1-6)
+    "do": "What did you ___ today?", "you": "Thank ___ very much.", "your": "Is this ___ bag?",
+    "we": "___ went to the park.", "no": "___, thank you.", "so": "I was ___ tired that I fell asleep.",
+    "some": "Can I have ___ water?", "poor": "The ___ man had no money.", "find": "Can you ___ my shoe?",
+    "father": "My mother and ___ came to watch.", "sure": "Are you ___?", "clothes": "Put your ___ on.",
+    "Mr": "Write the short form: ___ Smith is our teacher.", "Mrs": "Write the short form: ___ Patel lives next door.",
+    "build": "We will ___ a sandcastle.", "caught": "She ___ the ball.", "forward": "Please ___ the email to me.",
+    "straight": "Draw a ___ line.", "heart": "Your ___ pumps blood.",
+    "lightning": "Thunder and ___ filled the sky.", "symbol": "A dove is a ___ of peace.",
     # KS3 lists
     "whether": "I don't know ___ it will rain.", "advice": "Can you give me some ___?",
     "advise": "I ___ you to wear a coat.", "affect": "Will the rain ___ the match?",
@@ -40,6 +51,9 @@ CUES = {
     "stationary": "The car was ___ at the lights.", "stationery": "Pens and paper are ___.",
     "licence": "You need a driving ___.", "personnel": "Hospital ___ wear badges.",
     "wholly": "I am ___ sure.", "quiet": "Please be ___ in the library.",
+    "source": "Check the ___ of your information.", "capital": "Paris is the ___ of France.",
+    "ceiling": "A spider hung from the ___.", "presence": "Her ___ at the meeting surprised us.",
+    "precede": "A short speech will ___ the film.", "proceed": "Please ___ to the exit.",
 }
 
 
@@ -91,7 +105,8 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     if not it:
         return None
     word = it["answer"]
-    correct = str(value or "").strip().lower() == word.lower()
+    typed = " ".join(str(value or "").split()).lower()
+    correct = typed == word.lower() or typed in VARIANTS.get(word, ())
     st = await db.spelling_words.find_one({"_id": f"{pupil['_id']}:{word}"}) or {}
     box = int(st.get("box", 0))
     box = min(box + 1, len(INTERVALS) - 1) if correct else 0

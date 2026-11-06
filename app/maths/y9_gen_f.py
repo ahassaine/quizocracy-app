@@ -72,7 +72,7 @@ def _(d=1):
         v = random.randint(3, 30) * step
         lo, hi = Fraction(v) - Fraction(step, 2), Fraction(v) + Fraction(step, 2)
         return _set("%s is %d, rounded to the nearest %d. Type the lower and upper bounds of the error interval, like 22.5, 27.5." % (
-                    pick(["A length in mm", "A score", "A distance in km"]), v, step), [_ds(lo), _ds(hi)],
+                    pick(["A length in mm", "A mass in grams", "A distance in km"]), v, step), [_ds(lo), _ds(hi)],
                     ["%s ≤ x < %s." % (_ds(lo), _ds(hi))], "e.g. 22.5, 27.5")
 
     def t_truncate():
@@ -133,7 +133,7 @@ def _(d=1):
                    ["As improper fractions: %s × %s = %s = %s." % (_fs(a), _fs(b), _fs(a * b), _mixed(a * b))], "e.g. 3 1/2")
 
     def t_divide():
-        a, b = Fraction(random.randint(1, 8), pick([3, 5, 9])), Fraction(random.randint(1, 4), pick([2, 3, 4]))
+        a, b = Fraction(random.randint(1, 8), pick([3, 5, 9])), Fraction(pick([1, 3, 5]), pick([2, 4]))
         return _fq("Work out %s ÷ %s exactly." % (_fs(a), _fs(b)), a / b, ["Multiply by the reciprocal %s: %s." % (_fs(1 / b), _fs(a / b))])
 
     def t_neg():
@@ -152,7 +152,7 @@ def _(d=1):
 
     def t_quarter():
         r = random.randint(1, 6) * 2
-        return _tb("A quarter circle has radius %d cm. Its exact area is kπ cm². What is k?" % r, r * r // 4, "int", {}, ["¼ × π × %d² = %dπ." % (r, r * r // 4)])
+        return _tb("A quarter circle has radius %d cm. Its exact area is kπ cm². What is k?" % r, r * r // 4, "int", {}, ["¼ × π × %d² = %sπ." % (r, "" if r * r // 4 == 1 else r * r // 4)])
 
     def t_surd_square():
         k = random.randint(2, 30)
@@ -345,7 +345,7 @@ def _(d=1):
 
     def t_disprove():
         claim, cands, ans = pick([("Squaring a number always makes it bigger.", ["2", "0.5", "10"], "0.5"),
-                                  ("Dividing always makes a number smaller.", ["6", "12", "0.5"], "0.5"),
+                                  ("Dividing 10 by a number always gives an answer smaller than 10.", ["2", "5", "0.5"], "0.5"),
                                   ("Every prime number is odd.", ["3", "2", "7"], "2"),
                                   ("A number's cube is always bigger than its square.", ["3", "0.2", "5"], "0.2")])
         random.shuffle(cands)
@@ -429,7 +429,7 @@ def _(d=1):
         child = t // (k - 2)
         return _tb("A parent is %d times as old as their child. In %d years the parent will be twice as old as the child. How old is the child "
                    "now?" % (k, t), child, "int", {"unit": "years"},
-                   ["%dc + %d = 2(c + %d)." % (k, t, t), "%dc = %d, c = %d." % (k - 2, t, child)])
+                   ["%dc + %d = 2(c + %d)." % (k, t, t), "%sc = %d, c = %d." % ("" if k == 3 else k - 2, t, child)])
 
     def t_consecutive():
         n, k = random.randint(1, 40), pick([3, 4, 5])
@@ -449,6 +449,8 @@ def _(d=1):
         a, b = random.randint(2, 4), random.randint(1, 15)
         c = a + random.randint(1, 3)
         e = a * n + b - c * n
+        if e == 0:
+            b, e = b + 1, 1
         return _tb("I think of a number. If I multiply it by %d and add %d, I get the same answer as when I multiply it by %d and %s %d. "
                    "What is my number?" % (a, b, c, "add" if e >= 0 else "subtract", abs(e)), n, "int", {},
                    ["%dn + %d = %dn %s." % (a, b, c, _t(e)), "n = %d." % n])
@@ -593,9 +595,9 @@ def _(d=1):
     def t_are_parallel():
         k = random.randint(2, 4)
         same = random.random() < 0.5
-        m2 = m if same else m + pick([1, -1])
-        return _wq("Are the lines %s and %dy = %dx %s parallel? (yes or no)" % (_line(m, c), k, k * m2, _t(k * (c + 2))), "yes" if same else "no",
-                   ["The second is y = %dx %s, gradient %d." % (m2, _t(c + 2), m2)], "yes / no")
+        m2 = m if same else pick([v for v in (m - 1, m + 1) if v])
+        return _wq("Are the lines %s and %dy = %dx%s parallel? (yes or no)" % (_line(m, c), k, k * m2, (" " + _t(k * (c + 2))) if c != -2 else ""), "yes" if same else "no",
+                   ["The second is %s, gradient %d." % (_line(m2, c + 2), m2)], "yes / no")
 
     def t_meet():
         return _tb("How many times do the lines %s and %s cross?" % (_line(m, c), _line(m, c + random.randint(1, 6))), 0, "int", {},

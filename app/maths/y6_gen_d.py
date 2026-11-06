@@ -686,8 +686,8 @@ def _(d=1):
 
     def missing_quantity():
         one, two = pick(_PEOPLE)
-        return _numq("In a choir the ratio of %s to %s is %d : %d. There are %d "
-                     "%s. How many %s are in the choir?"
+        return _numq("In a club the ratio of %s to %s is %d : %d. There are %d "
+                     "%s. How many %s are in the club?"
                      % (one, two, a, b, a * unit, one, two), b * unit,
                      ["%d ÷ %d = %d in each part." % (a * unit, a, unit),
                       "%d × %d = %d %s." % (b, unit, b * unit, two)], unit=two)
@@ -708,7 +708,7 @@ def _(d=1):
 
     def table_shares():
         one, two = _two_names()
-        rows = [[one, "%d parts" % a, ""], [two, "%d parts" % b,
+        rows = [[one, _pl(a, "part"), ""], [two, _pl(b, "part"),
                                             str(b * unit)]]
         return _dtq("%s and %s share %d beads in the ratio %d : %d. How many "
                     "beads does %s get?" % (one, two, total, a, b, one),
@@ -1428,7 +1428,7 @@ def _(d=1):
     def word_expression():
         who = pick(NAMES)
         each = random.randint(2, 9)
-        extra = random.randint(1, 20)
+        extra = random.randint(2, 20)
         n = random.randint(3, 15)
         return _numq("%s buys %s bags of marbles with %d marbles in each bag, "
                      "and %d loose marbles. The total is %d%s + %d marbles. How "
@@ -2227,7 +2227,7 @@ def _(d=1):
                          ("tops", "skirts"), ("starters", "main courses"),
                          ("flavours of ice cream", "toppings")])
         who = pick(NAMES)
-        return _numq("A menu offers %d %s and %d %s. How many different "
+        return _numq("There are %d %s and %d %s to choose from. How many different "
                      "combinations of one of each are possible?"
                      % (m, one, n, two), m * n,
                      ["Each of the %d %s can go with each of the %d %s."
@@ -2620,8 +2620,8 @@ def _(d=1):
     def savings_word():
         who = pick(NAMES)
         wk = random.randint(5, 12)
-        return _numq("%s starts with %s and saves %s every week. How much has "
-                     "%s saved after %d weeks, in pounds?"
+        return _numq("%s starts with %s and saves %s every week. How much money "
+                     "does %s have altogether after %d weeks, in pounds?"
                      % (who, _pounds(start), _pounds(step), who, wk),
                      start + step * wk,
                      ["%d weeks of saving is %d × %d = %s."

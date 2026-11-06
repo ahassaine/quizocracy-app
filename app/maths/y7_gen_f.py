@@ -181,8 +181,9 @@ def _(d=1):
     def t_over():
         x = random.choice([v for v in range(40, 401, 20) if v != 100])
         p = pick([150, 200, 120, 250, 300])
-        return _tb("A town's population is %d%% of what it was 50 years ago, when it was %d. What is it now?" % (p, x),
-                   x * p // 100, "int", {}, ["%d%% = × %s." % (p, _ds(Fraction(p, 100))), "%d × %s = %d." % (x, _ds(Fraction(p, 100)), x * p // 100)])
+        x *= 100
+        return _tb("A town's population is %d%% of what it was 50 years ago, when it was %s. What is it now?" % (p, _c(x)),
+                   x * p // 100, "int", {}, ["%d%% = × %s." % (p, _ds(Fraction(p, 100))), "%s × %s = %s." % (_c(x), _ds(Fraction(p, 100)), _c(x * p // 100))])
 
     def t_as_percent():
         a = random.choice([v for v in range(10, 101, 5) if v != 100])
@@ -196,7 +197,7 @@ def _(d=1):
                    % _ds(Fraction(p, 100)), p, "int", {}, ["%s × 100 = %d%%." % (_ds(Fraction(p, 100)), p)])
 
     def t_change():
-        old = random.randint(2, 20) * 10
+        old = random.randint(1, 10) * 20                 # a multiple of 20, so every change below is whole
         p = pick([10, 20, 25, 50])
         new = old + old * p // 100 * pick([1, -1])
         up = new > old
@@ -343,7 +344,7 @@ def _(d=1):
     def t_plot():
         return {"prompt": "Plot the point (%d,%d)." % (x, y), "component": "coordinate_grid",
                 "spec": {"xmin": -7, "xmax": 7, "ymin": -7, "ymax": 7}, "answer": "(%d,%d)" % (x, y), "answer_type": "coord",
-                "solution": ["Go %d along, then %d up or down." % (x, y)]}
+                "solution": ["Go %d %s, then %d %s." % (abs(x), "right" if x >= 0 else "left", abs(y), "up" if y >= 0 else "down")]}
 
     def t_quadrant():
         a, b = random.choice([-1, 1]) * random.randint(1, 9), random.choice([-1, 1]) * random.randint(1, 9)
@@ -353,9 +354,11 @@ def _(d=1):
 
     def t_midpoint():
         a, b = random.randint(-6, 6), random.randint(-6, 6)
-        c, e = a + 2 * random.randint(-3, 3), b + 2 * random.randint(-3, 3)
-        return _wq("Find the midpoint of (%d,%d) and (%d,%d). Write it like (1,2)." % (a, b, c, e), "(%d,%d)" % ((a + c) // 2, (b + e) // 2),
-                   ["Average the x's and the y's."], "(x,y)")
+        c, e = a, b
+        while (c, e) == (a, b):                       # two different points
+            c, e = a + 2 * random.randint(-3, 3), b + 2 * random.randint(-3, 3)
+        return _tb("Find the midpoint of (%d,%d) and (%d,%d). Write it like (1,2)." % (a, b, c, e), "(%d,%d)" % ((a + c) // 2, (b + e) // 2),
+                   "coord", {"text": True, "placeholder": "(x,y)"}, ["Average the x's and the y's."])
 
     def t_square():
         x0, y0 = random.randint(-5, 1), random.randint(-5, 1)
@@ -367,7 +370,8 @@ def _(d=1):
 
     def t_axis():
         on = pick(["x", "y"])
-        p = "(%d,0)" % random.randint(-8, 8) if on == "x" else "(0,%d)" % random.randint(-8, 8)
+        k = random.choice([v for v in range(-8, 9) if v])
+        p = "(%d,0)" % k if on == "x" else "(0,%d)" % k
         return _wq("The point %s lies on which axis? (x or y)" % p, on, ["%s coordinate is 0." % ("The y" if on == "x" else "The x")],
                    "x or y")
 

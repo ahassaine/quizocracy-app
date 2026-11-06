@@ -72,11 +72,13 @@ NAMES = ["Sara","Tom","Amina","Leo","Priya","Zara","Omar","Ella","Noah","Maya"]
 def _num(x):
     try:
         s = str(x).strip().lower().replace(",", "").replace("£", "").replace(" ", "").replace("−", "-").replace("–", "-")
-        for suf in ("cm","mm","km","kg","ml","m","g","l","p","minutes","minute","mins","min"):
-            if s.endswith(suf): s = s[: -len(suf)]; break
+        s = _UNIT.sub("", s)                     # "98m²", "-5°C", "40%", "2 litres": the unit is shown beside the box
         return float(s)
     except Exception:
         return None
+
+_UNIT = re.compile(r"[a-z°%/²³]+(?:\^?[23])?$")   # any unit after the number: "98m²", "-5°c", "40%", "30pupils", "12m/s"
+
 
 def _frac(x):
     m = re.fullmatch(r"\s*(-?)(\d+)\s+(\d+)\s*/\s*(\d+)\s*", str(x))     # mixed number "2 1/3"
@@ -101,7 +103,10 @@ def _sn(s):
     a stored "6x+8". A hyphen between two words ("forty-two", "north-east") counts as a
     space; any other '-' is a minus sign and is kept, so "x>=2" never matches "x>=-2".
     """
-    s = str(s).strip().lower().replace("−", "-").replace("–", "-")
+    s = str(s).strip().lower().replace("−", "-").replace("–", "-").replace("≤", "<=").replace("≥", ">=").replace("°", "")
+    s = re.sub(r"(?<=\d)\s*(am|pm)\b", r" \1", s)                  # 10am = 10 am
+    s = re.sub(r"(?<=\d)\s*(?:r|rem|remainder)\s*(?=\d)", " r ", s)  # 25r3 = 25 remainder 3 = 25 r 3
+    s = re.sub(r"^(?:a|an|the)\s+(?=[a-z])", "", s)                     # "an elephant" = "elephant"
     s = re.sub(r"[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+", lambda m: "^" + m.group(0).translate(_SUP), s)
     s = re.sub(r"(?<=[\d)])\s*[x×*]\s*(?=[\d(])", "x", s)   # 3.2 × 10^-4 = 3.2x10^-4
     s = s.replace(")x(", ")(")
@@ -111,16 +116,26 @@ def _sn(s):
         s = s.replace(ch, " ")
     s = re.sub(r"(?<=[a-z])\s*-\s*(?=[a-z])", " ", s)   # word hyphens
     s = " ".join(s.split())
-    s = re.sub(r"\s*([-+*/=^<>()])\s*", r"\1", s)  # drop spaces around algebra operators/brackets
+    s = re.sub(r"\s*([-+*/=^<>():])\s*", r"\1", s)  # drop spaces around algebra operators, brackets, ratio colons
     return s
 
-def check_answer(answer_type, expected, value, tolerance=0):
+_ORD_WORDS = {w: str(i) for i, w in enumerate(
+    "zeroth first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth "
+    "fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth".split())}
+
+
+def check_answer(answer_type, expected, value, tolerance=0, unit=None):
     if value is None or (isinstance(value, str) and not value.strip()):
         return False
     at = answer_type
     if at in ("num", "int"):
         v, e = _num(value), _num(expected)
-        return v is not None and e is not None and abs(v - e) <= (tolerance or 0) + 1e-9
+        if v is None or e is None:
+            return False
+        if abs(v - e) <= (tolerance or 0) + 1e-9:
+            return True
+        # an answer asked in pence typed in pounds: "£1.86" for 186p (only where the box says "p")
+        return unit == "p" and "£" in str(value) and abs(v * 100 - e) <= (tolerance or 0) + 1e-6
     if at == "frac":
         v, e = _frac(value), _frac(expected)
         return v is not None and e is not None and v == e
@@ -128,6 +143,8 @@ def check_answer(answer_type, expected, value, tolerance=0):
         def norm(t):
             t = str(t).strip().lower().replace(".", ":").replace(" ", "")
             t = t.replace("am", "").replace("pm", "")
+            if re.fullmatch(r"\d{1,2}", t):          # "1 pm", "10am": a whole hour
+                t += ":00"
             if ":" not in t: return None
             try:
                 hh, mm = t.split(":")[:2]
@@ -148,7 +165,7 @@ def check_answer(answer_type, expected, value, tolerance=0):
     if at == "set":
         # order-insensitive list of numbers, e.g. "90, 92, 94"
         def norm(s):
-            parts = [p for p in str(s).replace(",", " ").split() if p.strip()]
+            parts = [p for p in re.sub(r"\band\b", " ", str(s)).replace(",", " ").split() if p.strip()]
             out = []
             for p in parts:
                 n = _num(p)
@@ -157,6 +174,17 @@ def check_answer(answer_type, expected, value, tolerance=0):
             return sorted(out)
         nv, ne = norm(value), norm(expected)
         return nv is not None and nv == ne
+    # a 24-hour time kept as text ("09:45", "13:20"): "9:45", "9.45" and "09 45" count; hours are not mod 12
+    m = re.fullmatch(r"\s*(\d{1,2})[:.](\d{2})\s*", str(expected))
+    if m:
+        v = re.fullmatch(r"\s*(\d{1,2})\s*[:. h]\s*(\d{2})\s*", str(value))
+        return bool(v) and (int(v.group(1)), int(v.group(2))) == (int(m.group(1)), int(m.group(2)))
+    # a position ("3rd"): "3" and "third" count too
+    m = re.fullmatch(r"\s*(\d+)(?:st|nd|rd|th)\s*", str(expected).lower())
+    if m:
+        v = str(value).strip().lower()
+        v = _ORD_WORDS.get(v, re.sub(r"(?<=\d)(?:st|nd|rd|th)$", "", v))
+        return v == m.group(1)
     # str — accept UK 'and' being present or absent, and 'seven hundred four'
     sv, se = _sn(value), _sn(expected)
     if sv == se: return True
@@ -205,6 +233,19 @@ def hide_missing_cell(component, spec):
     return {**spec, "rows": rows}
 
 
+def hide_pie_answer(spec, answer):
+    """The pie legend lists every slice's value; when the question asks for the outlined slice's value,
+    that slice's value is shown as '?' instead."""
+    i, sl = spec.get("highlight"), spec.get("slices")
+    if not isinstance(i, int) or not isinstance(sl, list) or not (0 <= i < len(sl)):
+        return spec
+    try:
+        hit = abs(float(sl[i][1]) - float(answer)) < 1e-9
+    except (TypeError, ValueError, IndexError):
+        return spec
+    return {**spec, "hideValue": True} if hit else spec
+
+
 async def new_question(skill_key, difficulty=1, pupil=None):
     fn = GENERATORS.get(skill_key)
     if not fn:
@@ -225,6 +266,8 @@ async def new_question(skill_key, difficulty=1, pupil=None):
     if not isinstance(_ans, (str, int, float, bool, type(None))):
         q["answer"] = str(_ans)
     q["spec"] = hide_missing_cell(q.get("component"), q.get("spec") or {})
+    if q.get("component") == "pie_chart":
+        q["spec"] = hide_pie_answer(q["spec"], q.get("answer"))
     if q.get("component") == "angle" and q.get("answer_type", "num") in ("int", "num"):
         q["spec"] = {**q["spec"], "numeric": True}     # a number answer gets a "degrees" box, not "acute / ..."
     token = secrets.token_urlsafe(16)
@@ -236,6 +279,7 @@ async def new_question(skill_key, difficulty=1, pupil=None):
             "answer": q["answer"],
             "answer_type": q.get("answer_type", "num"),
             "tolerance": q.get("tolerance", 0),
+            "unit": (q.get("spec") or {}).get("unit"),
             "solution": q.get("solution", []),
             "difficulty": difficulty,
             "pupil": pupil,
@@ -252,7 +296,7 @@ async def check(token, value, pupil):
         {"_id": str(token or ""), "pupil": pupil, "done": {"$ne": True}}, {"$set": {"done": True}})
     if not doc:
         return {"ok": False, "error": "expired"}
-    correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0))
+    correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0), doc.get("unit"))
     return {"ok": True, "correct": bool(correct),
             "expected": doc["answer"], "solution": doc.get("solution", []),
             "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}

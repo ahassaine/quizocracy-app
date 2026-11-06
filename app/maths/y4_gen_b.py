@@ -12,7 +12,7 @@
 # Every generator offers 8+ genuinely different framings and routes a large
 # share of them through the interactive components.
 import random
-from .maths_engine import skill, pick, NAMES, n_words, money
+from .maths_engine import skill, pick, NAMES, n_words, money, ordinal
 
 S2 = "4.2 Addition & subtraction (4-digit)"
 S3 = "4.3 Multiplication & division facts"
@@ -107,6 +107,7 @@ def _arrayq(prompt, rows, cols, solution):
     """Array build. Falls back to a typed box when the array is too big."""
     rows, cols = int(rows), int(cols)
     if _fit(rows, cols) != (rows, cols):
+        prompt = prompt.replace("Build ", "Picture ")
         return _numq(prompt, rows * cols, solution)
     return {"prompt": prompt, "component": "array",
             "spec": {"mode": "build",
@@ -263,9 +264,10 @@ def _pair_sub_zeros(d=1):
         a = random.randint(2, 9) * 1000 + random.randint(1, 9) * 100
     lo = 100 if d == 0 else 1000
     b = random.randint(lo, a - 500)
-    if style == "hundreds" and b % 10 <= a % 10:
-        b += 10 - (b % 10) - 1 if (b % 10) < 9 else 0
-        b = min(b, a - 100)
+    for _ in range(500):
+        if (b % 1000 > 0) if style == "thousand" else (b % 100 > a % 100):
+            break
+        b = random.randint(lo, a - 500)
     return a, int(b)
 
 
@@ -295,11 +297,11 @@ def _(d=1):
 
     def bare_add():
         return _numq("Work out %s + %s mentally." % (_com(a), _com(b)), tot,
-                     ["Only the %ss change: %d + %d = %d." % (unit_name, a, b, tot)])
+                     ["Count on %s: %d + %d = %d." % (_pv(k, unit_name + "s"), a, b, tot)])
 
     def bare_sub():
         return _numq("Work out %s − %s mentally." % (_com(tot), _com(b)), a,
-                     ["Only the %ss change: %d − %d = %d." % (unit_name, tot, b, a)])
+                     ["Count back %s: %d − %d = %d." % (_pv(k, unit_name + "s"), tot, b, a)])
 
     def on_line():
         base = (a // unit) * unit
@@ -327,7 +329,8 @@ def _(d=1):
                      ["%d + %d = %d points." % (a, b, tot)], unit="points")
 
     def how_many_hundreds():
-        n = random.randint(2, 9)
+        cap = max(1, (9999 - a) // unit)
+        n = random.randint(min(2, cap), min(9, cap))
         return _numq("How many %ss must be added to %s to make %s?"
                      % (unit_name, _com(a), _com(a + n * unit)), n,
                      ["%d − %d = %d." % (a + n * unit, a, n * unit),
@@ -348,9 +351,8 @@ def _(d=1):
                       "%d − %d = %d." % (tot, c * m, tot - c * m)])
 
     def compare():
-        c = random.randint(2, 9) * unit
-        while a + c == tot:
-            c = random.randint(2, 9) * unit
+        c = pick([x * unit for x in range(2, 10) if a + x * unit <= 9999 and x * unit != b]
+                 or [x * 10 for x in range(2, 10) if x * 10 != b])
         big = max(tot, a + c)
         return _numq("Which total is greater, %s + %s or %s + %s? Type the greater "
                      "total." % (_com(a), _com(b), _com(a), _com(c)), big,
@@ -489,7 +491,7 @@ def _(d=1):
                      [why], placeholder="a single digit")
 
     def find_error():
-        wrong = tot + pick([-1000, -100, -10, 10, 100, 1000])
+        wrong = tot + pick([o for o in (-1000, -100, -10, 10, 100, 1000) if 0 < tot + o <= 9999])
         who = pick(NAMES)
         return _numq("%s writes %s + %s = %s. That answer is wrong. Type the correct "
                      "total." % (who, _com(a), _com(b), _com(wrong)), tot,
@@ -518,7 +520,7 @@ def _(d=1):
 
     def table_total():
         names = random.sample(_PLACES, 3)
-        vals = [random.randint(1005, 3999) for _ in names]
+        vals = [random.randint(1005, 3299) for _ in names]
         return _dtq("The table shows how many books each library lent last year. "
                     "How many books were lent altogether?",
                     ["Library", "Books lent"],
@@ -630,7 +632,7 @@ def _(d=1):
                     caption="Village populations")
 
     def find_error():
-        wrong = res + pick([-1000, -100, -10, 10, 100, 1000])
+        wrong = res + pick([o for o in (-1000, -100, -10, 10, 100, 1000) if res + o > 0])
         who = pick(NAMES)
         return _numq("%s writes %s − %s = %s. That answer is wrong. Type the correct "
                      "answer." % (who, _com(a), _com(b), _com(wrong)), res,
@@ -665,9 +667,9 @@ def _(d=1):
     if d == 0:
         vals = [random.randint(105, 899) for _ in range(3)]
     elif d == 1:
-        vals = [random.randint(1005, 3999) for _ in range(3)]
+        vals = [random.randint(1005, 3299) for _ in range(3)]
     else:
-        vals = [random.randint(1005, 2999) for _ in range(4)]
+        vals = [random.randint(1005, 2499) for _ in range(4)]
     tot = sum(vals)
     chain = " + ".join(_com(v) for v in vals)
 
@@ -730,7 +732,7 @@ def _(d=1):
 
     def table_total():
         names = random.sample(["Year 3", "Year 4", "Year 5", "Year 6"], 4)
-        tvals = [random.randint(1005, 2999) for _ in names]
+        tvals = [random.randint(1005, 2499) for _ in names]
         return _dtq("The table shows how many steps each class walked. How many "
                     "steps did the four classes walk altogether?",
                     ["Class", "Steps"],
@@ -760,9 +762,9 @@ def _(d=1):
                       "%d + %d = %d." % (n[0] + n[1], n[2], sum(n))])
 
     def add_then_compare():
-        other = [random.randint(1005, 3999) for _ in range(3)]
+        other = [random.randint(1005, 3299) for _ in range(3)]
         while sum(other) == tot:
-            other = [random.randint(1005, 3999) for _ in range(3)]
+            other = [random.randint(1005, 3299) for _ in range(3)]
         big = max(tot, sum(other))
         return _numq("Which total is greater, %s or %s? Type the greater total."
                      % (chain, " + ".join(_com(v) for v in other)), big,
@@ -870,7 +872,7 @@ def _(d=1):
                       % (res, e, res + e, res + e)])
 
     def balance_mixed():
-        c = random.randint(105, 900)
+        c = random.randint(105, max(105, min(900, 9999 - tot)))
         return _numq("Balance this equation. Find the missing number:  "
                      "%s + %s = %s − ___" % (_com(a), _com(b), _com(tot + c)), c,
                      ["The left side is %d + %d = %d." % (a, b, tot),
@@ -940,9 +942,9 @@ def _(d=1):
     if d == 0:
         a = random.randint(210, 890); b = random.randint(105, 200)
     elif d == 1:
-        a = random.randint(1200, 6800); b = random.randint(1050, 3200)
+        a = random.randint(1200, 6800); b = random.randint(1050, min(3200, 9999 - a))
     else:
-        a = random.randint(2400, 8600); b = random.randint(1250, 3400)
+        a = random.randint(2400, 8600); b = random.randint(1250, min(3400, 9999 - a))
     c = random.randint(105, 900)
 
     def total_word():
@@ -1069,6 +1071,7 @@ def _(d=1):
     else:
         step = pick([1234, 2345, 1408, 3607, 2809, 1750])
         lo, hi = 1000, 9000
+    hi = min(hi, 9999 - step)
 
     def io_add():
         rows = _io_rows(lo, hi, step)
@@ -1672,9 +1675,9 @@ def _(d=1):
 
     def nth_multiple():
         n = random.randint(3, 12)
-        return _numq("What is the %dth multiple of %d?" % (n, base), n * base,
-                     ["Count in %ds: the %dth multiple is %d × %d = %d."
-                      % (base, n, n, base, n * base)])
+        return _numq("What is the %s multiple of %d?" % (ordinal(n), base), n * base,
+                     ["Count in %ds: the %s multiple is %d × %d = %d."
+                      % (base, ordinal(n), n, base, n * base)])
 
     def next_multiple():
         n = random.randint(2, 9)
@@ -1734,7 +1737,7 @@ def _(d=1):
                      ["%d ÷ %d = %d." % (n, base, other)])
 
     def list_factors():
-        n = pick([12, 16, 18, 20, 24, 28, 30, 32, 36, 40, 45, 48, 60])
+        n = pick([12, 16, 18, 20, 24]) if d == 0 else pick([12, 16, 18, 20, 24, 28, 30, 32, 36, 40, 45, 48, 60])
         facs = [i for i in range(1, n + 1) if n % i == 0]
         return _setq("List all the factors of %d." % n, facs,
                      ["Try each number in turn: %s divide into %d exactly."
@@ -1786,9 +1789,9 @@ def _(d=1):
         return _numq("What is the smallest number that is a multiple of both %d and "
                      "%d?" % (x, y), lcm,
                      ["Multiples of %d: %s…" % (x, ", ".join(str(x * i)
-                                                             for i in range(1, 5))),
+                                                             for i in range(1, lcm // x + 1))),
                       "Multiples of %d: %s…" % (y, ", ".join(str(y * i)
-                                                             for i in range(1, 5))),
+                                                             for i in range(1, lcm // y + 1))),
                       "The smallest number in both lists is %d." % lcm])
 
     def word_multiple():
@@ -1807,15 +1810,15 @@ def _(d=1):
                     "number." % base, rows, m, rows[m][1],
                     ["%d × %d = %d." % (rows[m][0], base, rows[m][1]),
                      "%d is the %s multiple of %d."
-                     % (rows[m][1], "%dth" % rows[m][0], base)],
+                     % (rows[m][1], ordinal(rows[m][0]), base)],
                     rule="× %d" % base)
 
     def line_multiples():
         j = random.randint(3, 8)
-        return _lineq("Count in %ds. Start at 0 and mark the %dth multiple of %d."
-                      % (base, j, base), base * j, [0],
-                      ["The %dth multiple of %d is %d × %d = %d."
-                       % (j, base, j, base, base * j)], prefer=base)
+        return _lineq("Count in %ds. Start at 0 and mark the %s multiple of %d."
+                      % (base, ordinal(j), base), base * j, [0],
+                      ["The %s multiple of %d is %d × %d = %d."
+                       % (ordinal(j), base, j, base, base * j)], prefer=base)
 
     def dt_factor_pairs():
         n = pick([12, 16, 18, 20, 24, 30, 36, 40, 48])
@@ -2215,6 +2218,8 @@ def _(d=1):
 
     def commutative():
         a = random.randint(2, 12); b = random.randint(2, 12)
+        while b == a:
+            b = random.randint(2, 12)
         return _numq("%d × %d = %d. Use the same fact to work out %d × %d."
                      % (a, b, a * b, b, a), a * b,
                      ["Multiplication can be done in either order.",
@@ -2252,7 +2257,7 @@ def _(d=1):
                       "%d × %d = %d." % (a, b * c, a * b * c)])
 
     def distributive():
-        a = random.randint(11, 19) if d < 2 else random.randint(21, 39)
+        a = random.randint(11, 19) if d < 2 else pick([x for x in range(21, 40) if x % 10])
         b = random.randint(3, 6) if d < 2 else random.randint(4, 9)
         t, o = (a // 10) * 10, a % 10
         return _numq("Use partitioning:  %d × %d = (%d × %d) + (%d × %d) = ___"
@@ -2286,6 +2291,8 @@ def _(d=1):
     def name_property():
         which = pick(["commutative", "associative", "distributive"])
         a, b, c = random.randint(2, 9), random.randint(2, 9), random.randint(2, 5)
+        while b == a:
+            b = random.randint(2, 9)
         if which == "commutative":
             sent = "%d × %d = %d × %d" % (a, b, b, a)
         elif which == "associative":
@@ -2342,6 +2349,8 @@ def _(d=1):
 
     def groups_commutative():
         g = random.randint(2, 8); pp = random.randint(2, 10)
+        while pp == g:
+            pp = random.randint(2, 10)
         return _egq("These %d equal groups of %d show %d × %d. What is %d × %d?"
                     % (g, pp, g, pp, pp, g), g, pp, g * pp,
                     ["The order of the factors does not change the product.",

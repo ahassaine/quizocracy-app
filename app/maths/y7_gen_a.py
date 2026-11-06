@@ -308,7 +308,7 @@ def _(d=1):
     def t_tables():
         p, extra = random.randint(2, 4), random.randint(2, 4)
         n = random.randint(5, 12)
-        return _tb("Square tables are pushed together in a row. 1 table seats %d people, 2 tables seat %d, 3 tables "
+        return _tb("Tables are pushed together in a row. 1 table seats %d people, 2 tables seat %d, 3 tables "
                    "seat %d. How many people can sit at %d tables?" % (p + extra, 2 * p + extra, 3 * p + extra, n),
                    p * n + extra, "int", {"unit": "people"}, ["Seats = %dn + %d." % (p, extra),
                                                               "%d × %d + %d = %d." % (p, n, extra, p * n + extra)])
@@ -322,7 +322,7 @@ def _(d=1):
 
     def t_cooling():
         t0, drop = random.randint(60, 90), random.randint(3, 8)
-        k = random.randint(3, 8)
+        k = random.randint(3, min(8, (t0 - 25) // drop))
         return _tb("A cup of tea is %d °C and cools by %d degrees every minute for the first few minutes. What is its "
                    "temperature after %d minutes, in °C?" % (t0, drop, k), t0 - drop * k, "int", {"unit": "°C"},
                    ["%d − %d × %d = %d." % (t0, drop, k, t0 - drop * k)])
@@ -391,7 +391,7 @@ def _(d=1):
     c = random.randint(1, 12)
 
     def t_more():
-        return _wq("Write an expression for %d more than %s." % (c, v), "%s+%d" % (v, c), ["%s + %d." % (v, c)],
+        return _wq("Write an expression for %d more than %s. Write the letter first." % (c, v), "%s+%d" % (v, c), ["%s + %d." % (v, c)],
                    "e.g. x+5")
 
     def t_less():
@@ -492,8 +492,8 @@ def _(d=1):
                    ["%d × %d + %d × %d = %d." % (m, x, n, y, m * x + n * y)])
 
     def t_square():
-        return _tb("Work out x² + %d when x = %d." % (y, x), x * x + y, "int", {}, ["%d² = %d; + %d = %d." % (x, x * x, y,
-                                                                                                         x * x + y)])
+        return _tb("Work out x² %s %d when x = %d." % ("+" if y >= 0 else "−", abs(y), x), x * x + y, "int", {},
+                   ["%s² = %d; %s %d = %d." % ("(%d)" % x if x < 0 else str(x), x * x, "+" if y >= 0 else "−", abs(y), x * x + y)])
 
     def t_bracket():
         m, c = random.randint(2, 6), random.randint(1, 9)
@@ -576,7 +576,7 @@ def _(d=1):
 
     def t_same():
         same = random.random() < 0.5
-        k2 = m * c if same else c + pick([1, 2, -1])
+        k2 = m * c if same else pick([c, m * c + pick([1, -1])])
         return _wq("Machine A does: × %d, then + %d. Machine B does: + %d, then × %d. Do they always give the same output? "
                    "(yes or no)" % (m, k2, c, m), "yes" if same else "no",
                    ["Machine B gives %d(x + %d) = %dx + %d." % (m, c, m, m * c),
@@ -677,7 +677,7 @@ def _(d=1):
 
     def t_classify():
         item, ans = pick([("3x + 5", "expression"), ("3x + 5 = 20", "equation"), ("A = lw", "formula"),
-                          ("2a − b", "expression"), ("y = mx + c", "formula"), ("x − 4 = 9", "equation"),
+                          ("2a − b", "expression"), ("P = 2l + 2w", "formula"), ("x − 4 = 9", "equation"),
                           ("x > 7", "inequality")])
         return _wq("Is  %s  an expression, an equation, a formula or an inequality?" % item, ans,
                    ["An expression has no equals sign; an equation can be solved; a formula links quantities; an "
@@ -685,7 +685,7 @@ def _(d=1):
 
     def t_terms():
         k = random.randint(2, 5)
-        terms = random.sample(["3x", "5", "y²", "2ab", "7y", "x", "9"], k)
+        terms = random.sample(["3x", "5", "y²", "2ab", "7y", "z", "4xy"], k)
         return _tb("How many terms are in the expression  %s ?" % " + ".join(terms), k, "int", {},
                    ["The terms are %s." % ", ".join(terms)])
 

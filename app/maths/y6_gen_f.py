@@ -144,8 +144,8 @@ def _(d=1):
                    ["%s: choose the unit that gives a sensible-sized number." % ans], "A, B, C or D")
 
     def t_compare():
-        a = random.randint(2, 9) * 100_000
         k = random.randint(1, 3)
+        a = pick([x for x in range(2, 50) if x != 10 * k]) * 100_000
         return _wq("Which is larger?  A: %d m³   B: %s cm³   Type A or B." % (k, _c(a)),
                    "A" if k * 1_000_000 > a else "B", ["%d m³ = %s cm³." % (k, _c(k * 1_000_000))], "A or B")
 

@@ -223,11 +223,14 @@ def _setq(prompt, values, solution, placeholder="e.g. 2, 3, 6"):
             "solution": solution}
 
 
-def _mixq(prompt, w, n, den, solution):
-    """A typed mixed-number answer, e.g. '2 3/4'."""
+def _mixq(prompt, w, n, den, solution, strict=False):
+    """A typed mixed-number answer, e.g. '2 3/4'. Marked by value (frac, which
+    parses '2 3/4', '11/4' and unsimplified forms) unless `strict`, used only
+    where writing the mixed form IS the objective."""
     return {"prompt": prompt, "component": "number",
             "spec": {"text": True, "placeholder": "e.g. 2 3/4"},
-            "answer": _mixed_str(w, n, den), "answer_type": "str",
+            "answer": _mixed_str(w, n, den),
+            "answer_type": "str" if strict else "frac",
             "solution": solution}
 
 
@@ -459,9 +462,9 @@ def _(d=1):
         return _numq("The highest common factor of %d and a second number is "
                      "%d. The second number is a multiple of %d between %d and "
                      "%d. What is the second number?"
-                     % (a, g, g, b - 1, b + 1), b,
+                     % (a, g, g, b - g + 1, b + g - 1), b,
                      ["The only multiple of %d between %d and %d is %d."
-                      % (g, b - 1, b + 1, b),
+                      % (g, b - g + 1, b + g - 1, b),
                       "The HCF of %d and %d is %d." % (a, b, g)])
 
     def coprime_check():
@@ -561,9 +564,9 @@ def _(d=1):
 
     def word_packs():
         return _numq("Bread rolls come in packs of %d and burgers come in "
-                     "packs of %d. What is the smallest number of each that "
-                     "can be bought so that there are exactly as many rolls as "
-                     "burgers?" % (a, b), L,
+                     "packs of %d. Whole packs are bought so that there are "
+                     "exactly as many rolls as burgers. What is the smallest "
+                     "number of rolls that can be bought?" % (a, b), L,
                      ["The total must be a multiple of both %d and %d."
                       % (a, b),
                       "The lowest common multiple is %d." % L])
@@ -711,6 +714,10 @@ def _(d=1):
     def primes_between():
         a = random.randint(lo, max(lo, hi - 15))
         b = a + random.randint(8, 14)
+        while _is_prime(a):
+            a += 1
+        while _is_prime(b):
+            b += 1
         vals = [p for p in _PRIMES if a < p < b]
         if not vals:
             return next_prime()
@@ -723,6 +730,10 @@ def _(d=1):
     def count_primes():
         a = random.randint(lo, max(lo, hi - 15))
         b = a + random.randint(9, 15)
+        while _is_prime(a):
+            a += 1
+        while _is_prime(b):
+            b += 1
         vals = [p for p in _PRIMES if a < p < b]
         return _numq("How many prime numbers are there between %d and %d?"
                      % (a, b), len(vals),
@@ -761,10 +772,10 @@ def _(d=1):
         if not pairs:
             return is_prime_q()
         r, c = pick(pairs)
-        return _arrayq("Build an array with %d rows of %d counters. It shows "
-                       "that %d has a factor other than 1 and itself, so %d is "
-                       "composite. Type how many counters your array holds."
-                       % (r, c, n, n), r, c,
+        return _arrayq("Build an array with %d rows of %d counters and type "
+                       "how many counters it holds. The array shows that this "
+                       "number has a factor other than 1 and itself, so it is "
+                       "composite." % (r, c), r, c,
                        ["%d × %d = %d." % (r, c, n),
                         "%d is a factor of %d, so %d is not prime."
                         % (r, n, n)])
@@ -901,9 +912,9 @@ def _(d=1):
         if not cands:
             return complete_pair()
         r, c = pick(cands)
-        return _arrayq("Build an array of %d rows with %d counters in each row "
-                       "to show a factor pair of %d, then type the total number "
-                       "of counters." % (r, c, n), r, c,
+        return _arrayq("Build an array of %d rows with %d counters in each row, "
+                       "then type the total number of counters. %d and %d are "
+                       "a factor pair of that total." % (r, c, r, c), r, c,
                        ["%d × %d = %d." % (r, c, n),
                         "%d and %d are a factor pair of %d." % (r, c, n)])
 
@@ -923,7 +934,8 @@ def _(d=1):
                      "tile must be used and every row must hold the same "
                      "number of tiles. How many different rectangles are "
                      "possible, counting a rectangle and its turn as the same "
-                     "one?" % n, len(cands),
+                     "one? A single row of tiles counts as a rectangle."
+                     % n, len(cands),
                      ["Each rectangle matches a factor pair: %s."
                       % ", ".join("%d × %d" % (r, c) for r, c in cands),
                       "That is %s." % _pl(len(cands), "rectangle")],
@@ -960,8 +972,8 @@ def _(d=1):
                 5: "a number is divisible by 5 if it ends in 0 or 5",
                 6: "a number is divisible by 6 if it is divisible by both 2 "
                    "and 3",
-                8: "a number is divisible by 8 if halving it twice still "
-                   "gives a whole number",
+                8: "a number is divisible by 8 if halving it three times "
+                   "still gives a whole number",
                 9: "a number is divisible by 9 if its digit sum is divisible "
                    "by 9",
                 10: "a number is divisible by 10 if it ends in 0",
@@ -1470,7 +1482,7 @@ def _(d=1):
         j = random.randrange(4)
         ans = int(rows[j][1])
         rows[j][1] = ""
-        rows[j][0] = "%d/%d" % (n * (j + 1), den * (j + 1))
+        rows[j][0] = "%d/?" % (n * (j + 1))
         return _dtq("Every fraction in this table is equivalent to %d/%d. Type "
                     "the missing denominator." % (n, den),
                     ["Fraction", "Denominator"], rows, ans,
@@ -1666,7 +1678,7 @@ def _(d=1):
     den = pick(_by_d(d, [2, 3, 4], [3, 4, 5, 6, 8], [5, 6, 7, 8, 9, 10, 12]))
     whole = _by_d(d, random.randint(1, 2), random.randint(1, 4),
                   random.randint(2, 6))
-    part = random.randint(1, den - 1)
+    part = pick([x for x in range(1, den) if _hcf(x, den) == 1])
     imp = whole * den + part
 
     def improper_to_mixed_whole():
@@ -1687,7 +1699,8 @@ def _(d=1):
                      % (imp, den), whole, part, den,
                      ["%d ÷ %d = %d remainder %d." % (imp, den, whole, part),
                       "So %d/%d = %s." % (imp, den,
-                                          _mixed_str(whole, part, den))])
+                                          _mixed_str(whole, part, den))],
+                     strict=True)
 
     def mixed_to_improper():
         return _numq("Write the mixed number %s as an improper fraction. The "
@@ -1940,7 +1953,7 @@ def _(d=1):
         ans = "larger" if Fraction(nn, dd) > Fraction(1, 2) else "smaller"
         return _wordq("Is %d/%d larger or smaller than 1/2? Type larger or "
                       "smaller." % (nn, dd), ans,
-                      ["Half of %d is %s." % (dd, dd / 2.0),
+                      ["Half of %d is %g." % (dd, dd / 2.0),
                        "%d is %s than half of %d, so %d/%d is %s than 1/2."
                        % (nn, "more" if ans == "larger" else "less", dd, nn,
                           dd, ans)], placeholder="larger or smaller")
@@ -2065,7 +2078,10 @@ def _(d=1):
     def sub_bare():
         hi, lo = max(a, b), min(a, b)
         if hi == lo:
-            hi = min(den - 1, lo + 1)
+            if hi < den - 1:
+                hi += 1
+            else:
+                lo -= 1
         return _fracq("Work out %d/%d − %d/%d. Write the answer as a fraction."
                       % (hi, den, lo, den), hi - lo, den,
                       ["The denominators are the same, so subtract the "
@@ -2407,6 +2423,9 @@ def _(d=1):
         n1 = random.randint(1, d1 - 1)
         n2 = random.randint(1, d2 - 1)
         tot = n1 * (L // d1) + n2 * (L // d2)
+        while tot % L == 0:
+            n2 = random.randint(1, d2 - 1)
+            tot = n1 * (L // d1) + n2 * (L // d2)
         rn, rd = _simp(tot, L)
         return _numq("Work out %d/%d + %d/%d and write the answer in its "
                      "lowest terms. Type the denominator of that answer."
@@ -2479,8 +2498,8 @@ def _(d=1):
     def sub_full():
         A = max(w1 * den + p1, w2 * den + p2)
         B = min(w1 * den + p1, w2 * den + p2)
-        if A == B or (A - B) % den == 0:
-            A = B + den + 1
+        if A - B < den or (A - B) % den == 0:
+            A = B + den * random.randint(1, 2) + random.randint(1, den - 1)
         diff = A - B
         W, N, D = _improper_to_mixed(diff, den)
         aw, an, ad = _improper_to_mixed(A, den)
@@ -2675,9 +2694,8 @@ def _(d=1):
 
     def bar_chart_problem():
         cats = ["Reading", "Sport", "Music"]
-        vals = [random.randint(3, 9) for _ in cats]
-        tot = sum(vals)
-        i = random.randrange(3)
+        vals = random.sample(range(3, 10), 3)
+        i = pick([x for x in range(3) if vals[x] != max(vals)])
         return _barq("The chart shows how many hours a class spent on each "
                      "activity last week. How many more hours were spent on "
                      "the largest activity than on %s?" % cats[i].lower(),
@@ -2727,6 +2745,10 @@ def _(d=1):
         n1 = random.randint(1, d1 - 1)
         n2 = random.randint(1, d2 - 1)
         tot = n1 * (L // d1) + n2 * (L // d2)
+        while tot >= L:
+            n1 = random.randint(1, d1 - 1)
+            n2 = random.randint(1, d2 - 1)
+            tot = n1 * (L // d1) + n2 * (L // d2)
         return _numq("%d/%d of a class walk to school and %d/%d cycle. "
                      "Together these fractions are written over the same "
                      "denominator %d. What is the numerator of the total?"
@@ -3050,10 +3072,9 @@ def _(d=1):
     def read_area():
         if pd > 12:
             return bare()
-        return _agread("This area model has %d equal parts and %d of them are "
-                       "shaded. The shading was made by taking %d/%d of %d/%d. "
-                       "Write the shaded fraction."
-                       % (pd, pn, n1, d1, n2, d2), pd, pn,
+        return _agread("This area model has %d equal parts. The shading was "
+                       "made by taking %d/%d of %d/%d. Write the shaded "
+                       "fraction." % (pd, n1, d1, n2, d2), pd, pn,
                        ["%d/%d × %d/%d = %d/%d." % (n1, d1, n2, d2, pn, pd),
                         "The shaded fraction is %d/%d." % (pn, pd)],
                        placeholder="e.g. 3/8")
@@ -3223,8 +3244,9 @@ def _(d=1):
         parts = min(den, 8)
         want = random.randint(1, parts - 1)
         return _stripq("Use the strip model. A strip worth %d is split into %d "
-                       "equal parts. What are %s worth altogether?"
-                       % (parts * per, parts, _pl(want, "part")), parts, "?",
+                       "equal parts. What %s %s worth altogether?"
+                       % (parts * per, parts, "is" if want == 1 else "are",
+                          _pl(want, "part")), parts, "?",
                        str(parts * per), "part", want * per,
                        ["%d ÷ %d = %d for one part." % (parts * per, parts,
                                                         per),
@@ -3636,7 +3658,7 @@ def _(d=1):
     if d == 0:
         opts = [division_as_fraction, fraction_as_division_num, share_cakes,
                 shade_share, area_share, line_share, table_divisions,
-                strip_share, reciprocal_fraction, reciprocal_whole]
+                strip_share]
     elif d == 2:
         opts = [division_as_fraction, fraction_as_division_den, share_as_mixed,
                 remainder_as_fraction, which_is_more, table_divisions,
