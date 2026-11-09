@@ -7,7 +7,7 @@
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=7"></script><script>
+{% block scripts %}<script src="/static/js/drill.js?v=8"></script><script>
 const audio = document.getElementById('audio');
 document.getElementById('play').addEventListener('click', () => { audio.currentTime = 0; audio.play().catch(() => {}); });
 Drill({ activity: 'spelling',

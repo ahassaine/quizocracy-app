@@ -31,14 +31,14 @@
   }
 
   window.Drill = function (opts) {
-    const act = opts.activity;
+    const act = opts.activity, api = opts.api || ('/api/' + act + '/');   // opts.api: another endpoint (team testing page)
     let token = null, answered = false, shownAt = 0, busy = false, seq = 0;
     async function next() {
       const my = ++seq;
       answered = false; busy = true;
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
-      const q = await post('/api/' + act + '/next', FIX ? { fix: 1 } : {});
+      const q = await post(api + 'next', opts.nextBody ? opts.nextBody() : (FIX ? { fix: 1 } : {}));
       if (my !== seq) return;              // a newer request superseded this one
       busy = false;
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
@@ -54,7 +54,7 @@
       const val = opts.read();
       if (val === null) { $('feedback').className = 'feedback warn'; $('feedback').textContent = 'Type your answer first.'; return; }
       busy = true;
-      const res = await post('/api/' + act + '/check', Object.assign({ token, ms: Date.now() - shownAt }, val));
+      const res = await post(api + 'check',Object.assign({ token, ms: Date.now() - shownAt }, val));
       busy = false;
       if (!res.ok) { $('feedback').textContent = 'That question expired — here is another.'; return next(); }
       answered = true; setDay(res.day);

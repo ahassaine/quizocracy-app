@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}Try a maths skill · Team board{% endblock %}
+{% block body %}
+<p><a href="/team/{{ me._id }}">← Team board</a></p>
+<h1>Try a maths skill</h1>
+<p class="mut small">For testing: pick any skill and answer its questions. Nothing is saved to a child's progress.</p>
+<div class="card row">
+  <select id="year" aria-label="Year">{% for y in years %}<option value="{{ y }}">Year {{ y[1:] }}</option>{% endfor %}</select>
+  <select id="skill" aria-label="Skill" style="flex:1;min-width:0"></select>
+  <select id="diff" aria-label="Difficulty"><option value="0">easy</option><option value="1" selected>medium</option><option value="2">hard</option></select>
+</div>
+<div class="stage" id="stage">
+  <div class="kid"><div><b id="skillTitle">Loading…</b> <span class="mut small" id="skillStrand"></span></div><span class="chip" id="skillKey"></span></div>
+  <div id="mStage"></div>
+  {% include "_drill_buttons.html" %}
+</div>
+{% endblock %}
+{% block foot %}{% endblock %}
+{% block scripts %}
+{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v=2"></script>
+{% endfor %}<script src="/static/js/drill.js?v=8"></script><script>
+window.MComp = window.MComp || {};
+const SKILLS = {{ years|tojson }};
+const $ = (id) => document.getElementById(id);
+function fill() { $('skill').innerHTML = SKILLS[$('year').value].map(s => '<option value="' + s.key + '">' + s.key + ' · ' + esc(s.title) + '</option>').join(''); }
+fill();
+const d = Drill({ activity: 'maths', api: '/team/{{ me._id }}/maths/',
+  nextBody: () => ({ skill: $('skill').value, difficulty: +$('diff').value }),
+  render(q) {
+    $('skillTitle').textContent = q.title; $('skillStrand').textContent = q.strand; $('skillKey').textContent = $('skill').value;
+    const stage = $('mStage'); stage.innerHTML = '';
+    const pr = document.createElement('div'); pr.className = 'm-prompt'; pr.textContent = q.prompt; stage.appendChild(pr);
+    const host = document.createElement('div'); host.className = 'm-host'; host.id = 'mHost'; host.dataset.component = q.component; stage.appendChild(host);
+    const comp = window.MComp[q.component];
+    if (comp) comp.render(host, q.spec || {}, { submit: () => $('check').click() });
+    else host.textContent = 'This question type is missing.';
+  },
+  read() { const h = $('mHost'); const v = h && h.__getValue ? h.__getValue() : null;
+    return (v === null || v === '' || (typeof v === 'number' && isNaN(v))) ? null : { value: v }; },
+  explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';
+    if (r.solution && r.solution.length) s += '<div class="m-sol">' + r.solution.map(esc).join('<br>') + '</div>'; return s; },
+  after(r) { const h = $('mHost'); if (h && h.__feedback) h.__feedback(r); } });
+$('year').addEventListener('change', () => { fill(); d.next(); });
+$('skill').addEventListener('change', () => d.next());
+$('diff').addEventListener('change', () => d.next());
+</script>{% endblock %}

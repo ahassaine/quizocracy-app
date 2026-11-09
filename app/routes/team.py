@@ -10,6 +10,7 @@ Telegram with the recipient's own link.
   POST /team/{member}/{tid}/send              reply (reopens a resolved thread)
   POST /team/{member}/{tid}/status            open / awaiting_retest (admin) / resolved
   GET  /team/{member}/{tid}/files/{mid}/{f}   attachment
+  GET  /team/{member}/maths · POST next/check  try any maths skill (testing aid; no progress recorded)
 """
 import asyncio
 import datetime
@@ -21,11 +22,12 @@ import urllib.request
 from pathlib import Path
 
 from bson import ObjectId
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
 from .. import config
 from ..db import db
+from ..maths import maths_engine
 from ..web import page
 
 router = APIRouter(prefix="/team")
@@ -152,6 +154,36 @@ async def new_thread(request: Request, member_slug: str, title: str = Form(""), 
     await _add(request, t, me, text or f"({len(files)} attachments)", files)
     await _fanout(me, t, f"[quizocracy team] 🆕 «{_esc(title[:80])}» — {_esc(me['name'])}", text)
     return RedirectResponse(f"/team/{member_slug}/{tid}", 303)
+
+
+@router.get("/{member_slug}/maths")
+async def maths_try(request: Request, member_slug: str):
+    """Testing aid: open any maths skill directly instead of waiting for the app to pick it."""
+    me = await _member(member_slug)
+    years = {}
+    for s in maths_engine.skill_list():
+        years.setdefault(s["key"].split(".")[0], []).append(s)
+    return page(request, "team/maths.html", me=me, years=years)
+
+
+@router.post("/{member_slug}/maths/next")
+async def maths_try_next(member_slug: str, payload: dict = Body(default={})):
+    me = await _member(member_slug)
+    key = str(payload.get("skill") or "")
+    diff = payload.get("difficulty") if payload.get("difficulty") in (0, 1, 2) else 1
+    q = await maths_engine.new_question(key, diff, pupil="team:" + me["_id"])
+    if not q:
+        raise HTTPException(404, "no such skill")
+    meta = next((s for s in maths_engine.skill_list() if s["key"] == key), {})
+    return {"ok": True, **q, "title": meta.get("title", key), "strand": meta.get("strand", "")}
+
+
+@router.post("/{member_slug}/maths/check")
+async def maths_try_check(member_slug: str, payload: dict = Body(default={})):
+    me = await _member(member_slug)
+    res = await maths_engine.check(payload.get("token"), payload.get("value"), "team:" + me["_id"])
+    res.pop("prompt", None)
+    return res
 
 
 @router.get("/{member_slug}/{tid}")

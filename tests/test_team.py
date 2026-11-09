@@ -91,3 +91,26 @@ def test_team_board_end_to_end(page, tmp_path):
     page.click("form[action$='/send'] button")
     assert "empty" in page.inner_text("main") and DB.team_messages.count_documents({"tid": tid}) == n
     assert page.request.get(BASE + img_src.replace(tid, "zzzzzz")).status == 404
+
+
+@pytest.mark.skipif(BASE.startswith("https://"), reason="never touches the real team board")
+def test_team_can_try_any_maths_skill(page):
+    meriem = _member("Meriem", "member")
+    assert page.goto("/team/notAmember1/maths").status == 404
+    page.goto(f"/team/{meriem}/maths")
+    page.select_option("#year", "Y5")
+    page.select_option("#skill", "Y5.4.e")
+    page.wait_for_function("document.getElementById('skillKey').textContent === 'Y5.4.e'")
+    tok = page.evaluate("document.body.dataset.qtoken")
+    doc = DB.maths_lab_q.find_one({"_id": tok})
+    assert doc["skill"] == "Y5.4.e" and doc["pupil"] == "team:" + meriem
+    page.locator("#mHost input").first.fill(str(doc["answer"]))
+    page.click("#check")
+    page.wait_for_selector("#feedback.yes")
+    # a question served to one member cannot be answered through another member's link
+    other = _member("Amine", "member")
+    page.click("#next")
+    page.wait_for_function(f"document.body.dataset.qtoken !== '{tok}'")
+    tok2 = page.evaluate("document.body.dataset.qtoken")
+    r = page.request.post(f"{BASE}/team/{other}/maths/check", data={"token": tok2, "value": "1"})
+    assert r.json()["ok"] is False
