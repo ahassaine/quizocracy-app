@@ -1,5 +1,6 @@
 /* base_ten — build a number with hundreds/tens/ones blocks. value = the number.
  * spec: { mode:"build", max:9 }
+ * Until a block is added, the value is null: an empty board is no answer, not 0.
  */
 (function () {
   window.MComp = window.MComp || {};
@@ -12,6 +13,7 @@
         { key: 'o', label: 'Ones', mult: 1, colour: '#e3b341' },
       ];
       const count = { h: 0, t: 0, o: 0 };
+      let touched = false;
       const wrap = document.createElement('div');
       wrap.style.cssText = 'display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap';
       const total = document.createElement('div');
@@ -27,8 +29,11 @@
             stack.appendChild(b);
           }
         });
+      }
+      // the number the blocks make is written only after Check: reading the blocks is the skill
+      function showTotal() {
         const v = count.h * 100 + count.t * 10 + count.o;
-        total.innerHTML = 'Your number: <span style="color:#4f8df7">' + v + '</span>';
+        total.innerHTML = 'Your number: <span style="color:inherit">' + v + '</span>';
       }
 
       cols.forEach(c => {
@@ -40,16 +45,20 @@
         const ctrl = document.createElement('div'); ctrl.style.cssText = 'margin-top:6px';
         const minus = document.createElement('button'); minus.textContent = '−'; minus.className = 'btn ghost'; minus.style.padding = '4px 10px';
         const plus = document.createElement('button'); plus.textContent = '+'; plus.className = 'btn primary'; plus.style.padding = '4px 10px'; plus.style.marginLeft = '6px';
-        minus.onclick = () => { count[c.key] = Math.max(0, count[c.key] - 1); paint(); };
-        plus.onclick = () => { count[c.key] = Math.min(spec.max ?? 9, count[c.key] + 1); paint(); };
+        minus.type = 'button'; plus.type = 'button';
+        minus.setAttribute('aria-label', 'Take away a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
+        plus.setAttribute('aria-label', 'Add a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
+        minus.onclick = () => { touched = true; count[c.key] = Math.max(0, count[c.key] - 1); paint(); };
+        plus.onclick = () => { touched = true; count[c.key] = Math.min(spec.max ?? 9, count[c.key] + 1); paint(); };
         ctrl.appendChild(minus); ctrl.appendChild(plus);
         col.appendChild(lab); col.appendChild(stack); col.appendChild(ctrl);
         wrap.appendChild(col);
       });
       host.appendChild(wrap); host.appendChild(total); paint();
 
-      host.__getValue = () => count.h * 100 + count.t * 10 + count.o;
-      host.__feedback = (res) => { total.style.color = res.correct ? '#22c55e' : '#f85149'; };
+      host.__empty = 'Add some blocks first.';
+      host.__getValue = () => touched ? count.h * 100 + count.t * 10 + count.o : null;
+      host.__feedback = (res) => { showTotal(); total.style.color = res.correct ? '#22c55e' : '#f85149'; };
     }
   };
 })();

@@ -1,5 +1,8 @@
 /* clock — set an analogue clock by dragging the hands. value = "H:MM" string.
- * spec: { mode:"set" }
+ * spec: { mode:"set", snap:5, roman:false }
+ *   snap  — the minute hand moves in steps of this many minutes (the server sets it per question)
+ *   roman — number the face I–XII
+ * The digital time is shown only after Check: reading the hands is the skill.
  */
 (function () {
   window.MComp = window.MComp || {};
@@ -30,14 +33,15 @@
           stroke: big ? '#c9d1d9' : '#495260', 'stroke-width': big ? 2 : 1
         }));
       }
+      const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
       for (let h = 1; h <= 12; h++) {
         const a = (h / 12) * 2 * Math.PI - Math.PI / 2;
         const t = mk('text', {
-          x: C + Math.cos(a) * (R - 18), y: C + Math.sin(a) * (R - 18) + 6,
-          fill: '#e6edf3', 'font-size': 17, 'font-weight': 700, 'text-anchor': 'middle',
-          'font-family': 'system-ui,sans-serif'
+          x: C + Math.cos(a) * (R - 18), y: C + Math.sin(a) * (R - 18) + (spec.roman ? 5 : 6),
+          fill: '#e6edf3', 'font-size': spec.roman ? 14 : 17, 'font-weight': 700, 'text-anchor': 'middle',
+          'font-family': spec.roman ? 'Georgia,serif' : 'system-ui,sans-serif'
         });
-        t.textContent = h;
+        t.textContent = spec.roman ? ROMAN[h] : h;
         svg.appendChild(t);
       }
 
@@ -49,14 +53,13 @@
       svg.appendChild(mk('circle', { cx: C, cy: C, r: 6, fill: '#e6edf3' }));
       host.appendChild(svg);
 
-      // digital readout
+      // digital readout: shown only after Check (while setting, it would read the hands for the child)
       const read = document.createElement('div');
-      read.style.cssText = 'font-size:2rem;font-weight:800;text-align:center;margin-top:10px;color:#e6edf3;font-family:system-ui,monospace';
+      read.style.cssText = 'font-size:2rem;font-weight:800;text-align:center;margin-top:10px;color:#e6edf3;font-family:system-ui,monospace;max-width:240px;min-height:2.6rem';
       host.appendChild(read);
 
       // state: continuous angles in "minutes-of-full-circle" units (0..720 for hour, 0..60 for minute)
-      // Y3 objective is 'to the nearest minute', so snap to 1 by default;
-      // a generator may pass spec.snap (e.g. 5) to make an easier tier.
+      // The server passes spec.snap per question (15 in Year 1, 5 for times on a 5, 1 otherwise).
       const MIN_SNAP = Math.max(1, parseInt((spec && spec.snap) || 1, 10));
       let minTick = 0;        // 0..59, snapped to MIN_SNAP
       let hourFloat = 0;      // 0..12 continuous
@@ -70,9 +73,6 @@
         const ha = (hourFloat / 12) * 2 * Math.PI - Math.PI / 2;
         hourHand.setAttribute('x2', C + Math.cos(ha) * 55);
         hourHand.setAttribute('y2', C + Math.sin(ha) * 55);
-        // readout
-        const mm = String(minTick).padStart(2, '0');
-        read.textContent = hourOf() + ':' + mm;
       }
 
       // The hour a correctly-set clock shows. A valid clock satisfies
@@ -119,9 +119,11 @@
         const ad = (a, b) => { let x = Math.abs(a - b); return Math.min(x, 1 - x); };
         const dMin = ad(f, minAngFrac);
         const dHour = ad(f, hourAngFrac);
-        // far out -> minute (longer hand); otherwise pick nearer hand angle
+        // far out -> minute (longer hand); otherwise pick nearer hand angle. When the hands lie on top of
+        // each other (12:00 at the start), a press inside the short hand's reach takes the short hand.
         if (d > 62) return 'minute';
-        return dMin <= dHour ? 'minute' : 'hour';
+        if (Math.abs(dMin - dHour) < 0.03) return 'hour';
+        return dMin < dHour ? 'minute' : 'hour';
       }
 
       function apply(ev) {
@@ -130,7 +132,9 @@
           let m = f * 60;
           m = Math.round(m / MIN_SNAP) * MIN_SNAP;
           if (m >= 60) m -= 60;
+          const hr = hourOf();
           minTick = m;
+          hourFloat = (hr % 12) + m / 60;       // the short hand follows, as on a real clock
         } else if (active === 'hour') {
           // continuous hour position from angle; keep fractional part so it sits between numbers
           hourFloat = f * 12;
@@ -145,7 +149,11 @@
         ev.preventDefault();
       }
       function move(ev) { if (active) { apply(ev); ev.preventDefault(); } }
-      function up() { active = null; }
+      function up() {
+        // let go of the short hand: it settles where the hour it is read as sits for these minutes
+        if (active === 'hour') { hourFloat = (hourOf() % 12) + minTick / 60; draw(); }
+        active = null;
+      }
 
       // Pointer events cover mouse + touch uniformly
       svg.addEventListener('pointerdown', (ev) => { down(ev); try { svg.setPointerCapture(ev.pointerId); } catch (e) {} });
@@ -158,6 +166,7 @@
 
       host.__getValue = () => value();
       host.__feedback = (res) => {
+        read.textContent = value();
         read.style.color = res.correct ? '#22c55e' : '#f85149';
       };
     }

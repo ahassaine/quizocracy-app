@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ pupil.name }} · Quizocracy{% endblock %}
 {% block body %}
-{% if added %}<div class="ok">{{ pupil.name }} is ready. Use <b>Hand over to a child</b> on your phone or tablet when it's practice time.</div>{% endif %}
+{% if added %}<div class="ok">{{ pupil.name }} is ready. When it's practice time, press <b>Hand over to a child</b> (here or on Home) on the phone or tablet {{ pupil.name }} will use.
+  <form method="post" action="/handover" style="margin-top:8px"><button class="btn" type="submit">Hand over to a child</button></form></div>{% endif %}
 <div class="kid"><h1>{{ pupil.name }}</h1><a class="btn" href="/children/{{ pupil._id }}/edit">Settings</a></div>
 <p class="mut">Year {{ pupil.year }}</p>
 <div class="grid">

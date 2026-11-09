@@ -680,10 +680,10 @@ def _(d=1):
 
     def equal_groups():
         g, p = min(b, 8), min(k, 10)
-        return _egq("These equal groups show a division. %d counters are put into "
+        return _egq("Show a division with the counters: %d counters are put into "
                     "equal groups of %d. How many equal groups are there?"
                     % (g * p, p), g, p, g,
-                    ["Count the equal groups: %d." % g,
+                    ["Make groups of %d: there are %d groups." % (p, g),
                      "%d ÷ %d = %d groups." % (g * p, p, g)])
 
     def word_share():
@@ -1250,9 +1250,9 @@ def _(d=1):
 
     def equal_groups():
         g, p = min(groups, 8), min(per, 10)
-        return _egq("Use the equal groups. %d shells are put into equal groups of "
+        return _egq("Use the counters. %d shells are put into equal groups of "
                     "%d. How many equal groups are made?" % (g * p, p), g, p, g,
-                    ["Count the equal groups: %d." % g,
+                    ["Make groups of %d: there are %d groups." % (p, g),
                      "%d ÷ %d = %d groups." % (g * p, p, g)])
 
     def two_step():

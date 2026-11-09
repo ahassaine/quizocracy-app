@@ -1,6 +1,7 @@
 /* pictogram — read a pictogram (with a key) and type a numeric answer.
  * value = trimmed typed string.
- * spec: { categories:["Ali","Sara",...], values:[n,n,...], key:<int>, symbol:"circle"|"star"|"apple", unit?:"children" }
+ * spec: { categories:["Ali","Sara",...], values:[n,n,...], key:<int>, symbol:"circle"|"star"|"apple", unit?:"children",
+ *         blankRow?: i (row left empty with "?": the child works out how many symbols to draw), keypad? }
  * Supports half symbols when value is not an exact multiple of key.
  */
 (function () {
@@ -15,6 +16,9 @@
 
   const INK = '#e6edf3', MUTED = '#8b949e', LINE = '#21262d', BORDER = '#30363d',
         BG = '#0b0f14', ACCENT = '#4f8df7', GOOD = '#22c55e', BAD = '#f85149';
+  const NAMED = { red: '#ef4444', blue: '#3b82f6', green: '#22c55e', yellow: '#facc15', orange: '#f97316',
+                  purple: '#a855f7', pink: '#f472b6', brown: '#a0522d', black: '#000000', white: '#ffffff',
+                  grey: '#9ca3af', gray: '#9ca3af', gold: '#d4a017', silver: '#c0c0c0' };
 
   // ---- symbol geometry (all drawn inside a box of side `s` centred on 0,0) ----
   function starPoints(s) {
@@ -48,28 +52,47 @@
       const key = Number(spec.key) > 0 ? Number(spec.key) : 1;
       const shape = ['circle', 'star', 'apple'].indexOf(spec.symbol) >= 0 ? spec.symbol : 'circle';
       const unit = spec.unit ? String(spec.unit) : '';
-      const fillCol = shape === 'apple' ? '#f85149' : (shape === 'star' ? '#e3b341' : ACCENT);
+      const baseCol = shape === 'apple' ? '#f85149' : (shape === 'star' ? '#e3b341' : ACCENT);
+      // a row named after a colour ("Red cars", "Green") draws its symbols in that colour
+      const rowCol = cats.slice(0, n).map(c => {
+        const w = (String(c).toLowerCase().match(/[a-z]+/g) || []).find(x => NAMED[x]);   // not "Oranges"
+        return w ? NAMED[w] : baseCol;
+      });
+      // the row a "how many symbols would you draw?" question asks about is left empty with a "?"
+      const blank = (typeof spec.blankRow === 'number') ? spec.blankRow : -1;
+      let fillCol = baseCol;
 
-      // ---- layout ----
-      const S = 26;                 // symbol box side
-      const GAP = 10;               // gap between symbols
-      const PITCH = S + GAP;
+      // ---- layout: real CSS px (1 viewBox unit = 1 px) so the labels keep their size on a phone ----
+      const avail = (() => { const w = Math.floor(host.getBoundingClientRect().width) - 2; return w > 0 ? Math.max(260, Math.min(520, w)) : 520; })();
       const padL = 14, padR = 16, padT = 14, padB = 14;
       const rowH = 40;
-      const labelW = Math.max(70, Math.min(140, 10 + 8.2 * Math.max(4, ...cats.slice(0, n).map(c => String(c).length))));
+      const labelW = Math.max(56, Math.min(140, 10 + 8.2 * Math.max(4, ...cats.slice(0, n).map(c => String(c).length))));
       const colX = padL + labelW + 8;               // first symbol's left edge
       let maxCells = 1;
       for (let i = 0; i < n; i++) maxCells = Math.max(maxCells, Math.ceil((Number(vals[i]) || 0) / key));
+      // symbols shrink (down to 16 px) before the drawing does
+      const S = Math.max(16, Math.min(26, Math.floor((avail - colX - padR) / maxCells / 1.38)));   // symbol box side
+      const GAP = Math.round(S * 0.38);             // gap between symbols
+      const PITCH = S + GAP;
+      // a row too long for the screen continues on a second line of symbols (same row, same label)
+      const perLine = Math.max(1, Math.min(maxCells, Math.floor((avail - colX - padR + GAP) / PITCH)));
+      const cellsOf = (i) => Math.ceil((Number(vals[i]) || 0) / key);
+      const rowHs = [], rowY = [];
       const keyH = 34;
-      const W = colX + maxCells * PITCH + padR;
-      const H = padT + keyH + n * rowH + padB;
+      let yAcc = padT + keyH;
+      for (let i = 0; i < n; i++) {
+        const lines = i === blank ? 1 : Math.max(1, Math.ceil(cellsOf(i) / perLine));
+        rowY.push(yAcc); rowHs.push(rowH + (lines - 1) * PITCH); yAcc += rowHs[i];
+      }
+      const W = Math.max(220, colX + perLine * PITCH - GAP + padR);
+      const H = yAcc + padB;
 
       const svg = mk('svg', {
         viewBox: '0 0 ' + W + ' ' + H,
         width: '100%',
         role: 'img',
         'aria-label': 'Pictogram',
-        style: 'max-width:520px;background:' + BG + ';border:1px solid ' + BORDER + ';border-radius:10px;display:block'
+        style: 'max-width:' + W + 'px;box-sizing:content-box;background:' + BG + ';border:1px solid ' + BORDER + ';border-radius:10px;display:block'
       });
 
       // one reusable clip for half symbols (left half of the symbol box)
@@ -98,7 +121,7 @@
         // faint full outline (shows what a whole symbol looks like)
         g.appendChild(body({ fill: 'none', stroke: frac < 1 ? '#495260' : 'none', 'stroke-width': 1.5 }));
         // filled part
-        const filled = body({ fill: fillCol, stroke: '#0b0f14', 'stroke-width': 1 });
+        const filled = body({ fill: fillCol, stroke: fillCol === '#000000' || fillCol === '#a0522d' ? '#c9d1d9' : '#0b0f14', 'stroke-width': 1 });
         if (frac < 1) filled.setAttribute('clip-path', 'url(#' + uid + '-half)');
         g.appendChild(filled);
         if (frac < 1) {
@@ -109,6 +132,7 @@
 
       // ---- key line ----
       const keyY = padT + keyH / 2 - 2;
+      if (rowCol.some(c => c !== baseCol)) fillCol = '#9ca3af';     // rows in their own colours: a neutral key symbol
       svg.appendChild(symbol(padL + S / 2, keyY, 1));
       svg.appendChild(mk('text', {
         x: padL + S + 10, y: keyY + 5, fill: INK, 'font-size': 14, 'font-weight': 700
@@ -119,10 +143,10 @@
 
       // ---- rows ----
       for (let i = 0; i < n; i++) {
-        const cy = padT + keyH + rowH * i + rowH / 2;
+        const cy = rowY[i] + rowH / 2;
         if (i % 2 === 1) {
           svg.appendChild(mk('rect', {
-            x: padL - 4, y: cy - rowH / 2 + 2, width: W - padL - padR + 8, height: rowH - 4,
+            x: padL - 4, y: rowY[i] + 2, width: W - padL - padR + 8, height: rowHs[i] - 4,
             fill: '#ffffff', opacity: 0.03, rx: 6
           }));
         }
@@ -130,11 +154,17 @@
           x: padL + labelW, y: cy + 5, fill: '#c9d1d9', 'font-size': 14, 'text-anchor': 'end'
         }, String(cats[i])));
 
+        if (i === blank) {
+          svg.appendChild(mk('text', { x: colX + 4, y: cy + 6, fill: ACCENT, 'font-size': 18, 'font-weight': 800 }, '?'));
+          continue;
+        }
+        fillCol = rowCol[i];
         const v = Number(vals[i]) || 0;
         const full = Math.floor(v / key);
         const rem = v - full * key;
-        for (let j = 0; j < full; j++) svg.appendChild(symbol(colX + j * PITCH + S / 2, cy, 1));
-        if (rem > 0) svg.appendChild(symbol(colX + full * PITCH + S / 2, cy, 0.5));
+        const at = (j) => [colX + (j % perLine) * PITCH + S / 2, cy + Math.floor(j / perLine) * PITCH];
+        for (let j = 0; j < full; j++) svg.appendChild(symbol(...at(j), 1));
+        if (rem > 0) svg.appendChild(symbol(...at(full), 0.5));
       }
 
       host.appendChild(svg);
@@ -144,7 +174,8 @@
       wrap.style.cssText = 'margin-top:12px';
       const input = document.createElement('input');
       input.type = 'text';
-      input.inputMode = 'numeric';
+      input.inputMode = spec.keypad || 'text';      // "Which pet…?" needs letters; digits only for whole numbers
+      input.setAttribute('autocapitalize', 'off');
       input.className = 'm-input';
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');

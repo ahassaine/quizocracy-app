@@ -126,7 +126,8 @@ def _egq(prompt, groups, per, answer, solution, answer_type="int"):
 
 def _egbuildq(prompt, groups, per, solution):
     return {"prompt": prompt, "component": "equal_groups",
-            "spec": {"mode": "build", "maxGroups": 8, "maxPer": 10},
+            "spec": {"mode": "build", "maxGroups": 8, "maxPer": 10,
+                     "targetGroups": int(groups), "targetPer": int(per)},
             "answer": int(groups) * int(per), "answer_type": "int",
             "solution": solution}
 
@@ -334,7 +335,7 @@ def _(d=1):
         return _numq("How many %ss must be added to %s to make %s?"
                      % (unit_name, _com(a), _com(a + n * unit)), n,
                      ["%d − %d = %d." % (a + n * unit, a, n * unit),
-                      "%d ÷ %d = %d %ss." % (n * unit, unit, n, unit_name)],
+                      "%d ÷ %d = %s." % (n * unit, unit, _pv(n, unit_name + "s"))],
                      unit=unit_name + "s")
 
     def two_step():
@@ -1223,8 +1224,8 @@ def _(d=1):
                           "%d × %d = %d." % (g, p, tot)])
 
     def groups_missing_factor():
-        return _egq("These equal groups show ___ × %d = %d. How many equal groups "
-                    "are there?" % (p, tot), g, p, g,
+        return _egq("Put the %d counters into equal groups of %d to show ___ × %d = %d. "
+                    "How many equal groups are there?" % (tot, p, p, tot), g, p, g,
                     ["Each group holds %d counters and the total is %d." % (p, tot),
                      "%d ÷ %d = %d groups." % (tot, p, g)])
 
@@ -1562,9 +1563,9 @@ def _(d=1):
 
     def groups_family():
         gg, pp = min(a, 8), min(b, 10)
-        return _egq("These %d equal groups of %d show %d × %d = %d. Use that fact to "
-                    "complete the related division:  %d ÷ %d = ___"
-                    % (gg, pp, gg, pp, gg * pp, gg * pp, gg), gg, pp, pp,
+        return _egq("%d × %d = %d. Share the %d counters into %d equal groups and use "
+                    "that fact to complete the related division:  %d ÷ %d = ___"
+                    % (gg, pp, gg * pp, gg * pp, gg, gg * pp, gg), gg, pp, pp,
                     ["Multiplication and division are inverses.",
                      "%d ÷ %d = %d." % (gg * pp, gg, pp)])
 

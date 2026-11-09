@@ -45,6 +45,11 @@
 
       const spanX = xmax - xmin, spanY = ymax - ymin;
       const pad = 34;
+      // drawn at the card's real width: a wider grid scaled down to a phone shrinks its 12 px numbers to 7 px,
+      // so on a narrow card the squares get smaller instead (the numbers thin out below when they would touch)
+      const avail = Math.floor(host.getBoundingClientRect().width || 0);
+      if (avail > 0) gap = Math.max(12, Math.min(gap, Math.floor((avail - pad * 2 - 2) / spanX)));
+      const every = gap >= 18 ? 1 : (gap >= 10 ? 2 : 5);   // label every n-th grid line
       const plotW = spanX * gap, plotH = spanY * gap;
       const W = plotW + pad * 2, H = plotH + pad * 2;
       const ox = pad - xmin * gap;                 // pixel x of grid x=0
@@ -81,13 +86,14 @@
       // Legacy first-quadrant labelling is preserved exactly: x skips 0,
       // y prints 0..size (the "0" sits at the origin).
       for (let i = xmin; i <= xmax; i++) {
-        if (i === 0) continue;
+        if (i === 0 || i % every) continue;
         const [px, py] = toPx(i, 0);
         const t = mk('text', { x: px, y: py + 16, fill: '#8b949e', 'font-size': 12, 'text-anchor': 'middle' });
         t.textContent = i; svg.appendChild(t);
       }
       for (let i = ymin; i <= ymax; i++) {
         if (i === 0 && hasRange) continue;         // one "0" only, drawn below
+        if (i % every) continue;
         const [px2, py2] = toPx(0, i);
         const t2 = mk('text', { x: px2 - 8, y: py2 + 4, fill: '#8b949e', 'font-size': 12, 'text-anchor': 'end' });
         t2.textContent = i; svg.appendChild(t2);
@@ -184,7 +190,7 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'm-input';
-        input.setAttribute('inputmode', 'text');
+        input.setAttribute('inputmode', spec.keypad || 'text');
         if (spec.placeholder) input.placeholder = spec.placeholder;
         input.style.cssText = 'margin-top:10px;display:block;font-size:1.1rem;padding:8px 12px;' +
           'width:160px;background:#0b0f14;color:#e6edf3;border:1px solid #30363d;border-radius:8px';
@@ -223,6 +229,7 @@
       svg.addEventListener('touchmove', (e) => { if (down) set(e); });
       window.addEventListener('touchend', () => { down = false; });
 
+      host.__empty = 'Tap the grid to plot your point.';
       host.__getValue = () => value;
       host.__feedback = (res) => {
         dot.setAttribute('fill', res.correct ? '#22c55e' : '#f85149');

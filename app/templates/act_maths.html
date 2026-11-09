@@ -7,30 +7,30 @@
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
 {% block scripts %}
-<script src="/static/maths/components/angle.js?v=2"></script>
-<script src="/static/maths/components/area_grid.js?v=2"></script>
-<script src="/static/maths/components/array.js?v=1"></script>
-<script src="/static/maths/components/bar_chart.js?v=3"></script>
-<script src="/static/maths/components/base_ten.js?v=1"></script>
-<script src="/static/maths/components/circle.js?v=1"></script>
-<script src="/static/maths/components/clock.js?v=1"></script>
-<script src="/static/maths/components/coordinate_grid.js?v=1"></script>
-<script src="/static/maths/components/data_table.js?v=1"></script>
-<script src="/static/maths/components/equal_groups.js?v=1"></script>
-<script src="/static/maths/components/fraction_bar.js?v=1"></script>
-<script src="/static/maths/components/inequality_line.js?v=1"></script>
-<script src="/static/maths/components/io_table.js?v=1"></script>
-<script src="/static/maths/components/line_graph.js?v=2"></script>
-<script src="/static/maths/components/net.js?v=1"></script>
-<script src="/static/maths/components/number.js?v=1"></script>
-<script src="/static/maths/components/number_line.js?v=1"></script>
-<script src="/static/maths/components/pictogram.js?v=1"></script>
-<script src="/static/maths/components/pie_chart.js?v=2"></script>
-<script src="/static/maths/components/ruler.js?v=1"></script>
-<script src="/static/maths/components/scatter_plot.js?v=1"></script>
-<script src="/static/maths/components/shape.js?v=1"></script>
-<script src="/static/maths/components/strip_model.js?v=2"></script>
-<script src="/static/js/drill.js?v=8"></script><script>
+<script src="/static/maths/components/angle.js?v=4"></script>
+<script src="/static/maths/components/area_grid.js?v=4"></script>
+<script src="/static/maths/components/array.js?v=4"></script>
+<script src="/static/maths/components/bar_chart.js?v=5"></script>
+<script src="/static/maths/components/base_ten.js?v=4"></script>
+<script src="/static/maths/components/circle.js?v=4"></script>
+<script src="/static/maths/components/clock.js?v=4"></script>
+<script src="/static/maths/components/coordinate_grid.js?v=4"></script>
+<script src="/static/maths/components/data_table.js?v=5"></script>
+<script src="/static/maths/components/equal_groups.js?v=4"></script>
+<script src="/static/maths/components/fraction_bar.js?v=4"></script>
+<script src="/static/maths/components/inequality_line.js?v=4"></script>
+<script src="/static/maths/components/io_table.js?v=5"></script>
+<script src="/static/maths/components/line_graph.js?v=5"></script>
+<script src="/static/maths/components/net.js?v=4"></script>
+<script src="/static/maths/components/number.js?v=4"></script>
+<script src="/static/maths/components/number_line.js?v=4"></script>
+<script src="/static/maths/components/pictogram.js?v=5"></script>
+<script src="/static/maths/components/pie_chart.js?v=5"></script>
+<script src="/static/maths/components/ruler.js?v=4"></script>
+<script src="/static/maths/components/scatter_plot.js?v=5"></script>
+<script src="/static/maths/components/shape.js?v=4"></script>
+<script src="/static/maths/components/strip_model.js?v=5"></script>
+<script src="/static/js/drill.js?v=11"></script><script>
 window.MComp = window.MComp || {};
 Drill({ activity: 'maths',
   render(q) {
@@ -45,6 +45,7 @@ Drill({ activity: 'maths',
     if (comp) comp.render(host, q.spec || {}, { submit: () => document.getElementById('check').click() });
     else host.textContent = 'This question type is missing.';
   },
+  empty() { const h = document.getElementById('mHost'); return h && h.__empty; },
   read() { const h = document.getElementById('mHost'); const v = h && h.__getValue ? h.__getValue() : null;
     return (v === null || v === '' || (typeof v === 'number' && isNaN(v))) ? null : { value: v }; },
   explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';

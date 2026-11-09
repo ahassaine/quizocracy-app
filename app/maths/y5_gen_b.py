@@ -80,7 +80,8 @@ def _(d=1):
 
     def t_strip():
         return _strip("The bar model shows two parts, %s and %s. What is the whole?" % (_c(a), _c(b)),
-                      {"mode": "part_whole", "totalLabel": "?", "partLabel": _c(a), "unknown": "total", "parts": 2},
+                      {"mode": "part_whole", "totalLabel": "?", "partLabel": _c(a), "partLabels": [_c(a), _c(b)],
+                       "unknown": "total", "parts": 2},
                       a + b, ["%s + %s = %s." % (_c(a), _c(b), _c(a + b))])
 
     def t_digit_of_answer():

@@ -8,17 +8,34 @@ from fastapi.responses import RedirectResponse
 from .. import config, mailer
 from ..activities import new_family_plan
 from ..db import db
-from ..deps import create_session, end_session, load
+from ..deps import client_ip, create_session, end_session, hit, load, over_limit
 from ..security import hash_secret, new_code, new_id, new_token, token_key, verify_secret
 from ..web import page
 
 router = APIRouter()
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_FAILS = 8
+CODE_TRIES = 5                     # wrong guesses for one code
+CODE_FAILS_HOUR = 10               # wrong guesses per email per hour, across "Send a new code"
+# Mail we send on request: (count, minutes) windows per address, and per client address for all of them.
+MAIL_PER_EMAIL = ((3, 10), (5, 60))
+MAIL_PER_IP = ((30, 60),)
 
 
 def _now():
     return datetime.datetime.utcnow()
+
+
+async def _mail_allowed(request: Request, purpose: str, email: str) -> bool:
+    """Throttle mail-sending actions so nobody can flood an inbox; counts this send when it is allowed."""
+    keys = ((f"mail:{purpose}:{email}", MAIL_PER_EMAIL), (f"mail:ip:{client_ip(request)}", MAIL_PER_IP))
+    for key, windows in keys:
+        for n, minutes in windows:
+            if await over_limit(key, n, minutes):
+                return False
+    for key, _ in keys:
+        await hit(key)
+    return True
 
 
 async def _send_code(account: dict) -> None:
@@ -28,7 +45,7 @@ async def _send_code(account: dict) -> None:
                                "tries": 0, "expires": _now() + datetime.timedelta(minutes=30)})
     await mailer.send(account["email"], f"Your Quizocracy code: {code}",
                       f"Your verification code is {code}\n\nIt expires in 30 minutes. "
-                      f"If you did not sign up to Quizocracy, ignore this email.\n")
+                      f"If you did not sign up to Quizocracy, ignore this email.\n", secret=code)
 
 
 @router.get("/signup")
@@ -60,6 +77,7 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
            "role": "owner", "created": _now(), "verified_at": None}
     await db.families.insert_one(fam)
     await db.accounts.insert_one(acc)
+    await hit(f"mail:verify:{email}")              # the first code counts towards the resend limit
     await _send_code(acc)
     resp = RedirectResponse("/verify", 303)
     await create_session(resp, acc)
@@ -81,12 +99,20 @@ async def verify(request: Request, code: str = Form(...)):
     ctx = await load(request)
     if not ctx:
         return RedirectResponse("/login", 303)
-    rec = await db.codes.find_one({"email": ctx.account["email"], "purpose": "verify", "expires": {"$gt": _now()}})
-    ok = bool(rec) and rec.get("tries", 0) < 5 and verify_secret(code.strip(), rec["hash"])
-    if not ok:
+    email = ctx.account["email"]
+    fails_key = f"verify:{email}"          # outlives each code, so "Send a new code" does not reset the cap
+    if await over_limit(fails_key, CODE_FAILS_HOUR, 60):
+        return page(request, "verify.html", ctx, email=email, status_code=429,
+                    error="Too many wrong codes. Wait an hour, then ask for a new code.")
+    rec = await db.codes.find_one({"email": email, "purpose": "verify", "expires": {"$gt": _now()}})
+    if rec and rec.get("tries", 0) >= CODE_TRIES:
+        return page(request, "verify.html", ctx, email=email, status_code=400,
+                    error="That code has had too many wrong tries and no longer works. Ask for a new code below.")
+    if not rec or not verify_secret(code.strip(), rec["hash"]):
         if rec:
             await db.codes.update_one({"_id": rec["_id"]}, {"$inc": {"tries": 1}})
-        return page(request, "verify.html", ctx, email=ctx.account["email"],
+        await hit(fails_key)
+        return page(request, "verify.html", ctx, email=email,
                     error="That code is not right, or it has expired.", status_code=400)
     await db.codes.delete_many({"email": ctx.account["email"], "purpose": "verify"})
     await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"verified_at": _now()}})
@@ -97,6 +123,10 @@ async def verify(request: Request, code: str = Form(...)):
 async def verify_resend(request: Request):
     ctx = await load(request)
     if ctx and not ctx.account.get("verified_at"):
+        if not await _mail_allowed(request, "verify", ctx.account["email"]):
+            return page(request, "verify.html", ctx, email=ctx.account["email"], status_code=429,
+                        error="We have sent several codes already. Check your inbox and spam folder, "
+                              "or wait a few minutes before asking for another.")
         await _send_code(ctx.account)
     return RedirectResponse("/verify?sent=1", 303)
 
@@ -125,7 +155,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
 @router.post("/logout")
 async def logout(request: Request):
     ctx = await load(request)
-    if ctx and ctx.child:
+    if ctx and ctx.locked:
         return RedirectResponse("/parent-unlock", 303)     # a child cannot sign the parent out
     resp = RedirectResponse("/", 303)
     await end_session(request, resp)
@@ -141,13 +171,17 @@ async def forgot_form(request: Request):
 async def forgot(request: Request, email: str = Form(...)):
     email = email.strip().lower()
     acc = await db.accounts.find_one({"email": email})
-    if acc:
+    # Over the limit, nothing is sent but the page says the same: it must not tell which emails have accounts,
+    # and the link sent earlier still works.
+    if acc and await _mail_allowed(request, "reset", email):
         tok = new_token()
+        await db.codes.delete_many({"email": email, "purpose": "reset"})      # a new link replaces older ones
         await db.codes.insert_one({"email": email, "purpose": "reset", "hash": token_key(tok),
                                    "expires": _now() + datetime.timedelta(hours=1)})
         await mailer.send(email, "Reset your Quizocracy password",
                           f"Use this link within an hour to choose a new password:\n\n"
-                          f"{config.PUBLIC_URL}/reset?token={tok}\n\nIf you did not ask for this, ignore this email.\n")
+                          f"{config.PUBLIC_URL}/reset?token={tok}\n\nIf you did not ask for this, ignore this email.\n",
+                          secret=tok)
     return page(request, "forgot.html", sent=True)
 
 

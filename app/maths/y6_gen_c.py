@@ -984,8 +984,8 @@ def _(d=1):
                    left, unit="l",
                    solution=["%s + %s = %s litres."
                              % (_txt(a), _txt(b), _txt(a + b)),
-                             "%s − %s = %s litres."
-                             % (_txt(a + b), _txt(c), _txt(left))])
+                             "%s − %s = %s %s."
+                             % (_txt(a + b), _txt(c), _txt(left), "litre" if left == 1 else "litres")])
 
     if t == 11:                      # choose the two decimals with a given
         #                              sum or difference (exactly one pair works)

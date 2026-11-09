@@ -1445,7 +1445,7 @@ def _(d=1):
         b = random.randint(1, 15)
         n = random.randint(2, 12)
         return _numq("The perimeter of a shape is given by the expression "
-                     "%d%s + %d centimetres. What is the perimeter when "
+                     "(%d%s + %d) cm. What is the perimeter when "
                      "%s = %d?" % (a, v, b, v, n), a * n + b,
                      ["%d × %d = %d." % (a, n, a * n),
                       "%d + %d = %d cm." % (a * n, b, a * n + b)], unit="cm")

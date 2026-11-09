@@ -144,6 +144,7 @@
       input.autocomplete = 'off';
       input.spellcheck = false;
       input.placeholder = 'your answer';
+      input.inputMode = spec.keypad || 'text';
       input.setAttribute('aria-label', 'Your answer');
       input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:220px;max-width:90%;background:' + BG +
         ';color:' + INK + ';border:2px solid ' + BORD + ';border-radius:8px;text-align:center;outline:none';

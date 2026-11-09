@@ -3068,7 +3068,7 @@ def _(d):
     k = random.randint(_by(d, 1, 2, 2), _by(d, 3, 6, 6))
     w, h = 4 * k * 4, 3 * k * 4
     if d == 2:                                    # stretch: the inverse — height from diagonal and width
-        return _int("A TV screen has a %d cm diagonal and is %d cm wide. How tall is it, in cm?" % (5 * k * 4, w), h,
+        return _int("A TV screen has %s cm diagonal and is %d cm wide. How tall is it, in cm?" % (_an(5 * k * 4), w), h,
                     ["h² = %d² − %d² = %d." % (5 * k * 4, w, h * h), "h = √%d = %d cm." % (h * h, h)], "cm")
     return _int("A TV screen is %d cm wide and %d cm tall. How long is its diagonal, in cm?" % (w, h), 5 * k * 4,
                 ["%d² + %d² = %d." % (w, h, (5 * k * 4) ** 2), "√%d = %d cm." % ((5 * k * 4) ** 2, 5 * k * 4)], "cm")
@@ -3159,7 +3159,7 @@ def _(d):
                          # stretch: the same loci, described less directly
                          [("equidistant from the two ends of a fence AB", "perpendicular bisector"),
                           ("equidistant from the two edges of a V-shaped corner", "angle bisector"),
-                          ("where a goat tied to a post by a %d m rope can just reach" % r, "circle"),
+                          ("where a goat tied to a post by %s m rope can just reach" % _an(r), "circle"),
                           ("equidistant from the corners P and Q of a field", "perpendicular bisector")]))
     return _wq("The locus of points %s is which shape or line? Type its name." % desc, ans,
                ["That locus is %s %s." % ("a" if ans != "angle bisector" else "an", ans)], "type the name")

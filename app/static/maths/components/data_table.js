@@ -23,7 +23,7 @@
       const txt = (v) => (v == null ? '' : String(v));
 
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'width:100%;max-width:520px;box-sizing:border-box';
+      wrap.style.cssText = 'width:100%;box-sizing:border-box';      // the card's full width: a cut-off column hides the empty cell
 
       // Caption
       if (spec.caption != null && String(spec.caption).trim() !== '') {
@@ -45,7 +45,8 @@
         'color:#e6edf3;font-size:1.02rem;min-width:100%;';
 
       const cellPad = 'padding:8px 12px;';
-      const bodyCss = cellPad + 'text-align:center;white-space:nowrap;' +
+      // numbers stay on one line; cells with words ("three thousand and twelve") wrap
+      const bodyCss = cellPad + 'text-align:center;' +
         'border-top:1px solid #21262d;border-right:1px solid #30363d;' +
         'font-variant-numeric:tabular-nums';
 
@@ -57,7 +58,7 @@
           const th = document.createElement('th');
           th.textContent = txt(headers[c]);
           th.scope = 'col';
-          th.style.cssText = cellPad + 'text-align:center;white-space:nowrap;' +
+          th.style.cssText = cellPad + 'text-align:center;' +
             'font-size:.85rem;text-transform:uppercase;letter-spacing:.07em;' +
             'color:#8b949e;background:#161b22;border-bottom:2px solid #30363d;' +
             'border-right:1px solid #30363d';
@@ -88,6 +89,8 @@
             blankCell = box;
           } else {
             td.textContent = txt(Array.isArray(r) ? r[c] : '');
+            if (!/[A-Za-z]{2,}\s+\S/.test(td.textContent)) td.style.whiteSpace = 'nowrap';
+            else td.style.minWidth = '7em';
           }
           tr.appendChild(td);
         }
@@ -97,6 +100,20 @@
       scroller.appendChild(table);
       wrap.appendChild(scroller);
 
+      // Still too wide (a phone, many columns): say so, and fade the edge that has more table behind it
+      const hint = document.createElement('div');
+      hint.textContent = '\u2190 Swipe the table to see all of it \u2192';
+      hint.style.cssText = 'display:none;margin-top:6px;font-size:.85rem;font-weight:700;color:#4f8df7';
+      wrap.appendChild(hint);
+      const edges = () => {
+        const more = scroller.scrollWidth - scroller.clientWidth > 2;
+        hint.style.display = more ? '' : 'none';
+        const l = scroller.scrollLeft > 2, r = scroller.scrollLeft < scroller.scrollWidth - scroller.clientWidth - 2;
+        scroller.style.boxShadow = !more ? 'none' : [l ? 'inset 18px 0 14px -10px rgba(79,141,247,.55)' : '', r ? 'inset -18px 0 14px -10px rgba(79,141,247,.55)' : ''].filter(Boolean).join(',') || 'none';
+      };
+      scroller.addEventListener('scroll', edges);
+      if (window.ResizeObserver) new ResizeObserver(edges).observe(scroller);
+
       // Typed input
       const inputWrap = document.createElement('div');
       inputWrap.style.cssText = 'margin-top:12px';
@@ -104,6 +121,9 @@
       input.type = 'text';
       input.className = 'm-input';
       input.autocomplete = 'off';
+      // a digit pad only for whole-number answers; words, decimals, negatives and times need a full keyboard
+      input.inputMode = spec.keypad || 'text';
+      input.setAttribute('autocapitalize', 'off');
       if (spec.placeholder != null) input.placeholder = String(spec.placeholder);
       input.setAttribute('aria-label', 'Your answer');
       input.style.cssText = 'font-size:1.25rem;padding:8px 12px;width:100%;max-width:200px;' +
@@ -121,6 +141,12 @@
       wrap.appendChild(inputWrap);
 
       host.appendChild(wrap);
+      // Too wide for the card (a phone): tighter cells and plain 12 px headers before falling back to the swipe
+      if (scroller.scrollWidth - scroller.clientWidth > 2) {
+        table.querySelectorAll('th').forEach((th) => { th.style.padding = '6px 5px'; th.style.letterSpacing = '0'; th.style.fontSize = '.75rem'; });
+        table.querySelectorAll('td').forEach((td) => { td.style.padding = '7px 6px'; });
+      }
+      edges();
 
       host.__getValue = () => input.value.trim();
       host.__feedback = (res) => {

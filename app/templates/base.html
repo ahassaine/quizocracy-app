@@ -13,15 +13,17 @@
 <title>{% block title %}Quizocracy{% endblock %}</title>
 <link rel="stylesheet" href="/static/css/app.css?v=11">
 </head>
-<body>
+<body{% if ctx and ctx.child %} data-pupil="{{ ctx.child._id }}"{% endif %}>
 <header class="top{% if ctx and (ctx.child or ctx.account.verified_at) %} signed{% endif %}">
   <a class="brand" href="/"><img src="/static/img/logo.png" alt=""><b class="wordmark">Quiz<span>ocracy</span></b></a>
   <nav class="links">
     {% if ctx and ctx.child %}
       <span class="who" data-testid="child-name">{{ ctx.child.name }}</span>
       <a href="/me">My day</a><a href="/board">Board</a><a href="/learn">Switch</a><a href="/parent-unlock">Parent</a>
+    {% elif ctx and ctx.locked %}
+      <a href="/learn">Who's learning?</a><a href="/board">Board</a><a href="/parent-unlock">Parent</a>
     {% elif ctx and ctx.account.verified_at %}
-      <a href="/home">Home</a><a href="/learn">Learn</a><a href="/board">Board</a><a href="/settings">Settings</a>
+      <a href="/home">Home</a><form method="post" action="/handover" style="display:inline"><button class="linkish" type="submit" title="Hand over to a child">Learn</button></form><a href="/board">Board</a><a href="/settings">Settings</a>
       <form method="post" action="/logout" style="display:inline"><button class="linkish" type="submit">Sign out</button></form>
     {% else %}
       <a href="/login">Sign in</a><a href="/signup">Sign up</a>

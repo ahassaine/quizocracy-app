@@ -7,7 +7,8 @@
       const wrap = document.createElement('div'); wrap.className = 'row';
       const input = document.createElement('input');
       input.className = 'm-input'; input.type = 'text';
-      input.inputMode = spec.text ? 'text' : 'numeric';
+      // the server picks the keyboard the answer needs: iOS 'numeric' has no "." or "−", 'decimal' has no "−"
+      input.inputMode = spec.text ? 'text' : (spec.keypad || 'text');
       input.placeholder = spec.placeholder || (spec.text ? 'type your answer' : 'type a number');
       input.autocomplete = 'off';
       wrap.appendChild(input);

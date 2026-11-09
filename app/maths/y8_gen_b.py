@@ -423,16 +423,20 @@ def _(d=1):
                     "The total is %s." % _txt(s)])
 
     def line_mark():
-        a = _mk(1, 3, 27) / 10 + 0  # tenths on 0..3
-        a = _mk(1, 2, 28)
-        b = _mk(1, 2, 20)
-        a = a / 10
-        b = b / 10
-        s = a + b
+        # tenths only (the line is marked in tenths), and a line just long enough for the answer
+        a = _mk(1, *_by_d(d, (2, 9), (6, 28), (12, 38)))
+        b = _mk(1, *_by_d(d, (2, 9), (4, 19), (6, 24)))
+        if d == 2 and a > b:                    # stretch: a subtraction across a whole number
+            s = a - b
+            sym = "−"
+        else:
+            s = a + b
+            sym = "+"
+        top = max(2, int(s) + 1)
         return _nlq("The number line is marked in tenths. Mark the answer to "
-                    "%s + %s." % (_txt(a), _txt(b)), s, 0, 6, Decimal("0.1"),
-                    Decimal("1"),
-                    ["%s + %s = %s." % (_txt(a), _txt(b), _txt(s))])
+                    "%s %s %s." % (_txt(a), sym, _txt(b)), s, 0, top, Decimal("0.1"),
+                    Decimal("1") if top > 2 else Decimal("0.5"),
+                    ["%s %s %s = %s." % (_txt(a), sym, _txt(b), _txt(s))])
 
     def table_receipt():
         items = random.sample(_SHOP, 3)
@@ -874,13 +878,13 @@ def _(d=1):
         per = _mk(2, 12, 45)            # 0.12-0.45 kg per person
         base = random.randint(2, 4)
         want = base * random.randint(2, 3)
-        one = per
-        r = one * want
-        return _nq("A recipe for %d people uses %s kg of flour per person. How "
+        whole = per * base              # the recipe gives the total for `base` people
+        r = per * want
+        return _nq("A recipe for %d people uses %s kg of flour. How "
                    "much flour is needed for %d people, in kg?"
-                   % (base, _txt(per), want), r, unit="kg",
-                   solution=["Each person needs %s kg." % _txt(per),
-                    "%s × %d = %s kg." % (_txt(per), want, _txt(r))])
+                   % (base, _txt(whole), want), r, unit="kg",
+                   solution=["%d people is %d times %d people." % (want, want // base, base),
+                    "%s × %d = %s kg." % (_txt(whole), want // base, _txt(r))])
 
     def bracket_div_add():
         a = _mk(1, 24, 96)
@@ -896,10 +900,10 @@ def _(d=1):
 
     def menu_table():
         items = random.sample(_SHOP, 2)
-        p1 = random.randint(90, 320)
-        p2 = random.randint(90, 320)
-        q1 = random.randint(2, 4)
-        q2 = random.randint(2, 4)
+        p1 = random.randint(*_by_d(d, (90, 320), (90, 640), (105, 985)))
+        p2 = random.randint(*_by_d(d, (90, 320), (90, 640), (105, 985)))
+        q1 = random.randint(*_by_d(d, (2, 4), (2, 6), (3, 9)))
+        q2 = random.randint(*_by_d(d, (2, 4), (2, 6), (3, 9)))
         rows = [[items[0], _lb(p1), str(q1)], [items[1], _lb(p2), str(q2)]]
         tot = p1 * q1 + p2 * q2
         return _dtq("The table shows two items with their prices and how many "

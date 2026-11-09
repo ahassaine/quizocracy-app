@@ -201,11 +201,12 @@ def _(d=1):
     def t_table():
         s = seq(5)
         k = random.randint(1, 4)
-        return _io("Each row counts %s by %s. What goes in the empty cell?"
-                   % ("back" if back else "on", _c(step)),
-                   [[i + 1, s[i]] for i in range(5)], k, s[k],
+        # a sequence table (Step | Number), not a function machine: the step number is not an input
+        return _dt("Each row counts %s by %s. What goes in the empty cell?"
+                   % ("back" if back else "on", _c(step)), ["Step", "Number"],
+                   [[i + 1, _c(s[i])] for i in range(5)], s[k],
                    ["%s %s %s = %s." % (_c(s[k - 1]), "−" if back else "+", _c(step), _c(s[k]))],
-                   rule=("− " if back else "+ ") + _c(step))
+                   missing=(k, 1))
 
     return _pick_t([t_next, t_missing, t_jumps, t_step, t_cross], [t_table])
 
@@ -318,8 +319,8 @@ def _(d=1):
             f = -random.randint(1, 2)
             dn = random.randint(1, 5 + f)
             return _tb("In a building, floor 0 is the ground floor and the basements are floors −1 to "
-                       "−5. A lift starts on floor %d, goes down %d floors, then up %d floors. Which "
-                       "floor does it reach?" % (f, dn, up), f - dn + up, "int", {},
+                       "−5. A lift starts on floor %d, goes down %s, then up %s. Which "
+                       "floor does it reach?" % (f, _pl(dn, "floor"), _pl(up, "floor")), f - dn + up, "int", {},
                        ["%d − %d = %d." % (f, dn, f - dn), "%d + %d = %d." % (f - dn, up, f - dn + up)])
         return _tb("In a building, floor 0 is the ground floor and the basements are floors −1, "
                    "−2 and −3. A lift starts on floor %d and goes up %d floors. Which floor does it "

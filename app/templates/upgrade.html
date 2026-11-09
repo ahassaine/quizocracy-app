@@ -1,8 +1,14 @@
-{% extends "base.html" %}{% block title %}Family plan · Quizocracy{% endblock %}
+{% extends "base.html" %}{% block title %}{% if reason == 'limit' %}Children · Quizocracy{% else %}Family plan · Quizocracy{% endif %}{% endblock %}
 {% block body %}
 <div class="card rise feature"><img src="/static/img/family.png" alt=""><div>
+{% if reason == 'limit' %}
+<h1 style="margin:0 0 .3em">Your family is full</h1>
+<p>The {{ plan.title }} plan has room for {{ plan.max_children }} children, and you have {{ plan.max_children }}. To add another child, delete one first from their settings.</p>
+<p class="mut">If you need room for more, write to us at <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
+{% else %}
 <h1 style="margin:0 0 .3em">That needs the Family plan</h1>
 <p>The Free plan covers one child and three activities. The Family plan covers up to six children, all seven activities (including grammar and punctuation, and science) and rewards.</p>
-<p class="mut">Ask us to switch your family over at {{ cfg.SUPPORT_EMAIL }}.</p>
+<p class="mut">Ask us to switch your family over at <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
+{% endif %}
 <a class="btn" href="/home">Back</a></div></div>
 {% endblock %}

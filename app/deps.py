@@ -1,4 +1,6 @@
-"""Who is asking. A session belongs to one family; it is in parent mode or locked to one child."""
+"""Who is asking. A session belongs to one family; it is in parent mode or locked (child mode).
+A locked session either has a child signed in or is waiting on "Who's learning?"; only the parent's
+password brings it back to parent mode."""
 import datetime
 from dataclasses import dataclass
 
@@ -22,6 +24,21 @@ class Ctx:
     account: dict
     family: dict
     child: dict | None = None
+    locked: bool = False            # child mode: a child is signed in, or the device was handed over
+
+
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+async def over_limit(key: str, limit: int, minutes: int) -> bool:
+    """True once `key` has `limit` hits in the last `minutes` (at most 60: login_failures rows expire after an hour)."""
+    since = datetime.datetime.utcnow() - datetime.timedelta(minutes=minutes)
+    return await db.login_failures.count_documents({"email": key, "ts": {"$gt": since}}) >= limit
+
+
+async def hit(key: str) -> None:
+    await db.login_failures.insert_one({"email": key, "ts": datetime.datetime.utcnow()})
 
 
 async def create_session(response, account: dict) -> None:
@@ -55,7 +72,8 @@ async def load(request: Request) -> Ctx | None:
     child = None
     if s.get("child_id"):
         child = await db.pupils.find_one({"_id": s["child_id"], "family_id": fam["_id"]})
-    return Ctx(s, acc, fam, child)
+    # A child id whose child has gone still counts as locked: losing the child never opens the parent area.
+    return Ctx(s, acc, fam, child, locked=bool(s.get("locked") or s.get("child_id")))
 
 
 async def family_page(request: Request) -> Ctx:
@@ -69,7 +87,7 @@ async def family_page(request: Request) -> Ctx:
 
 async def parent_page(request: Request) -> Ctx:
     ctx = await family_page(request)
-    if ctx.child:
+    if ctx.locked:
         raise Redirect("/parent-unlock")
     return ctx
 

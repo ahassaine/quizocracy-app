@@ -16,7 +16,8 @@
 <div class="card rise feature"><img src="/static/img/family.png" alt=""><div><b class="display" style="font-size:1.2rem">No children yet</b><div class="mut">Add your first child and their daily plan is ready in a minute.</div></div></div>
 {% endfor %}
 <div class="row">
-  <a class="btn primary" href="/children/new">Add a child</a>
-  {% if board %}<a class="btn" href="/learn">Hand over to a child</a>{% endif %}
+  {% if full %}<span class="mut small" data-testid="family-full">The {{ plan.title }} plan has room for {{ plan.max_children }} children.</span>
+  {% else %}<a class="btn primary" href="/children/new">Add a child</a>{% endif %}
+  {% if board %}<form method="post" action="/handover" style="display:inline"><button class="btn" type="submit">Hand over to a child</button></form>{% endif %}
 </div>
 {% endblock %}

@@ -16,8 +16,8 @@
 {% endblock %}
 {% block foot %}{% endblock %}
 {% block scripts %}
-{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v={{ 3 if c == 'bar_chart' else 2 }}"></script>
-{% endfor %}<script src="/static/js/drill.js?v=8"></script><script>
+{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v={{ 5 if c in ['bar_chart','data_table','io_table','line_graph','pictogram','pie_chart','scatter_plot','strip_model'] else 4 if c in ['angle','area_grid','array','base_ten','circle','clock','coordinate_grid','equal_groups','fraction_bar','inequality_line','net','number','number_line','ruler','shape'] else 2 }}"></script>
+{% endfor %}<script src="/static/js/drill.js?v=11"></script><script>
 window.MComp = window.MComp || {};
 const SKILLS = {{ years|tojson }};
 const $ = (id) => document.getElementById(id);
@@ -34,6 +34,7 @@ const d = Drill({ activity: 'maths', api: '/team/{{ me._id }}/maths/',
     if (comp) comp.render(host, q.spec || {}, { submit: () => $('check').click() });
     else host.textContent = 'This question type is missing.';
   },
+  empty() { const h = $('mHost'); return h && h.__empty; },
   read() { const h = $('mHost'); const v = h && h.__getValue ? h.__getValue() : null;
     return (v === null || v === '' || (typeof v === 'number' && isNaN(v))) ? null : { value: v }; },
   explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';

@@ -65,14 +65,11 @@ def _ord(n):
 
 
 def _n(x):
-    """Tidy number text: 3 -> '3', 3.4 -> '3.4', 3.45 -> '3.45'."""
+    """Tidy number text: 3 -> '3', 3.4 -> '3.4', 3.45 -> '3.45', 0.575 -> '0.575' (575 ml)."""
     x = float(x)
     if abs(x - round(x)) < 1e-9:
         return "%d" % int(round(x))
-    s = "%.2f" % x
-    if s.endswith("0"):
-        s = s[:-1]
-    return s
+    return ("%.3f" % x).rstrip("0").rstrip(".")
 
 
 def _h(c):
@@ -1385,9 +1382,9 @@ def _(d=1):
         v = random.randint(11, 99) if factor == 10 else random.randint(105, 995)
         if d == 2:
             v = pick([random.randint(1, 9), random.choice([x for x in range(11, 100) if x % 10])])
-        return _num_q("Convert by dividing: how many %s are the same as %d %s? "
+        return _num_q("Convert by dividing: how many %s are the same as %s? "
                       "Give your answer as a decimal."
-                      % (_uname(big), v, _uname(small)),
+                      % (_uname(big), _pl(v, _uname(small)[:-1])),
                       round(v / float(factor), 2), "num", unit=big,
                       solution=["%d %s = 1 %s, so divide by %d."
                                 % (factor, small, big, factor),
@@ -1660,7 +1657,7 @@ def _(d=1):
         return {"prompt": "Read the ruler, then convert: how long is the line in "
                           "millimetres?",
                 "component": "ruler",
-                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm"},
+                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm", "answer_unit": "mm"},
                 "answer": v * 10, "answer_type": "int",
                 "solution": ["The line measures %d cm." % v,
                              "1 cm = 10 mm, so %d cm = %d mm." % (v, v * 10)]}
@@ -2141,7 +2138,7 @@ def _(d=1):
     return {"prompt": "Read the scales, then write the mass in kilograms "
                       "as a decimal.",
             "component": "ruler",
-            "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g"},
+            "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g", "answer_unit": "kg"},
             "answer": round(v / 1000.0, 3), "answer_type": "num",
             "solution": ["The scales read %d g." % v,
                          "1000 g = 1 kg, so %d g = %s kg."
@@ -3077,7 +3074,7 @@ def _(d=1):
         return _num_q("%d minutes is the same as %s and how many minutes?"
                       % (total, _pl(h, "hour")), m, "int", unit="minutes",
                       solution=["%s = %d minutes." % (_pl(h, "hour"), h * 60),
-                                "%d − %d = %d minutes." % (total, h * 60, m)])
+                                "%d − %d = %s." % (total, h * 60, _pl(m, "minute"))])
 
     if t == 7:                       # weeks / years / calendar facts
         if d == 2:                   # stretch: bigger multiples of the facts
@@ -3332,8 +3329,8 @@ def _(d=1):
             feb = " (not a leap year)" if name == "February" else ""
             return _num_q("How many days after the %s of %s%s is the %s of %s?"
                           % (_ord(a), name, feb, _ord(b), nxt), ans, "int", unit="days",
-                          solution=["%s has %d days: %d − %d = %d days to the end of %s."
-                                    % (name, days, days, a, days - a, name),
+                          solution=["%s has %d days: %d − %d = %s to the end of %s."
+                                    % (name, days, days, a, _pl(days - a, "day"), name),
                                     "%d + %d = %d days." % (days - a, b, ans)])
         a = random.randint(1, days - 5)
         b = random.randint(a + 2, min(days, a + 10) if d == 0 else days)

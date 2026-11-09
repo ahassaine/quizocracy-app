@@ -77,10 +77,13 @@ def _two_names():
     return a, b
 
 
+_GATE = "|\u0336" * 4            # a bundle of five: four bars crossed by the fifth
+
+
 def _tally(n):
-    """7 -> '||||\\ ||' (a bundle of five is four bars and a slash)."""
+    """7 -> gate + ' ||' (a bundle of five is four bars crossed by a fifth)."""
     n = int(n)
-    parts = ["||||\\"] * (n // 5)
+    parts = [_GATE] * (n // 5)
     if n % 5:
         parts.append("|" * (n % 5))
     return " ".join(parts) if parts else "0"
@@ -2399,7 +2402,7 @@ def _(d=1):
                 "spec": {"caption": title, "headers": headers, "rows": blank,
                          "missing": [i, 2]},
                 "answer": vals[i], "answer_type": "int",
-                "solution": ["Each bundle ||||\\ stands for 5.",
+                "solution": ["Each bundle %s stands for 5." % _GATE,
                              "%s has %d." % (cats[i], vals[i])]}
 
     if t == 1:                                        # read one frequency
@@ -2465,7 +2468,7 @@ def _(d=1):
         return _num_q("A tally chart shows this tally for %s:   %s   "
                       "What number does it stand for?" % (cats[i], _tally(v)),
                       v, "int",
-                      solution=["Each bundle ||||\\ stands for 5 and each single mark for 1.",
+                      solution=["Each bundle %s stands for 5 and each single mark for 1." % _GATE,
                                 "%s and %s make %d."
                                 % (_pl(v // 5, "bundle"), _pl(v % 5, "extra mark"), v)])
 
@@ -2776,8 +2779,11 @@ def _(d=1):
                              "It reads %d %s." % (max(vals), ylab)]}
 
     if t == 4:                                        # lowest reading label (typed)
-        return {"prompt": "%s. Use the graph. At which point along the bottom was the "
-                          "reading LOWEST? (type the label)" % title,
+        ask = {"Temperature in the playground": "At what time was the temperature lowest?",
+               "Height of a sunflower": "In which week was the sunflower shortest?",
+               "Water in the school pond": "In which month was the water lowest?",
+               "Books read by Class 4": "On which day did Class 4 read the fewest books?"}[title]
+        return {"prompt": "%s. Use the graph. %s (type it as it is written on the graph)" % (title, ask),
                 "component": "line_graph", "spec": spec,
                 "answer": labels[vals.index(min(vals))], "answer_type": "str",
                 "solution": ["The lowest point is %d %s." % (min(vals), ylab),
@@ -3318,7 +3324,7 @@ def _(d=1):
                           "fraction of the spinner that is NOT green."
                           % (parts, wins, "is" if wins == 1 else "are"),
                           "%d/%d" % (rest, parts), "frac", text=True, placeholder="e.g. 3/8",
-                          solution=["%d − %d = %d sections are not green." % (parts, wins, rest),
+                          solution=["%d − %d = %s %s not green." % (parts, wins, _pl(rest, "section"), "is" if rest == 1 else "are"),
                                     "The fraction is %d/%d." % (rest, parts)])
         return _num_q("A spinner has %d equal sections and %d of them %s green. Write the "
                       "fraction of the spinner that is green."

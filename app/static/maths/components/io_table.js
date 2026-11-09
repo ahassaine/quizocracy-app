@@ -12,7 +12,7 @@
       const missing = (typeof spec.missing === 'number') ? spec.missing : -1;
 
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'max-width:340px;width:100%';
+      wrap.style.cssText = 'max-width:480px;width:100%';
 
       // Rule caption
       const rule = document.createElement('div');
@@ -53,7 +53,7 @@
         const inTd = document.createElement('td');
         const outTd = document.createElement('td');
         const cellCss = 'padding:9px 10px;text-align:center;border-top:1px solid #21262d;' +
-          'border-right:1px solid #30363d;font-variant-numeric:tabular-nums';
+          'border-right:1px solid #30363d;font-variant-numeric:tabular-nums;overflow-wrap:anywhere';
         inTd.style.cssText = cellCss;
         outTd.style.cssText = cellCss + ';border-right:none';
         inTd.textContent = (r && r[0] != null) ? String(r[0]) : '';
@@ -83,7 +83,9 @@
       input.type = 'text';
       input.className = 'm-input';
       input.autocomplete = 'off';
-      if (missing >= 0 && hasRule) input.inputMode = 'numeric';
+      // a digit pad only for whole-number answers; a rule ("× 3", "-4") or a decimal needs a full keyboard
+      input.inputMode = spec.keypad || 'text';
+      input.setAttribute('autocapitalize', 'off');
       if (spec.placeholder != null) input.placeholder = String(spec.placeholder);
       input.setAttribute('aria-label', 'Your answer');
       input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:100%;max-width:180px;' +

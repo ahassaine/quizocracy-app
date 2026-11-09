@@ -1072,7 +1072,7 @@ def _(d=1):
     def t_ruler():
         mm = _by(d, random.randint(2, 19) * 10, random.randint(11, 189), (2 * random.randint(1, 19) + 1) * 5)
         return {"prompt": "Read the ruler. How long is the line, in millimetres?",
-                "component": "ruler", "spec": {"mode": "length", "value": mm / 10, "max": 20, "unit": "cm"},
+                "component": "ruler", "spec": {"mode": "length", "value": mm / 10, "max": 20, "unit": "cm", "answer_unit": "mm"},
                 "answer": mm, "answer_type": "num", "tolerance": 3,
                 "solution": ["%s cm = %d mm." % (_ds(Decimal(mm) / 10), mm)]} if mm % 5 == 0 else t_up()
 
@@ -1582,7 +1582,7 @@ def _(d=1):
             return {"prompt": "Read the measuring jug. How much water is in it, in litres?", "component": "ruler",
                     "spec": {"mode": "capacity", "value": v, "max": mx, "unit": "ml"}, "answer": _ds(Decimal(v) / 1000),
                     "answer_type": "num", "tolerance": 0.025,
-                    "solution": ["The water reaches %d ml." % v, "%d ml = %s litres." % (v, _ds(Decimal(v) / 1000))]}
+                    "solution": ["The water reaches %d ml." % v, "%d ml = %s %s." % (v, _ds(Decimal(v) / 1000), "litre" if v == 1000 else "litres")]}
         return {"prompt": "Read the measuring jug. How much water is in it, in ml?", "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": mx, "unit": "ml"}, "answer": v,
                 "answer_type": "num", "tolerance": 25, "solution": ["The water reaches %d ml." % v]}
@@ -1615,7 +1615,7 @@ def _(d=1):
             l, w, h = (10 * random.randint(1, 6) for _ in range(3))
             return _tb("A box-shaped tank is %d cm × %d cm × %d cm inside. 1 cm³ holds 1 ml. How many litres does it "
                        "hold?" % (l, w, h), _ds(Decimal(l * w * h) / 1000), "num", {"unit": "litres"},
-                       ["%d × %d × %d = %d ml." % (l, w, h, l * w * h), "= %s litres." % _ds(Decimal(l * w * h) / 1000)])
+                       ["%d × %d × %d = %d ml." % (l, w, h, l * w * h), "= %s %s." % (_ds(Decimal(l * w * h) / 1000), "litre" if l * w * h == 1000 else "litres")])
         l, w, h = (random.randint(*_by(d, (2, 10), (5, 20), (5, 20))) for _ in range(3))
         return _tb("A box-shaped tank is %d cm × %d cm × %d cm inside. 1 cm³ holds 1 ml. How many ml does it "
                    "hold?" % (l, w, h), l * w * h, "int", {"unit": "ml"}, ["%d × %d × %d = %d." % (l, w, h, l * w * h)])

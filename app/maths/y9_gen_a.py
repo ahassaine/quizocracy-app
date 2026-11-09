@@ -166,7 +166,7 @@ def _(d=1):
         a = Decimal(random.randint(_by(d, 2, 11, 101), _by(d, 9, 99, 999))) / _by(d, 1, 10, 100)
         e = -random.randint(_by(d, 1, 2, 4), _by(d, 3, 6, 7))   # 3 s.f. at 10^-7 is 9 places, still typeable
         return _tb("Write %sx10^%d as an ordinary number." % (_ds(a), e), _ds(a * Decimal(10) ** e), "num", {},
-                   ["Move the point %d places left." % -e])
+                   ["Move the point %s left." % _pl(-e, "place")])
 
     def t_order():
         # easy: three numbers with different powers; stretch: five, some sharing a power

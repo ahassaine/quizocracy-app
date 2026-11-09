@@ -42,12 +42,13 @@ async def guard(request: Request, call_next):
     if request.method not in SAFE:
         origin = request.headers.get("origin") or request.headers.get("referer")
         if origin:
+            # "Origin: null" (sandboxed frames, data: pages, some redirects) has no host: it is refused too.
             host = urlparse(origin).netloc
-            if host and host != request.headers.get("host") and host != urlparse(config.PUBLIC_URL).netloc:
+            if not host or (host != request.headers.get("host") and host != urlparse(config.PUBLIC_URL).netloc):
                 return PlainTextResponse("cross-site request refused", status_code=403)
     resp = await call_next(request)
-    if resp.headers.get("content-type", "").startswith("text/html"):
-        resp.headers["Cache-Control"] = "no-store"          # WebViews must never show stale pages
+    if resp.headers.get("content-type", "").startswith("text/html") or request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"          # WebViews must never show stale pages or answers
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
     resp.headers.setdefault("X-Frame-Options", "DENY")
@@ -60,7 +61,7 @@ async def guard(request: Request, call_next):
 async def landing(request: Request):
     ctx = await load(request)
     if ctx and ctx.account.get("verified_at"):
-        return RedirectResponse("/me" if ctx.child else "/home", 303)
+        return RedirectResponse("/me" if ctx.child else ("/learn" if ctx.locked else "/home"), 303)
     return page(request, "landing.html", ctx)
 
 

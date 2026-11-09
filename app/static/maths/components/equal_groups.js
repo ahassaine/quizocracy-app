@@ -1,11 +1,16 @@
 /* equal_groups — objects arranged in equal groups (rings of counters).
  * The visual model for "3 groups of 4".
  *
- * spec: { mode:"read"|"build", groups, per, maxGroups, maxPer }
+ * spec: { mode:"read"|"build", groups, per, maxGroups, maxPer, loose, rings, typed, targetGroups, targetPer }
  *   mode:"read"  — draws `groups` rings of `per` counters; typed answer.
+ *                  With `loose` (a "how many groups / in each group" question) it draws the starting
+ *                  picture instead: `loose` counters not yet grouped, and `rings` empty rings when the
+ *                  question shares into a given number of groups.
  *                  __getValue() -> trimmed typed string.
  *   mode:"build" — +/- steppers for groups and counters-per-group, live drawing.
- *                  __getValue() -> groups * per (number).
+ *                  __getValue() -> groups * per (number), or with `typed` the pupil also types the
+ *                  total and the value is "G groups of P = N" (the server marks both).
+ *                  Nothing built yet -> null (no answer, not 0).
  */
 (function () {
   window.MComp = window.MComp || {};
@@ -30,6 +35,7 @@
 
       let groups = build ? clamp(spec.groups ?? 1, 0, maxGroups) : Math.max(0, spec.groups ?? 0);
       let per = build ? clamp(spec.per ?? 1, 0, maxPer) : Math.max(0, spec.per ?? 0);
+      let touched = false;
 
       const wrap = document.createElement('div');
       wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;color:' + INK +
@@ -51,8 +57,29 @@
         return { cols, rows: Math.ceil(n / cols) };
       }
 
+      // the starting picture: loose counters in rows (above), and the empty rings to share them into
+      function paintLoose(n, rings) {
+        const top = 14, bandH = rings ? H * 0.55 : H - 28;
+        const cols = Math.min(n, Math.max(5, Math.ceil(Math.sqrt(n * (W - 40) / bandH))));
+        const rowsN = Math.ceil(n / cols);
+        const sx = (W - 40) / cols, sy = bandH / Math.max(1, rowsN);
+        const dot = Math.max(4, Math.min(11, Math.min(sx, sy) * 0.34));
+        for (let k = 0; k < n; k++) {
+          const r = Math.floor(k / cols), c = k % cols;
+          const inRow = Math.min(cols, n - r * cols), off = (cols - inRow) * sx / 2;
+          svg.appendChild(mk('circle', { cx: 20 + off + sx * (c + 0.5), cy: top + sy * (r + 0.5), r: dot, fill: ACCENT, stroke: '#79b0ff', 'stroke-width': 1 }));
+        }
+        if (!rings) return;
+        const y0 = top + bandH + 10, h = H - y0 - 10;
+        const cw = (W - 20) / rings, R = Math.max(12, Math.min(cw / 2 - 6, h / 2));
+        for (let i = 0; i < rings; i++) {
+          svg.appendChild(mk('circle', { cx: 10 + cw * (i + 0.5), cy: y0 + h / 2, r: R, fill: 'rgba(79,141,247,0.06)', stroke: BORDER, 'stroke-width': 2, 'stroke-dasharray': '5 4' }));
+        }
+      }
+
       function paint() {
         while (svg.firstChild) svg.removeChild(svg.firstChild);
+        if (!build && spec.loose) { paintLoose(spec.loose | 0, spec.rings | 0); return; }
         const g = build ? groups : groups;
         if (g <= 0) {
           svg.appendChild(mk('text', {
@@ -114,7 +141,7 @@
         const inputWrap = document.createElement('div');
         const input = document.createElement('input');
         input.type = 'text';
-        input.inputMode = 'text';
+        input.inputMode = spec.keypad || 'text';
         input.className = 'm-input';
         input.autocomplete = 'off';
         input.setAttribute('aria-label', 'Your answer');
@@ -153,7 +180,7 @@
           b.style.cssText = 'width:38px;height:38px;font-size:1.2rem;font-weight:700;background:#161b22;color:' +
             INK + ';border:1px solid ' + BORDER + ';border-radius:8px;cursor:pointer;touch-action:manipulation';
         });
-        const bump = (d) => { set(get() + d); val.textContent = get(); paint(); readout(); };
+        const bump = (d) => { touched = true; set(get() + d); val.textContent = get(); paint(); readout(); };
         minus.addEventListener('click', () => bump(-1));
         plus.addEventListener('click', () => bump(1));
         box.append(lab, minus, val, plus);
@@ -172,17 +199,45 @@
       read.style.cssText = 'font-size:1.25rem;font-weight:800;padding:2px 0;line-height:1.4';
       wrap.appendChild(read);
 
+      // when the total is typed, the readout names the groups but does not work out the total
       function readout() {
         read.innerHTML = groups + ' group' + (groups === 1 ? '' : 's') + ' of ' + per +
-          ' = <span style="color:' + ACCENT + '">' + (groups * per) + '</span>';
+          (spec.typed ? '' : ' = <span style="color:' + ACCENT + '">' + (groups * per) + '</span>');
+      }
+
+      let input = null;
+      if (spec.typed) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+        const lab = document.createElement('label');
+        lab.textContent = 'How many altogether?'; lab.style.cssText = 'color:' + MUTED + ';font-size:.95rem';
+        input = document.createElement('input');
+        input.type = 'text'; input.className = 'm-input'; input.autocomplete = 'off';
+        input.inputMode = spec.keypad || 'numeric';
+        input.id = 'eg-total-' + Math.random().toString(36).slice(2, 7); lab.htmlFor = input.id;
+        input.style.cssText = 'font-size:1.2rem;padding:8px 12px;width:120px;text-align:center';
+        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); api && api.submit && api.submit(); } });
+        row.append(lab, input);
+        wrap.appendChild(row);
       }
 
       host.appendChild(wrap);
       gCtrl._refresh(); pCtrl._refresh();
       paint(); readout();
 
-      host.__getValue = () => groups * per;
-      host.__feedback = (res) => { read.style.color = res && res.correct ? GOOD : BAD; };
+      host.__empty = spec.typed ? 'Make the groups and type how many there are.' : 'Make the groups first.';
+      host.__getValue = () => {
+        if (!touched || !groups || !per) return null;
+        if (!input) return groups * per;
+        const t = input.value.trim();
+        if (!t) return null;
+        const n = t.replace(/[\s,]/g, '');
+        return groups + ' groups of ' + per + ' = ' + (/^\d+$/.test(n) ? +n : t);
+      };
+      host.__feedback = (res) => {
+        read.style.color = res && res.correct ? GOOD : BAD;
+        if (input) input.style.borderColor = res && res.correct ? GOOD : BAD;
+      };
     }
   };
 })();

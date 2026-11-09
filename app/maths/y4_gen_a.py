@@ -1551,6 +1551,11 @@ def _(d=1):
             if any(x < 0 for x in ns):
                 return ns
 
+    def uk_day(k):
+        """k midday temperatures for UK towns on ONE day: within about 11 degrees of each other."""
+        lo = random.randint(-min(span, 12), -1 if d < 2 else -4)
+        return sample(k, lo, lo + 11)
+
     def two():
         a, b = sample(2)
         if random.random() < 0.1:
@@ -1590,7 +1595,7 @@ def _(d=1):
 
     def t_coldest():
         cities = random.sample(["Leeds", "Cardiff", "Dundee", "Truro", "Belfast", "Norwich"], 4)
-        temps = sample(4)
+        temps = uk_day(4)
         coldest = random.random() < 0.5
         val = min(temps) if coldest else max(temps)
         who = cities[temps.index(val)]
@@ -1633,7 +1638,7 @@ def _(d=1):
                     "That is %s warmer." % _pl(b - a, "degree")])
 
     def t_line_smaller():
-        a, b = sample(2, -9, 9)
+        a, b = sample(2, *{0: (-5, 5), 1: (-9, 9), 2: (-9, 2)}[d])     # stretch: mostly two negatives
         smaller = random.random() < 0.5
         ans = min(a, b) if smaller else max(a, b)
         return _nl("Compare %d and %d. Place the %s number on the number line."
@@ -1643,7 +1648,7 @@ def _(d=1):
                              "The %s number is %d." % ("smaller" if smaller else "greater", ans)])
 
     def t_line_order():
-        ns = sample(4, -9, 9)
+        ns = sample(4, *{0: (-5, 5), 1: (-9, 9), 2: (-9, 3)}[d])
         k = random.randint(1, 4)
         ans = sorted(ns)[k - 1]
         return _nl("Order these numbers from lowest to highest:  %s. Place the %s one on "
@@ -1654,7 +1659,7 @@ def _(d=1):
 
     def t_table():
         cities = random.sample(["Leeds", "Cardiff", "Dundee", "Truro", "Belfast", "Norwich"], 5)
-        temps = sample(5)
+        temps = uk_day(5)
         rows = [[cities[i], "%d°C" % temps[i]] for i in range(5)]
         k = random.randint(1, 5)
         order = sorted(range(5), key=lambda i: temps[i])
@@ -2677,8 +2682,8 @@ def _(d=1):
             n = h * 100 + t * 10 + o
             rel = ("its tens digit is %d more than its ones digit" % (t - o) if t > o else
                    "its ones digit is %d more than its tens digit" % (o - t))
-            return _tb("Guess the number: it is a 3-digit number with %d hundreds. Its digits "
-                       "add up to %d and %s. What is the number?" % (h, h + t + o, rel),
+            return _tb("Guess the number: it is a 3-digit number with %s. Its digits "
+                       "add up to %d and %s. What is the number?" % (_pl(h, "hundred"), h + t + o, rel),
                        n, "int", {},
                        ["The tens and ones digits add up to %d − %d = %d." % (h + t + o, h, t + o),
                         "They are %d and %d, so the number is %d." % (t, o, n)])

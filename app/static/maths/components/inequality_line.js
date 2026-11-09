@@ -18,23 +18,31 @@
       const strict = (op === '<' || op === '>');
       const pointsRight = (op === '>' || op === '>=');
 
-      const W = 640, H = 90, padL = 34, padR = 34, y = 46;
+      // drawn at the card's real width (up to 560 px) so the numbers stay 13 px on a phone
+      const W = Math.max(280, Math.min(560, Math.floor(host.getBoundingClientRect().width || 560)));
+      const H = 84, padL = 22, padR = 22, y = 40;
       const x0 = padL, x1 = W - padR;
       const round6 = (v) => parseFloat(Number(v).toFixed(6));
       const span = (max - min) || 1;
       const toX = (v) => x0 + (v - min) / span * (x1 - x0);
 
-      const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: 'max-width:460px;background:#0b0f14;border:1px solid #30363d;border-radius:10px' });
+      const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: 'max-width:' + W + 'px;display:block;background:#0b0f14;border:1px solid #30363d;border-radius:10px' });
 
       // base line
       svg.appendChild(mk('line', { x1: x0, y1: y, x2: x1, y2: y, stroke: '#8b949e', 'stroke-width': 2 }));
 
       // integer ticks + labels
       const lo = Math.ceil(min), hi = Math.floor(max);
+      const labW = Math.max(String(lo).length, String(hi).length) * 13 * 0.62 + 8;
+      let every = 1;
+      for (const k of [1, 2, 5, 10]) { every = k; if ((x1 - x0) / span * k >= labW) break; }
       for (let v = lo; v <= hi; v++) {
+        // every tick is drawn; the numbers thin out (every 2 or 5) when they would touch, and the
+        // boundary number is always written
         svg.appendChild(mk('line', { x1: toX(v), y1: y - 8, x2: toX(v), y2: y + 8, stroke: '#c9d1d9', 'stroke-width': 2 }));
-        const lab = mk('text', { x: toX(v), y: y + 26, fill: '#8b949e', 'font-size': 12, 'text-anchor': 'middle' });
-        lab.textContent = round6(v);
+        if (v !== value && (v % every !== 0 || Math.abs(toX(v) - toX(value)) < labW)) continue;
+        const lab = mk('text', { x: toX(v), y: y + 28, fill: v === value ? '#e6edf3' : '#8b949e', 'font-size': 13, 'text-anchor': 'middle' });
+        lab.textContent = String(round6(v)).replace('-', '−');
         svg.appendChild(lab);
       }
 
@@ -67,6 +75,7 @@
       inp.type = 'text';
       inp.className = 'm-input';
       if (spec.placeholder) inp.placeholder = spec.placeholder;
+      inp.inputMode = 'text';
       inp.style.cssText = 'display:block;margin-top:10px;width:100%;max-width:460px;box-sizing:border-box;padding:8px 10px;background:#0b0f14;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:15px';
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); api.submit && api.submit(); } });
       host.appendChild(inp);

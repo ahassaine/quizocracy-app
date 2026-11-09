@@ -1218,7 +1218,8 @@ def _(d=1):
     R = {0: 10, 1: 20, 2: 50}[d]
 
     def _temp():
-        return random.randint(-R, min(R, 35))
+        # real air temperatures (about -30 to 30 °C) at every tier
+        return random.randint(-min(R, 30), min(R, 30))
 
     def t_colder():
         a, b = _temp(), _temp()
@@ -1241,9 +1242,11 @@ def _(d=1):
                     "So %d °C is warmer." % max(a, b)])
 
     def t_symbol():
-        a, b = _temp(), _temp()
+        a, b = -random.randint(1, R), random.randint(-R, R)    # always a negative in the pair
         while a == b:
-            b = _temp()
+            b = random.randint(-R, R)
+        if random.random() < 0.5:
+            a, b = b, a
         sym = "<" if a < b else ">"
         return _wq("Type the correct symbol, < or >:   %d ___ %d" % (a, b), sym,
                    ["On a number line %d comes %s %d."
@@ -1268,10 +1271,11 @@ def _(d=1):
 
     def t_bank():
         who1, who2 = random.sample(NAMES, 2)
-        a = -random.randint(5, 200)
-        b = -random.randint(5, 200)
+        lo, hi = {0: (5, 50), 1: (5, 200), 2: (100, 999)}[d]
+        a = -random.randint(lo, hi)
+        b = -random.randint(lo, hi)
         while a == b:
-            b = -random.randint(5, 200)
+            b = -random.randint(lo, hi)
         worse = min(a, b)
         name = who1 if a == worse else who2
         return _tb("%s has a bank balance of −£%d and %s has a balance of −£%d. "
@@ -1284,10 +1288,13 @@ def _(d=1):
 
     def t_floors():
         a = -random.randint(1, 4)
-        b = random.randint(1, 6)
-        return _tb("A lift can reach floor %d (a basement) and floor %d. Which floor "
-                   "is lower? Type that floor number." % (a, b), a, "int", {},
-                   ["%d is below zero, so it is lower than %d." % (a, b)])
+        b = random.randint(1, 6) if d < 2 else -random.randint(1, 4)    # stretch: two basements
+        while b == a:
+            b = -random.randint(1, 4)
+        low = min(a, b)
+        return _tb("A lift can reach floor %d and floor %d (floor 0 is the ground floor). Which floor "
+                   "is lower? Type that floor number." % (a, b), low, "int", {},
+                   ["%d is further below zero, so it is lower than %d." % (low, max(a, b))])
 
     def t_less_than():
         lim = -random.randint(1, R // 2)
@@ -1303,9 +1310,9 @@ def _(d=1):
                      "e.g. -8, -5")
 
     def t_count_back():
-        start = random.randint(1, 6)
-        step = random.randint(2, 5)
-        k = random.randint(2, 4)
+        start = random.randint(1, {0: 6, 1: 10, 2: 20}[d])
+        step = random.randint(*{0: (2, 3), 1: (2, 5), 2: (4, 9)}[d])
+        k = random.randint(2, {0: 3, 1: 4, 2: 5}[d])
         ans = start - step * k
         return _tb("Start at %d and count back in %ds. What number do you reach after "
                    "%d jumps?" % (start, step, k), ans, "int", {},
@@ -1318,7 +1325,7 @@ def _(d=1):
                     step=1, major=5)
 
     def t_line_order():
-        L = min(R, 9)
+        L = {0: 9, 1: 15, 2: 25}[d]
         ns = random.sample(range(-L, L + 1), 3)
         i = random.randint(0, 2)
         ans = sorted(ns)[i]
@@ -1334,8 +1341,8 @@ def _(d=1):
         rows = [[c, "%d °C" % t] for c, t in zip(cities, temps)]
         cold = random.random() < 0.5
         ans = min(temps) if cold else max(temps)
-        return _dt("The table shows midnight temperatures. Which city was the %s? "
-                   "Type that temperature." % ("coldest" if cold else "warmest"),
+        return _dt("The table shows midnight temperatures. What was the %s temperature?"
+                   % ("coldest" if cold else "warmest"),
                    ["City", "Temperature"], rows, ans,
                    ["In order: %s." % ", ".join("%d" % t for t in sorted(temps)),
                     "The %s was %s at %d °C."
@@ -1344,7 +1351,11 @@ def _(d=1):
 
     def t_graph():
         hrs = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]
-        temps = [random.randint(-min(R, 30), min(R, 30)) for _ in range(6)]
+        # a winter day: coldest before dawn, warmest in the afternoon
+        low = random.randint(-min(R, 15), 0)
+        rise = [0, -1, 1, 4, 5, 2]
+        k = {0: 1, 1: 2, 2: 3}[d]
+        temps = [low + k * r + random.randint(-1, 1) for r in rise]
         cold = random.random() < 0.5
         ans = min(temps) if cold else max(temps)
         return _lg("The graph shows the temperature through one day. What was the "
@@ -1371,7 +1382,7 @@ def _(d=1):
                     "%d and %d are both %d away from zero." % (x, -x, n)])
 
     def t_opposite_line():
-        n = random.randint(1, min(R, 8))
+        n = random.randint(1, {0: 5, 1: 8, 2: 15}[d])
         x = -n if random.random() < 0.5 else n
         return _nlq("Place the opposite of %d on the number line." % x, -x,
                     ["Opposite integers are the same distance from zero, one on "
@@ -1388,11 +1399,14 @@ def _(d=1):
 @skill("Y6.0.i", "Intervals across zero", S0)
 def _(d=1):
     d = _d(d)
-    R = {0: 10, 1: 20, 2: 40}[d]
+    # real air temperatures: about -18 to 9 °C, and a day's change of at most about 27 degrees;
+    # the stretch is in crossing zero with bigger steps, not in impossible weather
+    R = {0: 8, 1: 12, 2: 18}[d]
+    W = max(3, R // 2)                      # the warm side stays mild
 
     def t_rise():
         start = -random.randint(1, R)
-        rise = random.randint(abs(start) + 1, abs(start) + R)
+        rise = random.randint(abs(start) + 1, abs(start) + W)
         return _tb("At dawn the temperature was %d °C. By midday it had risen by "
                    "%d °C. What was the temperature at midday?" % (start, rise),
                    start + rise, "int", {"unit": "°C"},
@@ -1401,7 +1415,7 @@ def _(d=1):
                     % (rise + start, start + rise)])
 
     def t_fall():
-        start = random.randint(1, R)
+        start = random.randint(1, W)
         fall = start + random.randint(1, R)
         return _tb("At noon the temperature was %d °C. By midnight it had fallen by "
                    "%d °C. What was the temperature at midnight?" % (start, fall),
@@ -1412,7 +1426,7 @@ def _(d=1):
 
     def t_difference():
         a = -random.randint(1, R)
-        b = random.randint(1, R)
+        b = random.randint(1, W)
         return _tb("What is the difference between %d °C and %d °C?" % (a, b),
                    b - a, "int", {"unit": "°C"},
                    ["From %d °C up to 0 °C is %d °C." % (a, -a),
@@ -1421,13 +1435,13 @@ def _(d=1):
 
     def t_how_much_rise():
         a = -random.randint(1, R)
-        b = random.randint(1, R)
+        b = random.randint(1, W)
         return _tb("The temperature is %d °C. How many degrees must it rise to reach "
                    "%d °C?" % (a, b), b - a, "int", {"unit": "°C"},
                    ["%d − (%d) = %d." % (b, a, b - a)])
 
     def t_how_much_fall():
-        a = random.randint(1, R)
+        a = random.randint(1, W)
         b = -random.randint(1, R)
         return _tb("The temperature is %d °C. How many degrees must it fall to reach "
                    "%d °C?" % (a, b), a - b, "int", {"unit": "°C"},
@@ -1435,9 +1449,9 @@ def _(d=1):
                     "Then a further %d °C, so %d + %d = %d." % (-b, a, -b, a - b)])
 
     def t_two_step():
-        start = random.randint(1, R)
+        start = random.randint(1, W)
         fall = start + random.randint(2, R)
-        rise = random.randint(1, R)
+        rise = random.randint(1, W)
         return _tb("The temperature starts at %d °C, falls by %d °C and then rises "
                    "by %d °C. What is the final temperature?" % (start, fall, rise),
                    start - fall + rise, "int", {"unit": "°C"},
@@ -1445,7 +1459,7 @@ def _(d=1):
                     "%d + %d = %d." % (start - fall, rise, start - fall + rise)])
 
     def t_start():
-        end = random.randint(1, R)
+        end = random.randint(1, W)
         rise = end + random.randint(1, R)
         return _tb("After rising by %d °C the temperature reached %d °C. What was "
                    "the temperature before the rise?" % (rise, end), end - rise,
@@ -1453,16 +1467,16 @@ def _(d=1):
                    ["Work backwards: %d − %d = %d." % (end, rise, end - rise)])
 
     def t_lift():
-        a = -random.randint(1, 4)
-        b = random.randint(1, 8)
+        a = -random.randint(1, {0: 2, 1: 4, 2: 6}[d])
+        b = random.randint(1, {0: 5, 1: 8, 2: 15}[d])
         return _tb("A lift is at floor %d. It goes up %d floors. Which floor does "
                    "the lift reach?" % (a, b - a), b, "int", {},
                    ["%d + %d = %d." % (a, b - a, b)])
 
     def t_bank():
         who = pick(NAMES)
-        bal = -random.randint(10, 200)
-        pay = -bal + random.randint(5, 200)
+        bal = -random.randint(*{0: (10, 50), 1: (10, 200), 2: (150, 950)}[d])
+        pay = -bal + random.randint(5, {0: 50, 1: 200, 2: 500}[d])
         return _tb("%s has a bank balance of −£%d and then pays in £%d. What is the "
                    "new balance in pounds?" % (who, -bal, pay), bal + pay, "int",
                    {"unit": "£"},
@@ -1470,7 +1484,7 @@ def _(d=1):
                     "£%d − £%d = £%d." % (pay, -bal, bal + pay)])
 
     def t_line():
-        L = min(R, 8)
+        L = {0: 5, 1: 8, 2: 12}[d]
         start = -random.randint(1, L)
         rise = random.randint(abs(start) + 1, abs(start) + L)
         ans = start + rise
@@ -1480,7 +1494,7 @@ def _(d=1):
                     step=1, major=5, lo=start - 2, hi=ans + 2)
 
     def t_line_diff():
-        L = min(R, 8)
+        L = {0: 5, 1: 8, 2: 12}[d]
         start = random.randint(1, L)
         fall = start + random.randint(1, L)
         ans = start - fall
@@ -1494,7 +1508,7 @@ def _(d=1):
     def t_table():
         cities = random.sample(_CITIES, 4)
         night = [random.randint(-R, -1) for _ in range(4)]
-        day = [n + random.randint(abs(n) + 1, abs(n) + R) for n in night]
+        day = [n + random.randint(abs(n) + 1, abs(n) + W) for n in night]
         rows = [[c, "%d °C" % n, "%d °C" % dd]
                 for c, n, dd in zip(cities, night, day)]
         i = random.randint(0, 3)
@@ -1506,7 +1520,7 @@ def _(d=1):
     def t_graph():
         hrs = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]
         temps = [random.randint(-R, -1) for _ in range(3)] + \
-                [random.randint(1, R) for _ in range(3)]
+                [random.randint(1, W) for _ in range(3)]
         i = random.randint(0, 2)
         j = random.randint(3, 5)
         return _lg("The graph shows the temperature through one day. How many "
@@ -1517,7 +1531,7 @@ def _(d=1):
                     "%d − (%d) = %d." % (temps[j], temps[i], temps[j] - temps[i])])
 
     def t_sub_line():
-        L = min(R, 8)
+        L = {0: 5, 1: 8, 2: 12}[d]
         a = random.randint(-L, L)
         b = random.randint(1, L)
         ans = a - b
@@ -1528,7 +1542,7 @@ def _(d=1):
                     step=1, major=5, lo=min(ans, a) - 2, hi=max(ans, a) + 2)
 
     def t_sub_line_neg():
-        L = min(R, 8)
+        L = {0: 5, 1: 8, 2: 12}[d]
         a = random.randint(-L, L)
         b = random.randint(1, L)
         ans = a + b

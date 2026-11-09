@@ -799,8 +799,8 @@ def _(d=1):
             hi = _by(d, 0, 6, 9)
             a, pa, b, pb = random.randint(2, hi), random.randint(30, 95), random.randint(2, hi), random.randint(30, 95)
         pay = ((a * pa + b * pb) // 100 + 1) * 100 + pick([0, 500])
-        return _tb("%s buys %d pens at %dp each and %d rulers at %dp each, and pays with £%d. How much "
-                   "change is given, in pence?" % (_who(), a, pa, b, pb, pay // 100),
+        return _tb("%s buys %s at %dp each and %s at %dp each, and pays with £%d. How much "
+                   "change is given, in pence?" % (_who(), _pl(a, "pen"), pa, _pl(b, "ruler"), pb, pay // 100),
                    pay - a * pa - b * pb, "int", {"unit": "p"},
                    ["Cost: %d + %d = %d p." % (a * pa, b * pb, a * pa + b * pb),
                     "%d − %d = %d." % (pay, a * pa + b * pb, pay - a * pa - b * pb)])
@@ -1186,9 +1186,10 @@ def _(d=1):
         name = pick(["quarter", "third", "fifth", "sixth", "eighth"])
         dn = {"quarter": 4, "third": 3, "fifth": 5, "sixth": 6, "eighth": 8}[name]
         k = dn * random.randint(1, 3) + random.randint(1, dn - 1)
-        return _fq("A café has %d %ss of cake left (each piece is 1/%d of a whole cake). How many cakes is that? Write it as "
-                   "a mixed number." % (k, name, dn), Fraction(k, dn),
-                   ["%d/%d = %s." % (k, dn, _mixed(Fraction(k, dn)))], "e.g. 2 3/4")
+        return _tb("A café has %d %ss of cake left (each piece is 1/%d of a whole cake). How many cakes is that? Write it as "
+                   "a mixed number." % (k, name, dn), _mixed(Fraction(k, dn)), "frac",
+                   {"text": True, "placeholder": "e.g. 2 3/4"},
+                   ["%d/%d = %s." % (k, dn, _mixed(Fraction(k, dn)))])
 
     def t_compare():
         other = Fraction(imp, den) + pick([Fraction(1, den), -Fraction(1, den), Fraction(1, 1)])
@@ -1250,6 +1251,11 @@ def _(d=1):
                    ["Add the numerators: %d/%d." % (x + y, dn)])
 
     def t_word():
+        if s > 1:                                   # more than one bottle: two bottles, not one
+            return _fq("%s drinks %d/%d of a litre of water in the morning and %d/%d of a litre in the "
+                       "afternoon. How many litres is that altogether?" % (_who(), a, base, b, big),
+                       s, ["%d/%d = %d/%d." % (a, base, a * m, big), "%d/%d + %d/%d = %d/%d."
+                           % (a * m, big, b, big, a * m + b, big)])
         return _fq("%s drinks %d/%d of a bottle of water in the morning and %d/%d of it in the "
                    "afternoon. What fraction of the bottle is that altogether?" % (_who(), a, base, b, big),
                    s, ["%d/%d = %d/%d." % (a, base, a * m, big), "%d/%d + %d/%d = %d/%d."
@@ -1302,7 +1308,7 @@ def _(d=1):
                                           "%d/%d + %d/%d = %d/%d." % (a * m, big, b, big, a * m + b, big)])
 
     def t_pairs_one():
-        dn = pick([4, 6, 8, 10, 12])
+        dn = pick(_by(d, [4, 6, 8], [6, 8, 10, 12], [9, 10, 12, 15]))
         x = random.randint(1, dn - 1)
         others = random.sample([y for y in range(1, dn) if y != dn - x], 2)
         opts = [dn - x] + others
@@ -1314,8 +1320,8 @@ def _(d=1):
         rows, ans = [], None
         k = random.randrange(3)
         for i in range(3):
-            bs = pick([2, 3, 4, 5])
-            mm = pick([2, 3])
+            bs = pick(_by(d, [2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]))
+            mm = pick(_by(d, [2], [2, 3], [2, 3, 4]))
             x, y = random.randint(1, bs - 1), random.randint(1, bs * mm - 1)
             tot = Fraction(x, bs) + Fraction(y, bs * mm)
             rows.append(["%d/%d" % (x, bs), "%d/%d" % (y, bs * mm), _fs(tot)])

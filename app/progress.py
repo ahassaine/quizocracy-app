@@ -1,5 +1,7 @@
 """Every answer is one row in `attempts`; the day's progress and the family board are read from it."""
 import datetime
+import math
+from fractions import Fraction
 from zoneinfo import ZoneInfo
 
 from . import config
@@ -71,17 +73,18 @@ async def counts(pupil_ids: list, days: list) -> dict:
 
 
 def day_status(pupil: dict, family: dict, day_counts: dict) -> dict:
-    """Progress of one child on one day: per activity and overall percent."""
-    items, total = [], 0.0
+    """Progress of one child on one day: per activity and overall percent. Percents are rounded down (exact
+    fractions), so 100% and a reward "at 100%" come only when every activity is complete."""
+    items, total = [], Fraction(0)
     plan = todays_plan(pupil, family)
     for a in plan:
         c = day_counts.get(a["key"], {"correct": 0, "answered": 0})
         done = min(a["target"], c["correct"])
-        frac = done / a["target"]
+        frac = Fraction(done, a["target"])
         total += frac
         items.append({**a, "done": done, "correct": c["correct"], "answered": c["answered"],
-                      "pct": int(round(100 * frac)), "complete": done >= a["target"]})
-    pct = int(round(100 * total / len(plan))) if plan else 0
+                      "pct": math.floor(100 * frac), "complete": done >= a["target"]})
+    pct = math.floor(100 * total / len(plan)) if plan else 0
     return {"items": items, "pct": pct}
 
 

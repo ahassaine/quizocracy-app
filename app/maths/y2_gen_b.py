@@ -71,7 +71,9 @@ def _(d=1):
         why = ("%d is exactly %d tens." % (n, n // 10) if o == 0 else
                "%d is halfway between %d and %d." % (n, t, t + 10) if o == 5 else
                "%d is a little more than %d." % (n, t) if o < 5 else "%d is a little less than %d." % (n, t + 10))
-        return _nl("Estimate where %d goes on the line from 0 to 100. Mark it." % n, n, 1, 10, [why], lo=0, hi=100)
+        q = _nl("Estimate where %d goes on the line from 0 to 100. Mark it." % n, n, 1, 10, [why], lo=0, hi=100)
+        q["tolerance"] = 3          # an estimate: a mark within 3 of the number counts
+        return q
 
     def t_place_value_chart():
         if d == 2:                                      # hard: more than 9 ones, so regroup ten ones into a ten
@@ -117,14 +119,26 @@ def _(d=1):
         return _tb("How many of these are 3-D shapes?  %s" % ", ".join(items), n, "int", {}, ["3-D shapes are solid: cube, sphere, cone, cuboid."])
 
     def t_odd_one():
-        group, odd = pick(_by(d, [(["cube", "cuboid"], "sphere"), (["triangle", "square"], "cube"), (["pentagon", "hexagon"], "cone")],
-                              [(["square", "rectangle"], "triangle"), (["cube", "cuboid"], "sphere"), (["triangle", "square"], "cube"),
-                               (["sphere", "cylinder"], "cube"), (["pentagon", "hexagon"], "cone")],
-                              [(["square", "rectangle"], "triangle"), (["sphere", "cylinder"], "cube"), (["cone", "cylinder"], "cuboid"),
-                               (["cube", "cuboid", "triangular prism"], "cone"), (["square", "rectangle", "hexagon"], "circle")]))
+        # the rule is stated, so exactly one shape is the odd one out (a bare "cylinder, cube, sphere"
+        # has two defensible answers)
+        group, odd, rule = pick(_by(d, [(["cube", "cuboid"], "sphere", "have only flat faces"),
+                                        (["triangle", "square"], "cube", "are flat 2-D shapes"),
+                                        (["pentagon", "hexagon"], "cone", "are flat 2-D shapes")],
+                                    [(["square", "rectangle"], "triangle", "have 4 sides"),
+                                     (["cube", "cuboid"], "sphere", "have only flat faces"),
+                                     (["triangle", "square"], "cube", "are flat 2-D shapes"),
+                                     (["sphere", "cylinder"], "cube", "have a curved surface"),
+                                     (["pentagon", "hexagon"], "cone", "are flat 2-D shapes")],
+                                    [(["square", "rectangle"], "triangle", "have 4 sides"),
+                                     (["sphere", "cylinder"], "cube", "have a curved surface"),
+                                     (["cone", "cylinder"], "cuboid", "have a curved surface"),
+                                     (["cube", "cuboid", "triangular prism"], "cone", "have only flat faces"),
+                                     (["square", "rectangle", "hexagon"], "circle", "have straight sides")]))
         items = group + [odd]
         random.shuffle(items)
-        return _wq("Which is the odd one out?  %s" % ", ".join(items), odd, ["The other two belong together."], "shape name")
+        return _wq("All but one of these shapes %s. Which is the odd one out?  %s" % (rule, ", ".join(items)), odd,
+                   ["%s %s." % (" and ".join(", ".join(group).rsplit(", ", 1)).capitalize(), rule),
+                    "The %s is not like them, so it is the odd one out." % odd], "shape name")
 
     def t_more_sides():
         a, b = random.sample(_by(d, ["triangle", "square", "hexagon"], [x for x in FLAT if x != "circle" and x != "rectangle"],

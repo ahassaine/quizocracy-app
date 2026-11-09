@@ -32,6 +32,10 @@ async def ensure_indexes():
     await db.bank_mastery.create_index([("pupil_id", ASCENDING), ("subject", ASCENDING)])
     await db.items.create_index([("created", ASCENDING)], expireAfterSeconds=2 * 86400)
     await db.login_failures.create_index([("ts", ASCENDING)], expireAfterSeconds=3600)
+    # Wrong passwords/PINs/codes and rate-limit hits are counted by key ("email": an address, "pin:<id>",
+    # "unlock:<family>", "verify:<email>", "mail:..."), over a recent window.
+    await db.login_failures.create_index([("email", ASCENDING), ("ts", ASCENDING)])
     await db.team_messages.create_index([("tid", ASCENDING), ("time", ASCENDING)])
     await db.team_messages.create_index([("time", ASCENDING)])
     await db.outbox.create_index([("to", ASCENDING), ("created", DESCENDING)])
+    await db.outbox.create_index([("created", ASCENDING)], expireAfterSeconds=30 * 86400)   # the mail log is kept 30 days

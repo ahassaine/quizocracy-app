@@ -667,7 +667,7 @@ def _(d=1):
         part = pick(["radius", "diameter", "circumference"])
         return {"prompt": "What is the name of the part of the circle marked here? "
                           "(type one word)",
-                "component": "circle", "spec": {"radius": rr, "show": part},
+                "component": "circle", "spec": {"radius": rr, "show": part, "label": "?"},   # "d = …" would name it
                 "answer": part, "answer_type": "str",
                 "solution": [{"radius": "A line from the centre to the edge is the radius.",
                               "diameter": "A line right across through the centre is the "
@@ -735,7 +735,7 @@ def _(d=1):
                                 "%s × %d = %s cm." % (_f(c), turns, _f(total))])
 
     if t == 8:                                        # inverse: circumference -> diameter
-        dia = pick([10, 20, 30, 40, 50, 100])
+        dia = pick(_by_d(d, [10, 20, 100], [10, 20, 30, 40, 50, 100], [15, 25, 35, 45, 60, 80]))
         c = round(3.14 * dia, 1)
         return _num_q("Take π as 3.14. A circle has a circumference of %s cm. "
                       "What is its diameter, in cm?" % _f(c),
@@ -744,10 +744,11 @@ def _(d=1):
                                 "%s ÷ 3.14 = %d cm." % (_f(c), dia)])
 
     # reasoning: comparing radius and diameter of two circles
-    r1 = random.randint(3, 12)
-    r2 = random.randint(3, 12)
+    lo, hi = _by_d(d, (3, 8), (3, 12), (10, 25))
+    r1 = random.randint(lo, hi)
+    r2 = random.randint(lo, hi)
     while r2 == r1:
-        r2 = random.randint(3, 12)
+        r2 = random.randint(lo, hi)
     return _num_q("Circle A has a radius of %d cm. Circle B has a diameter of %d cm. "
                   "How many cm longer is the LARGER diameter?" % (r1, 2 * r2),
                   abs(2 * r1 - 2 * r2), "int", unit="cm",
@@ -3500,7 +3501,7 @@ def _(d=1):
         v = random.randint(_by_d(d, 1, 1, 6), mx)
         return {"prompt": "Read the ruler. How long is the line, in millimetres?",
                 "component": "ruler",
-                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm"},
+                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm", "answer_unit": "mm"},
                 "answer": v * 10, "answer_type": "int",
                 "solution": ["The line measures %d cm." % v,
                              "1 cm = 10 mm, so %d × 10 = %d mm." % (v, v * 10)]}
@@ -3512,7 +3513,7 @@ def _(d=1):
             return {"prompt": "Read the scale. What is the mass, in kilograms? "
                               "Give your answer as a decimal.",
                     "component": "ruler",
-                    "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g"},
+                    "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g", "answer_unit": "kg"},
                     "answer": v / 1000.0, "answer_type": "num", "tolerance": 0.0005,
                     "solution": ["The pointer is at %d g." % v,
                                  "%d ÷ 1000 = %s kg." % (v, _f(v / 1000.0))]}
@@ -3520,7 +3521,7 @@ def _(d=1):
         return {"prompt": "Read the jug. How many litres of liquid does it hold? "
                           "Give your answer as a decimal.",
                 "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"},
+                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml", "answer_unit": "litres"},
                 "answer": v / 1000.0, "answer_type": "num", "tolerance": 0.0005,
                 "solution": ["The liquid reaches the %d ml mark." % v,
                              "%d ÷ 1000 = %s %s." % (v, _f(v / 1000.0), "litre" if v == 1000 else "litres")]}
@@ -4804,8 +4805,8 @@ def _(d=1):
                              "It reads %d %s." % (max(vals), ylab)]}
 
     if t == 4:                                        # where was it lowest (typed)
-        return {"prompt": "%s. Use the graph. At which point along the bottom was the "
-                          "reading LOWEST? (type the label)" % title,
+        return {"prompt": "%s. Use the graph. At which %s was the value on the graph lowest? "
+                          "(type it as it is written on the graph)" % (title, xlab.lower()),
                 "component": "line_graph", "spec": spec,
                 "answer": labels[vals.index(min(vals))], "answer_type": "str",
                 "solution": ["The lowest reading is %d %s." % (min(vals), ylab),
@@ -5479,7 +5480,7 @@ def _(d=1):
                             "%d ÷ %d = %d times." % (trials, n, trials // n)])
 
 
-_SPEND = ["Food", "Travel", "Clubs", "Books", "Games", "Savings", "Presents"]
+_SPEND = ["Food", "Travel", "Clubs", "Books", "Games", "Phone", "Presents"]     # spending only: saving is not spending
 
 
 @skill("Y6.9.k", "Financial literacy: records and budgets", S9)
@@ -5536,19 +5537,18 @@ def _(d=1):
         if bal < 0:
             bal = price + 500
             enough = True
-        ans = "debit card" if bal >= price else "credit card"
-        return _num_q("%s wants to buy a coat costing %s today and has %s in the bank "
-                      "account. Evaluate the payment methods: %s does not want to borrow "
-                      "money unless there is no other way to pay today. Which payment "
-                      "method should %s use — a debit card or a credit card? "
-                      "(type the answer)"
+        ans = "debit card" if bal >= price else "save"
+        return _num_q("%s wants to buy a coat costing %s and has %s in the bank "
+                      "account. %s does not want to borrow money. Should %s pay by debit "
+                      "card today, or wait and save up first? (type debit card or save)"
                       % (who, money(price), money(bal), who, who),
-                      ans, "str", text=True, placeholder="debit card / credit card",
+                      ans, "str", text=True, placeholder="debit card / save",
                       solution=["The coat costs %s and the account holds %s."
                                 % (money(price), money(bal)),
-                                "There is %s money in the account, so a %s is the right "
-                                "choice." % ("enough" if bal >= price else "not enough",
-                                             ans)])
+                                ("There is enough money in the account, so %s can pay by debit card."
+                                 % who) if bal >= price else
+                                ("There is not enough money, and a credit card would be borrowing, so %s "
+                                 "should wait and save the other %s first." % (who, money(price - bal)))])
 
     if t == 0:                                        # budget table: total spending
         cats = random.sample(_SPEND, _by_d(d, 3, 4, 5))
@@ -5926,9 +5926,9 @@ def _(d=1):
     mins = litres / rate
     ans_t, instr_t, tol_t = _dec_ask(mins)
     return _num_q("A tank measures %d cm by %d cm by %d cm. 1000 cm³ of water is 1 litre. "
-                  "Water flows in at %d litres per minute. How many minutes does it take "
+                  "Water flows in at %s per minute. How many minutes does it take "
                   "to fill the tank? %s"
-                  % (L, W, H, rate, instr_t),
+                  % (L, W, H, _pl(rate, "litre"), instr_t),
                   ans_t, "num", unit="minutes", tolerance=tol_t,
                   solution=["Volume = %d × %d × %d = %d cm³." % (L, W, H, L * W * H),
                             "That is %s %s." % (_f(litres), "litre" if litres == 1 else "litres"),

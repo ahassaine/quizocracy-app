@@ -84,6 +84,32 @@ def test_marking_rules():
     assert engine.mark(k, [5, 3]) and not engine.mark(k, [3]) and not engine.mark(k, [3, 5, 0])
     k = {"t": "mcq", "right": 2, "opts": ["a", "b", "c"]}
     assert engine.mark(k, 2) and engine.mark(k, "2") and not engine.mark(k, 0) and not engine.mark(k, "x")
+    assert engine.mark({"t": "text", "a": ["?"]}, "?") and not engine.mark({"t": "text", "a": ["?"]}, "!")
+
+
+def test_a_number_answer_is_one_number():
+    """A hedge or a range is refused; one number with digit groups or a unit is fine."""
+    k = {"t": "num", "a": 25, "tol": 0}
+    assert all(engine.mark(k, v) for v in ["25", " 25 ", "+25", "25.0", "25 bananas", "25kJ"])
+    assert not any(engine.mark(k, v) for v in ["25 or 30", "25-30", "25 to 40", "25/30", "25, 30", "25 30"])
+    assert not engine.mark({"t": "num", "a": 1.4}, "1.4.9") and not engine.mark({"t": "num", "a": 6}, "6/7")
+    assert engine.mark({"t": "num", "a": 10000}, "10 000 kJ") and engine.mark({"t": "num", "a": 10000}, "10,000")
+    assert engine.mark({"t": "num", "a": -3}, "−3 °C")
+
+
+def test_write_full_stop_only_where_the_task_asks_for_it():
+    """A sentence given with no end mark, in a task that is not about end marks, may be written without one."""
+    q = {"t": "write", "q": "Add a subordinate clause starting with 'because': use the words 'it was full'.",
+         "s": "The bin smelt", "a": ["The bin smelt because it was full."]}
+    key = engine.serve(q)[1]
+    assert engine.mark(key, "The bin smelt because it was full") and engine.mark(key, "The bin smelt because it was full.")
+    assert not engine.mark(key, "The bin smelt because it was empty")
+    q = {"t": "write", "q": "Add the capital letter and full stop.", "s": "the cat sat", "a": ["The cat sat."]}
+    key = engine.serve(q)[1]
+    assert engine.mark(key, "The cat sat.") and not engine.mark(key, "The cat sat")   # the full stop is the task
+    q = {"t": "write", "q": "Add a colon to introduce the list.", "s": "You need two things a pen and a ruler.",
+         "a": ["You need two things: a pen and a ruler."]}
+    assert not engine.mark(engine.serve(q)[1], "You need two things: a pen and a ruler")  # given with its full stop
 
 
 def _sk(i, n=20):

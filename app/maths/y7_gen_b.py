@@ -222,26 +222,32 @@ def _(d=1):
             s += ("+" if q > 0 and s else "") + str(q)
         return s or "0"
 
+    def _add(p, q, v=""):
+        """'5x + 8x', '-3x + 4x', '1 + (-5)': the letter kept, brackets round a negative second term."""
+        f = (lambda n: _lin(n, 0, v)) if v else str
+        return "%s + %s" % (f(p), ("(%s)" % f(q)) if q < 0 else f(q))
+
     def t_one_var():
         return _wq("Simplify  %s + %s" % (_lin(abs(a), 0), _lin(abs(c), 0)), _lin(abs(a) + abs(c), 0),
-                   ["%d + %d = %d." % (abs(a), abs(c), abs(a) + abs(c))], "e.g. 7x")
+                   ["%s = %s." % (_add(abs(a), abs(c), "x"), _lin(abs(a) + abs(c), 0))], "e.g. 7x")
 
     def t_with_const():
         return _wq("Simplify  %s %s %s %s  (write it like 5x+3)" % (_lin(a, 0), _sgn(b),
                                                                   ("+ " + _lin(c, 0)) if c > 0 else ("− " + _lin(-c, 0)),
                                                                   _sgn(e)),
-                   _lin(a + c, b + e), ["x terms: %d + %d = %d. Numbers: %d + %d = %d." % (a, c, a + c, b, e, b + e)],
+                   _lin(a + c, b + e), ["x terms: %s = %s. Numbers: %s = %d." % (_add(a, c, "x"), _lin(a + c, 0), _add(b, e), b + e)],
                    "e.g. 5x+3")
 
     def t_two_vars():
         p, q, r, s2 = [random.randint(1, 9) for _ in range(4)]
         ans = "%sx+%sy" % (p + r if p + r != 1 else "", q + s2 if q + s2 != 1 else "")
         return _wq("Simplify  %s + %s + %s + %s  (like 5x+3y)" % (_lin(p, 0), _lin(q, 0, "y"), _lin(r, 0), _lin(s2, 0, "y")), ans,
-                   ["x: %d + %d = %d. y: %d + %d = %d." % (p, r, p + r, q, s2, q + s2)], "e.g. 5x+3y")
+                   ["x: %s = %s. y: %s = %s." % (_add(p, r, "x"), _lin(p + r, 0), _add(q, s2, "y"), _lin(q + s2, 0, "y"))], "e.g. 5x+3y")
 
     def t_subtract():
         p, r = random.randint(5, 15), random.randint(1, 4)
-        return _wq("Simplify  %da − %s" % (p, "a" if r == 1 else "%da" % r), "%da" % (p - r) if p - r != 1 else "a", ["%d − %d = %d." % (p, r, p - r)],
+        return _wq("Simplify  %da − %s" % (p, "a" if r == 1 else "%da" % r), "%da" % (p - r) if p - r != 1 else "a",
+                   ["%da − %s = %s." % (p, _lin(r, 0, "a"), _lin(p - r, 0, "a"))],
                    "e.g. 4a")
 
     def t_perimeter():
@@ -254,7 +260,7 @@ def _(d=1):
         x = random.randint(2, 9)
         p, q = random.randint(2, 6), random.randint(2, 6)
         return _tb("Simplify  %dx + %dx  and then find its value when x = %d." % (p, q, x), (p + q) * x, "int", {},
-                   ["%dx; %d × %d = %d." % (p + q, p + q, x, (p + q) * x)])
+                   ["%dx + %dx = %dx." % (p, q, p + q), "%d × %d = %d." % (p + q, x, (p + q) * x)])
 
     return _pick_t([t_one_var, t_with_const, t_two_vars, t_subtract, t_perimeter, t_evaluate])
 
@@ -506,7 +512,8 @@ def _(d=1):
         vals = [n for n in range(lo - 1, hi + 2) if (n > lo if strict[0] == "<" else n >= lo) and
                 (n < hi if strict[1] == "<" else n <= hi)]
         return _tb("How many whole numbers n satisfy  %d %s n %s %d ?" % (lo, strict[0], strict[1], hi), len(vals),
-                   "int", {}, ["They are %s." % ", ".join(map(str, vals))])
+                   "int", {}, ["They are %s." % ", ".join(map(str, vals)) if vals else
+                               "There are none: no whole number lies strictly between %d and %d." % (lo, hi)])
 
     def t_line():
         v = Decimal(random.randint(_by(d, 0, -40, -40), 40)) / 10

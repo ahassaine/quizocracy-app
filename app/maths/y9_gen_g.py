@@ -150,13 +150,18 @@ def _(d=1):
                    ["y = %dx." % k, "%d × %d = %d." % (k, rows[i][0], rows[i][1])])
 
     def t_grid():
-        px, py = pick([(3, 2), (2, 3), (4, 1), (1, 3), (3, 1), (2, 1)])
-        mult = pick([2, 2, 1]) if px * 2 <= 7 and py * 2 <= 7 else 1
-        ask_x = px * mult
+        px, py = pick(_by(d, [(1, 2), (1, 3), (2, 1), (3, 1)], [(3, 2), (2, 3), (4, 1), (1, 3), (3, 1), (2, 1)],
+                          [(4, 3), (2, 3), (4, 1), (3, 2), (4, 5), (2, 5)]))
+        # never ask at P itself (the picture would be the answer): a multiple of P, or (stretch) a half step
+        mult = pick(_by(d, [Fraction(2)], [Fraction(2), Fraction(3)],
+                        [Fraction(3)] + ([Fraction(1, 2), Fraction(5, 2)] if px % 2 == 0 else [Fraction(4)])))
+        ask_x, ans = int(px * mult), py * mult
         return {"prompt": "The line shows y and x in a fixed ratio. It passes through P. What is y when x = %d?" % ask_x, "component": "coordinate_grid",
                 "spec": {"xmin": -1, "xmax": 8, "ymin": -1, "ymax": 8, "lines": [{"p1": [0, 0], "p2": [px, py]}], "points": [[px, py, "P"]],
                          "typed": True, "placeholder": "y ="},
-                "answer": py * mult, "answer_type": "num", "solution": ["y:x = %d:%d at P." % (py, px), "When x = %d, y = %d." % (ask_x, py * mult)]}
+                "answer": int(ans) if ans.denominator == 1 else float(ans), "answer_type": "num",
+                "solution": ["y:x = %d:%d at P." % (py, px), "x = %d is %s × %d, so y = %s × %d = %s."
+                             % (ask_x, _fs(mult), px, _fs(mult), py, _fs(ans) if ans.denominator == 1 else "%g" % float(ans))]}
 
     def t_times_as():
         p, q = pick([(3, 2), (5, 2), (4, 3), (5, 3), (7, 4)])

@@ -53,7 +53,7 @@
       input.spellcheck = false;
       input.setAttribute('aria-label', 'Your answer');
       if (ask === 'name') { input.placeholder = 'shape name'; }
-      else { input.inputMode = 'numeric'; input.placeholder = 'how many?'; }
+      else { input.inputMode = spec.keypad || 'numeric'; input.placeholder = 'how many?'; }
       input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:' + (ask === 'name' ? '220px' : '160px') +
         ';max-width:90%;background:#0b0f14;color:#e6edf3;border:2px solid #30363d;border-radius:8px;text-align:center;outline:none';
       input.addEventListener('focus', () => { input.style.borderColor = ACC; });

@@ -6,9 +6,9 @@ import re
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
 
-from ..activities import ACTIVITIES, ORDER, YEARS, default_activities, plan_of, todays_plan
+from ..activities import ACTIVITIES, ORDER, PLANS, YEARS, default_activities, plan_of, todays_plan
 from ..db import FAMILY_COLLECTIONS, db
-from ..deps import Ctx, family_page, own_pupil, parent_page
+from ..deps import Ctx, family_page, hit, over_limit, own_pupil, parent_page
 from ..drills import bank, maths, spelling, tables, verbs
 from .. import progress
 from ..tips import TIPS
@@ -28,7 +28,8 @@ async def home(request: Request, ctx: Ctx = Depends(parent_page)):
     pupils = await _pupils(ctx)
     board = await progress.board(ctx.family, pupils)
     hist = {p["_id"]: await progress.history(p, ctx.family, 7) for p in pupils}
-    return page(request, "home.html", ctx, board=board, hist=hist, plan=plan_of(ctx.family),
+    full = len(pupils) >= plan_of(ctx.family)["max_children"] and _full_reason(ctx.family) == "limit"
+    return page(request, "home.html", ctx, board=board, hist=hist, plan=plan_of(ctx.family), full=full,
                 welcome=request.query_params.get("welcome"))
 
 
@@ -43,10 +44,15 @@ def _form_activities(form, year: int) -> dict:
     return acts
 
 
+def _full_reason(family: dict) -> str:
+    """Why no more children: the plan can be upgraded ("children"), or the biggest plan is full ("limit")."""
+    return "limit" if plan_of(family)["max_children"] >= max(p["max_children"] for p in PLANS.values()) else "children"
+
+
 @router.get("/children/new")
 async def child_new_form(request: Request, ctx: Ctx = Depends(parent_page)):
     if len(await _pupils(ctx)) >= plan_of(ctx.family)["max_children"]:
-        return page(request, "upgrade.html", ctx, reason="children")
+        return page(request, "upgrade.html", ctx, reason=_full_reason(ctx.family), plan=plan_of(ctx.family))
     return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=None, years=YEARS, acts=default_activities(3))
 
 
@@ -54,7 +60,8 @@ async def child_new_form(request: Request, ctx: Ctx = Depends(parent_page)):
 async def child_new(request: Request, ctx: Ctx = Depends(parent_page)):
     form = await request.form()
     if len(await _pupils(ctx)) >= plan_of(ctx.family)["max_children"]:
-        return page(request, "upgrade.html", ctx, reason="children", status_code=403)
+        return page(request, "upgrade.html", ctx, reason=_full_reason(ctx.family), plan=plan_of(ctx.family),
+                    status_code=403)
     name = (form.get("name") or "").strip()[:30]
     pin = (form.get("pin") or "").strip()
     try:
@@ -147,7 +154,8 @@ async def _delete_pupils(ids: list) -> None:
         await db[c].delete_many({"pupil": {"$in": ids}})
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items"):
         await db[c].delete_many({"pupil_id": {"$in": ids}})
-    await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None}})
+    # A device that child was using goes back to "Who's learning?", still locked: never to parent mode.
+    await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None, "locked": True}})
     await db.pupils.delete_many({"_id": {"$in": ids}})
 
 
@@ -178,15 +186,26 @@ async def export(request: Request, ctx: Ctx = Depends(parent_page)):
     fid = ctx.family["_id"]
     pupils = await _pupils(ctx)
     ids = [p["_id"] for p in pupils]
-    data = {"exported": datetime.datetime.utcnow().isoformat(), "family": ctx.family,
-            "accounts": [{k: v for k, v in a.items() if k != "pw"} async for a in db.accounts.find({"family_id": fid})],
-            "children": [{k: v for k, v in p.items() if k != "pin"} for p in pupils]}
-    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery"):
+    accounts = [{k: v for k, v in a.items() if k != "pw"} async for a in db.accounts.find({"family_id": fid})]
+    data = {"exported": datetime.datetime.utcnow(), "times": "UTC", "family": ctx.family, "accounts": accounts,
+            "children": [{k: v for k, v in p.items() if k != "pin"} for p in pupils],
+            "devices": [{k: s.get(k) for k in ("created", "expires", "child_id")}
+                        async for s in db.sessions.find({"family_id": fid})]}
+    # Every per-child collection that deleting a child removes (see _delete_pupils), so the file is complete.
+    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items"):
         data[c] = [d async for d in db[c].find({"pupil_id": {"$in": ids}}, {"_id": 0})]
-    data["maths_mastery"] = [d async for d in db.maths_mastery.find({"pupil": {"$in": ids}}, {"_id": 0})]
-    body = json.dumps(data, default=str, indent=1)
+    for c in ("maths_attempts", "maths_mastery", "maths_lab_q"):
+        data[c] = [d async for d in db[c].find({"pupil": {"$in": ids}}, {"_id": 0})]
+    data["emails"] = [d async for d in db.outbox.find({"to": {"$in": [a["email"] for a in accounts]}},
+                                                      {"_id": 0, "to": 1, "subject": 1, "created": 1})]
+    body = json.dumps(data, default=_json_default, indent=1)
     return Response(body, media_type="application/json",
-                    headers={"Content-Disposition": 'attachment; filename="quizocracy-export.json"'})
+                    headers={"Content-Disposition": 'attachment; filename="quizocracy-export.json"',
+                             "Cache-Control": "no-store"})
+
+
+def _json_default(o):
+    return o.isoformat() + "Z" if isinstance(o, datetime.datetime) else str(o)
 
 
 @router.post("/account/delete")
@@ -208,18 +227,34 @@ async def delete_account(request: Request, ctx: Ctx = Depends(parent_page), pass
     return resp
 
 
+@router.post("/handover")
+async def handover(request: Request, ctx: Ctx = Depends(family_page)):
+    """Lock the device before it changes hands: from here only a child's PIN or the parent's password works."""
+    await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"locked": True}})
+    return RedirectResponse("/learn", 303)
+
+
 @router.get("/parent-unlock")
 async def unlock_form(request: Request, ctx: Ctx = Depends(family_page)):
-    if not ctx.child:
+    if not ctx.locked:
         return RedirectResponse("/home", 303)
     return page(request, "unlock.html", ctx)
 
 
+UNLOCK_FAILS, UNLOCK_MINUTES = 8, 15
+
+
 @router.post("/parent-unlock")
 async def unlock(request: Request, ctx: Ctx = Depends(family_page), password: str = Form(...)):
+    key = f"unlock:{ctx.family['_id']}"          # per family, so every device of the family shares the count
+    if await over_limit(key, UNLOCK_FAILS, UNLOCK_MINUTES):
+        return page(request, "unlock.html", ctx, status_code=429,
+                    error=f"Too many wrong passwords. The parent area is locked for {UNLOCK_MINUTES} minutes.")
     if not verify_secret(password, ctx.account["pw"]):
+        await hit(key)
         return page(request, "unlock.html", ctx, error="That password is not right.", status_code=400)
-    await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": None,
+    await db.login_failures.delete_many({"email": key})
+    await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": None, "locked": False,
                                                                         "parent_ok_at": datetime.datetime.utcnow()}})
     return RedirectResponse("/home", 303)
 

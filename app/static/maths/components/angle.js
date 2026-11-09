@@ -13,7 +13,15 @@
  * The first ray is always horizontal, pointing right; the second is rotated
  * ANTICLOCKWISE by `degrees`, so the arc always lies on the correct side and
  * reflex angles (180 < D < 360) draw the long way round.
- * A right angle (D === 90) is marked with the usual square symbol.
+ *
+ * spec.given: the question states the drawn angle, so it is labelled with its value (not "?"), and
+ * spec.unknown draws the angle asked for, marked "?":
+ *   "straight"  — the first ray carries on into a straight line; "?" on the other angle on it
+ *   "straight2" — the same, split into two equal angles, both "?"
+ *   "full"      — "?" on the reflex angle that completes the full turn
+ *   "right"     — a dashed ray at 90° (right-angle mark); "?" on the angle between
+ * A right angle is marked with the square symbol only when its size is given; when the pupil must
+ * classify or measure it, an arc is drawn as for any other angle (the square would be the answer).
  *
  * All modes: host.__getValue() === trimmed typed string.
  */
@@ -45,6 +53,7 @@
       else deg = Math.max(1, Math.min(359, deg));
 
       const showProt = (mode === 'measure') && spec.protractor !== false;
+      const unknown = (mode === 'classify' && spec.given) ? spec.unknown : null;
 
       // ---- geometry -------------------------------------------------------
       const W = 360, H = 300;
@@ -142,6 +151,9 @@
       } else {
         svg.appendChild(ray(0, INK, false, uid + 'i'));
         svg.appendChild(ray(deg, INK, false, uid + 'i'));
+        if (unknown === 'straight' || unknown === 'straight2') svg.appendChild(ray(180, INK, false, uid + 'i'));
+        if (unknown === 'straight2') svg.appendChild(ray(deg + (180 - deg) / 2, MUTE, true, null));
+        if (unknown === 'right') svg.appendChild(ray(90, MUTE, true, null));
       }
 
       // ---- the marked angle (arc from ray 1 anticlockwise to ray 2) ----------
@@ -170,7 +182,7 @@
           arcG.appendChild(arcEl);
           return;
         }
-        if (deg === 90) {
+        if (deg === 90 && spec.given) {
           // right-angle square in the corner between the two rays
           const s = 20;
           const u = P(0, s), v = P(90, s), c = [u[0] + (v[0] - VX), u[1] + (v[1] - VY)];
@@ -199,6 +211,33 @@
           arcG.appendChild(mk('circle', { cx: VX, cy: VY, r: 4, fill: colour }));
         }
       }
+
+      // the angle the question asks for (drawn beside the given one), each part marked "?"
+      const unkParts = unknown === 'straight' ? [[deg, 180 - deg]]
+        : unknown === 'straight2' ? [[deg, (180 - deg) / 2], [deg + (180 - deg) / 2, (180 - deg) / 2]]
+        : unknown === 'full' ? [[deg, 360 - deg]]
+        : unknown === 'right' ? [[deg, 90 - deg]] : [];
+      const unkG = mk('g', {});
+      svg.appendChild(unkG);
+      function drawUnknown(colour) {
+        unkG.innerHTML = '';
+        unkParts.forEach(([from, sweep], k) => {
+          const r = unknown === 'full' ? 28 : 34 + k * 6;
+          const at = { d: arcPath(r, from, sweep), fill: 'none', stroke: colour, 'stroke-width': 2.5, 'stroke-linecap': 'round' };
+          if (unknown === 'full') at['stroke-dasharray'] = '5 4';
+          unkG.appendChild(mk('path', at));
+          const lp = P(from + sweep / 2, r + 22 + (sweep < 30 ? 40 + k * 18 : 0));   // a thin angle: write its "?" further out
+          unkG.appendChild(mk('text', {
+            x: r2(lp[0]), y: r2(lp[1] + 5), fill: colour, 'font-size': 15, 'font-weight': 700,
+            'text-anchor': 'middle', 'font-family': 'system-ui,sans-serif'
+          }, '?'));
+        });
+        if (unknown === 'right') {                       // the right angle the two parts make
+          const s = 14, u = P(0, s), v = P(90, s), c = [u[0] + (v[0] - VX), u[1] + (v[1] - VY)];
+          unkG.appendChild(mk('path', { d: 'M' + r2(u[0]) + ',' + r2(u[1]) + ' L' + r2(c[0]) + ',' + r2(c[1]) + ' L' + r2(v[0]) + ',' + r2(v[1]), fill: 'none', stroke: MUTE, 'stroke-width': 1.5 }));
+        }
+      }
+      drawUnknown(ACCENT);
       drawMark(ACCENT);
 
       // ---- vertex + labels ---------------------------------------------------
@@ -214,17 +253,27 @@
         }, txt));
       }
       if (mode === 'turn') {
-        label(0, R_RAY - 4, 'start', INK);
-        label(deg % 360, R_RAY - 4, 'finish', MUTE);
+        // beside each ray, not past its arrowhead: "start" above the start ray, "finish" on the clockwise
+        // side of the finish ray, so a full turn (both rays the same) does not print one word over the other
+        function side(a, off, txt, colour) {
+          const p = P(a, R_RAY * 0.68), o = rad(a + off), cx = Math.cos(o);
+          svg.appendChild(mk('text', {
+            x: r2(p[0] + 12 * cx), y: r2(p[1] - 16 * Math.sin(o) + 4), fill: colour, 'font-size': 13,
+            'font-weight': 700, 'text-anchor': cx < -0.3 ? 'end' : (cx > 0.3 ? 'start' : 'middle'),
+            'font-family': 'system-ui,sans-serif'
+          }, txt));
+        }
+        side(0, 90, 'start', INK);
+        side(deg % 360, -90, 'finish', MUTE);
       } else {
         label(0, R_RAY - 4, 'A', INK);
         label(deg, R_RAY - 4, 'B', INK);
         const mid = deg / 2;
         const lp = P(mid, deg === 90 ? 46 : R_ARC + 22);
         svg.appendChild(mk('text', {
-          x: r2(lp[0]), y: r2(lp[1] + 4), fill: ACCENT, 'font-size': 14, 'font-weight': 700,
+          x: r2(lp[0]), y: r2(lp[1] + 4), fill: spec.given ? INK : ACCENT, 'font-size': 14, 'font-weight': 700,
           'text-anchor': 'middle', 'font-family': 'system-ui,sans-serif'
-        }, '?'));
+        }, spec.given ? r2(deg) + '°' : '?'));
       }
 
       host.appendChild(svg);
@@ -237,14 +286,14 @@
       input.className = 'm-input';
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');
-      if (mode === 'classify' && !spec.numeric) {
+      if (mode !== 'measure' && !spec.numeric) {    // a word: acute / obtuse …, quarter / half …
         input.inputMode = 'text';
-        input.placeholder = 'acute / right / obtuse …';
+        input.placeholder = 'type the word';
         input.style.width = '210px';
       } else {
-        input.inputMode = 'numeric';
-        input.placeholder = 'degrees';
-        input.style.width = '150px';
+        input.inputMode = spec.keypad || 'numeric';
+        input.placeholder = mode === 'measure' ? 'degrees' : 'type a number';
+        input.style.width = '170px';
       }
       input.style.cssText += ';font-size:1.2rem;padding:8px 12px;background:' + BG + ';color:' + INK +
         ';border:2px solid ' + BORDER + ';border-radius:8px;text-align:center;outline:none;max-width:100%';
@@ -263,6 +312,7 @@
         const col = (res && res.correct) ? GOOD : BAD;
         input.style.borderColor = col;
         drawMark(col);
+        drawUnknown(col);
       };
     }
   };

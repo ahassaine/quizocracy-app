@@ -726,7 +726,7 @@ def _(d=1):
             m = random.randint(a + 1, 10)
             return _tb("A point is at x = %d. The mirror line is x = %d. How far is its reflection from the point, in "
                        "squares?" % (m - a, m), 2 * a, "int", {"unit": "squares"},
-                       ["It is %d − %d = %d squares from the mirror." % (m, m - a, a), "%d + %d = %d." % (a, a, 2 * a)])
+                       ["It is %d − %d = %s from the mirror." % (m, m - a, _pl(a, "square")), "%d + %d = %d." % (a, a, 2 * a)])
         return _tb("A point is %s to the left of a mirror line. How far is its reflection from the point, in "
                    "squares?" % _pl(a, "square"), 2 * a, "int", {"unit": "squares"}, ["%d to the mirror and %d back: %d." % (a, a, 2 * a)])
 

@@ -14,10 +14,15 @@ def _send_smtp(msg: EmailMessage) -> None:
         s.send_message(msg)
 
 
-async def send(to: str, subject: str, body: str) -> None:
+async def send(to: str, subject: str, body: str, secret: str | None = None) -> None:
+    """`secret`: a live code or link token in the message. A captured message is kept whole (it is never sent, and
+    the tests read it); a message really sent is logged without the secret, which is stored only as a hash."""
     to = to.strip().lower()
     captured = config.MAIL_MODE != "smtp" or to.split("@")[-1] in config.CAPTURE_DOMAINS
-    await db.outbox.insert_one({"to": to, "subject": subject, "body": body, "captured": captured,
+    log_subject, log_body = subject, body
+    if secret and not captured:
+        log_subject, log_body = subject.replace(secret, "[removed]"), body.replace(secret, "[removed]")
+    await db.outbox.insert_one({"to": to, "subject": log_subject, "body": log_body, "captured": captured,
                                 "created": datetime.datetime.utcnow()})
     if captured:
         return

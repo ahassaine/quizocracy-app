@@ -4,7 +4,7 @@
 # events using morning, afternoon and evening.  Short prompts for young readers.
 from .maths_engine import skill
 from .y5_common import *  # noqa: F401,F403
-from .y1_gen_a import S4, KIDS
+from .y1_gen_a import S4, KIDS, _pn
 
 
 @skill("Y1.4.e", "Measure length, mass, capacity and time", S4)
@@ -30,7 +30,7 @@ def _(d=1):
         v = 2 * random.randint(1, 9) if d == 2 else random.randint(1, top - 1)     # hard: a 20-cup jug marked in 2s
         return {"prompt": "The jug is marked in cups. How many cups of water are in it?", "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"}, "answer": v, "answer_type": "num",
-                "tolerance": 0, "solution": ["The water is level with %d cups." % v]}
+                "tolerance": 0, "solution": ["The water is level with %s." % _pn(v, "cup")]}
 
     def t_cubes():
         a = random.randint(_by(d, 3, 3, 10), _by(d, 8, 12, 20))

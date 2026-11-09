@@ -167,6 +167,7 @@
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');
       input.placeholder = 'your answer';
+      input.inputMode = spec.keypad || 'text';
       input.style.cssText += 'width:200px;font-size:1.2rem;padding:8px 12px;background:' + BG +
         ';color:' + INK + ';border:2px solid ' + BORDER +
         ';border-radius:8px;text-align:center;outline:none;max-width:100%';

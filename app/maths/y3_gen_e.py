@@ -1877,6 +1877,12 @@ def _fbar(prompt, parts, num, solution):
             "answer": "%d/%d" % (num, parts), "answer_type": "frac", "solution": solution}
 
 
+def _fqs(prompt, n, den, solution, placeholder="e.g. 3/4"):
+    """A Year 3 fraction answer kept in the question's own denominator (4/6, not 2/3), so the
+    "Answer:" shown after a wrong try is one the child can see in the question. Marked by value."""
+    return _tb(prompt, "%d/%d" % (n, den), "frac", {"text": True, "placeholder": placeholder}, solution)
+
+
 def _x36d(d):
     den = pick([2, 4, 5, 10] if d < 2 else [4, 5, 8, 10])
 
@@ -1885,13 +1891,15 @@ def _x36d(d):
                    ["%d/%d makes 1 whole." % (den, den), "So there are %d steps." % den])
 
     def t_halfway():
-        dn = pick([4, 8, 10] if d else [4, 10])
-        num = random.randint(1, dn - 1)
-        return _fq("Which fraction is exactly halfway between %d/%d and %d/%d on a number line?" % (num - 1, dn, num + 1, dn),
-                   Fraction(num, dn), ["One step on from %d/%d is %d/%d." % (num - 1, dn, num, dn)], "e.g. 3/8")
+        dn = pick(_by(d, [4, 10], [4, 8, 10], [8, 10, 12]))
+        k = _by(d, 1, 1, random.randint(2, 3))          # stretch: the ends are further apart
+        num = random.randint(k, dn - k)
+        return _fqs("Which fraction is exactly halfway between %d/%d and %d/%d on a number line?" % (num - k, dn, num + k, dn),
+                    num, dn, ["%s on from %d/%d is %d/%d, and %s more reaches %d/%d."
+                              % (_pl(k, "step").capitalize(), num - k, dn, num, dn, _pl(k, "step"), num + k, dn)], "e.g. 3/8")
 
     def t_gap():
-        dn = pick([4, 5, 8, 10])
+        dn = pick(_by(d, [4, 5], [5, 8, 10], [8, 10, 12]))
         a, b = sorted(random.sample(range(1, dn), 2))
         return _tb("On a number line marked in steps of 1/%d, how many steps is it from %d/%d to %d/%d?" % (dn, a, dn, b, dn), b - a,
                    "int", {}, ["%d − %d = %d." % (b, a, b - a)])
@@ -1903,7 +1911,7 @@ def _x36e(d):
     def t_count_on():
         a = random.randint(*_by(d, (1, 3), (1, 5), (4, 7)))
         k = random.randint(2, _by(d, 3, 10 - a - 1, 10 - a))
-        return _fq("Start at %d/10 and count on %s. Where do you finish?" % (a, _pl(k, "tenth")), Fraction(a + k, 10),
+        return _fqs("Start at %d/10 and count on %s. Where do you finish?" % (a, _pl(k, "tenth")), a + k, 10,
                    ["%d/10 + %d/10 = %d/10." % (a, k, a + k)] + (["10/10 is 1 whole."] if a + k == 10 else []), "e.g. 7/10")
 
     def t_to_whole():
@@ -1915,8 +1923,8 @@ def _x36e(d):
 
     def t_back_from_one():
         k = random.randint(*_by(d, (2, 3), (2, 6), (5, 8)))
-        return _fq("Count back in tenths from 1: 1, 9/10, 8/10, ... What is the %s number in the count (1 is the 1st)?"
-                   % ["", "", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][k + 1], Fraction(10 - k, 10),
+        return _fqs("Count back in tenths from 1: 1, 9/10, 8/10, ... What is the %s number in the count (1 is the 1st)?"
+                   % ["", "", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][k + 1], 10 - k, 10,
                    ["Each step takes away 1/10.", "After %s you reach %d/10." % (_pl(k, "step"), 10 - k)], "e.g. 7/10")
 
     def t_missing():
@@ -1927,7 +1935,7 @@ def _x36e(d):
             seq = seq[::-1]                       # stretch: a count backwards
         miss = random.randint(1, 2)
         shown = ["%d/10" % v if i != miss else "___" for i, v in enumerate(seq)]
-        return _fq("Find the missing number:  %s" % ", ".join(shown), Fraction(seq[miss], 10),
+        return _fqs("Find the missing number:  %s" % ", ".join(shown), seq[miss], 10,
                    ["The count goes %s by %s." % ("up" if seq[1] > seq[0] else "down", _pl(st, "tenth")),
                     "The missing number is %d/10." % seq[miss]], "e.g. 5/10")
 
@@ -1940,12 +1948,15 @@ def _x36e(d):
         v = random.randint(*_by(d, (1, 5), (1, 9), (2, 8)))
         if d == 2:
             # stretch: the part that is left
-            return _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
-                          "How many tenths of the strip are LEFT?", "length", v, 10, "cm", 10 - v,
-                          ["The piece is %d cm, which is %d/10 of the strip." % (v, v), "10/10 − %d/10 = %d/10 left." % (v, 10 - v)])
-        return _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
-                      "How many tenths of the strip is the piece?", "length", v, 10, "cm", v,
-                      ["The piece is %d cm." % v, "That is %d/10 of the strip." % v])
+            q = _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
+                       "How many tenths of the strip are LEFT?", "length", v, 10, "cm", 10 - v,
+                       ["The piece is %d cm, which is %d/10 of the strip." % (v, v), "10/10 − %d/10 = %d/10 left." % (v, 10 - v)])
+        else:
+            q = _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
+                       "How many tenths of the strip is the piece?", "length", v, 10, "cm", v,
+                       ["The piece is %d cm." % v, "That is %d/10 of the strip." % v])
+        q["spec"]["answer_unit"] = "tenths"         # the answer is a count of tenths, not cm
+        return q
 
     def t_bar():
         if d == 2:
@@ -1969,8 +1980,8 @@ def _x36h(d):
     def t_middle():
         ns = random.sample(range(1, den), 3)
         mid = sorted(ns)[1]
-        return _fq("Put %s in order from smallest to largest. Which fraction is in the middle?" % ", ".join("%d/%d" % (n, den) for n in ns),
-                   Fraction(mid, den), ["Same denominator, so compare the numerators: %s." % ", ".join(str(n) for n in sorted(ns)),
+        return _fqs("Put %s in order from smallest to largest. Which fraction is in the middle?" % ", ".join("%d/%d" % (n, den) for n in ns),
+                    mid, den, ["Same denominator, so compare the numerators: %s." % ", ".join(str(n) for n in sorted(ns)),
                                         "The middle one is %d/%d." % (mid, den)], "e.g. 3/8")
 
     def t_sign():
@@ -1994,8 +2005,8 @@ def _x36h(d):
     def t_further():
         a, b = sorted(random.sample(range(1, den), 2))
         x, y = random.sample(NAMES, 2)
-        return _fq("%s ran %d/%d of a track and %s ran %d/%d of it. How much further did %s run? (write the fraction)"
-                   % (x, a, den, y, b, den, y), Fraction(b - a, den), ["%d/%d − %d/%d = %d/%d." % (b, den, a, den, b - a, den)], "e.g. 2/8")
+        return _fqs("%s ran %d/%d of a track and %s ran %d/%d of it. How much further did %s run? (write the fraction)"
+                   % (x, a, den, y, b, den, y), b - a, den, ["%d/%d − %d/%d = %d/%d." % (b, den, a, den, b - a, den)], "e.g. 2/8")
 
     def t_missing_num():
         a = random.randint(1, den - 3)
@@ -2013,7 +2024,7 @@ def _x36i(d):
             xs = [random.randint(1, den - 2) for _ in range(3)]
             if sum(xs) <= den:
                 break
-        return _fq("Work out %s." % " + ".join("%d/%d" % (x, den) for x in xs), Fraction(sum(xs), den),
+        return _fqs("Work out %s." % " + ".join("%d/%d" % (x, den) for x in xs), sum(xs), den,
                    ["Add the numerators: %s = %d." % (" + ".join(map(str, xs)), sum(xs)), "= %d/%d." % (sum(xs), den)], "e.g. 5/8")
 
     def t_line():
@@ -2028,21 +2039,21 @@ def _x36i(d):
         a, c = random.randint(1, s1 - 1), random.randint(1, s2 - 1)
         b, e = s1 - a, s2 - c
         big = max(s1, s2)
-        return _fq("Which is larger: %d/%d + %d/%d or %d/%d + %d/%d? Type the larger total as a fraction." % (a, den, b, den, c, den, e, den),
-                   Fraction(big, den), ["%d/%d and %d/%d." % (a + b, den, c + e, den), "The larger is %d/%d." % (big, den)], "e.g. 5/8")
+        return _fqs("Which is larger: %d/%d + %d/%d or %d/%d + %d/%d? Type the larger total as a fraction." % (a, den, b, den, c, den, e, den),
+                    big, den, ["%d/%d and %d/%d." % (a + b, den, c + e, den), "The larger is %d/%d." % (big, den)], "e.g. 5/8")
 
     def t_pizza():
         x, y = random.sample(NAMES, 2)
         a = random.randint(1, 4)
         b = random.randint(1, 8 - a - 1)
-        return _fq("A pizza is cut into 8 equal slices. %s eats %s and %s eats %s. What fraction of the pizza has been eaten?"
-                   % (x, _pl(a, "slice"), y, _pl(b, "slice")), Fraction(a + b, 8), ["%d/8 + %d/8 = %d/8." % (a, b, a + b)], "e.g. 3/8")
+        return _fqs("A pizza is cut into 8 equal slices. %s eats %s and %s eats %s. What fraction of the pizza has been eaten?"
+                   % (x, _pl(a, "slice"), y, _pl(b, "slice")), a + b, 8, ["%d/8 + %d/8 = %d/8." % (a, b, a + b)], "e.g. 3/8")
 
     def t_repeat():
         k = random.randint(2, min(4, den - 1))
         a = random.randint(1, (den - 1) // k)
-        return _fq("Add %d/%d to itself %s altogether (%s). What is the total?" % (a, den, {2: "twice", 3: "three times", 4: "four times"}[k],
-                   " + ".join(["%d/%d" % (a, den)] * k)), Fraction(a * k, den), ["%d × %d = %d, so the total is %d/%d." % (a, k, a * k, a * k, den)],
+        return _fqs("Add %d/%d to itself %s altogether (%s). What is the total?" % (a, den, {2: "twice", 3: "three times", 4: "four times"}[k],
+                   " + ".join(["%d/%d" % (a, den)] * k)), a * k, den, ["%d × %d = %d, so the total is %d/%d." % (a, k, a * k, a * k, den)],
                    "e.g. 6/8")
 
     return [t_three, t_larger, t_pizza, t_repeat, t_line, t_line]
@@ -2061,30 +2072,30 @@ def _x36j(d):
                     1 / dn, 1 / dn, ["%d/%d − %d/%d = %d/%d." % (x, dn, y, dn, x - y, dn)])
 
     def t_bigger_by():
-        return _fq("How much bigger is %d/%d than %d/%d?" % (a, den, b, den), Fraction(a - b, den),
+        return _fqs("How much bigger is %d/%d than %d/%d?" % (a, den, b, den), a - b, den,
                    ["%d/%d − %d/%d = %d/%d." % (a, den, b, den, a - b, den)], "e.g. 2/8")
 
     def t_missing_first():
-        return _fq("Find the missing fraction:  ___ − %d/%d = %d/%d" % (b, den, a - b, den), Fraction(a, den),
+        return _fqs("Find the missing fraction:  ___ − %d/%d = %d/%d" % (b, den, a - b, den), a, den,
                    ["%d/%d + %d/%d = %d/%d." % (a - b, den, b, den, a, den)], "e.g. 6/9")
 
     def t_jug():
         full = random.randint(4, 9)
         out = random.randint(1, full - 1)
-        return _fq("A jug is %d/10 full of water. %d/10 of the jug is poured out. What fraction of the jug is full now?" % (full, out),
-                   Fraction(full - out, 10), ["%d/10 − %d/10 = %d/10." % (full, out, full - out)], "e.g. 4/10")
+        return _fqs("A jug is %d/10 full of water. %d/10 of the jug is poured out. What fraction of the jug is full now?" % (full, out),
+                    full - out, 10, ["%d/10 − %d/10 = %d/10." % (full, out, full - out)], "e.g. 4/10")
 
     def t_two_step():
         x = random.randint(1, den - 2)
         y = random.randint(1, den - x - 1)
-        return _fq("Work out 1 − %d/%d − %d/%d." % (x, den, y, den), Fraction(den - x - y, den),
+        return _fqs("Work out 1 − %d/%d − %d/%d." % (x, den, y, den), den - x - y, den,
                    ["1 = %d/%d." % (den, den), "%d − %d − %d = %d, so %d/%d." % (den, x, y, den - x - y, den - x - y, den)], "e.g. 2/7")
 
     def t_cake_left():
         k = pick([6, 8, 10])
         e = random.randint(1, k - 1)
-        return _fq("A cake is cut into %d equal slices and %s eaten. What fraction of the cake is left?"
-                   % (k, "1 slice is" if e == 1 else "%d slices are" % e), Fraction(k - e, k),
+        return _fqs("A cake is cut into %d equal slices and %s eaten. What fraction of the cake is left?"
+                   % (k, "1 slice is" if e == 1 else "%d slices are" % e), k - e, k,
                    ["The whole cake is %d/%d." % (k, k), "%d/%d − %d/%d = %d/%d." % (k, k, e, k, k - e, k)], "e.g. 5/8")
 
     def t_smaller():
@@ -2094,8 +2105,8 @@ def _x36j(d):
         while p1 - q1 == p2 - q2:
             p2, q2 = sorted(random.sample(range(1, dn), 2), reverse=True)
         small = min(p1 - q1, p2 - q2)
-        return _fq("Which is smaller: %d/%d − %d/%d or %d/%d − %d/%d? Type the smaller answer." % (p1, dn, q1, dn, p2, dn, q2, dn),
-                   Fraction(small, dn), ["%d/%d and %d/%d." % (p1 - q1, dn, p2 - q2, dn), "The smaller is %d/%d." % (small, dn)], "e.g. 2/7")
+        return _fqs("Which is smaller: %d/%d − %d/%d or %d/%d − %d/%d? Type the smaller answer." % (p1, dn, q1, dn, p2, dn, q2, dn),
+                    small, dn, ["%d/%d and %d/%d." % (p1 - q1, dn, p2 - q2, dn), "The smaller is %d/%d." % (small, dn)], "e.g. 2/7")
 
     return [t_bigger_by, t_missing_first, t_jug, t_two_step, t_cake_left, t_smaller, t_line, t_line]
 
@@ -2270,7 +2281,7 @@ def _x38d(d):
         longer = x if l1 > l2 else y
         return _tb("%s walks from %s to %s. %s walks from %s to %s. How many minutes longer is %s's walk?"
                    % (x, _hm(h, s1), _hm(h, s1 + l1), y, _hm(h, s2), _hm(h, s2 + l2), longer), abs(l1 - l2), "int", {"unit": "minutes"},
-                   ["%s: %d minutes. %s: %d minutes." % (x, l1, y, l2), "%d − %d = %d minutes." % (max(l1, l2), min(l1, l2), abs(l1 - l2))])
+                   ["%s: %d minutes. %s: %d minutes." % (x, l1, y, l2), "%d − %d = %d %s." % (max(l1, l2), min(l1, l2), abs(l1 - l2), "minute" if abs(l1 - l2) == 1 else "minutes")])
 
     def t_tv():
         shows = random.sample(["Cartoons", "News", "Quiz", "Nature", "Music"], 3)
@@ -2311,7 +2322,7 @@ def _x38d(d):
                         "to read for a whole hour?" % (who, who, cats[j]), cats, vals, 60 - vals[j],
                         ["%s read for %d minutes on %s." % (who, vals[j], cats[j]), "60 − %d = %d minutes." % (vals[j], 60 - vals[j])])
         return _bar("The chart shows how many minutes %s spent reading each day. How many more minutes on %s than on %s?"
-                    % (who, cats[i], cats[j]), cats, vals, vals[i] - vals[j], ["%d − %d = %d minutes." % (vals[i], vals[j], vals[i] - vals[j])])
+                    % (who, cats[i], cats[j]), cats, vals, vals[i] - vals[j], ["%d − %d = %d %s." % (vals[i], vals[j], vals[i] - vals[j], "minute" if vals[i] - vals[j] == 1 else "minutes")])
 
     return [t_compare, t_end_typed, t_quarter, t_tv, t_tv, t_bars, t_bars]
 
@@ -2663,7 +2674,7 @@ def _(d=1):
         sh, sm = _split(s)
         eh, em = _split(e)
         return _tb("A trip starts at %s a.m. and ends at %s p.m. How many minutes does it last?" % (_hm(sh, sm), _hm(eh, em)), e - s, "int",
-                   {"unit": "minutes"}, ["Count on to 12 noon: %d minutes." % (720 - s), "Then on to %s p.m.: %d minutes." % (_hm(eh, em), e - 720),
+                   {"unit": "minutes"}, ["Count on to 12 noon: %d minutes." % (720 - s), "Then on to %s p.m.: %d %s." % (_hm(eh, em), e - 720, "minute" if e - 720 == 1 else "minutes"),
                                          "%d + %d = %d minutes." % (720 - s, e - 720, e - s)])
 
     def t_set():

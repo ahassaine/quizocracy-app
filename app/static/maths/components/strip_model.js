@@ -5,7 +5,8 @@
  *  equal_parts : one long bar split into `parts` equal segments each labelled
  *                `partLabel`; a brace above spans the bar showing `totalLabel`.
  *  part_whole  : whole bar on top labelled `totalLabel`; beneath it two segments,
- *                the known part and "?" for the unknown one.
+ *                the known part and "?" for the unknown one; when the whole is the
+ *                unknown, partLabels: [a, b] names both parts.
  */
 (function () {
   window.MComp = window.MComp || {};
@@ -29,18 +30,23 @@
 
       const mode = spec.mode === 'part_whole' ? 'part_whole' : 'equal_parts';
       const unknown = spec.unknown === 'part' ? 'part' : 'total';
-      const parts = Math.max(1, Math.min(12, spec.parts | 0 || 1));
+      // every part is drawn (a bar for 14x must show 14 boxes); 60 is only a guard against a runaway spec
+      const parts = Math.max(1, Math.min(60, spec.parts | 0 || 1));
       const partLabel = spec.partLabel == null ? '' : String(spec.partLabel);
+      // part_whole with the whole unknown names BOTH parts: partLabels: ["439,629", "43,188"]
+      const partLabels = Array.isArray(spec.partLabels) && spec.partLabels.length === 2 ? spec.partLabels.map(String) : null;
       const totalLabel = spec.totalLabel != null ? String(spec.totalLabel)
         : (spec.total != null ? String(spec.total) : '?');
 
-      const W = 520, padX = 22;
+      // real CSS px (1 viewBox unit = 1 px) so labels keep their size on a phone
+      const W = (() => { const w = Math.floor(host.getBoundingClientRect().width) - 2; return w > 0 ? Math.max(260, Math.min(520, w)) : 520; })();
+      const padX = W < 400 ? 12 : 22;
       const bx0 = padX, bx1 = W - padX, barW = bx1 - bx0;
       const H = mode === 'equal_parts' ? 150 : 178;
 
       const svg = mk('svg', {
         viewBox: `0 0 ${W} ${H}`, width: '100%',
-        style: 'max-width:520px;background:#0b0f14;border:1px solid ' + LINE +
+        style: `max-width:${W}px;box-sizing:content-box;background:#0b0f14;border:1px solid ` + LINE +
                ';border-radius:10px;display:block;-webkit-user-select:none;user-select:none'
       });
 
@@ -99,7 +105,6 @@
         // total brace + its label above the whole bar
         const mid = brace(bx0, bx1, braceY, 9);
         segLabel(mid, 22, totalLabel, { size: 19 });
-
         // one bar divided into equal segments
         const segW = barW / parts;
         bar(bx0, barY, barW, barH, unknown === 'part');
@@ -110,16 +115,19 @@
             stroke: LINE, 'stroke-width': 1.4
           }));
         }
+        // every box carries its label when it fits at 12 px or more; otherwise the caption names one part
         const lsize = segW < 40 ? 13 : segW < 58 ? 15 : 17;
-        for (let i = 0; i < parts; i++) {
-          segLabel(bx0 + segW * (i + 0.5), barY + barH / 2, partLabel, { size: lsize });
+        const fits = (sz) => partLabel.length * sz * 0.6 <= segW - 4;
+        const size = [lsize, 14, 13, 12].find(fits);
+        if (size) {
+          for (let i = 0; i < parts; i++) segLabel(bx0 + segW * (i + 0.5), barY + barH / 2, partLabel, { size: size });
         }
 
         svg.appendChild(mk('text', {
           x: W / 2, y: barY + barH + 28, fill: SUB, 'font-size': 13,
           'text-anchor': 'middle',
           'font-family': 'system-ui,-apple-system,Segoe UI,sans-serif'
-        }, parts + (parts === 1 ? ' equal part' : ' equal parts')));
+        }, parts + (parts === 1 ? ' equal part' : ' equal parts') + (!size && partLabel ? ', each ' + partLabel : '')));
       } else {
         // part_whole: whole bar on top, two parts beneath
         const wholeY = 34, barH = 46, gap = 26;
@@ -146,19 +154,28 @@
         };
         const totNum = num(spec.total == null ? totalLabel : spec.total);
         const partNum = num(partLabel);
+        // second part: "?" when it is the unknown, else its own label (never a copy of the first)
+        const labelA = partLabels ? partLabels[0] : partLabel;
+        const labelB = unknown === 'part' ? '?' : (partLabels ? partLabels[1] : '?');
         let frac = 0.5;
         if (unknown === 'part' && isFinite(totNum) && isFinite(partNum) && totNum > 0 && partNum > 0 && partNum < totNum) {
           frac = Math.min(0.85, Math.max(0.15, partNum / totNum));
+        } else if (partLabels && num(labelA) > 0 && num(labelB) > 0) {
+          frac = Math.min(0.85, Math.max(0.15, num(labelA) / (num(labelA) + num(labelB))));
         }
-        const wA = Math.round(barW * frac), wB = barW - wA;
+        let wA = Math.round(barW * frac);
+        // a narrow box still needs room for its number at 12 px
+        const need = (t) => String(t).length * 12 * 0.6 + 10;
+        wA = Math.max(wA, Math.min(barW / 2, need(labelA)));
+        wA = Math.min(wA, Math.max(barW / 2, barW - need(labelB)));
+        const wB = barW - wA;
+        const sz = (t, w) => [17, 14, 13, 12].find(s => String(t).length * s * 0.6 <= w - 6) || 12;
 
-        // known part first, "?" second when the part is the unknown
         bar(bx0, partY, wA, barH, false);
-        segLabel(bx0 + wA / 2, partY + barH / 2, partLabel, { size: wA < 60 ? 14 : 17 });
+        segLabel(bx0 + wA / 2, partY + barH / 2, labelA, { size: sz(labelA, wA) });
 
         bar(bx0 + wA, partY, wB, barH, unknown === 'part');
-        segLabel(bx0 + wA + wB / 2, partY + barH / 2,
-                 unknown === 'part' ? '?' : partLabel, { size: wB < 60 ? 14 : 17 });
+        segLabel(bx0 + wA + wB / 2, partY + barH / 2, labelB, { size: sz(labelB, wB) });
 
         // vertical tie lines showing the two parts make the whole
         [bx0, bx0 + wA, bx1].forEach((x) => {
@@ -181,7 +198,8 @@
       wrap.style.cssText = 'margin-top:12px';
       const input = document.createElement('input');
       input.type = 'text';
-      input.inputMode = 'numeric';
+      input.inputMode = spec.keypad || 'text';       // digits only for whole numbers; decimals and words need more
+      input.setAttribute('autocapitalize', 'off');
       input.className = 'm-input';
       input.autocomplete = 'off';
       input.setAttribute('aria-label', 'Your answer');

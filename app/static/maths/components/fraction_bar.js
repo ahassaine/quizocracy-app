@@ -13,6 +13,7 @@
       const W = 500, H = 90, padX = 10, barY = 34, barH = 44;
       const bx0 = padX, bx1 = W - padX, segW = (bx1 - bx0) / parts;
       const shaded = new Array(parts).fill(false);
+      let touched = false;                        // an untouched bar is no answer yet, not "0/parts"
 
       const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: 'max-width:520px;background:#0b0f14;border:1px solid #30363d;border-radius:10px;touch-action:none;-webkit-user-select:none;user-select:none' });
 
@@ -52,7 +53,7 @@
       }
       function down(ev) {
         const i = segAt(ev); if (i < 0) return;
-        dragging = true;
+        dragging = true; touched = true;
         paintTo = !shaded[i];
         shaded[i] = paintTo;
         paint();
@@ -74,7 +75,8 @@
 
       paint();
 
-      host.__getValue = () => count() + '/' + parts;
+      host.__empty = 'Shade some of the bar first.';
+      host.__getValue = () => touched ? count() + '/' + parts : null;
       host.__feedback = (res) => {
         paint(res.correct ? '#22c55e' : '#f85149');
         if (!res.correct && res.expected != null) {

@@ -1627,26 +1627,22 @@ def _(d=1):
                       % (cats[i], vals[i], pct, vals[i], ans)])
 
     def pie_pct():
-        # pie chart of a total; find pct of a sector count
-        who = "students"
-        parts = [random.randint(2, 6) for _ in range(3)]
-        cats = ["Football", "Netball", "Hockey"]
-        total = sum(parts) * 10
-        counts = [p * 10 for p in parts]
-        i = random.randrange(3)
-        pct = pick([10, 20, 50])
-        g = _hcf(pct, 100)
-        # ensure counts[i] divisible
-        counts[i] = (100 // g) * random.randint(1, 4)
-        ans = counts[i] * pct // 100
-        slices = list(zip(cats, counts))
-        return _pieq("The pie chart shows the favourite sport of some %s. %d %s "
-                     "chose %s. %d%% of those %s also play for a team. How many "
-                     "is that?"
-                     % (who, counts[i], who, cats[i], pct, who),
-                     slices, ans,
-                     "int",
-                     ["%d%% of %d = %d." % (pct, counts[i], ans)],
+        # a percentage pie: the sectors add to exactly 100%, and the whole is given in the text
+        cats = ["Football", "Netball", "Hockey", "Tennis"][:_by_d(d, 3, 3, 4)]
+        total = pick(_by_d(d, [20, 40, 60, 80, 100], [40, 60, 120, 160, 200], [80, 120, 240, 360, 480]))
+        unit = _by_d(d, 10, 5, 5)                       # every sector a whole number of students
+        while True:
+            cuts = sorted(random.sample(range(unit, 100, unit), len(cats) - 1))
+            pcts = [b - a for a, b in zip([0] + cuts, cuts + [100])]
+            if min(pcts) >= unit and all(total * q % 100 == 0 for q in pcts):
+                break
+        i = random.randrange(len(cats))
+        ans = total * pcts[i] // 100
+        return _pieq("The pie chart shows the favourite sport of %d students, as percentages. "
+                     "How many students chose %s?" % (total, cats[i]),
+                     list(zip(cats, pcts)), ans, "int",
+                     ["%s is %d%% of the pie." % (cats[i], pcts[i]),
+                      "%d%% of %d = %d × %d ÷ 100 = %d." % (pcts[i], total, pcts[i], total, ans)],
                      highlight=i)
 
     def non_multiple_of_ten():

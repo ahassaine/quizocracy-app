@@ -18,7 +18,7 @@ SINGULAR_OK = ("ss", "us", "is", "ics", "ous", "news", "series", "species", "len
                "walrus", "hippopotamus", "rhinoceros", "canvas", "atlas", "iris", "basis", "axis", "chassis",
                "appears", "measures", "means", "equals", "remains", "goes", "makes", "gets", "leaves",
                "needs", "buys", "gives", "works", "includes", "satisfies", "stands", "rounds", "costs", "weighs",
-               "holds", "takes", "lies", "represents", "shows", "fails", "comes", "changes")
+               "holds", "takes", "lies", "represents", "shows", "fails", "comes", "changes", "does", "crosses")
 A_AN_OK = re.compile(r"\ba (one|once|unit|uni|eu|use|usu|uk\b|u-|ewe|ufo|ur[aio])", re.I)
 CHECKS = [
     ("format code left", re.compile(r"%[sdfr]|\{\}|\{[a-z_]+\}")),
@@ -27,7 +27,7 @@ CHECKS = [
     ("a before vowel sound", re.compile(r"(?<![\w'])a (?=[aeiou]\w)(?!(is|and|or|in|as|equals)\b)")),
     ("an before consonant", re.compile(r"(?<![\w'])an (?=[bcdfgjklmnpqrstvwxyz])(?![a-z][-\s])(?!h(our|onest|onour|eir))")),
     ("a before 8/11/18/80s", re.compile(r"\ba (8|11|18|8\d|8\d\d|8,\d{3}|11,\d{3}|18,\d{3})\b")),
-    ("an before other number", re.compile(r"\ban (?!(8|11|18)\b|8\d|8,|11,|18,)\d")),
+    ("an before other number", re.compile(r"\ban (?!(8|11|18)(?!\d)|8\d|8,|11,|18,)\d")),
     ("negative zero", re.compile(r"(?<![\d.])-0(?![.\d])")),
     ("space before full stop or comma", re.compile(r"[A-Za-z] [.,](\s|$)")),
 ]

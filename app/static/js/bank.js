@@ -57,7 +57,8 @@ function BankDrill(activity) {
       return v ? { value: v } : null;
     },
     explain(r) {
-      return 'The answer is <b>' + esc(r.expected) + '</b>.' + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
+      const end = /[.?!'"’”)]$/.test(String(r.expected).trim()) ? '' : '.';   // no "draw.." or "?."
+      return 'The answer is <b>' + esc(r.expected) + '</b>' + end + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
     },
     after(r) {
       area.querySelectorAll('button').forEach(b => { b.disabled = true; });

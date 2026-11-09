@@ -131,6 +131,8 @@ def serve(q: dict) -> tuple[dict, dict]:
     elif t == "write":
         pub["s"] = q["s"]
         key["a"] = q["a"]
+        if open_end(q["q"], q["s"]):
+            key["open_end"] = True
     elif t == "num":
         pub["unit"] = q.get("unit", "")
         key["a"], key["tol"] = q["a"], q.get("tol", 0)
@@ -163,7 +165,7 @@ def _quotes(s: str) -> str:
 
 def norm_text(s: str) -> str:
     s = " ".join(_quotes(s).lower().split())
-    return s.rstrip(".?!").strip()                    # a short answer's end mark does not matter
+    return s.rstrip(".?!").strip() or s               # a short answer's end mark does not matter (unless it IS the answer: "?")
 
 
 def loose(s: str) -> str:
@@ -176,10 +178,23 @@ def norm_write(s: str) -> str:
     return re.sub(r"\s+([,.;:!?])", r"\1", s)        # "Hello , Sam" counts as "Hello, Sam"
 
 
+_END_MARKS = re.compile(r"full stop|punctuat|end mark|question mark|exclamation|capital letter", re.I)
+
+
+def open_end(prompt: str, s: str) -> bool:
+    """A "write" sentence given without an end mark, in a task that is not about end marks ("Add a colon",
+    "Add a clause starting with 'because'"): the full stop it never asked for may be left out."""
+    return not _quotes(s).rstrip().rstrip("'\"").endswith((".", "?", "!")) and not _END_MARKS.search(prompt)
+
+
 def parse_num(s) -> float | None:
-    s = _quotes("" if s is None else str(s)).strip().replace(",", "").replace(" ", "")
-    m = re.match(r"^[-+]?(\d+(\.\d*)?|\.\d+)", s.replace("−", "-"))
-    return float(m.group(0)) if m else None
+    """One number, with digit-group commas or spaces and a unit if the child likes ("10 000 kJ", "6 m").
+    A hedge or a range is not one number: "25 or 30", "6-9", "6/7", "1.4.9" give None."""
+    s = _quotes("" if s is None else str(s)).strip().replace("−", "-")
+    m = re.match(r"^[-+]?(?:\d{1,3}(?:[, ]\d{3})+(?!\d)|\d+)(?:\.\d+)?|^[-+]?\.\d+", s)
+    if not m or re.search(r"\d", s[m.end():]):
+        return None
+    return float(re.sub(r"[, ]", "", m.group(0)))
 
 
 def fmt_num(x) -> str:
@@ -229,7 +244,10 @@ def mark(key: dict, value) -> bool:
         return bool(v) and v in {norm_text(a) for a in ok}
     if t == "write":
         v = norm_write(value)
-        return bool(v) and v in {norm_write(a) for a in key["a"]}
+        ok = {norm_write(a) for a in key["a"]}
+        if key.get("open_end"):
+            v, ok = v.rstrip(". "), {a.rstrip(". ") for a in ok}
+        return bool(v) and v in ok
     if t == "num":
         v = parse_num(value)
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9

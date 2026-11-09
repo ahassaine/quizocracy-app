@@ -144,7 +144,7 @@ def _egbuildq(prompt, groups, per, solution):
     """equal_groups (build): the pupil sets groups & per; the value is the product."""
     groups, per = int(groups), int(per)
     return {"prompt": prompt, "component": "equal_groups",
-            "spec": {"mode": "build", "maxGroups": 8, "maxPer": 10},
+            "spec": {"mode": "build", "maxGroups": 8, "maxPer": 10, "targetGroups": groups, "targetPer": per},
             "answer": groups * per, "answer_type": "int", "solution": solution}
 
 
@@ -1237,9 +1237,9 @@ def _(d=1):
                       "That is the same as %d × %d = %d." % (rr, cc, rr * cc)])
 
     def mult_expression_groups():
-        return _egq("Here are %d equal groups with %d counters in each group. "
-                    "Complete the multiplication expression for the equal groups:  "
-                    "___ × %d. Type the missing number." % (g, p, p), g, p, g,
+        return _egq("Put the %d counters into equal groups of %d. Complete the "
+                    "multiplication for the equal groups:  ___ × %d = %d. Type the "
+                    "missing number." % (tot, p, p, tot), g, p, g,
                     ["There are %d equal groups, so the expression is %d × %d."
                      % (g, g, p)],
                     answer_type="int")
@@ -1437,16 +1437,16 @@ def _(d=1):
 
     def divide_counting_groups():
         gg, pp = min(g, 8), min(per, 10)
-        return _egq("Divide by counting the equal groups: %d counters have been put "
-                    "into equal groups of %d. How many equal groups are there?"
+        return _egq("Divide by making equal groups: put the %d counters into "
+                    "equal groups of %d. How many equal groups are there?"
                     % (gg * pp, pp), gg, pp, gg,
                     ["Count the groups: there are %d." % gg,
                      "%d ÷ %d = %d groups." % (gg * pp, pp, gg)])
 
     def write_division_sentence():
         gg, pp = min(g, 8), min(per, 10)
-        return _egq("Write the division sentence for these equal groups. %d counters "
-                    "are shared into %d equal groups:  %d ÷ %d = ___ . Type the "
+        return _egq("Share the %d counters into %d equal groups, then complete the "
+                    "division sentence:  %d ÷ %d = ___ . Type the "
                     "answer." % (gg * pp, gg, gg * pp, gg), gg, pp, pp,
                     ["Each equal group holds %d counters." % pp,
                      "%d ÷ %d = %d." % (gg * pp, gg, pp)])
@@ -1551,9 +1551,9 @@ def _(d=1):
     def relate_groups():
         gg = random.randint(2, 6)
         pp = random.randint(2, 9)
-        return _egq("These %d equal groups of %d show the multiplication %d × %d = "
-                    "%d. Use it to complete the related division:  %d ÷ %d = ___"
-                    % (gg, pp, gg, pp, gg * pp, gg * pp, gg), gg, pp, pp,
+        return _egq("%d × %d = %d. Share the %d counters into %d equal groups and use "
+                    "the multiplication to complete the related division:  %d ÷ %d = ___"
+                    % (gg, pp, gg * pp, gg * pp, gg, gg * pp, gg), gg, pp, pp,
                     ["Multiplication and division are related: %d × %d = %d."
                      % (gg, pp, gg * pp),
                      "So %d ÷ %d = %d." % (gg * pp, gg, pp)])
@@ -1970,10 +1970,10 @@ def _(d=1):
     def equal_groups_word():
         gg, pp = min(groups, 8), min(per, 10)
         who = pick(NAMES)
-        return _egq("Use the equal groups to solve this division word problem. %s "
+        return _egq("Use the counters to solve this division word problem. %s "
                     "puts %d conkers into equal groups of %d. How many equal groups "
                     "does %s make?" % (who, gg * pp, pp, who), gg, pp, gg,
-                    ["Count the equal groups shown: %d." % gg,
+                    ["Make groups of %d: there are %d groups." % (pp, gg),
                      "%d ÷ %d = %d groups." % (gg * pp, pp, gg)], answer_type="int")
 
     def strip_word():

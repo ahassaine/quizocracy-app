@@ -243,19 +243,36 @@ def _(d=1):
     def _n():
         return random.randint(-hi, hi)
 
+    def _neg():
+        return -random.randint(1, hi)
+
     def _pair():
-        a, b = _n(), _n()
+        # every pair has a negative; harder tiers make both negative and close, so the
+        # child must see that -179 < -143 although 179 > 143
+        if d == 0 or random.random() < 0.3:
+            a, b = _neg(), random.randint(-hi, hi)
+        else:
+            a = -random.randint(hi // 4, hi)
+            b = a + random.choice([-1, 1]) * random.randint(1, max(3, hi // 5))
+            b = min(-1, b)
         while a == b:
-            b = _n()
-        return a, b
+            b = _neg()
+        return (a, b) if random.random() < 0.5 else (b, a)
 
     def _many(k):
+        # at least half the list negative; at hard, several close negatives
         s = set()
+        while len(s) < (k + 1) // 2:
+            s.add(_neg() if d < 2 or not s else min(-1, min(s) + random.randint(-hi // 5, hi // 5)))
         while len(s) < k:
             s.add(_n())
         xs = list(s)
         random.shuffle(xs)
         return xs
+
+    def _minus(a, b):
+        """'6 − 2', '6 − (-2)': brackets only round a negative."""
+        return "%d − %s" % (a, ("(%d)" % b) if b < 0 else "%d" % b)
 
     def t_greater():
         a, b = _pair()
@@ -277,22 +294,36 @@ def _(d=1):
         return _wq("Type the correct symbol, < or >, to complete:   %d ___ %d" % (a, b),
                    sym, ["%d %s %d." % (a, sym, b)], "< or >")
 
+    def _winter():
+        # real winter-dawn readings for these northern cities (about -30 to 8 °C);
+        # harder tiers pick two close negatives rather than bigger numbers
+        if d == 0:
+            return random.randint(-10, -1), random.randint(-5, 8)
+        lo = -20 if d == 1 else -30
+        a = random.randint(lo, -2)
+        b = a + random.choice([-1, 1]) * random.randint(1, 6 if d == 1 else 4)
+        b = max(lo, min(-1, b))
+        return a, (b if b != a else a - 1)
+
     def t_temp():
-        cold = pick(_CITIES)
-        ta, tb = _pair()
-        return _tb("At dawn it was %d°C in %s and %d°C in another city. Which "
-                   "temperature is colder? Type it." % (ta, cold, tb),
+        ca, cb = random.sample(_CITIES, 2)
+        ta, tb = _winter()
+        if random.random() < 0.5:
+            ta, tb = tb, ta
+        return _tb("On a winter morning it was %d°C in %s and %d°C in %s. Which "
+                   "temperature is colder? Type it." % (ta, ca, tb, cb),
                    min(ta, tb), "int", {},
                    ["Colder means lower on the scale.",
                     "%d°C is colder than %d°C." % (min(ta, tb), max(ta, tb))])
 
     def t_warmer_diff():
-        ta, tb = _pair()
+        # a day's rise in a UK-like climate: start -12..4 °C, finish below 20 °C
+        lo = {0: random.randint(-5, -1), 1: random.randint(-9, 4), 2: random.randint(-12, -3)}[d]
+        rise = random.randint(*{0: (3, 9), 1: (4, 14), 2: (9, 22)}[d])
+        top = lo + rise
         return _tb("The temperature rose from %d°C to %d°C. By how many degrees did "
-                   "it rise?" % (min(ta, tb), max(ta, tb)), max(ta, tb) - min(ta, tb),
-                   "int", {},
-                   ["%d − (%d) = %d." % (max(ta, tb), min(ta, tb),
-                                         max(ta, tb) - min(ta, tb))])
+                   "it rise?" % (lo, top), rise, "int", {},
+                   ["%s = %d." % (_minus(top, lo), rise)])
 
     def t_greatest():
         xs = _many({0: 4, 1: 5, 2: 5}[d])
@@ -322,13 +353,18 @@ def _(d=1):
                      "e.g. -3, 4, 7")
 
     def t_line():
-        a = _n()
+        a = _neg()
         lo = ((a - 4) // 2) * 2 - 2
         return _nl("Place %d on the number line." % a, a, lo, lo + 20, 1, 5,
                    ["%d sits %d steps from %d." % (a, a - lo, lo)])
 
     def t_line_least():
-        xs = sorted(_many(3))
+        # three integers within about 20 of each other, so the line stays in 1s at a readable size
+        base = _neg()
+        xs = set([base])
+        while len(xs) < 3:
+            xs.add(base + random.randint(-8, 12) if d else base + random.randint(-6, 20))
+        xs = sorted(xs)
         target = xs[0]
         lo = ((target - 3) // 5) * 5
         hi = lo + 25
@@ -447,14 +483,18 @@ def _(d=1):
 
     def t_table():
         towns = random.sample(_TOWNS, 4)
-        vals = [_dec() for _ in range(4)]
-        while len(set(vals)) < 4:
-            vals = [_dec() for _ in range(4)]
+        # one race: times of a similar size, so the decimals decide the order
+        base = random.randint(11, 15) if d == 0 else random.randint(48, 62)
+        vals = set()
+        while len(vals) < 4:
+            vals.add(Decimal(base + random.randint(0, 1)) + Decimal("0." + "".join(
+                str(random.randint(0, 9)) for _ in range(min(dp, 3)))))
+        vals = list(vals)
         rows = [[t, _fmt(v)] for t, v in zip(towns, vals)]
         big = random.random() < 0.5
         want = max(vals) if big else min(vals)
-        return _dt("The table shows race times (seconds). Whose time is the %s? Type "
-                   "that time." % ("longest" if big else "shortest"),
+        return _dt("The table shows race times (seconds). What is the %s time in "
+                   "the table?" % ("longest" if big else "shortest"),
                    ["Runner", "Time (s)"], rows, _fmt(want),
                    ["In order: %s." % _lst(_fmt(v) for v in sorted(vals)),
                     "The %s time is %s." % ("longest" if big else "shortest",
@@ -463,10 +503,19 @@ def _(d=1):
     def t_line():
         whole = random.randint(1, 6)
         k = random.randint(1, 9)
-        ans = Decimal(whole) + Decimal(k) / 10
+        if d == 0:
+            ans = Decimal(whole) + Decimal(k) / 10
+            return _nl("Place %s on the number line." % _fmt(ans), ans,
+                       whole, whole + 1, Decimal("0.1"), Decimal("0.5"),
+                       ["%s is %d %s past %d." % (_fmt(ans), k, "tenth" if k == 1 else "tenths", whole)])
+        # core/stretch: zoom in on one tenth (or hundredth), marked in the next place
+        unit = Decimal("0.01") if d == 1 else Decimal("0.001")
+        start = Decimal(whole) + Decimal(random.randint(0, 9)) / (10 if d == 1 else 100)
+        ans = start + k * unit
         return _nl("Place %s on the number line." % _fmt(ans), ans,
-                   whole, whole + 1, Decimal("0.1"), Decimal("0.5"),
-                   ["%s is %d %s past %d." % (_fmt(ans), k, "tenth" if k == 1 else "tenths", whole)])
+                   start, start + 10 * unit, unit, 5 * unit,
+                   ["The line runs from %s to %s in steps of %s." % (_fmt(start), _fmt(start + 10 * unit), _fmt(unit)),
+                    "%s is %d %s past %s." % (_fmt(ans), k, "step" if k == 1 else "steps", _fmt(start))])
 
     return _pick_t([t_digit_value, t_place_of, t_value_worth, t_greater, t_smaller,
                     t_symbol, t_order_smallest, t_order_largest, t_nth],
@@ -530,11 +579,11 @@ def _(d=1):
     def t_money():
         p = random.randint(101, [999, 9999, 99999][d])
         raw = Decimal(p) / 100 + Decimal(random.randint(1, 9)) / 1000
-        if d == 2:                                    # stretch: 4 d.p. on the till
+        if d == 2:                                    # stretch: 4 d.p. on the calculator
             raw += Decimal(random.randint(1, 9)) / 10000
         ans = _dround(raw, 2)
-        return _numq("A till shows £%s. Round this to 2 decimal places (the nearest "
-                     "penny)." % _fmt(raw), _fmt(ans),
+        return _numq("A bill is shared, and the calculator shows each share as £%s. Round "
+                     "this to 2 decimal places (the nearest penny)." % _fmt(raw), _fmt(ans),
                      ["2 d.p. gives an exact number of pence.",
                       "£%s to 2 d.p. is £%s." % (_fmt(raw), _fmt(ans))], unit="£")
 
@@ -574,10 +623,14 @@ def _(d=1):
         dp = random.randint(1, 2)
         real = _dround(x, dp)
         claim = real if random.random() < 0.5 else real + Decimal(1).scaleb(-dp)
+        said, right = _fmt(claim), format(real, "f")        # 356.0 to 1 d.p. keeps its zero: "356" is not it
+        sol = ["%s to %d d.p. is %s." % (_fmt(x), dp, right)]
+        if claim == real and said != right:
+            sol.append("To %d d.p. it must show %d decimal place%s, so %s is not correct."
+                       % (dp, dp, "" if dp == 1 else "s", said))
         return _yn("%s says %s rounded to %d d.p. is %s. Is that correct? (yes/no)"
-                   % (pick(NAMES), _fmt(x), dp, _fmt(claim)),
-                   "yes" if claim == real else "no",
-                   ["%s to %d d.p. is %s." % (_fmt(x), dp, _fmt(real))])
+                   % (pick(NAMES), _fmt(x), dp, said),
+                   "yes" if said == right else "no", sol)
 
     def t_table():
         xs = sorted({_dec() for _ in range(4)})

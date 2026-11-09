@@ -176,6 +176,7 @@
       }
 
       // ---- interaction (mouse + touch, drag-paint) -------------------------
+      let touched = false;                        // an untouched grid is no answer yet, not "0"
       if (interactive) {
         let dragging = false, paintTo = true;
         function cellAt(ev) {
@@ -189,7 +190,7 @@
         }
         function down(ev) {
           const i = cellAt(ev); if (i < 0) return;
-          dragging = true; paintTo = !shaded[i];
+          dragging = true; paintTo = !shaded[i]; touched = true;
           shaded[i] = paintTo; paint(); ev.preventDefault();
         }
         function move(ev) {
@@ -227,7 +228,7 @@
         wrap.style.cssText = 'margin-top:12px';
         input = document.createElement('input');
         input.type = 'text';
-        input.inputMode = (mode === 'fraction_read') ? 'text' : 'numeric';
+        input.inputMode = (mode === 'fraction_read') ? 'text' : (spec.keypad || 'numeric');
         input.className = 'm-input';
         input.autocomplete = 'off';
         input.placeholder = spec.placeholder || ((mode === 'fraction_read') ? 'e.g. 3/8' : '');
@@ -245,10 +246,11 @@
       if (typed) {
         host.__getValue = () => input.value.trim();
       } else if (mode === 'fraction') {
-        host.__getValue = () => count() + '/' + parts;
+        host.__getValue = () => touched ? count() + '/' + parts : null;
       } else {
-        host.__getValue = () => count();
+        host.__getValue = () => touched ? count() : null;
       }
+      if (!typed) host.__empty = 'Shade some squares first.';
 
       host.__feedback = (res) => {
         const col = res && res.correct ? GOOD : BAD;

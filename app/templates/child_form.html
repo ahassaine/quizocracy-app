@@ -28,7 +28,7 @@
   <div class="row"><button class="btn primary" type="submit">Save</button><a class="btn" href="{{ '/children/' ~ pupil._id if editing else '/home' }}">Cancel</a></div>
 </form>
 {% if editing %}
-<form method="post" action="/children/{{ pupil._id }}/delete" class="card" onsubmit="return confirm('Delete {{ pupil.name }} and all their practice data?')">
+<form method="post" action="/children/{{ pupil._id }}/delete" class="card" data-confirm="Delete {{ pupil.name }} and all their practice data?" onsubmit="return confirm(this.dataset.confirm)">
   <b>Delete {{ pupil.name }}</b><p class="mut small">This removes the child and every answer they have given. It cannot be undone.</p>
   <button class="btn danger" type="submit">Delete child</button>
 </form>

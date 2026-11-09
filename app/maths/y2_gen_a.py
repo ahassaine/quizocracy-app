@@ -83,8 +83,8 @@ def _(d=1):
                    {}, ["Count in %ss." % step])
 
     def t_line():
-        return _nl("Start at 0 and make %d jumps of %d. Where do you land?" % (k, step), k * step, step, 10,
-                   ["%d jumps of %d = %d." % (k, step, k * step)], lo=0, hi=min(100, max(30, (k * step // 10 + 1) * 10)))
+        return _nl("Start at 0 and make %s of %d. Where do you land?" % (_pn(k, "jump"), step), k * step, step, 10,
+                   ["%s of %d = %d." % (_pn(k, "jump"), step, k * step)], lo=0, hi=min(100, max(30, (k * step // 10 + 1) * 10)))
 
     def t_back_tens():
         start = random.randint(1, 9) + 10 * random.randint(5, 9)
@@ -98,7 +98,7 @@ def _(d=1):
 
     def t_jumps():
         return _tb("How many jumps of %d take you from 0 to %d?" % (step, k * step), k, "int", {},
-                   ["%s: %d jumps." % (", ".join(str(step * i) for i in range(1, k + 1)), k)])
+                   ["%s: %s." % (", ".join(str(step * i) for i in range(1, k + 1)), _pn(k, "jump"))])
 
     def t_in_count():
         n = step * random.randint(2, min(10, 98 // step)) + pick([0, 0, 1, 2 if step > 2 else 1])
@@ -107,7 +107,7 @@ def _(d=1):
 
     def t_line_back():
         top = step * random.randint(k + 1, min(k + 4, 100 // step))
-        return _nl("Start at %d and make %d jumps back of %d. Where do you land?" % (top, k, step), top - k * step, step, 10,
+        return _nl("Start at %d and make %s back of %d. Where do you land?" % (top, _pn(k, "jump"), step), top - k * step, step, 10,
                    ["%d − %d = %d." % (top, k * step, top - k * step)], lo=0, hi=min(100, max(30, (top // 10 + 1) * 10)))
 
     def t_missing_tens():
@@ -306,7 +306,9 @@ def _(d=1):
 
     def t_estimate():
         n2 = 10 * random.randint(1, 9) if d == 0 else random.randint(10, 90)
-        return _nl("Estimate where %d goes on a line from 0 to 100, and mark it." % n2, n2, 1, 10, ["About %d." % n2], lo=0, hi=100)
+        q = _nl("Estimate where %d goes on a line from 0 to 100, and mark it." % n2, n2, 1, 10, ["About %d." % n2], lo=0, hi=100)
+        q["tolerance"] = 3          # an estimate: a mark within 3 of the number counts
+        return q
 
     if d == 2:     # stretch: more writing in words
         return _pick_t([t_to_num, t_to_word, t_to_word, t_odd_even], [t_estimate])
@@ -800,7 +802,9 @@ def _(d=1):
     b = min(b, 100 // a)                                # products stay within 100
 
     def t_commute():
-        return _tb("%d × %d = %d. What is %d × %d?" % (a, b, a * b, b, a), a * b, "int", {}, ["Multiplication can be done in any order."])
+        bb = b if b != a else (b + 1 if a * (b + 1) <= 100 else b - 1)    # 5 × 5 swapped is the same sum
+        return _tb("%d × %d = %d. What is %d × %d?" % (a, bb, a * bb, bb, a), a * bb, "int", {},
+                   ["Multiplication can be done in any order.", "%d × %d = %d × %d = %d." % (bb, a, a, bb, a * bb)])
 
     def t_div_not():                                    # × can be swapped (yes), ÷ cannot (no)
         if random.random() < 0.5:
@@ -998,7 +1002,7 @@ def _(d=1):
     def t_groups():
         k = random.randint(2, 6)
         g = pick([3, 4])
-        return {"prompt": "%d counters are in %d equal groups. What is 1/%d of %d?" % (g * k, g, g, g * k), "component": "equal_groups",
+        return {"prompt": "Share the %d counters into %d equal groups. What is 1/%d of %d?" % (g * k, g, g, g * k), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": g, "per": k}, "answer": k, "answer_type": "int",
                 "solution": ["One group has %d." % k]}
 
@@ -1394,8 +1398,9 @@ def _(d=1):
                    {"text": True, "placeholder": "e.g. 4:20"}, ["%d minutes past %d is %d:%02d." % (mm, hh, hh, mm)])
 
     def t_quarter_hand():
-        kind, num = pick([("quarter past", 3), ("half past", 6), ("quarter to", 9), ("o'clock", 12)])
-        return _tb("At %s, which number does the long hand point to?" % kind, num, "int", {}, ["%s: the long hand points to %d." % (kind.capitalize(), num)])
+        kind, num = pick([("quarter past %d", 3), ("half past %d", 6), ("quarter to %d", 9), ("%d o'clock", 12)])
+        kind = kind % random.randint(1, 12)
+        return _tb("At %s, which number does the long hand point to?" % kind, num, "int", {}, ["%s: the long hand points to %d." % (kind[0].upper() + kind[1:], num)])
 
     def t_minutes_to():
         n = random.randint(7, 11)
@@ -1766,8 +1771,11 @@ def _(d=1):
     return _pick_t([t_read_tally], [t_pictogram, t_tally, t_most, t_total, t_diff, t_half_symbol, t_least, t_tally_more, t_order])
 
 
+_GATE = "|\u0336" * 4            # a bundle of five: four bars crossed by the fifth
+
+
 def _tally(v):
-    return " ".join(["||||\\"] * (v // 5) + (["|" * (v % 5)] if v % 5 else []))
+    return " ".join([_GATE] * (v // 5) + (["|" * (v % 5)] if v % 5 else []))
 
 
 @skill("Y2.7.b", "Block diagrams and tables: totals and comparisons", S7)

@@ -18,7 +18,7 @@
     let s = Number(v).toFixed(Math.min(10, Math.max(0, dp)));
     if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
     if (s === '-0') s = '0';
-    return s;
+    return Math.abs(Number(s)) >= 1000 ? Number(s).toLocaleString('en-GB', { maximumFractionDigits: 10 }) : s;
   }
   // nice step covering `span` in roughly `target` gridlines
   function niceStep(span, target) {
@@ -31,11 +31,11 @@
     return m * mag;
   }
   // scale one axis from data range → {min,max,step,dp}, with a little padding, NOT forcing origin
-  function axisScale(lo, hi) {
+  function axisScale(lo, hi, target) {
     if (!(hi > lo)) { hi = lo + 1; }              // degenerate: give it width
     const pad = (hi - lo) * 0.08;
     let plo = lo - pad, phi = hi + pad;
-    const step = niceStep(phi - plo, 6);
+    const step = niceStep(phi - plo, target || 6);
     const min = Math.floor((plo / step) + 1e-9) * step;
     let max = Math.ceil((phi / step) - 1e-9) * step;
     if (max <= min) max = min + step;
@@ -50,23 +50,26 @@
       const ys = pts.map(p => Number(p[1]));
       const highlight = (typeof spec.highlight === 'number' && spec.highlight >= 0 && spec.highlight < pts.length) ? spec.highlight : -1;
 
-      const W = 640, H = 380;
-      const padL = 62, padR = 22, padT = 22, padB = 62;
+      // real CSS px (1 viewBox unit = 1 px) so the scale keeps its size on a phone; fewer x numbers when narrow
+      const W = (() => { const w = Math.floor(host.getBoundingClientRect().width) - 2; return w > 0 ? Math.max(260, Math.min(640, w)) : 640; })();
+      const H = W < 480 ? 340 : 380;
+      const line = spec.line && spec.line.p1 && spec.line.p2 ? spec.line : null;
+      const allX = xs.slice(), allY = ys.slice();
+      const xSc = axisScale(allX.length ? Math.min(...allX) : 0, allX.length ? Math.max(...allX) : 1, W < 480 ? 4 : 6);
+      const ySc = axisScale(allY.length ? Math.min(...allY) : 0, allY.length ? Math.max(...allY) : 1);
+      const yW = Math.max(...Array.from({ length: Math.round((ySc.max - ySc.min) / ySc.step) + 1 }, (_, k) => fmt(ySc.min + k * ySc.step, ySc.dp).length));
+
+      const padL = 36 + yW * 7.4, padR = 18, padT = 22, padB = 58;
       const x0 = padL, x1 = W - padR, yTop = padT, yBot = H - padB;
       const plotW = x1 - x0, plotH = yBot - yTop;
 
       // ---- scales from data (both axes), no forced origin ----
-      const line = spec.line && spec.line.p1 && spec.line.p2 ? spec.line : null;
-      const allX = xs.slice(), allY = ys.slice();
-      const xSc = axisScale(allX.length ? Math.min(...allX) : 0, allX.length ? Math.max(...allX) : 1);
-      const ySc = axisScale(allY.length ? Math.min(...allY) : 0, allY.length ? Math.max(...allY) : 1);
-
       const toX = (v) => x0 + ((v - xSc.min) / (xSc.max - xSc.min)) * plotW;
       const toY = (v) => yBot - ((v - ySc.min) / (ySc.max - ySc.min)) * plotH;
 
       const svg = mk('svg', {
         viewBox: `0 0 ${W} ${H}`, width: '100%',
-        style: 'max-width:520px;background:#0b0f14;border:1px solid #30363d;border-radius:10px;display:block'
+        style: `max-width:${W}px;box-sizing:content-box;background:#0b0f14;border:1px solid #30363d;border-radius:10px;display:block`
       });
 
       // ---- horizontal gridlines + y tick labels ----
@@ -143,6 +146,8 @@
       input.type = 'text';
       input.className = 'm-input';
       input.autocomplete = 'off';
+      input.inputMode = spec.keypad || 'text';
+      input.setAttribute('autocapitalize', 'off');
       input.setAttribute('aria-label', 'Your answer');
       input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:200px;background:#0b0f14;color:#e6edf3;border:2px solid #30363d;border-radius:8px;text-align:center;outline:none';
       input.addEventListener('focus', () => { input.style.borderColor = '#4f8df7'; });

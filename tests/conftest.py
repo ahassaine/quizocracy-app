@@ -86,7 +86,7 @@ def add_child(page, name="Sami", year=4, pin="1234", targets=None):
 
 def enter_child(page, name, pin="1234"):
     page.goto("/learn")
-    form = page.locator(f"[data-testid='pin-{name}']")
+    form = page.get_by_test_id(f"pin-{name}")          # no CSS quoting, so names like D'Arcy work
     form.locator("input[name=pin]").fill(pin)
     form.locator("button").click()
     page.wait_for_url("**/me")

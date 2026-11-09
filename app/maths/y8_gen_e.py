@@ -1039,7 +1039,7 @@ def _(d=1):
         part = pick(["radius", "diameter", "circumference"])
         return {"prompt": "What is the name of the part of the circle marked here? "
                           "(type one word)",
-                "component": "circle", "spec": {"radius": rr, "show": part},
+                "component": "circle", "spec": {"radius": rr, "show": part, "label": "?"},   # "d = …" would name it
                 "answer": part, "answer_type": "str",
                 "solution": [{"radius": "A line from the centre to the edge is the radius.",
                               "diameter": "A line right across through the centre is the "
@@ -1048,7 +1048,7 @@ def _(d=1):
                                                "the circumference."}[part]]}
 
     if t == 3:                                        # part from description (typed)
-        desc, ans = pick([
+        parts = [
             ("a straight line from the centre to a point on the edge", "radius"),
             ("a straight line right across the circle through the centre", "diameter"),
             ("the whole distance around the outside of the circle", "circumference"),
@@ -1058,7 +1058,9 @@ def _(d=1):
             ("a 'slice' of the circle between two radii", "sector"),
             ("the region between a chord and the arc it cuts off", "segment"),
             ("a straight line that just touches the circle at one point", "tangent"),
-        ])
+        ]
+        # easy: the Year 6 words; stretch: the Year 8 words
+        desc, ans = pick(_by_d(d, parts[:4], parts, parts[3:]))
         return _num_q("In a circle, what is the name for %s? (type one word)" % desc,
                       ans, "str", text=True,
                       placeholder="radius / diameter / chord / arc / sector / segment / "
@@ -1079,21 +1081,37 @@ def _(d=1):
                       solution=["Radius = diameter ÷ 2.", "%d ÷ 2 = %d cm." % (dia, rr)])
 
     if t == 5:                                        # true/false property
-        claim, tf = pick([
+        claims = [
             ("The diameter is twice the radius", "true"),
+            ("The radius is twice the diameter", "false"),
             ("A chord always passes through the centre", "false"),
             ("The diameter is the longest chord of a circle", "true"),
             ("A tangent crosses the circle at two points", "false"),
-        ])
+            ("A sector is the region between a chord and its arc", "false"),
+        ]
+        claim, tf = pick(_by_d(d, claims[:3], claims[:5], claims[2:]))
         return _num_q("True or false: %s. (type true or false)" % claim, tf, "str",
                       text=True, placeholder="true / false",
                       solution=["Check the definition of each part.",
                                 "The statement is %s." % tf])
 
+    if t == 6 and d:                                  # the longest chord
+        return _num_q("A circle has a radius of %d cm. How long is the longest chord that can be "
+                      "drawn in it, in cm?" % rr, 2 * rr, "int", unit="cm",
+                      solution=["The longest chord is a diameter.", "2 × %d = %d cm." % (rr, 2 * rr)])
+
     if t == 6:                                        # how many radii in a diameter
         return _num_q("How many radii laid end to end make one diameter of a circle?",
                       2, "int",
                       solution=["A diameter is exactly two radii.", "The answer is 2."])
+
+    if t == 7 and d:                                  # angle of a sector that is a simple fraction
+        frac, k = pick(_by_d(d, [], [("a quarter", 4), ("a half", 2), ("a third", 3)],
+                             [("a sixth", 6), ("an eighth", 8), ("a fifth", 5), ("a twelfth", 12)]))
+        return _num_q("A sector is %s of a circle. What is the angle at the centre of the sector, "
+                      "in degrees?" % frac, 360 // k, "int", unit="degrees",
+                      solution=["A full turn about the centre is 360°.",
+                                "360 ÷ %d = %d°." % (k, 360 // k)])
 
     if t == 7:                                        # semicircle angle / half turn fact
         return _num_q("A diameter splits a circle into two equal halves. Each half is "
@@ -3134,7 +3152,7 @@ def _(d=1):
                       "does it hold when full? (1 litre = 1000 cm³)" % (l, w, h),
                       V / 1000.0, "num", unit="litres", tolerance=0.0005,
                       solution=["Volume = %d × %d × %d = %d cm³." % (l, w, h, V),
-                                "%d ÷ 1000 = %s litres." % (V, _f(V / 1000.0))])
+                                "%d ÷ 1000 = %s %s." % (V, _f(V / 1000.0), "litre" if V == 1000 else "litres")])
 
     # stacking cubes word problem
     s = random.randint(_by_d(d, 1, 2, 4), _by_d(d, 3, 5, 9))
@@ -3367,7 +3385,7 @@ def _(d=1):
     if t == 6:                                        # pictogram: count symbols
         key = pick([2, 5, 10])
         pv = [key * random.randint(1, 6) for _ in range(n)]
-        spec = {"categories": cats, "values": pv, "key": key, "symbol": "●"}
+        spec = {"categories": cats, "values": pv, "key": key, "symbol": "●", "blankRow": i}
         return {"prompt": "%s. In a pictogram each symbol stands for %d %s. How many "
                           "symbols are needed to show %s, which has a value of %d?"
                           % (title, key, unit, cats[i], pv[i]),
@@ -3912,15 +3930,17 @@ def _(d=1):
     noise = _by_d(d, 1, 2, 4)                        # stretch: weaker, noisier correlation
     # each context is paired with the correlation it really has
     _CTX = {
-        "positive": [("Height (cm)", "Mass (kg)", "height and mass"),
+        "positive": [("Distance from school (km)", "Journey time (minutes)",
+                      "distance from school and journey time"),
                      ("Hours revised", "Test score", "revision time and test score"),
                      ("Temperature (°C)", "Ice creams sold", "temperature and ice creams sold")],
         "negative": [("Age of car (years)", "Value (£1000s)", "a car's age and its value"),
                      ("Temperature (°C)", "Hot drinks sold", "temperature and hot drinks sold"),
                      ("Hours of TV a week", "Test score", "hours of TV watched and test score")],
         "none": [("Shoe size", "Test score", "shoe size and test score"),
-                 ("House number", "Height (cm)", "house number and height"),
-                 ("Day of birth in the month", "Hours of sleep", "day of birth and hours of sleep")],
+                 ("House number", "Age (years)", "house number and age"),
+                 ("Day of birth in the month", "Walk to school (minutes)",
+                  "day of birth and the walk to school")],
     }
 
     def _ctx(k):
@@ -3966,6 +3986,7 @@ def _(d=1):
 
     if t == 9:                                         # make a prediction from best-fit line
         m, c, pts, xq, pred, eq, at = _line()
+        xlab, ylab, ctx = _ctx("positive" if m > 0 else "negative")   # labels that fit the slope
         return {"prompt": "This scatter graph has a line of best fit. Make a prediction: "
                           "use the line of best fit, which follows %s, to "
                           "predict the y-value when x = %d." % (eq, xq),
@@ -3991,6 +4012,7 @@ def _(d=1):
     if t == 1:                                        # predict from line of best fit (visual)
         # line through (0, c) and (10, c+10m) with integer prediction
         m, c, pts, xq, pred, eq, at = _line()
+        xlab, ylab, ctx = _ctx("positive" if m > 0 else "negative")   # labels that fit the slope
         x1, y1 = 0, c
         x2, y2 = 10, c + 10 * m
         return {"prompt": "This scatter graph has a line of best fit drawn on it. "
@@ -4051,8 +4073,8 @@ def _(d=1):
     if t == 6:                                        # describe correlation, downhill (visual)
         xlab, ylab, ctx = _ctx("negative")
         pts = _pts("negative")
-        return {"prompt": "This scatter graph shows %s. The points go downhill from "
-                          "top-left to bottom-right. What type of correlation is this? "
+        return {"prompt": "This scatter graph shows %s. Look at the pattern of the points. "
+                          "What type of correlation is this? "
                           "(type positive, negative or none)" % ctx,
                 "component": "scatter_plot",
                 "spec": {"points": pts, "xLabel": xlab, "yLabel": ylab},

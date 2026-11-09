@@ -10,6 +10,7 @@
 #   time ............ clock
 #   geometry ........ shape
 #   statistics ...... pictogram / bar_chart
+import math
 import random
 from fractions import Fraction
 from .maths_engine import skill, pick, money, roman, NAMES, n_words
@@ -109,10 +110,13 @@ def _chart(d, n_cats=4):
     return cats, vals
 
 
+_GATE = "|\u0336" * 4            # a bundle of five: four bars crossed by the fifth
+
+
 def _tally(n):
-    """7 -> '||||\\ ||'  (a bundle of five is four bars and a slash)."""
+    """7 -> gate + ' ||'  (a bundle of five is four bars crossed by a fifth)."""
     n = int(n)
-    parts = ["||||\\"] * (n // 5)
+    parts = [_GATE] * (n // 5)
     if n % 5:
         parts.append("|" * (n % 5))
     return " ".join(parts) if parts else "(none)"
@@ -640,11 +644,19 @@ def _(d=1):
                                 "1/%d is larger than 1/%d." % (bigger, smaller)])
 
     if t == 1:                                          # visual model
+        # The bar is cut into a number of parts both fractions fit (their lowest common multiple), so its
+        # parts do not give the answer away the way a bar of exactly `bigger` parts would.
+        lcm = math.lcm
+        a, b = pick([(x, y) for x in pool for y in pool if x < y and lcm(x, y) <= 24])
+        bigger, parts = min(a, b), lcm(a, b)
+        if random.random() < 0.5:
+            a, b = b, a
         return {"prompt": "Shade the larger of 1/%d and 1/%d on this bar." % (a, b),
-                "component": "fraction_bar", "spec": {"parts": bigger, "mode": "shade"},
+                "component": "fraction_bar", "spec": {"parts": parts, "mode": "shade"},
                 "answer": "1/%d" % bigger, "answer_type": "frac",
                 "solution": ["Fewer parts means each part is bigger.",
-                             "1/%d is the larger fraction." % bigger]}
+                             "1/%d is the larger fraction." % bigger,
+                             "The bar has %d parts, so 1/%d is %d of them." % (parts, bigger, parts // bigger)]}
 
     if t == 2:                                          # real-life context
         who = pick(NAMES)
@@ -1258,7 +1270,7 @@ def _(d=1):
         mx = _by_d(d, 10, 20, 30)
         return {"prompt": "Read the ruler. How long is the line, in millimetres?",
                 "component": "ruler",
-                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm"},
+                "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm", "answer_unit": "mm"},
                 "answer": v * 10, "answer_type": "int",
                 "solution": ["The line measures %d cm." % v,
                              "1 cm = 10 mm, so %d cm = %d mm." % (v, v * 10)]}
@@ -1565,78 +1577,72 @@ def _(d=1):
                              "Perimeter = %d + %d + %d + %d = %d units."
                              % (rows, cols, rows, cols, 2 * (rows + cols))]}
 
-    if t == 6:                    # NEW: area of a rectangle
-        w = random.randint(2, _by_d(d, 6, 9, 12))
-        h = random.randint(2, _by_d(d, 6, 9, 12))
-        return _num_q("A rectangle is %d cm long and %d cm wide. What is its area, in "
-                      "square centimetres?" % (w, h),
-                      w * h, "int", unit="square cm",
-                      solution=["Area = length × width.",
-                                "%d × %d = %d square centimetres." % (w, h, w * h)])
+    # (area is Year 4: every framing here is a perimeter)
+    if t == 6:                    # two-step: the width is given from the length
+        w = random.randint(_by_d(d, 5, 7, 10), hi + 2)
+        k = random.randint(1, min(w - 2, _by_d(d, 3, 5, 8)))
+        h = w - k
+        return _num_q("A rectangle is %d cm long. Its width is %d cm shorter than its length. "
+                      "What is its perimeter?" % (w, k),
+                      2 * (w + h), "int", unit="cm",
+                      solution=["The width is %d − %d = %d cm." % (w, k, h),
+                                "Perimeter = %d + %d + %d + %d = %d cm." % (w, h, w, h, 2 * (w + h))])
 
-    if t == 7:                    # NEW: area of a figure on a grid
-        rows = random.randint(2, _by_d(d, 4, 6, 8))
-        cols = random.randint(2, _by_d(d, 4, 6, 8))
-        return {"prompt": "Find the area of this figure on the grid. Count the unit "
-                          "squares that the figure covers.",
+    if t == 7:                    # perimeter of an L-shape on a grid
+        rows = random.randint(3, _by_d(d, 4, 5, 7))
+        cols = random.randint(3, _by_d(d, 4, 6, 8))
+        cr = random.randint(1, rows - 1)            # the cut-out corner block
+        cc = random.randint(1, cols - 1)
+        cells = [[r, c] for r in range(rows) for c in range(cols) if not (r < cr and c >= cols - cc)]
+        have = set(map(tuple, cells))
+        per = sum(1 for r, c in have for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                  if (r + dr, c + dc) not in have)
+        return {"prompt": "Find the perimeter of this shape on the grid. Count the unit "
+                          "sides all the way around the edge of the shape.",
                 "component": "area_grid",
-                "spec": {"mode": "read_area", "rows": rows, "cols": cols},
-                "answer": rows * cols, "answer_type": "int",
-                "solution": ["The figure is %d rows of %d squares." % (rows, cols),
-                             "%d × %d = %d square units." % (rows, cols, rows * cols)]}
+                "spec": {"mode": "read_perimeter", "rows": rows, "cols": cols, "cells": cells},
+                "answer": per, "answer_type": "int",
+                "solution": ["Go round the edge and count every side of a square on the outside.",
+                             "The perimeter is %d units." % per]}
 
-    if t == 8:                    # NEW: select the figure with a given area
+    if t == 8:                    # select the rectangle with a given perimeter
         dims = []
         while len(dims) < 3:
             a = random.randint(2, _by_d(d, 5, 7, 9))
             b = random.randint(2, _by_d(d, 5, 7, 9))
-            if all(a * b != x * y for x, y in dims):
+            if all(a + b != x + y for x, y in dims):
                 dims.append((a, b))
         labels = ["A", "B", "C"]
         k = random.randrange(3)
-        area = dims[k][0] * dims[k][1]
-        desc = "; ".join("%s is %d squares by %d squares" % (labels[i], dims[i][0], dims[i][1])
+        per = 2 * (dims[k][0] + dims[k][1])
+        desc = "; ".join("rectangle %s is %d cm by %d cm" % (labels[i], dims[i][0], dims[i][1])
                          for i in range(3))
-        return _num_q("Select the figure with an area of %d square units. %s. "
-                      "Which figure is it? (type A, B or C)" % (area, desc),
+        return _num_q("Which rectangle has a perimeter of %d cm? %s. "
+                      "(type A, B or C)" % (per, desc[0].upper() + desc[1:]),
                       labels[k], "str", text=True, placeholder="A / B / C",
-                      solution=["Area = rows × columns for each figure.",
-                                "%s: %d × %d = %d square units."
-                                % (labels[k], dims[k][0], dims[k][1], area)])
+                      solution=["Add all four sides of each rectangle.",
+                                "%s: %d + %d + %d + %d = %d cm."
+                                % (labels[k], dims[k][0], dims[k][1], dims[k][0], dims[k][1], per)])
 
-    if t == 9:                    # NEW: two figures with the same area
-        a = random.randint(2, 6)
-        b = random.randint(2, 6)
-        while a * b < 8 or a == b:
-            a, b = random.randint(2, 6), random.randint(2, 6)
-        same = a * b
-        pairs = [(a, b), (b, a)]
-        odd = (a, b)
-        while odd[0] * odd[1] == same:
-            odd = (random.randint(2, 7), random.randint(2, 7))
-        order = [pairs[0], odd, pairs[1]]
-        labels = ["A", "B", "C"]
-        desc = "; ".join("%s is %d squares by %d squares" % (labels[i], order[i][0], order[i][1])
-                         for i in range(3))
-        return _num_q("Two of these figures have the same area. %s. "
-                      "What is that area, in square units?" % desc,
-                      same, "int", unit="square units",
-                      solution=["A: %d, B: %d, C: %d square units."
-                                % (order[0][0] * order[0][1], order[1][0] * order[1][1],
-                                   order[2][0] * order[2][1]),
-                                "Two figures share an area of %d square units." % same])
+    if t == 9:                    # the longer perimeter of two rectangles
+        a, b = random.randint(2, hi), random.randint(2, hi)
+        c, e = random.randint(2, hi), random.randint(2, hi)
+        while a + b == c + e:
+            c, e = random.randint(2, hi), random.randint(2, hi)
+        pa, pb = 2 * (a + b), 2 * (c + e)
+        return _num_q("Rectangle A is %d cm by %d cm. Rectangle B is %d cm by %d cm. "
+                      "What is the longer of the two perimeters?" % (a, b, c, e),
+                      max(pa, pb), "int", unit="cm",
+                      solution=["A: %d + %d + %d + %d = %d cm." % (a, b, a, b, pa),
+                                "B: %d + %d + %d + %d = %d cm." % (c, e, c, e, pb),
+                                "The longer perimeter is %d cm." % max(pa, pb)])
 
-    if t == 10:                   # NEW: create a figure with a given area
-        rows = random.randint(3, 6)
-        cols = random.randint(3, 6)
-        target = random.randint(3, rows * cols - 1)
-        return {"prompt": "Create a figure with an area of %d square units by shading "
-                          "squares on the grid." % target,
-                "component": "area_grid",
-                "spec": {"mode": "build_area", "rows": rows, "cols": cols},
-                "answer": target, "answer_type": "int",
-                "solution": ["Each shaded square is 1 square unit of area.",
-                             "Shade exactly %d squares." % target]}
+    if t == 10:                   # side of a square from its perimeter
+        sd = random.randint(2, _by_d(d, 5, 10, 15))
+        return _num_q("A square has a perimeter of %d cm. How long is each side?" % (4 * sd),
+                      sd, "int", unit="cm",
+                      solution=["A square has 4 equal sides.",
+                                "%d ÷ 4 = %d cm." % (4 * sd, sd)])
 
     # real-life context
     w = random.randint(3, hi)
@@ -1787,9 +1793,9 @@ def _(d=1):
         m = pick(_by_d(d, [0, 30], [0, 15, 30, 45], [0, 15, 30, 45]))
         phrase = ("%s o'clock" % roman(n)) if m == 0 else \
                  ("%d minutes past %s" % (m, roman(n)))
-        return {"prompt": "A clock face is numbered in Roman numerals. "
+        return {"prompt": "Some clocks are numbered in Roman numerals. "
                           "Set the clock to %s." % phrase,
-                "component": "clock", "spec": {"mode": "set"},
+                "component": "clock", "spec": {"mode": "set", "roman": True},
                 "answer": _hm(n, m), "answer_type": "time",
                 "solution": ["%s is %d." % (roman(n), n),
                              "So the time is %s." % _hm(n, m)]}
@@ -1802,12 +1808,22 @@ def _(d=1):
                       solution=["%s = %d and %s = %d." % (roman(a), a, roman(b), b),
                                 "The larger is %d." % max(a, b)])
 
-    # missing number in a sequence
-    n = random.randint(1, 11)
-    return _num_q("Counting in Roman numerals, which numeral comes straight after %s?" % roman(n),
-                  roman(n + 1), "str", text=True, placeholder="e.g. VIII",
-                  solution=["%s = %d, and %d comes next." % (roman(n), n, n + 1),
-                            "%d is written %s." % (n + 1, roman(n + 1))])
+    # missing number in a sequence (stretch: count back, or in steps of 2 or 3)
+    if d == 0:
+        n = random.randint(1, 7)
+        return _num_q("Counting in Roman numerals, which numeral comes straight after %s?" % roman(n),
+                      roman(n + 1), "str", text=True, placeholder="e.g. VIII",
+                      solution=["%s = %d, and %d comes next." % (roman(n), n, n + 1),
+                                "%d is written %s." % (n + 1, roman(n + 1))])
+    step = 1 if d == 1 else random.randint(2, 3)
+    back = random.random() < 0.5
+    n = random.randint(1 + 2 * step, 12) if back else random.randint(1, 12 - 2 * step)
+    seq = [n - k * step for k in range(3)] if back else [n + k * step for k in range(3)]
+    return _num_q("What comes next?  %s, %s, ___" % (roman(seq[0]), roman(seq[1])),
+                  roman(seq[2]), "str", text=True, placeholder="e.g. VIII",
+                  solution=["%s = %d and %s = %d: the count goes %s in %ss."
+                            % (roman(seq[0]), seq[0], roman(seq[1]), seq[1], "back" if back else "up", step),
+                            "Next is %d, written %s." % (seq[2], roman(seq[2]))])
 
 
 @skill("Y3.8.d", "Time interval within the hour", S8)
@@ -1826,7 +1842,7 @@ def _(d=1):
     if t == 0:                                          # bare interval
         return _num_q("How many minutes are there from %s to %s?" % (_hm(h, m1), _hm(h, m2)),
                       dur, "int", unit="minutes",
-                      solution=["%d − %d = %d minutes." % (m2, m1, dur)])
+                      solution=["%d − %d = %s." % (m2, m1, _pl(dur, "minute"))])
 
     if t == 1:                                          # word problem
         who = pick(NAMES)
@@ -2027,7 +2043,9 @@ _SHAPES_2D = [("triangle", 3), ("square", 4), ("rectangle", 4), ("pentagon", 5),
 @skill("Y3.8.g", "2-D shapes", S8)
 def _(d=1):
     d = _tier(d)
-    pool = _by_d(d, [s for s in _SHAPES_2D if s[1] <= 5], _SHAPES_2D, _SHAPES_2D)
+    # easy: 3-5 sides; stretch: 5-8 sides (the names a Year 3 child mixes up)
+    pool = _by_d(d, [s for s in _SHAPES_2D if s[1] <= 5], _SHAPES_2D,
+                 [s for s in _SHAPES_2D if s[1] >= 5])
     name, sides = pick(pool)
     t = _pick_t([2, 2, 2, 1, 2, 2, 1, 1, 1, 1, 1])
 
@@ -2054,7 +2072,7 @@ def _(d=1):
                              "A shape with %d sides is %s." % (sd, _a(nm))]}
 
     if t == 3:                                          # riddle (typed)
-        nm, sd = pick([s for s in _SHAPES_2D if s[0] not in ("square", "rectangle")])
+        nm, sd = pick([s for s in pool if s[0] not in ("square", "rectangle")])
         return _num_q("A 2-D shape has %d straight sides and %d corners. What is it called?"
                       % (sd, sd),
                       nm, "str", text=True, placeholder="shape name",
@@ -2070,23 +2088,23 @@ def _(d=1):
                              "A polygon with %d sides is %s." % (sd, _a(nm))]}
 
     if t == 6:                    # NEW: two-dimensional shapes in the real world
-        thing, nm, sd = pick([
+        thing, nm, sd = pick([x for x in [
             ("a window pane", "rectangle", 4),
             ("a chess board square", "square", 4),
             ("a road warning sign", "triangle", 3),
             ("a stop sign", "octagon", 8),
             ("a honeycomb cell", "hexagon", 6),
             ("a football's black patch", "pentagon", 5),
-        ])
+        ] if (x[1], x[2]) in pool])
         return _num_q("In the real world, %s is shaped like the two-dimensional shape "
                       "called %s. How many sides does it have?" % (thing, _a(nm)),
                       sd, "int", unit="sides",
                       solution=["%s has %d straight sides." % (_a(nm).capitalize(), sd)])
 
     if t == 7:                    # NEW: compare sides and vertices
-        (n1, s1), (n2, s2) = random.sample(_SHAPES_2D, 2)
+        (n1, s1), (n2, s2) = random.sample(pool, 2)
         while s1 == s2:
-            (n1, s1), (n2, s2) = random.sample(_SHAPES_2D, 2)
+            (n1, s1), (n2, s2) = random.sample(pool, 2)
         big, bs, small, ss = (n1, s1, n2, s2) if s1 > s2 else (n2, s2, n1, s1)
         return _num_q("Compare the sides and vertices of these two shapes. How many MORE "
                       "vertices does %s have than %s?" % (_a(big), _a(small)),
@@ -2096,7 +2114,7 @@ def _(d=1):
                                 "%d − %d = %d." % (bs, ss, bs - ss)])
 
     if t == 8:                    # NEW: attributes of polygons
-        nm, sd = pick([s for s in _SHAPES_2D if s[0] not in ("square", "rectangle")])
+        nm, sd = pick([s for s in pool if s[0] not in ("square", "rectangle")])
         return _num_q("Look at the attributes of a regular polygon: it has %d equal sides "
                       "and all its angles are equal. How many vertices does this polygon "
                       "have?" % sd,
@@ -2105,8 +2123,8 @@ def _(d=1):
                                 "%s has %d vertices." % (_a(nm).capitalize(), sd)])
 
     if t == 9:                    # NEW: sort two-dimensional shapes
-        chosen = random.sample(_SHAPES_2D, 4)
-        cut = pick([3, 4, 5])
+        chosen = random.sample(pool, 4)
+        cut = pick(_by_d(d, [3, 4], [3, 4, 5], [5, 6, 7]))
         cnt = sum(1 for _, sd in chosen if sd > cut)
         return _num_q("Sort these two-dimensional shapes by their number of sides: %s. "
                       "How many of them have MORE than %d sides?"
@@ -2120,17 +2138,26 @@ def _(d=1):
                  ("rhombus", 4, True), ("equilateral triangle", 3, True),
                  ("regular pentagon", 5, True), ("regular hexagon", 6, True),
                  ("kite", 4, False)]
-        chosen = random.sample(table, 5)
+        chosen = random.sample(table, _by_d(d, 4, 5, 6))
         overlap = sum(1 for _, sd, eq in chosen if sd == 4 and eq)
-        return _num_q("Sort these shapes into a Venn diagram. One ring is 'has 4 sides' "
-                      "and the other ring is 'all sides equal'. Shapes: %s. How many "
-                      "shapes belong in the overlap of the two rings?"
+        return _num_q("Here are some shapes: %s. How many of them have 4 sides AND "
+                      "all sides equal?"
                       % ", ".join(nm for nm, _, _ in chosen),
                       overlap, "int", unit="shapes",
-                      solution=["The overlap holds shapes with 4 sides AND all sides equal.",
+                      solution=["Look for shapes with 4 sides that also have all sides equal.",
                                 "%s." % (", ".join(nm for nm, sd, eq in chosen
                                                    if sd == 4 and eq) or "None of them"),
                                 "That is %s." % _pl(overlap, "shape")])
+
+    if d:                         # core/stretch: name a quadrilateral from its properties
+        eq = d == 1
+        nm = "square" if eq else "rectangle"
+        return _num_q("A shape has 4 straight sides and 4 right angles. %s. What is the "
+                      "shape called?" % ("All its sides are the same length" if eq else
+                                         "Two of its sides are longer than the other two"),
+                      nm, "str", text=True, placeholder="shape name",
+                      solution=["4 sides and 4 right angles: a square or a rectangle.",
+                                "%s, so it is a %s." % ("All sides equal" if eq else "Not all sides equal", nm)])
 
     # right angles (visual, real-life)
     return {"prompt": "This shape has square corners. How many sides does it have?",
@@ -2736,35 +2763,43 @@ def _(d=1):
     vals = [random.randint(lo, hi) for _ in days]
     while len(set(vals)) != len(vals):
         vals = [random.randint(lo, hi) for _ in days]
-    tbl = "; ".join("%s: %d" % (dy, v) for dy, v in zip(days, vals))
+    rows = [[dy, str(v)] for dy, v in zip(days, vals)]
     t = _pick_t([1, 1, 1, 2, 2, 1, 1, 1, 1, 1])
 
+    def _table(prompt, rows, answer, solution, headers=("Day", "Books read"), atype="int", missing=None,
+               placeholder=None):
+        spec = {"headers": list(headers), "rows": [list(r) for r in rows]}
+        if placeholder:
+            spec["placeholder"] = placeholder
+        if missing is not None:
+            spec["missing"] = list(missing)
+        return {"prompt": prompt, "component": "data_table", "spec": spec,
+                "answer": answer, "answer_type": atype, "solution": solution}
+
     if t == 0:                                          # total from a table
-        return _num_q("The table shows books read. %s. How many books were read in total?" % tbl,
-                      sum(vals), "int", unit="books",
-                      solution=["%s = %s." % (" + ".join(str(v) for v in vals), _pl(sum(vals), "book"))])
+        return _table("The table shows how many books were read each day. How many books "
+                      "were read in total?", rows, sum(vals),
+                      ["%s = %s." % (" + ".join(str(v) for v in vals), _pl(sum(vals), "book"))])
 
     if t == 1:                                          # difference from a table
         i, j = random.sample(range(len(days)), 2)
-        return _num_q("The table shows books read. %s. How many MORE books were read on %s "
-                      "than on %s?" % (tbl, days[i] if vals[i] > vals[j] else days[j],
-                                       days[j] if vals[i] > vals[j] else days[i]),
-                      abs(vals[i] - vals[j]), "int", unit="books",
-                      solution=["%d − %d = %s."
-                                % (max(vals[i], vals[j]), min(vals[i], vals[j]),
-                                   _pl(abs(vals[i] - vals[j]), "book"))])
+        return _table("The table shows how many books were read each day. How many MORE "
+                      "books were read on %s than on %s?"
+                      % (days[i] if vals[i] > vals[j] else days[j],
+                         days[j] if vals[i] > vals[j] else days[i]), rows,
+                      abs(vals[i] - vals[j]),
+                      ["%d − %d = %s." % (max(vals[i], vals[j]), min(vals[i], vals[j]),
+                                          _pl(abs(vals[i] - vals[j]), "book"))])
 
     if t == 2:                                          # missing value
         total = sum(vals)
         hide = random.randrange(len(days))
-        shown = "; ".join("%s: %d" % (dy, v) for k, (dy, v) in enumerate(zip(days, vals))
-                          if k != hide)
-        return _num_q("The table shows books read. %s. The total for all four days is %d. "
-                      "How many books were read on %s?" % (shown, total, days[hide]),
-                      vals[hide], "int", unit="books",
-                      solution=["%d − (%s) = %d."
-                                % (total, " + ".join(str(v) for k, v in enumerate(vals) if k != hide),
-                                   vals[hide])])
+        return _table("The table shows how many books were read each day. The total for all "
+                      "four days is %d. How many books were read on %s?" % (total, days[hide]),
+                      rows, vals[hide],
+                      ["%d − (%s) = %d."
+                       % (total, " + ".join(str(v) for k, v in enumerate(vals) if k != hide),
+                          vals[hide])], missing=(hide, 1))
 
     if t == 3:                                          # table shown as a bar chart (visual)
         spec = {"categories": days, "values": vals, "mode": "read"}
@@ -2775,72 +2810,73 @@ def _(d=1):
                 "answer": vals[i], "answer_type": "int",
                 "solution": ["The %s bar reaches %d books." % (days[i], vals[i])]}
 
-    if t == 5:                    # NEW: interpret a tally chart
+    if t == 5:                    # interpret a tally chart
         fruits = random.sample(["Apples", "Bananas", "Pears", "Plums", "Grapes"], 4)
         counts = [random.randint(3, _by_d(d, 9, 14, 22)) for _ in fruits]
         while len(set(counts)) != len(counts):
             counts = [random.randint(3, _by_d(d, 9, 14, 22)) for _ in fruits]
-        chart = "; ".join("%s %s" % (f, _tally(c)) for f, c in zip(fruits, counts))
+        trows = [[f, _tally(c)] for f, c in zip(fruits, counts)]
         k = random.randrange(len(fruits))
-        ask_total = random.random() < 0.4
-        if ask_total:
-            return _num_q("Interpret the tally chart of favourite fruits (a bundle ||||\\ "
-                          "stands for 5). %s. How many children voted altogether?" % chart,
-                          sum(counts), "int", unit="children",
-                          solution=["%s." % " + ".join(str(c) for c in counts),
-                                    "The total is %d children." % sum(counts)])
-        return _num_q("Interpret the tally chart of favourite fruits (a bundle ||||\\ "
-                      "stands for 5). %s. How many children chose %s?"
-                      % (chart, fruits[k].lower()),
-                      counts[k], "int", unit="children",
-                      solution=["%s has %s of 5 and %s."
-                                % (fruits[k], _pl(counts[k] // 5, "bundle"), _pl(counts[k] % 5, "extra tally mark")),
-                                "That is %d children." % counts[k]])
+        if random.random() < 0.4:
+            return _table("The tally chart shows the children's favourite fruits. Each bundle "
+                          "%s stands for 5. How many children voted altogether?" % _GATE,
+                          trows, sum(counts),
+                          ["%s." % " + ".join(str(c) for c in counts),
+                           "The total is %d children." % sum(counts)], headers=("Fruit", "Tally"))
+        return _table("The tally chart shows the children's favourite fruits. Each bundle %s "
+                      "stands for 5. How many children chose %s?" % (_GATE, fruits[k].lower()),
+                      trows, counts[k],
+                      ["%s has %s of 5 and %s."
+                       % (fruits[k], _pl(counts[k] // 5, "bundle"), _pl(counts[k] % 5, "extra tally mark")),
+                       "That is %d children." % counts[k]], headers=("Fruit", "Tally"))
 
-    if t == 6:                    # NEW: which tally chart is correct?
+    if t == 6:                    # which tally is correct?
         n = random.randint(6, _by_d(d, 12, 18, 24))
         wrong = n + pick([-2, -1, 1, 2])
         if wrong < 1:
             wrong = n + 2
         correct_first = random.random() < 0.5
         a_val, b_val = (n, wrong) if correct_first else (wrong, n)
-        return _num_q("%d children chose swimming. Which tally chart is correct for %d "
-                      "(a bundle ||||\\ stands for 5)? A: %s. B: %s. (type A or B)"
-                      % (n, n, _tally(a_val), _tally(b_val)),
-                      "A" if correct_first else "B", "str", text=True, placeholder="A / B",
-                      solution=["%d = %s of 5 and %s."
-                                % (n, _pl(n // 5, "bundle"), _pl(n % 5, "single mark")),
-                                "The correct tally chart is %s."
-                                % ("A" if correct_first else "B")])
+        return _table("%d children chose swimming. Which tally is correct for %d? Each bundle "
+                      "%s stands for 5. (type A or B)" % (n, n, _GATE),
+                      [["A", _tally(a_val)], ["B", _tally(b_val)]],
+                      "A" if correct_first else "B",
+                      ["%d = %s of 5 and %s."
+                       % (n, _pl(n // 5, "bundle"), _pl(n % 5, "single mark")),
+                       "The correct tally is %s." % ("A" if correct_first else "B")],
+                      headers=("Chart", "Tally"), atype="str", placeholder="A / B")
 
-    if t == 7:                    # NEW: interpret data in a table
+    if t == 7:                    # find a value in a table
         k = random.randrange(len(days))
-        return _num_q("Interpret the data in this table of books read. %s. On which day "
-                      "were exactly %d books read? (type the day)" % (tbl, vals[k]),
-                      days[k], "str", text=True, placeholder="a day",
-                      solution=["Look down the table for the value %d." % vals[k],
-                                "It is on %s." % days[k]])
+        return _table("The table shows how many books were read each day. On which day "
+                      "were exactly %d books read? (type the day)" % vals[k],
+                      rows, days[k],
+                      ["Look down the table for the value %d." % vals[k],
+                       "It is on %s." % days[k]], atype="str", placeholder="a day")
 
-    if t == 8:                    # NEW: interpret a line plot
+    if t == 8:                    # a pictogram where each symbol is one child
         labels = ["0 pets", "1 pet", "2 pets", "3 pets"]
         counts = [random.randint(1, _by_d(d, 4, 6, 8)) for _ in labels]
         while len(set(counts)) != len(counts):
             counts = [random.randint(1, _by_d(d, 4, 6, 8)) for _ in labels]
-        plot = _plot_rows(labels, counts)
+        spec = {"categories": labels, "values": counts, "key": 1, "symbol": "circle"}
         k = random.randrange(len(labels))
         if random.random() < 0.4:
-            return _num_q("Interpret this line plot. Each x stands for one child. %s. "
-                          "How many children were asked altogether?" % plot,
-                          sum(counts), "int", unit="children",
-                          solution=["%s." % " + ".join(str(c) for c in counts),
-                                    "The total is %d children." % sum(counts)])
-        return _num_q("Interpret this line plot. Each x stands for one child. %s. "
-                      "How many children have %s?" % (plot, labels[k]),
-                      counts[k], "int", unit="children",
-                      solution=["Count the x marks above '%s'." % labels[k],
-                                "There are %d." % counts[k]])
+            return {"prompt": "The pictogram shows how many pets the children in a class have. "
+                              "Each symbol stands for one child. How many children were asked "
+                              "altogether?",
+                    "component": "pictogram", "spec": spec,
+                    "answer": sum(counts), "answer_type": "int",
+                    "solution": ["%s." % " + ".join(str(c) for c in counts),
+                                 "The total is %d children." % sum(counts)]}
+        return {"prompt": "The pictogram shows how many pets the children in a class have. "
+                          "Each symbol stands for one child. How many children have %s?" % labels[k],
+                "component": "pictogram", "spec": spec,
+                "answer": counts[k], "answer_type": "int",
+                "solution": ["Count the symbols in the '%s' row." % labels[k],
+                             "There are %d." % counts[k]]}
 
-    if t == 9:                    # NEW: create a line plot
+    if t == 9:                    # make a tally from a list
         labels = ["4 cm", "5 cm", "6 cm", "7 cm"]
         counts = [random.randint(1, _by_d(d, 4, 6, 8)) for _ in labels]
         data = []
@@ -2848,13 +2884,12 @@ def _(d=1):
             data += [lab.split()[0]] * c
         random.shuffle(data)
         k = random.randrange(len(labels))
-        return _num_q("You are creating a line plot of these leaf lengths in centimetres: "
-                      "%s. On the line plot, how many x marks go above %s?"
+        return _num_q("Class 3 measured some leaves. Here are their lengths in centimetres: "
+                      "%s. You make a table of the lengths. How many leaves go in the %s row?"
                       % (", ".join(data), labels[k]),
-                      counts[k], "int", unit="x marks",
-                      solution=["Count how many times %s appears in the data." % labels[k],
-                                "It appears %s, so draw %s."
-                                % (_pl(counts[k], "time"), _pl(counts[k], "x mark"))])
+                      counts[k], "int", unit="leaves",
+                      solution=["Count how many times %s appears in the list." % labels[k].split()[0],
+                                "It appears %s." % _pl(counts[k], "time")])
 
     # busiest day from a chart (visual)
     spec = {"categories": days, "values": vals, "mode": "read"}
@@ -2969,52 +3004,49 @@ def _(d=1):
                 "solution": ["Tallest = %d, shortest = %d." % (max(vals), min(vals)),
                              "%d − %d = %d." % (max(vals), min(vals), max(vals) - min(vals))]}
 
-    if t == 5:                    # NEW: interpret a line graph
+    if t == 5:                    # read a line graph (the values are only on the graph)
         hours = ["9 am", "10 am", "11 am", "12 noon", "1 pm"]
-        temps = [random.randint(8, 14)]
+        # even values, so every point sits on a 2-degree gridline; a spring/summer morning
+        temps = [2 * random.randint(4, 6)]
         for _ in range(4):
-            temps.append(temps[-1] + random.randint(1, _by_d(d, 3, 5, 7)))
-        graph = "; ".join("%s %d°C" % (hh, tt) for hh, tt in zip(hours, temps))
+            temps.append(temps[-1] + 2 * random.randint(*_by_d(d, (1, 1), (1, 2), (0, 2))))
         a, b = sorted(random.sample(range(5), 2))
+        if temps[b] == temps[a]:                    # a flat stretch: ask across the whole morning
+            a, b = 0, 4
+            temps[4] = max(temps[4], temps[0] + 2)
         lg = {"points": [[hh, tt] for hh, tt in zip(hours, temps)], "yLabel": "°C", "xLabel": "Time"}
         if random.random() < 0.35:
-            return dict(_num_q("The line graph shows the temperature each hour. %s. Interpret "
-                          "the line graph: what was the temperature at %s, in °C?"
-                          % (graph, hours[b]),
-                          temps[b], "int", unit="°C",
-                          solution=["Read the point on the line graph above %s." % hours[b],
-                                    "The temperature was %d°C." % temps[b]]),
+            return dict(_num_q("The line graph shows the temperature in the playground each hour "
+                               "one morning. What was the temperature at %s, in °C?" % hours[b],
+                               temps[b], "int", unit="°C",
+                               solution=["Read the point on the line graph above %s." % hours[b],
+                                         "The temperature was %d°C." % temps[b]]),
                         component="line_graph", spec=lg)
-        return dict(_num_q("The line graph shows the temperature each hour. %s. Interpret the "
-                      "line graph: by how many degrees did the temperature rise from %s "
-                      "to %s?" % (graph, hours[a], hours[b]),
-                      temps[b] - temps[a], "int", unit="°C",
-                      solution=["%d°C at %s and %d°C at %s."
-                                % (temps[a], hours[a], temps[b], hours[b]),
-                                "%d − %d = %d°C." % (temps[b], temps[a],
-                                                     temps[b] - temps[a])]),
+        return dict(_num_q("The line graph shows the temperature in the playground each hour "
+                           "one morning. By how many degrees did the temperature rise from %s "
+                           "to %s?" % (hours[a], hours[b]),
+                           temps[b] - temps[a], "int", unit="°C",
+                           solution=["%d°C at %s and %d°C at %s."
+                                     % (temps[a], hours[a], temps[b], hours[b]),
+                                     "%d − %d = %d°C." % (temps[b], temps[a],
+                                                          temps[b] - temps[a])]),
                     component="line_graph", spec=lg)
 
-    if t == 6:                    # NEW: which line graph is correct?
-        start = random.randint(2, 6)
-        step = random.randint(1, 4)
-        weeks = [start + k * step for k in range(4)]
-        rising = random.random() < 0.5
-        shown = weeks if rising else weeks[::-1]
-        tbl = "; ".join("week %d: %d cm" % (k + 1, v) for k, v in enumerate(shown))
-        a_rises = random.random() < 0.5
-        desc_a = "goes up from %d cm to %d cm" % (min(weeks), max(weeks)) if a_rises \
-                 else "goes down from %d cm to %d cm" % (max(weeks), min(weeks))
-        desc_b = "goes down from %d cm to %d cm" % (max(weeks), min(weeks)) if a_rises \
-                 else "goes up from %d cm to %d cm" % (min(weeks), max(weeks))
-        correct = "A" if (a_rises == rising) else "B"
-        return _num_q("The table shows the height of a plant. %s. Which line graph is "
-                      "correct for this data? Graph A %s. Graph B %s. (type A or B)"
-                      % (tbl, desc_a, desc_b),
-                      correct, "str", text=True, placeholder="A / B",
-                      solution=["The plant height %s over the four weeks."
-                                % ("rises" if rising else "falls"),
-                                "So graph %s is the correct line graph." % correct])
+    if t == 6:                    # compare two rows of a table
+        weeks = ["Week 1", "Week 2", "Week 3", "Week 4"]
+        h = [random.randint(2, 6)]
+        for _ in range(3):
+            h.append(h[-1] + random.randint(1, _by_d(d, 3, 5, 8)))
+        a, b = sorted(random.sample(range(4), 2))
+        return {"prompt": "The table shows the height of a plant at the end of each week. "
+                          "How many centimetres did it grow from %s to %s?"
+                          % (weeks[a].lower(), weeks[b].lower()),
+                "component": "data_table",
+                "spec": {"headers": ["Week", "Height (cm)"],
+                         "rows": [[w, str(v)] for w, v in zip(weeks, h)]},
+                "answer": h[b] - h[a], "answer_type": "int",
+                "solution": ["%s: %d cm. %s: %d cm." % (weeks[a], h[a], weeks[b], h[b]),
+                             "%d − %d = %d cm." % (h[b], h[a], h[b] - h[a])]}
 
     # half / double comparison
     return {"prompt": "Use the bar chart. How many votes would %s and %s have together "
@@ -3171,16 +3203,20 @@ def _(d=1):
                 ("Tuesday", "comic out", pick(_by_d(d, [50, 100], [75, 90, 120], [95, 135, 165]))),
                 ("Thursday", "sweets out", pick(_by_d(d, [20, 40], [45, 60, 80], [38, 57, 85]))),
                 ("Saturday", "job money in", pick(_by_d(d, [50, 100], [50, 100, 150], [85, 125, 140])))]
-        rec = "; ".join("%s — %s %s" % (dy, what, money(amt)) for dy, what, amt in rows)
         out = sum(a for _, w, a in rows if w.endswith("out"))
         inn = sum(a for _, w, a in rows if w.endswith("in"))
         ask_out = random.random() < 0.5
-        return _num_q("Read %s's financial record for the week. %s. According to the "
-                      "record, how much money did %s %s in total, in pence?"
-                      % (who, rec, who, "spend" if ask_out else "receive"),
-                      out if ask_out else inn, "int", unit="p",
-                      solution=["Add every '%s' row." % ("out" if ask_out else "in"),
-                                "The total is %s." % money(out if ask_out else inn)])
+        trows = [[dy, what.rsplit(" ", 1)[0].capitalize(),
+                  money(amt) if what.endswith("in") else "", money(amt) if what.endswith("out") else ""]
+                 for dy, what, amt in rows]
+        return {"prompt": "The table is %s's money record for the week. How much money did %s "
+                          "%s in total, in pence?" % (who, who, "spend" if ask_out else "receive"),
+                "component": "data_table",
+                "spec": {"headers": ["Day", "What", "Money in", "Money out"], "rows": trows,
+                         "placeholder": "p"},
+                "answer": out if ask_out else inn, "answer_type": "int",
+                "solution": ["Add the '%s' column." % ("Money out" if ask_out else "Money in"),
+                             "The total is %s." % money(out if ask_out else inn)]}
 
     if t == 6:                    # NEW: keeping financial records
         who = pick(NAMES)

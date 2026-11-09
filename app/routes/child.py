@@ -38,7 +38,7 @@ async def enter(request: Request, pid: str, ctx: Ctx = Depends(family_page), pin
         pupils = [x async for x in db.pupils.find({"family_id": ctx.family["_id"]}).sort("created", 1)]
         return page(request, "learn.html", ctx, pupils=pupils, pin_for=p["_id"], error="Wrong PIN. Try again.",
                     status_code=400)
-    await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": p["_id"]}})
+    await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": p["_id"], "locked": True}})
     return RedirectResponse("/me", 303)
 
 
@@ -71,8 +71,19 @@ async def _day(ctx: Ctx, activity: str) -> dict:
             "reward": reward.get("text", "") if st["reward_earned"] else ""}
 
 
+def _switched(ctx: Ctx, payload: dict) -> JSONResponse | None:
+    """The page says which child it was opened for; if another child has signed in on this device since
+    (another tab, "Switch"), refuse, so one child's page never serves or credits the other."""
+    pid = payload.get("pupil")
+    if pid is not None and pid != ctx.child["_id"]:
+        return JSONResponse({"ok": False, "error": "switched", "name": ctx.child["name"]}, status_code=409)
+    return None
+
+
 @router.post("/api/{activity}/next")
 async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = Depends(child_api)):
+    if (refused := _switched(ctx, payload)):
+        return refused
     if activity not in DRILLS or not _allowed(ctx, activity):
         raise HTTPException(403, "activity not available")
     todo = (await progress.open_mistakes(ctx.child)).get(activity, []) if payload.get("fix") else []
@@ -85,6 +96,8 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
 
 @router.post("/api/{activity}/check")
 async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends(child_api)):
+    if (refused := _switched(ctx, payload)):
+        return refused
     if activity not in DRILLS or not _allowed(ctx, activity):
         raise HTTPException(403, "activity not available")
     ms = payload.get("ms")

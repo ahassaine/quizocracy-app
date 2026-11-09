@@ -450,7 +450,7 @@ def _(d=1):
         x, y = random.randint(1, _by(d, 4, 6, 6)), random.randint(1, _by(d, 4, 6, 6))
         if d == 2:                                      # hard: two dominoes, four numbers
             z, w = random.randint(1, 6), random.randint(1, 6)
-            return _tb("Two dominoes: one has %d and %d spots, the other has %d and %d. How many spots altogether?" % (x, y, z, w),
+            return _tb("Two dominoes: one has %s and %s, the other has %d and %d. How many spots altogether?" % (_pn(x, "spot"), _pn(y, "spot"), z, w),
                        x + y + z + w, "int", {}, ["%d + %d + %d + %d = %d." % (x, y, z, w, x + y + z + w)])
         return _tb("A domino has %s on one side and %d on the other. How many spots altogether?" % (_pn(x, "spot"), y), x + y, "int", {},
                    ["%d + %d = %d." % (x, y, x + y)])
@@ -810,7 +810,7 @@ def _(d=1):
 
     def t_half_groups():
         n = random.randint(_by(d, 1, 1, 4), _by(d, 5, 8, 10))
-        return {"prompt": "The counters are in 2 equal groups. What is half of %d?" % (2 * n), "component": "equal_groups",
+        return {"prompt": "Share the %d counters into 2 equal groups. What is half of %d?" % (2 * n, 2 * n), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": 2, "per": n}, "answer": n, "answer_type": "int",
                 "solution": ["One group has %d." % n]}
 
@@ -865,7 +865,7 @@ def _(d=1):
 
     def t_groups():
         n = random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
-        return {"prompt": "There are 4 equal groups. What is one quarter of %d?" % (4 * n), "component": "equal_groups",
+        return {"prompt": "Share the %d counters into 4 equal groups. What is one quarter of %d?" % (4 * n, 4 * n), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": 4, "per": n}, "answer": n, "answer_type": "int",
                 "solution": ["One group has %d." % n]}
 
@@ -968,10 +968,10 @@ def _(d=1):
             return {"prompt": "The jug is marked in cups. It holds %d cups when full. How many more cups of water will fill it?" % top,
                     "component": "ruler", "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"},
                     "answer": top - v, "answer_type": "num", "tolerance": 0,
-                    "solution": ["It has %d cups. %d − %d = %d more cups." % (v, top, v, top - v)]}
+                    "solution": ["It has %s. %d − %d = %s more." % (_pn(v, "cup"), top, v, _pn(top - v, "cup"))]}
         return {"prompt": "The jug is marked in cups. How many cups of water are in it?", "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"}, "answer": v, "answer_type": "num",
-                "tolerance": 0, "solution": ["The water reaches %d cups." % v]}
+                "tolerance": 0, "solution": ["The water reaches %s." % _pn(v, "cup")]}
 
     def t_quicker():
         a, b = random.sample(range(5, 60), 2)
