@@ -16,7 +16,7 @@
 {% endblock %}
 {% block foot %}{% endblock %}
 {% block scripts %}
-{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v=2"></script>
+{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v={{ 3 if c == 'bar_chart' else 2 }}"></script>
 {% endfor %}<script src="/static/js/drill.js?v=8"></script><script>
 window.MComp = window.MComp || {};
 const SKILLS = {{ years|tojson }};

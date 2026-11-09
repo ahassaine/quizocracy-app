@@ -19,16 +19,36 @@
 
       // y-axis scale: nice integer max with integer gridlines.
       const rawMax = Math.max(1, ...vals.slice(0, n));
-      const step = niceStep(rawMax);
-      const yMax = Math.ceil(rawMax / step) * step;
+      let step = niceStep(rawMax);
+      // Every bar must end on a line of the scale so it can be read (the value is not printed on it). Labelled
+      // lines: the largest finer step (5, 2.5, 2, 1 x 10^k) holding every bar, at most 20. Failing that, faint
+      // unlabelled minor lines, at most 50. Only if neither works is each bar's value printed on it.
+      const onGrid = (s) => vals.slice(0, n).every(v => Math.abs(v / s - Math.round(v / s)) < 1e-6);
+      const finer = (from) => { const k0 = Math.floor(Math.log10(from) + 1e-9), out = [];
+        for (let k = k0; k >= k0 - 3; k--) [5, 2.5, 2, 1].forEach(m => { const f = m * Math.pow(10, k); if (f < from - 1e-12) out.push(f); });
+        return out; };
+      let minor = step;
+      if (!onGrid(step)) {
+        const f = finer(step).find(f => onGrid(f) && rawMax / f <= 20);
+        if (f) { step = f; minor = f; }
+        else minor = finer(step).find(f => onGrid(f) && step / f === Math.round(step / f) && rawMax / f <= 50) || 0;
+      }
+      const readable = minor > 0;
+      const yMax = Math.ceil(rawMax / step - 1e-9) * step;
       const toY = (v) => yBot - (v / yMax) * plotH;
 
       const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: 'max-width:660px;background:#0b0f14;border:1px solid #30363d;border-radius:10px;display:block' });
 
-      // gridlines + y labels
-      for (let v = 0; v <= yMax + 1e-9; v += step) {
-        const y = toY(v);
-        svg.appendChild(mk('line', { x1: x0, y1: y, x2: x1, y2: y, stroke: v === 0 ? '#8b949e' : '#21262d', 'stroke-width': v === 0 ? 2 : 1 }));
+      // minor lines (unlabelled), then labelled gridlines
+      if (readable && minor < step)
+        for (let i = 1; i * minor < yMax - 1e-9; i++) {
+          if (Math.abs((i * minor) / step - Math.round((i * minor) / step)) < 1e-6) continue;
+          const y = toY(i * minor);
+          svg.appendChild(mk('line', { x1: x0, y1: y, x2: x1, y2: y, stroke: '#1d242c', 'stroke-width': 1 }));
+        }
+      for (let i = 0; i * step <= yMax + 1e-9; i++) {
+        const v = Math.round(i * step * 1e6) / 1e6, y = toY(v);     // no 0.30000000000000004 labels
+        svg.appendChild(mk('line', { x1: x0, y1: y, x2: x1, y2: y, stroke: v === 0 ? '#8b949e' : '#30363d', 'stroke-width': v === 0 ? 2 : 1 }));
         svg.appendChild(mk('text', { x: x0 - 8, y: y + 4, fill: '#8b949e', 'font-size': 12, 'text-anchor': 'end' }, String(v)));
       }
       // y-axis line
@@ -43,8 +63,8 @@
         const v = vals[i];
         const y = toY(v);
         svg.appendChild(mk('rect', { x: cx - bw / 2, y: y, width: bw, height: Math.max(0, yBot - y), fill: palette[i % palette.length], rx: 3 }));
-        // value atop bar
-        svg.appendChild(mk('text', { x: cx, y: y - 6, fill: '#e6edf3', 'font-size': 13, 'font-weight': 700, 'text-anchor': 'middle' }, String(v)));
+        // value atop bar only when the scale cannot show it (or the question asks for it): otherwise it gives the answer away
+        if (spec.showValues || !readable) svg.appendChild(mk('text', { x: cx, y: y - 6, fill: '#e6edf3', 'font-size': 13, 'font-weight': 700, 'text-anchor': 'middle' }, String(v)));
         // category label
         svg.appendChild(mk('text', { x: cx, y: yBot + 20, fill: '#c9d1d9', 'font-size': 13, 'text-anchor': 'middle' }, String(cats[i])));
       }
