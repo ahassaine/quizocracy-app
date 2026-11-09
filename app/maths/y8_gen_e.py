@@ -279,14 +279,16 @@ def _(d=1):
     t = _pick_t([2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 3])
 
     if t == 10:                                       # identify the named relationship
-        desc, ans = pick([
+        rels = [
             ("add up to 90°, together making a right angle", "complementary"),
             ("add up to 180°, together making a straight line", "supplementary"),
             ("are the equal angles opposite each other where two straight lines "
              "cross", "vertically opposite"),
             ("sit next to each other, sharing a vertex and one arm", "adjacent"),
             ("are exactly equal in size (the same number of degrees)", "congruent"),
-        ])
+        ]
+        # easy: the two everyday pairs; stretch: the easily-confused ones
+        desc, ans = pick(_by_d(d, rels[:2], rels, rels[2:]))
         return _num_q("Two angles %s. Identify this relationship: are they "
                       "complementary, supplementary, vertically opposite, adjacent or "
                       "congruent? (type the name)" % desc, ans, "str", text=True,
@@ -336,10 +338,13 @@ def _(d=1):
                                 "180 − %d = %d°." % (a, 180 - a)])
 
     if t == 4:                                        # name the relationship (typed)
-        a = random.choice([20, 30, 40, 50, 60, 70, 80])
         pair, ans = pick([
             (90, "complementary"), (180, "supplementary"),
         ])
+        if d == 2:                                    # stretch: awkward, non-round sizes
+            a = pick([n for n in range(11, 80) if n % 5])
+        else:
+            a = random.choice([20, 30, 40, 50, 60, 70, 80])
         b = pair - a
         return _num_q("Angles of %d° and %d° are placed together. Because they add up "
                       "to %d°, what is the name for this pair? (type one word)"
@@ -368,7 +373,8 @@ def _(d=1):
 
     if t == 6:                                        # complementary word problem
         who = pick(NAMES)
-        a = random.randint(20, 70)
+        a = _by_d(d, pick([20, 30, 40, 50, 60, 70]), random.randint(20, 70),
+                  random.randint(3, 87))
         return _num_q("%s draws two angles that together make a right angle. "
                       "The first angle is %d°. How many degrees is the second?"
                       % (who, a), 90 - a, "int", unit="degrees",
@@ -376,7 +382,10 @@ def _(d=1):
                                 "90 − %d = %d°." % (a, 90 - a)])
 
     if t == 7:                                        # is it complementary or supplementary
-        a, b = pick([(35, 55), (40, 50), (110, 70), (130, 50), (25, 65), (140, 40)])
+        a, b = pick(_by_d(d, [(30, 60), (40, 50), (100, 80), (120, 60), (20, 70), (140, 40)],
+                          [(35, 55), (40, 50), (110, 70), (130, 50), (25, 65), (140, 40)],
+                          [(37, 53), (48, 42), (117, 63), (152, 28), (19, 71), (96, 84),
+                           (63, 27), (44, 136)]))
         ans = "complementary" if a + b == 90 else "supplementary"
         return _num_q("Angles of %d° and %d° are a pair. Are they complementary or "
                       "supplementary? (type one word)" % (a, b),
@@ -385,8 +394,22 @@ def _(d=1):
                                 "They add to %d°, so they are %s." % (a + b, ans)])
 
     if t == 8:                                        # around a point with vertical pair
-        a = random.randint(30, 70)
-        b = random.randint(30, 70)
+        if d == 2:                                    # stretch: four angles, three given
+            while True:
+                a, b, e = (random.randint(15, 60) for _ in range(3))
+                c = 180 - a - b - e
+                if c > 10:
+                    break
+            return _num_q("Four angles sit side by side on a straight line. Three of them "
+                          "are %d°, %d° and %d°. How many degrees is the fourth angle?"
+                          % (a, b, e), c, "int", unit="degrees",
+                          solution=["The four angles lie on a straight line and add to 180°.",
+                                    "180 − %d − %d − %d = %d°." % (a, b, e, c)])
+        if d == 0:                                    # easy: multiples of 10
+            a, b = random.randint(3, 7) * 10, random.randint(3, 7) * 10
+        else:
+            a = random.randint(30, 70)
+            b = random.randint(30, 70)
         # four angles round a point: a, b, a, b -> 2a+2b=360
         c = 180 - a - b
         while c <= 10:
@@ -401,6 +424,18 @@ def _(d=1):
     # supplementary: find x with a multiple
     x = random.randint(_by_d(d, 20, 15, 10), 55)
     k = pick([2, 3])
+    if d == 2:                                        # stretch: "c more than k times" (extra step)
+        k = pick([2, 3, 4])
+        while True:
+            x = random.randint(15, 50)
+            c = 180 - (k + 1) * x
+            if 5 <= c <= 60 and c % 5 == 0:
+                break
+        return _num_q("One angle is %d° more than %d times the size of another, and the two "
+                      "are supplementary. What is the size of the SMALLER angle, in degrees?"
+                      % (c, k), x, "int", unit="degrees",
+                      solution=["Let the smaller angle be x. Then x + (%dx + %d) = 180°." % (k, c),
+                                "%dx = %d, so x = %d°." % (k + 1, 180 - c, x)])
     # x and k*x supplementary: x + kx = 180 -> x=180/(k+1)
     x = 180 // (k + 1)
     while (k + 1) * x != 180:
@@ -517,6 +552,24 @@ _QUADS8 = [("square", "4 equal sides and 4 right angles"),
                              "different lengths and no right angles"),
            ("trapezium", "exactly one pair of parallel sides"),
            ("kite", "two pairs of adjacent equal sides, but not all four sides equal")]
+# stretch: identify the quadrilateral from its diagonals (a trapezium has no fixed rule)
+_QUADS8_DIAG = [("square", "diagonals that are equal in length and cross at right angles, "
+                           "each cutting the other in half"),
+                ("rectangle", "diagonals that are equal in length and cut each other in half, "
+                              "but do not cross at right angles"),
+                ("rhombus", "diagonals that cut each other in half at right angles, "
+                            "but are not equal in length"),
+                ("parallelogram", "diagonals that cut each other in half, but are not equal "
+                                  "and do not cross at right angles"),
+                ("kite", "diagonals that cross at right angles, where only one diagonal "
+                         "cuts the other in half")]
+
+
+def _quad_pool(d):
+    """Easy: the four most familiar descriptions; stretch: described by diagonals."""
+    return _by_d(d, [_QUADS8[i] for i in (0, 1, 4, 5)], _QUADS8, _QUADS8_DIAG)
+
+
 _TRIS8 = [("equilateral", "3 equal sides and 3 equal angles"),
           ("isosceles", "2 equal sides and 2 equal angles"),
           ("scalene", "all sides and all angles different"),
@@ -529,7 +582,7 @@ def _(d=1):
     t = _pick_t([3, 3, 2, 2, 2, 1, 1, 1, 1, 2, 2])
 
     if t == 9:                                         # classify a polygon by its sides
-        n = pick([5, 6, 7, 8, 9, 10, 12])
+        n = pick(_by_d(d, [5, 6, 8], [5, 6, 7, 8, 9, 10, 12], [7, 9, 10, 12]))
         nm = _NGON[n]
         return _num_q("Identify and classify this polygon by its number of sides. "
                       "A polygon has %d sides. What is its name? (type one word)" % n,
@@ -543,6 +596,16 @@ def _(d=1):
         reg = random.random() < 0.5
         desc = ("all its sides equal and all its angles equal" if reg
                 else "sides and angles that are not all equal")
+        if d == 2:                                    # stretch: judge from measurements
+            n = pick([5, 6, 8])
+            side = random.randint(3, 9)
+            ang = (n - 2) * 180 // n
+            desc = pick([
+                "%d sides, every one %d cm long, and every angle %d°" % (n, side, ang),
+            ] if reg else [
+                "%d sides, every one %d cm long, but angles that are not all equal" % (n, side),
+                "%d angles, every one %d°, but sides that are not all the same length" % (n, ang),
+            ])
         ans = "regular" if reg else "irregular"
         return _num_q("Classify this polygon. A polygon has %s. Is it a regular or an "
                       "irregular polygon? (type one word)" % desc, ans, "str", text=True,
@@ -561,8 +624,10 @@ def _(d=1):
                              "A polygon with %d sides is %s." % (sd, _a(nm))]}
 
     if t == 1:                                        # visual: count sides/vertices
-        nm, sd = pick([("triangle", 3), ("square", 4), ("pentagon", 5),
-                       ("hexagon", 6), ("octagon", 8)])
+        nm, sd = pick(_by_d(d, [("triangle", 3), ("square", 4), ("pentagon", 5)],
+                            [("triangle", 3), ("square", 4), ("pentagon", 5),
+                             ("hexagon", 6), ("octagon", 8)],
+                            [("pentagon", 5), ("hexagon", 6), ("octagon", 8)]))
         ask = pick(["sides", "vertices"])
         return {"prompt": "How many %s does this shape have?"
                           % ("sides" if ask == "sides" else "vertices (corners)"),
@@ -572,7 +637,21 @@ def _(d=1):
                              "This one has %d." % sd]}
 
     if t == 2:                                        # classify triangle by sides
-        nm, desc = pick(_TRIS8)
+        nm, desc = pick(_TRIS8 if d else _TRIS8[:3])
+        if d == 2 and nm != "right-angled":           # stretch: classify from side lengths
+            a = random.randint(4, 12)
+            if nm == "equilateral":
+                desc = "sides of %d cm, %d cm and %d cm" % (a, a, a)
+            elif nm == "isosceles":
+                b = pick([x for x in range(3, 2 * a) if x != a])
+                desc = "sides of %d cm, %d cm and %d cm" % tuple(random.sample([a, a, b], 3))
+            else:
+                while True:
+                    b, c = random.randint(3, 15), random.randint(3, 15)
+                    p, q, r = sorted([a, b, c])
+                    if len({a, b, c}) == 3 and p + q > r and p * p + q * q != r * r:
+                        break
+                desc = "sides of %d cm, %d cm and %d cm" % (a, b, c)
         return _num_q("A triangle has %s. What type of triangle is it? (type one word; "
                       "use 'right-angled' if needed)" % desc, nm, "str", text=True,
                       placeholder="equilateral / isosceles / scalene / right-angled",
@@ -580,7 +659,7 @@ def _(d=1):
                                 "This is %s triangle." % _a(nm)])
 
     if t == 3:                                        # classify quadrilateral by props
-        nm, desc = pick(_QUADS8)
+        nm, desc = pick(_quad_pool(d))
         return _num_q("A quadrilateral has %s. What is its name? (type one word)" % desc,
                       nm, "str", text=True,
                       placeholder="square / rectangle / rhombus / parallelogram / "
@@ -594,7 +673,24 @@ def _(d=1):
             ("acute", (60, 70, 50)), ("right-angled", (90, 55, 35)),
             ("obtuse", (110, 40, 30)), ("acute", (80, 55, 45)),
             ("obtuse", (125, 30, 25)), ("acute", (75, 65, 40)),
+        ] if d else [
+            ("acute", (60, 60, 60)), ("right-angled", (90, 45, 45)),
+            ("obtuse", (120, 30, 30)), ("right-angled", (90, 60, 30)),
+            ("obtuse", (100, 40, 40)), ("acute", (70, 60, 50)),
         ])
+        if d == 2:                                    # stretch: work out the third angle first
+            while True:
+                a, b = random.randint(15, 85), random.randint(15, 85)
+                c = 180 - a - b
+                if c > 0 and abs(c - 90) != 1 and a != b:
+                    break
+            kind = "acute" if max(a, b, c) < 90 else ("right-angled" if c == 90 else "obtuse")
+            return _num_q("Two angles of a triangle are %d° and %d°. Describe the triangle "
+                          "by its angles. (type one word)" % (a, b), kind, "str", text=True,
+                          placeholder="acute / right-angled / obtuse",
+                          solution=["The third angle is 180 − %d − %d = %d°." % (a, b, c),
+                                    "The largest angle is %d°, so the triangle is %s."
+                                    % (max(a, b, c), kind)])
         return _num_q("A triangle has angles of %d°, %d° and %d°. Describe the triangle "
                       "by its angles. (type one word)" % angs, kind, "str", text=True,
                       placeholder="acute / right-angled / obtuse",
@@ -611,6 +707,15 @@ def _(d=1):
             ("trapezium", "two pairs of parallel sides", "no"),
             ("parallelogram", "two pairs of parallel sides", "yes"),
             ("kite", "any parallel sides", "no"),
+        ] if d < 2 else [                             # stretch: diagonal and symmetry facts
+            ("rhombus", "diagonals that cross at right angles", "yes"),
+            ("rectangle", "diagonals of equal length", "yes"),
+            ("parallelogram", "diagonals of equal length", "no"),
+            ("kite", "diagonals that cross at right angles", "yes"),
+            ("rectangle", "diagonals that cross at right angles", "no"),
+            ("rhombus", "4 lines of symmetry", "no"),
+            ("parallelogram", "a line of symmetry", "no"),
+            ("square", "rotational symmetry of order 4", "yes"),
         ])
         return _num_q("Does %s always have %s? (type yes or no)" % (_a(nm), prop),
                       ans, "str", text=True, placeholder="yes / no",
@@ -618,24 +723,36 @@ def _(d=1):
                                 "The answer is %s." % ans])
 
     if t == 6:                                        # count parallel side pairs
-        nm, pairs = pick([("square", 2), ("rectangle", 2), ("rhombus", 2),
-                          ("parallelogram", 2), ("trapezium", 1), ("kite", 0)])
+        nm, pairs = pick(_by_d(d, [("square", 2), ("rectangle", 2), ("trapezium", 1)],
+                               [("square", 2), ("rectangle", 2), ("rhombus", 2),
+                                ("parallelogram", 2), ("trapezium", 1), ("kite", 0)],
+                               [("rhombus", 2), ("parallelogram", 2), ("kite", 0),
+                                ("regular hexagon", 3), ("regular octagon", 4),
+                                ("regular pentagon", 0)]))
         return _num_q("How many PAIRS of parallel sides does %s have?" % _a(nm),
                       pairs, "int",
                       solution=["A square, rectangle, rhombus and parallelogram have 2 "
-                                "pairs; a trapezium has 1; a kite has 0.",
+                                "pairs; a trapezium has 1; a kite has 0. A regular polygon "
+                                "with an even number of sides has a parallel pair for every "
+                                "2 sides; one with an odd number has none.",
                                 "%s has %d." % (_a(nm).capitalize(), pairs)])
 
     if t == 7:                                        # right angles in a quad
-        nm, ra = pick([("square", 4), ("rectangle", 4), ("rhombus", 0),
-                       ("parallelogram", 0), ("trapezium", 0), ("kite", 0)])
+        nm, ra = pick(_by_d(d, [("square", 4), ("rectangle", 4), ("rhombus", 0),
+                                ("kite", 0)],
+                            [("square", 4), ("rectangle", 4), ("rhombus", 0),
+                             ("parallelogram", 0), ("trapezium", 0), ("kite", 0)],
+                            [("parallelogram", 0), ("trapezium", 0), ("right-angled trapezium", 2),
+                             ("right-angled triangle", 1), ("regular hexagon", 0),
+                             ("rectangle", 4)]))
         return _num_q("How many right angles does %s always have?" % _a(nm), ra, "int",
                       solution=["Only squares and rectangles are guaranteed 4 right "
-                                "angles.",
+                                "angles; a right-angled trapezium has 2 and a right-angled "
+                                "triangle has 1.",
                                 "%s has %d." % (_a(nm).capitalize(), ra)])
 
     # which shape am I (typed)
-    nm, desc = pick(_QUADS8)
+    nm, desc = pick(_quad_pool(d))
     return _num_q("I am a quadrilateral with %s. What am I? (type one word)" % desc,
                   nm, "str", text=True,
                   placeholder="square / rectangle / rhombus / parallelogram / "
@@ -682,9 +799,14 @@ def _(d=1):
                                 "180 − 2 × %d = %d°." % (base, apex)])
 
     if t == 3:                                        # fourth angle of a quadrilateral
-        a = random.randint(50, 120)
-        b = random.randint(50, 120)
-        c = random.randint(50, 120)
+        if d == 0:                                    # easy: multiples of 10
+            a, b, c = (random.randint(7, 11) * 10 for _ in range(3))
+        elif d == 2:                                  # stretch: awkward sizes, wider spread
+            a, b, c = (random.randint(35, 165) for _ in range(3))
+        else:
+            a = random.randint(50, 120)
+            b = random.randint(50, 120)
+            c = random.randint(50, 120)
         while a + b + c >= 350:
             a, b, c = (random.randint(50, 110), random.randint(50, 110),
                        random.randint(50, 110))
@@ -717,7 +839,8 @@ def _(d=1):
                              "180 − 90 − %d = %d°." % (a, other)]}
 
     if t == 6:                                        # interior from exterior (triangle)
-        ext = random.randint(100, 160)
+        ext = _by_d(d, random.randint(10, 16) * 10, random.randint(100, 160),
+                    random.randint(91, 175))
         interior = 180 - ext
         return _num_q("An exterior angle of a triangle is %d°. It sits on a straight "
                       "line with the interior angle at that vertex. How many degrees is "
@@ -726,7 +849,9 @@ def _(d=1):
                                 "180 − %d = %d°." % (ext, interior)])
 
     if t == 7:                                        # ratio angles of a triangle
-        r = pick([(1, 2, 3), (2, 3, 4), (1, 1, 2), (3, 4, 5), (2, 2, 5)])
+        r = pick(_by_d(d, [(1, 2, 3), (1, 1, 2), (1, 1, 1)],
+                       [(1, 2, 3), (2, 3, 4), (1, 1, 2), (3, 4, 5), (2, 2, 5)],
+                       [(2, 3, 4), (3, 4, 5), (1, 3, 5), (4, 5, 9), (2, 3, 7), (5, 6, 7)]))
         unit = 180 // sum(r)
         while 180 % sum(r):
             r = pick([(1, 2, 3), (2, 3, 4), (1, 1, 2), (1, 3, 5)])
@@ -743,8 +868,22 @@ def _(d=1):
 
     # quadrilateral with a right angle marked
     ra = 90
-    a = random.randint(70, 110)
-    b = random.randint(70, 110)
+    if d == 2:                                        # stretch: the last two angles are equal
+        while True:
+            a = random.randint(60, 170)
+            if (270 - a) % 2 == 0:
+                break
+        e = (270 - a) // 2
+        return _num_q("A quadrilateral has a right angle and an angle of %d°. The other two "
+                      "angles are equal. How many degrees is each of them?" % a,
+                      e, "int", unit="degrees",
+                      solution=["The four angles add to 360°: 360 − 90 − %d = %d°." % (a, 270 - a),
+                                "Shared equally: %d ÷ 2 = %d°." % (270 - a, e)])
+    if d == 0:                                        # easy: multiples of 10
+        a, b = random.randint(7, 11) * 10, random.randint(7, 11) * 10
+    else:
+        a = random.randint(70, 110)
+        b = random.randint(70, 110)
     while ra + a + b >= 350:
         a, b = random.randint(70, 100), random.randint(70, 100)
     e = 360 - ra - a - b
@@ -985,6 +1124,16 @@ _NETS8 = [("cube", "cube", 6), ("cuboid", "cuboid", 6),
           ("square_pyramid", "square-based pyramid", 5),
           ("triangular_prism", "triangular prism", 5),
           ("cylinder", "cylinder", 3), ("cone", "cone", 2)]
+# stretch: less familiar prisms and pyramids (name, faces, edges, vertices)
+_SOLIDS8_HARD = [("triangular prism", 5, 9, 6), ("square-based pyramid", 5, 8, 5),
+                 ("pentagonal prism", 7, 15, 10), ("hexagonal prism", 8, 18, 12),
+                 ("pentagonal pyramid", 6, 10, 6), ("hexagonal pyramid", 7, 12, 7),
+                 ("octagonal prism", 10, 24, 16)]
+
+
+def _nets_for(d):
+    """Easy: cube and cuboid nets (plus the cylinder); stretch: pyramids, prisms, cones."""
+    return _by_d(d, [_NETS8[0], _NETS8[1], _NETS8[4]], _NETS8, _NETS8[2:4] + _NETS8[5:])
 
 
 @skill("Y8.8.h", "3-D solids: nets, plans and elevations", S8)
@@ -993,21 +1142,32 @@ def _(d=1):
     t = _pick_t([3, 3, 2, 2, 2, 2, 1, 1, 2, 2])
 
     if t == 8:                                         # base of a 3-D figure
-        solid, base = pick([
+        solid, base = pick(_by_d(d, [
+            ("a square-based pyramid standing on its base", "square"),
+            ("a cylinder standing on one of its flat ends", "circle"),
+            ("a cuboid resting on a face", "rectangle"),
+        ], [
             ("a square-based pyramid standing on its base", "square"),
             ("a triangular prism resting on a triangular end", "triangle"),
             ("a cylinder standing on one of its flat ends", "circle"),
             ("a cone standing on its base", "circle"),
             ("a cuboid resting on a face", "rectangle"),
-        ])
+        ], [
+            ("a triangular prism lying on one of its rectangular faces", "rectangle"),
+            ("a hexagonal prism standing on one of its hexagonal ends", "hexagon"),
+            ("a pentagonal pyramid standing on its base", "pentagon"),
+            ("a hexagonal pyramid standing on its base", "hexagon"),
+            ("a pentagonal prism lying on one of its rectangular faces", "rectangle"),
+        ]))
         return _num_q("Bases of three-dimensional figures: %s. Which 2-D shape is its "
                       "base? (type the name)" % solid, base, "str", text=True,
-                      placeholder="square / rectangle / triangle / circle",
+                      placeholder=("square / rectangle / triangle / circle" if d < 2
+                                   else "e.g. rectangle / pentagon / hexagon"),
                       solution=["The base is the flat 2-D face the solid stands on.",
                                 "The base is %s." % _a(base)])
 
     if t == 9:                                         # net folds into which solid (visual)
-        key, nm, faces = pick(_NETS8)
+        key, nm, faces = pick(_nets_for(d))
         return {"prompt": "Nets of three-dimensional figures: this net is folded up. "
                           "Which 3-D solid does the net fold into? (type the name)",
                 "component": "net", "spec": {"solid": key},
@@ -1025,7 +1185,7 @@ def _(d=1):
                              "The net folds into %s." % _a(nm)]}
 
     if t == 1:                                        # net -> count faces (visual)
-        key, nm, faces = pick(_NETS8[:4])
+        key, nm, faces = pick(_by_d(d, _NETS8[:2], _NETS8[:4], _NETS8[2:4]))
         return {"prompt": "This net folds into a 3-D solid. How many flat faces will the "
                           "finished solid have?",
                 "component": "net", "spec": {"solid": key},
@@ -1034,7 +1194,9 @@ def _(d=1):
                              "%s has %s." % (_a(nm).capitalize(), _pl(faces, "face"))]}
 
     if t == 2:                                        # name a drawn solid (visual)
-        nm = pick(["cube", "cuboid", "triangular prism", "square-based pyramid"])
+        nm = pick(_by_d(d, ["cube", "cuboid"],
+                        ["cube", "cuboid", "triangular prism", "square-based pyramid"],
+                        ["triangular prism", "square-based pyramid"]))
         return {"prompt": "What is the name of this 3-D solid? (type the name)",
                 "component": "shape", "spec": {"kind": "3d", "name": nm, "ask": "name"},
                 "answer": nm, "answer_type": "str",
@@ -1042,7 +1204,7 @@ def _(d=1):
                              "This solid is %s." % _a(nm)]}
 
     if t == 3:                                        # plan view
-        solid, view, ans = pick([
+        views = [
             ("a cylinder standing on its circular base", "from directly above (plan view)",
              "circle"),
             ("a cylinder standing on its circular base", "from the front", "rectangle"),
@@ -1055,16 +1217,32 @@ def _(d=1):
              "rectangle"),
             ("a triangular prism resting on a rectangular face with its triangular ends "
              "at the front", "from the front", "triangle"),
-        ])
+        ]
+        hard = [                                      # stretch: the views pupils get wrong
+            ("a triangular prism resting on a rectangular face with its triangular ends "
+             "at the front", "from directly above (plan view)", "rectangle"),
+            ("a triangular prism resting on a rectangular face with its triangular ends "
+             "at the front", "from the side", "rectangle"),
+            ("a hexagonal prism standing on a hexagonal end", "from directly above (plan view)",
+             "hexagon"),
+            ("a cone lying on its side, with its tip pointing to the right",
+             "from directly above (plan view)", "triangle"),
+            ("a cylinder lying on its side, with its flat ends at the left and right",
+             "from the front", "rectangle"),
+            ("a cylinder lying on its side, with its flat ends at the left and right",
+             "from the side (looking at one end)", "circle"),
+        ]
+        solid, view, ans = pick(_by_d(d, views[:3] + views[6:7], views, hard))
         return _num_q("A 3-D solid is viewed from different directions. Looking at %s "
                       "%s, what 2-D shape is seen? (type the name)" % (solid, view),
                       ans, "str", text=True,
-                      placeholder="square / rectangle / triangle / circle",
+                      placeholder=("square / rectangle / triangle / circle" if d < 2
+                                   else "e.g. rectangle / triangle / circle / hexagon"),
                       solution=["Picture only the outline seen from that direction.",
                                 "The view is %s." % _a(ans)])
 
     if t == 4:                                        # count faces/edges/vertices
-        nm, f, e, v = pick(_SOLIDS8[:4])
+        nm, f, e, v = pick(_by_d(d, _SOLIDS8[:2], _SOLIDS8[:4], _SOLIDS8_HARD[2:]))
         prop, val = pick([("faces", f), ("edges", e), ("vertices", v)])
         return _num_q("How many %s does %s have?" % (prop, _a(nm)), val, "int",
                       solution=["Count the %s of %s carefully." % (prop, _a(nm)),
@@ -1072,6 +1250,18 @@ def _(d=1):
 
     if t == 5:                                        # name solid from a description
         nm, desc = pick([
+            ("cube", "6 square faces, 12 edges and 8 vertices"),
+            ("cylinder", "2 flat circular faces and 1 curved surface"),
+            ("sphere", "one curved surface and no edges or vertices"),
+        ] if d == 0 else [
+            ("triangular prism", "5 faces, 9 edges and 6 vertices, with two of the faces "
+             "triangles"),
+            ("square-based pyramid", "5 vertices and 8 edges, with four triangular faces"),
+            ("pentagonal prism", "2 pentagonal faces and 5 rectangular faces"),
+            ("hexagonal pyramid", "1 hexagonal face and 6 triangular faces meeting at a point"),
+            ("cone", "1 flat face, 1 curved surface and exactly 1 vertex"),
+            ("hexagonal prism", "8 faces, 18 edges and 12 vertices"),
+        ] if d == 2 else [
             ("cube", "6 square faces, 12 edges and 8 vertices"),
             ("cylinder", "2 flat circular faces and 1 curved surface"),
             ("triangular prism", "2 triangular faces and 3 rectangular faces"),
@@ -1086,9 +1276,11 @@ def _(d=1):
                                 "The solid is %s." % _a(nm)])
 
     if t == 6:                                        # Euler F + V - E = 2
-        nm, f, e, v = pick([("cube", 6, 12, 8), ("cuboid", 6, 12, 8),
-                            ("triangular prism", 5, 9, 6),
-                            ("square-based pyramid", 5, 8, 5)])
+        nm, f, e, v = pick(_by_d(d, [("cube", 6, 12, 8), ("cuboid", 6, 12, 8)],
+                                 [("cube", 6, 12, 8), ("cuboid", 6, 12, 8),
+                                  ("triangular prism", 5, 9, 6),
+                                  ("square-based pyramid", 5, 8, 5)],
+                                 _SOLIDS8_HARD[2:]))
         ask = pick(["faces", "edges", "vertices"])
         if ask == "faces":
             q, ans = ("It has %d edges and %d vertices. Using Euler's rule "
@@ -1105,7 +1297,7 @@ def _(d=1):
                                 "%s has %s." % (_a(nm).capitalize(), _plp(ans, ask))])
 
     # net -> name, second framing (visual)
-    key, nm, faces = pick(_NETS8)
+    key, nm, faces = pick(_nets_for(d))
     return {"prompt": "A flat net is shown. When it is folded up, which 3-D solid is "
                       "made? (type the name)",
             "component": "net", "spec": {"solid": key},
@@ -1331,14 +1523,14 @@ def _(d=1):
                                 "%d × %d = %d cm." % (k, L, k * L)])
 
     if t == 1:                                        # find scale factor from lengths
-        L = random.randint(2, 9)
+        L = random.randint(2, _by_d(d, 5, 9, 15))
         return _num_q("After an enlargement, a side that was %d cm is now %d cm. "
                       "What is the scale factor?" % (L, k * L), k, "int",
                       solution=["Scale factor = new length ÷ old length.",
                                 "%d ÷ %d = %d." % (k * L, L, k)])
 
     if t == 2:                                        # find original from image
-        L = random.randint(2, 9)
+        L = random.randint(2, _by_d(d, 5, 9, 15))
         return _num_q("A shape has been enlarged by scale factor %d. A side is now %d cm. "
                       "How long was the original side, in cm?" % (k, k * L), L, "int",
                       unit="cm",
@@ -1346,7 +1538,7 @@ def _(d=1):
                                 "%d ÷ %d = %d cm." % (k * L, k, L)])
 
     if t == 3:                                        # perimeter scales by k
-        P = random.randint(6, 20)
+        P = random.randint(6, _by_d(d, 12, 20, 40))
         return _num_q("A shape with perimeter %d cm is enlarged by scale factor %d. "
                       "What is the perimeter of the enlarged shape, in cm?" % (P, k),
                       k * P, "int", unit="cm",
@@ -1355,7 +1547,7 @@ def _(d=1):
                                 "%d × %d = %d cm." % (k, P, k * P)])
 
     if t == 4:                                        # area scales by k^2
-        A = random.randint(3, 12)
+        A = random.randint(3, _by_d(d, 8, 12, 25))
         return _num_q("A shape has area %d cm². It is enlarged by scale factor %d. "
                       "The area is multiplied by the scale factor SQUARED. "
                       "What is the new area, in cm²?" % (A, k),
@@ -1379,7 +1571,7 @@ def _(d=1):
                              "The image of P is %s." % _coord(ix, iy)]}
 
     if t == 6:                                        # scale factor from areas
-        L = random.randint(2, 6)
+        L = random.randint(2, _by_d(d, 4, 6, 9))
         oldA = L * L
         newA = (k * L) * (k * L)
         return _num_q("A square of area %d cm² is enlarged to a square of area %d cm². "
@@ -1390,7 +1582,7 @@ def _(d=1):
 
     # word problem: model / map scale
     who = pick(NAMES)
-    L = random.randint(3, 9)
+    L = random.randint(3, _by_d(d, 6, 9, 18))
     return _num_q("%s enlarges a photo by scale factor %d. A tree in the photo is %d cm "
                   "tall. How tall is the tree in the enlarged photo, in cm?"
                   % (who, k, L), k * L, "int", unit="cm",
@@ -1405,30 +1597,36 @@ def _(d=1):
     k = pick(_by_d(d, [2, 3], [2, 3, 4], [2, 3, 4, 5]))
 
     if t == 8:                                         # congruence statement: corresponding part
-        corr = {"A": "D", "B": "E", "C": "F"}
+        img = "DEF"
+        if d == 2:                                    # stretch: the second triangle is lettered out of order
+            img = pick(["EFD", "FDE", "DFE", "EDF", "FED"])
+        corr = dict(zip("ABC", img))
         v = pick(["A", "B", "C"])
-        return _num_q("Triangle ABC is congruent to triangle DEF, written ABC ≅ DEF. "
+        return _num_q("Triangle ABC is congruent to triangle %s, written ABC ≅ %s. "
                       "The order of the letters shows the congruence correspondence. "
-                      "Which vertex of triangle DEF corresponds to vertex %s of triangle "
-                      "ABC? (type one letter)" % v, corr[v], "str", text=True,
+                      "Which vertex of triangle %s corresponds to vertex %s of triangle "
+                      "ABC? (type one letter)" % (img, img, img, v), corr[v], "str", text=True,
                       placeholder="D / E / F",
-                      solution=["In ABC ≅ DEF, A↔D, B↔E and C↔F.",
+                      solution=["In ABC ≅ %s, A↔%s, B↔%s and C↔%s." % ((img,) + tuple(img)),
                                 "The corresponding vertex is %s." % corr[v]])
 
     if t == 9:                                         # similarity statement: corresponding part
-        corr = {"A": "P", "B": "Q", "C": "R"}
+        img = "PQR"
+        if d == 2:                                    # stretch: the second triangle is lettered out of order
+            img = pick(["QRP", "RPQ", "PRQ", "QPR", "RQP"])
+        corr = dict(zip("ABC", img))
         v = pick(["A", "B", "C"])
-        return _num_q("Triangle ABC is similar to triangle PQR, written ABC ~ PQR. "
+        return _num_q("Triangle ABC is similar to triangle %s, written ABC ~ %s. "
                       "The order of the letters shows the similarity correspondence. "
-                      "Which vertex of triangle PQR corresponds to vertex %s of triangle "
-                      "ABC? (type one letter)" % v, corr[v], "str", text=True,
+                      "Which vertex of triangle %s corresponds to vertex %s of triangle "
+                      "ABC? (type one letter)" % (img, img, img, v), corr[v], "str", text=True,
                       placeholder="P / Q / R",
-                      solution=["In ABC ~ PQR, A↔P, B↔Q and C↔R.",
+                      solution=["In ABC ~ %s, A↔%s, B↔%s and C↔%s." % ((img,) + tuple(img)),
                                 "The corresponding vertex is %s." % corr[v]])
 
     if t == 0:                                        # similar: missing length by ratio
-        a = random.randint(2, 6)
-        b = random.randint(a + 1, a + 6)
+        a = random.randint(2, _by_d(d, 5, 6, 9))
+        b = random.randint(a + 1, a + _by_d(d, 4, 6, 9))
         A = k * a
         B = k * b
         return _num_q("Two triangles are similar. In the small triangle a side of %d cm "
@@ -1440,7 +1638,7 @@ def _(d=1):
                                 "%d × %d = %d cm." % (b, k, B)])
 
     if t == 1:                                        # similar: find scale factor
-        a = random.randint(2, 8)
+        a = random.randint(2, _by_d(d, 5, 8, 12))
         return _num_q("Two similar shapes have matching sides of %d cm and %d cm. "
                       "What is the scale factor from the smaller to the larger?"
                       % (a, k * a), k, "int",
@@ -1448,7 +1646,9 @@ def _(d=1):
                                 "%d ÷ %d = %d." % (k * a, a, k)])
 
     if t == 2:                                        # similar: angle preserved (visual)
-        ang = random.randint(30, 110)
+        ang = random.randint(_by_d(d, 3, 30, 15), _by_d(d, 9, 110, 165))
+        if d == 0:                                    # easy: a multiple of 10
+            ang *= 10
         return {"prompt": "Two triangles are similar. An angle in the first triangle is "
                           "shown, %d°. How many degrees is the matching angle in the "
                           "second triangle?" % ang,
@@ -1459,6 +1659,21 @@ def _(d=1):
 
     if t == 3:                                        # congruent: equal side
         s = random.randint(3, 12)
+        if d == 2:                                    # stretch: use the letter order to match the side
+            sides = random.sample(range(3, 16), 3)
+            while 2 * max(sides) >= sum(sides):       # must be a real triangle
+                sides = random.sample(range(3, 16), 3)
+            img = pick(["EFD", "FDE", "DFE", "EDF", "FED"])
+            pairs = [("AB", 0), ("BC", 1), ("CA", 2)]
+            nm, i = pick(pairs)
+            corr = dict(zip("ABC", img))
+            target = corr[nm[0]] + corr[nm[1]]
+            return _num_q("Triangle ABC ≅ triangle %s. AB = %d cm, BC = %d cm and CA = %d cm. "
+                          "How long is %s, in cm?" % (img, sides[0], sides[1], sides[2], target),
+                          sides[i], "int", unit="cm",
+                          solution=["A↔%s, B↔%s, C↔%s, so %s matches %s." % (img[0], img[1], img[2],
+                                                                              target, nm),
+                                    "%s = %s = %d cm." % (target, nm, sides[i])])
         return _num_q("Two triangles are congruent (identical in size and shape). "
                       "A side of the first is %d cm. How long is the matching side of "
                       "the second, in cm?" % s, s, "int", unit="cm",
@@ -1469,10 +1684,14 @@ def _(d=1):
         same = random.random() < 0.5
         a1 = (random.randint(3, 8), random.randint(3, 8))
         if same:
-            a2 = a1
+            # stretch: rectangle 2 is the same one turned round
+            a2 = (a1[1], a1[0]) if d == 2 else a1
             ans = "yes"
         else:
-            a2 = (a1[0] + random.randint(1, 3), a1[1])
+            # easy: an obvious difference; stretch: turned round AND each side 1 cm longer
+            a2 = _by_d(d, (a1[0] + random.randint(3, 5), a1[1]),
+                       (a1[0] + random.randint(1, 3), a1[1]),
+                       (a1[1] + 1, a1[0] + 1))
             ans = "no"
         return _num_q("Rectangle 1 measures %d cm by %d cm. Rectangle 2 measures %d cm "
                       "by %d cm. Are the two rectangles congruent? (type yes or no)"
@@ -1486,6 +1705,20 @@ def _(d=1):
             ("the same shape but different sizes", "similar"),
             ("exactly the same shape AND the same size", "congruent"),
         ])
+        if d == 2:                                    # stretch: decide from the measurements
+            s = sorted(random.sample(range(2, 10), 3))
+            while s[0] + s[1] <= s[2]:                # must be a real triangle
+                s = sorted(random.sample(range(2, 10), 3))
+            m = 1 if ans == "congruent" else pick([2, 3])
+            t2 = [x * m for x in s]
+            random.shuffle(t2)
+            return _num_q("One triangle has sides %d cm, %d cm and %d cm. Another has sides %d cm, "
+                          "%d cm and %d cm. Are they congruent or only similar? (type one word)"
+                          % tuple(s + t2), ans, "str", text=True,
+                          placeholder="similar / congruent",
+                          solution=["Sort the second triangle's sides: %s." % ", ".join(str(x) for x in sorted(t2)),
+                                    ("They match the first exactly, so congruent." if m == 1 else
+                                     "Each is %d times the first, so similar (not congruent)." % m)])
         return _num_q("Two figures that are %s are said to be... (type one word)" % which,
                       ans, "str", text=True, placeholder="similar / congruent",
                       solution=["Same shape different size = similar; same shape same "
@@ -1493,7 +1726,7 @@ def _(d=1):
                                 "The answer is %s." % ans])
 
     if t == 6:                                        # similar: missing length dividing
-        b = random.randint(2, 7)
+        b = random.randint(2, _by_d(d, 5, 7, 15))
         B = k * b
         A_side = k * random.randint(2, 6)
         a_side = A_side // k
@@ -1506,6 +1739,10 @@ def _(d=1):
     # similar triangles find a third-angle then match
     a = random.randint(40, 80)
     b = random.randint(40, 80)
+    if d == 0:                                        # easy: multiples of 10
+        a, b = a // 10 * 10, b // 10 * 10
+    elif d == 2:                                      # stretch: an obtuse angle may be given
+        a, b = random.randint(15, 125), random.randint(15, 60)
     while a + b >= 170:
         a, b = random.randint(40, 70), random.randint(40, 70)
     c = 180 - a - b
@@ -1523,7 +1760,8 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     t = _pick_t([2, 2, 2, 2, 2, 2, 1, 1, 4])
-    a, b, c = pick(_TRIPLES if d else _TRIPLES[:6])
+    # easy: the small triples; stretch: the larger, less familiar ones
+    a, b, c = pick(_by_d(d, _TRIPLES[:6], _TRIPLES, _TRIPLES[4:]))
 
     if t == 8:                                        # hypotenuse from a table (visual)
         return _measure_table("The table gives the two shorter sides of a right-angled "
@@ -1604,9 +1842,10 @@ def _(d=1):
     if t == 7:                                        # distance between two points
         px, py = random.randint(-4, 0), random.randint(-4, 0)
         qx, qy = px + a, py + b
+        hint = (" (The horizontal gap is %d and the vertical gap is %d.)" % (a, b)
+                if d < 2 else "")                     # stretch: find the gaps yourself
         return _num_q("On a coordinate grid, work out the distance between the points "
-                      "%s and %s, in units. (The horizontal gap is %d and the vertical "
-                      "gap is %d.)" % (_coord(px, py), _coord(qx, qy), a, b),
+                      "%s and %s, in units.%s" % (_coord(px, py), _coord(qx, qy), hint),
                       c, "int", unit="units",
                       solution=["Distance² = %d² + %d² = %d." % (a, b, c * c),
                                 "Distance = √%d = %d units." % (c * c, c)])
@@ -1733,6 +1972,11 @@ def _(d=1):
     t = _pick_t([3, 3, 2, 2, 2, 2, 1, 1])
 
     if t == 7:                                        # bisecting a straight angle
+        if d == 2:                                    # stretch: bisect again
+            return _num_q("A straight angle (180°) is bisected, and then one of the two parts "
+                          "is bisected again. How many degrees is each of the smallest "
+                          "angles?", 45, "int", unit="degrees",
+                          solution=["180 ÷ 2 = 90°.", "90 ÷ 2 = 45°."])
         return _num_q("A perpendicular bisector construction is used to split a straight "
                       "angle (180°) into two equal parts. How many degrees is each part?",
                       90, "int", unit="degrees",
@@ -1744,6 +1988,14 @@ def _(d=1):
             ("cuts a line segment exactly in half and crosses it at 90°",
              "perpendicular bisector"),
             ("cuts an angle exactly in half into two equal parts", "angle bisector"),
+        ] if d < 2 else [                             # stretch: described as a locus
+            ("is made of every point the same distance from two points A and B",
+             "perpendicular bisector"),
+            ("is made of every point the same distance from two lines that meet at a point",
+             "angle bisector"),
+            ("passes through the midpoint of AB, with every point on it as far from A as "
+             "from B", "perpendicular bisector"),
+            ("splits a 70° angle into two angles of 35°", "angle bisector"),
         ])
         return _num_q("Which standard construction produces a line that %s? "
                       "(type two words)" % desc, ans, "str", text=True,
@@ -1754,6 +2006,14 @@ def _(d=1):
                                 "The answer is the %s." % ans])
 
     if t == 1:                                        # what tool
+        if d == 2:                                    # stretch: the instrument NOT allowed
+            return _num_q("In a ruler-and-compass construction of an angle bisector, which "
+                          "instrument must NOT be used to measure the angle? (type one word)",
+                          "protractor", "str", text=True,
+                          placeholder="compasses / ruler / protractor",
+                          solution=["Constructions use only compasses and a straight edge.",
+                                    "Measuring with a protractor is not allowed, so the "
+                                    "answer is protractor."])
         return _num_q("Which drawing instrument is used to draw arcs of equal radius "
                       "when doing a construction? (type one word)", "compasses", "str",
                       text=True, placeholder="compasses / ruler / protractor",
@@ -1762,7 +2022,15 @@ def _(d=1):
                                 "The answer is compasses."])
 
     if t == 2:                                        # angle bisector halves the angle
-        ang = pick([40, 60, 80, 90, 100, 120, 140])
+        if d == 2:                                    # stretch: bisect twice
+            ang = pick(range(44, 177, 4))
+            return _num_q("An angle of %d° is bisected, and then one of the two halves is "
+                          "bisected again. How many degrees is each of the smallest angles?"
+                          % ang, ang // 4, "int", unit="degrees",
+                          solution=["Each bisection halves the angle.",
+                                    "%d ÷ 2 = %d°, then %d ÷ 2 = %d°."
+                                    % (ang, ang // 2, ang // 2, ang // 4)])
+        ang = pick([40, 60, 80, 90, 100, 120, 140] if d else [40, 60, 80, 100])
         return _num_q("An angle of %d° is bisected by a ruler-and-compass construction. "
                       "How many degrees is each of the two equal angles?" % ang,
                       ang // 2, "int", unit="degrees",
@@ -1770,6 +2038,12 @@ def _(d=1):
                                 "%d ÷ 2 = %d°." % (ang, ang // 2)])
 
     if t == 3:                                        # perpendicular bisector makes 90
+        if d == 2:                                    # stretch: combine two constructions
+            return _num_q("The perpendicular bisector of AB is drawn. Then one of the right "
+                          "angles it makes with AB is bisected. What angle does this new "
+                          "line make with AB, in degrees?", 45, "int", unit="degrees",
+                          solution=["The perpendicular bisector meets AB at 90°.",
+                                    "Bisecting 90° gives 45°."])
         return _num_q("A perpendicular bisector meets the original line segment. "
                       "At how many degrees does it cross the segment?", 90, "int",
                       unit="degrees",
@@ -1777,7 +2051,13 @@ def _(d=1):
                                 "The answer is 90°."])
 
     if t == 4:                                        # bisector of a segment - equal halves
-        L = pick([6, 8, 10, 12, 14, 16])
+        if d == 2:                                    # stretch: the inverse — whole from a half
+            h = random.randint(4, 19)
+            return _num_q("The perpendicular bisector of AB crosses it at M. AM is %d cm. "
+                          "How long is AB, in cm?" % h, 2 * h, "int", unit="cm",
+                          solution=["M is the midpoint, so AB = 2 × AM.",
+                                    "2 × %d = %d cm." % (h, 2 * h)])
+        L = pick([6, 8, 10, 12, 14, 16] if d else [6, 8, 10, 12])
         return _num_q("A line segment of length %d cm is cut by its perpendicular "
                       "bisector. How long is each of the two equal parts, in cm?" % L,
                       L // 2, "int", unit="cm",
@@ -1785,6 +2065,18 @@ def _(d=1):
                                 "%d ÷ 2 = %d cm." % (L, L // 2)])
 
     if t == 5:                                        # construct 60 by equilateral
+        if d == 2:                                    # stretch: build a new angle from 60° and 90°
+            how, ang = pick([("bisecting a constructed 60° angle", 30),
+                             ("putting a constructed 60° angle next to a constructed 90° "
+                              "angle", 150),
+                             ("putting two constructed 60° angles side by side", 120),
+                             ("bisecting a constructed 60° angle, then bisecting one half "
+                              "again", 15)])
+            return _num_q("An angle is made by %s. How many degrees is it?" % how,
+                          ang, "int", unit="degrees",
+                          solution=["An equilateral triangle gives 60°; a perpendicular gives "
+                                    "90°; bisecting halves an angle.",
+                                    "The angle is %d°." % ang])
         return _num_q("Constructing an equilateral triangle with compasses creates an "
                       "angle you can copy. How many degrees is each angle of an "
                       "equilateral triangle?", 60, "int", unit="degrees",
@@ -1798,6 +2090,14 @@ def _(d=1):
         ("An angle bisector is drawn using a protractor only", "false"),
         ("Construction arcs should all have the same compass radius unless told "
          "otherwise", "true"),
+    ] if d < 2 else [                                 # stretch: claims that need reasoning
+        ("Every point on the perpendicular bisector of AB is the same distance from A and B",
+         "true"),
+        ("A perpendicular bisector must pass through one end of the segment", "false"),
+        ("You can construct a 45° angle by bisecting a 90° angle", "true"),
+        ("You can construct a 30° angle by bisecting a 90° angle", "false"),
+        ("Every point on an angle bisector is the same distance from both arms of the angle",
+         "true"),
     ])
     return _num_q("True or false: %s. (type true or false)" % claim, tf, "str",
                   text=True, placeholder="true / false",
@@ -1813,16 +2113,19 @@ def _(d=1):
                 ("north-east", 45), ("south-east", 135), ("south-west", 225),
                 ("north-west", 315)]
 
+    # easy: the four main points; stretch: the in-between points
+    _CPOOL = _by_d(d, _COMPASS[:4], _COMPASS, _COMPASS[4:])
+
     if t == 0:                                        # compass direction -> bearing
-        name, val = pick(_COMPASS)
+        name, val = pick(_CPOOL)
         return _num_q("Bearings are measured clockwise from north and written with three "
-                      "figures. What is the three-figure bearing of due %s? "
-                      "(write it as three figures, e.g. 072)" % name, val, "int",
+                      "figures. What is the three-figure bearing of %s? "
+                      "(write it as three figures, e.g. 072)" % (("due " + name) if "-" not in name else name), val, "int",
                       solution=["North is 000°, and bearings increase clockwise.",
-                                "Due %s is %s°." % (name, _bear(val))])
+                                "%s is %s°." % ((("Due " + name) if "-" not in name else name.capitalize()), _bear(val))])
 
     if t == 1:                                        # bearing -> compass direction
-        name, val = pick(_COMPASS)
+        name, val = pick(_CPOOL)
         return _num_q("A ship sails on a bearing of %s°. Which compass direction is "
                       "that? (type the direction, e.g. north-east)" % _bear(val),
                       name, "str", text=True,
@@ -1841,7 +2144,8 @@ def _(d=1):
                                 "As a three-figure bearing that is %s°." % _bear(back)])
 
     if t == 3:                                        # back bearing (subtract 180)
-        b = random.randint(190, 350)
+        b = _by_d(d, random.randint(19, 35) * 10, random.randint(190, 350),
+                  random.randint(181, 359))
         back = b - 180
         return _num_q("The bearing of Q from P is %s°. Because this is more than 180°, "
                       "the back bearing (of P from Q) is found by SUBTRACTING 180°. "
@@ -1853,6 +2157,18 @@ def _(d=1):
     if t == 4:                                        # angle turned between two bearings
         b1 = random.randint(10, 150)
         turn = random.randint(20, 120)
+        if d == 0:                                    # easy: multiples of 10
+            b1, turn = b1 // 10 * 10, turn // 10 * 10
+        elif d == 2:                                  # stretch: the turn passes through north
+            b1 = random.randint(260, 350)
+            turn = random.randint(361 - b1 + 5, 150)
+            b2 = (b1 + turn) % 360
+            return _num_q("A walker faces on a bearing of %s° then turns clockwise to face "
+                          "%s°. Through how many degrees did the walker turn?"
+                          % (_bear(b1), _bear(b2)), turn, "int", unit="degrees",
+                          solution=["From %s° up to 360° is %d°, then on to %s° is %d° more."
+                                    % (_bear(b1), 360 - b1, _bear(b2), b2),
+                                    "%d + %d = %d°." % (360 - b1, b2, turn)])
         b2 = b1 + turn
         return _num_q("A walker faces on a bearing of %s° then turns clockwise to face "
                       "%s°. Through how many degrees did the walker turn?"
@@ -1873,6 +2189,15 @@ def _(d=1):
                       ("south and west", "south-west", 225),
                       ("north and west", "north-west", 315)])
         _, name, val = pairs
+        if d == 2:                                    # stretch: halfway between two bearings
+            b1 = random.randint(1, 30) * 2
+            b2 = b1 + random.randint(20, 80) * 2
+            mid = (b1 + b2) // 2
+            return _num_q("A path runs exactly halfway between the bearings %s° and %s°. "
+                          "What three-figure bearing is this? (write three figures)"
+                          % (_bear(b1), _bear(b2)), mid, "int",
+                          solution=["Halfway is the mean of the two bearings.",
+                                    "(%d + %d) ÷ 2 = %d, written %s°." % (b1, b2, mid, _bear(mid))])
         return _num_q("A path runs exactly halfway between %s. What three-figure bearing "
                       "is this? (write three figures)" % pairs[0], val, "int",
                       solution=["Halfway between the two directions is the %s bearing."
@@ -1881,6 +2206,14 @@ def _(d=1):
 
     # opposite direction bearing
     b = pick([30, 45, 60, 90, 120, 150])
+    if d == 2:                                        # stretch: past 180°, so subtract
+        b = random.randint(181, 359)
+        return _num_q("A boat travels on a bearing of %s°. It then turns to travel in exactly "
+                      "the OPPOSITE direction. What three-figure bearing is it now on? "
+                      "(write three figures)" % _bear(b), b - 180, "int",
+                      solution=["The opposite direction is 180° round; %d is more than 180, "
+                                "so subtract." % b,
+                                "%d − 180 = %d°, written %s°." % (b, b - 180, _bear(b - 180))])
     return _num_q("A boat travels on a bearing of %s°. It then turns to travel in exactly "
                   "the OPPOSITE direction. What three-figure bearing is it now on? "
                   "(write three figures)" % _bear(b), b + 180, "int",
@@ -1901,11 +2234,14 @@ _UNITWORD = {"km": "kilometres", "m": "metres", "cm": "centimetres", "mm": "mill
 def _(d=1):
     d = _tier(d)
     t = _pick_t([2, 2, 2, 2, 2, 2, 2, 5, 1])
-    big, small, k = pick(_METRIC8)
+    big, small, k = pick(_METRIC8[:5] if d == 0 else _METRIC8)    # easy: the everyday pairs
 
     if t == 7:                                        # conversion table with a gap (visual)
-        base = random.randint(1, 6)
-        vs = [base + i for i in range(4)]
+        if d == 2:                                    # stretch: bigger values going up in 5s or 15s
+            base, step = random.randint(5, 20), pick([5, 15])
+        else:
+            base, step = random.randint(1, _by_d(d, 4, 6, 6)), 1
+        vs = [base + i * step for i in range(4)]
         rows = [[str(v), str(v * k)] for v in vs]
         i = random.randrange(4)
         j = random.randrange(2)
@@ -1940,9 +2276,14 @@ def _(d=1):
                                 "%d ÷ %d = %d %s." % (v, k, v // k, big)])
 
     if t == 2:                                        # decimal big -> small
-        whole = random.randint(1, 8)
-        half = pick([25, 5, 75, 2]) if k >= 100 else 5
-        v = whole + half / 100.0 if k >= 100 else whole + 0.5
+        if d == 2:                                    # stretch: any digits, up to 3 d.p.
+            whole = random.randint(1, 30)
+            dp = {1000: 3, 100: 2, 10: 1}[k]
+            v = whole + random.randint(1, 10 ** dp - 1) / float(10 ** dp)
+        else:
+            whole = random.randint(1, 8)
+            half = pick([25, 5, 75, 2]) if (k >= 100 and d) else 5
+            v = whole + half / 100.0 if (k >= 100 and d) else whole + 0.5
         res = int(round(v * k))
         return _num_q("Convert %s %s into %s. (1 %s = %d %s)"
                       % (_f(v), big, _UNITWORD[small], big, k, small),
@@ -1953,7 +2294,14 @@ def _(d=1):
     if t == 3:                                        # small -> big giving a decimal
         v = random.randint(1, k // 2) + random.randint(1, k - 1)
         # ensure a tidy-ish decimal: pick v as multiple giving 1 or 2 dp
-        v = pick([k // 4, k // 2, 3 * k // 4, k + k // 2]) if k in (100, 1000) else k // 2
+        if d == 0:                                    # easy: halves only
+            v = pick([k // 2, k + k // 2, 2 * k + k // 2])
+        elif d == 1:
+            v = pick([k // 4, k // 2, 3 * k // 4, k + k // 2]) if k in (100, 1000) else k // 2
+        else:                                         # stretch: any amount that is not whole
+            v = random.randint(k + 1, 9 * k)
+            while v % k == 0:
+                v = random.randint(k + 1, 9 * k)
         res = v / float(k)
         return _num_q("Convert %d %s into %s, as a decimal." % (v, small, _UNITWORD[big]),
                       res, "num", unit=big, tolerance=0.0005,
@@ -1961,14 +2309,28 @@ def _(d=1):
                                 "%d ÷ %d = %s %s." % (v, k, _f(res), big)])
 
     if t == 4:                                        # estimate real-life quantity (typed)
-        item, unit, val = pick([
+        item, unit, val = pick(_by_d(d, [                 # easy: the everyday objects
+            ("the mass of an apple", "grams", "g"),
+            ("the height of a classroom door", "metres", "m"),
+            ("the capacity of a bath", "litres", "l"),
+            ("the distance between two cities", "kilometres", "km"),
+        ], [
             ("the mass of an apple", "grams", "g"),
             ("the height of a classroom door", "metres", "m"),
             ("the length of an ant", "millimetres", "mm"),
             ("the capacity of a bath", "litres", "l"),
             ("the distance between two cities", "kilometres", "km"),
             ("the mass of a car", "tonnes", "tonne"),
-        ])
+        ], [                                              # stretch: less obvious objects
+            ("the thickness of a £1 coin", "millimetres", "mm"),
+            ("the mass of a loaded lorry", "tonnes", "tonne"),
+            ("the length of a marathon race", "kilometres", "km"),
+            ("the mass of a bag of potatoes", "kilograms", "kg"),
+            ("the mass of a paperclip", "grams", "g"),
+            ("the width of a school exercise book", "centimetres", "cm"),
+            ("the height of a block of flats", "metres", "m"),
+            ("the capacity of a car's fuel tank", "litres", "l"),
+        ]))
         return _num_q("Which metric unit is the most sensible for measuring %s? "
                       "(type the unit name, e.g. grams)" % item, unit, "str", text=True,
                       placeholder="millimetres / centimetres / metres / kilometres / "
@@ -1977,8 +2339,20 @@ def _(d=1):
                                 "%s is best measured in %s." % (item.capitalize(), unit)])
 
     if t == 5:                                        # add two mixed measures
-        aa = random.randint(1, 8)
-        bb = random.randint(1, k - 1)
+        if d == 2:                                    # stretch: two mixed measures, carrying
+            a1, a2 = random.randint(1, 9), random.randint(1, 9)
+            b1 = random.randint(k // 2, k - 1)
+            b2 = random.randint(k - b1, k - 1)        # the small units make more than 1 big unit
+            total = (a1 + a2) * k + b1 + b2
+            return _num_q("Add %d %s %d %s and %d %s %d %s. Give the total in %s."
+                          % (a1, big, b1, small, a2, big, b2, small, _UNITWORD[small]),
+                          total, "int", unit=small,
+                          solution=["%d %s %d %s = %d %s; %d %s %d %s = %d %s."
+                                    % (a1, big, b1, small, a1 * k + b1, small,
+                                       a2, big, b2, small, a2 * k + b2, small),
+                                    "%d + %d = %d %s." % (a1 * k + b1, a2 * k + b2, total, small)])
+        aa = random.randint(1, _by_d(d, 5, 8, 8))
+        bb = random.randint(1, 9) * (k // 10) if d == 0 else random.randint(1, k - 1)
         total = aa * k + bb
         return _num_q("Add %d %s and %d %s. Give the total in %s."
                       % (aa, big, bb, small, _UNITWORD[small]),
@@ -1987,10 +2361,19 @@ def _(d=1):
                                 "%d + %d = %d %s." % (aa * k, bb, total, small)])
 
     if t == 6:                                        # compare two measures
-        v1 = random.randint(2, 9) * k          # in small units
-        v2 = round(random.uniform(1.2, 9.5), 1)  # in big units
-        while abs(v1 - v2 * k) < 1:
-            v2 = round(random.uniform(1.2, 9.5), 1)
+        if d == 0:                                    # easy: whole small units v. a half big unit
+            v1 = random.randint(2, 9) * k
+            v2 = random.randint(1, 9) + 0.5
+        elif d == 1:
+            v1 = random.randint(2, 9) * k          # in small units
+            v2 = round(random.uniform(1.2, 9.5), 1)  # in big units
+            while abs(v1 - v2 * k) < 1:
+                v2 = round(random.uniform(1.2, 9.5), 1)
+        else:                                         # stretch: 2 d.p., and the two are close
+            v2 = round(random.uniform(1.2, 9.5), 2)
+            v1 = int(round(v2 * k)) + pick([-1, 1]) * random.randint(1, max(1, k // 25))
+            while v1 == v2 * k or v1 <= 0:
+                v1 += 1
         ans = "A" if v1 > v2 * k else "B"
         return _num_q("Measurement A is %d %s. Measurement B is %s %s. Which is larger? "
                       "(type A or B)" % (v1, small, _f(v2), big), ans, "str", text=True,
@@ -2000,8 +2383,9 @@ def _(d=1):
 
     # word problem: total in big units
     who = pick(NAMES)
-    n = random.randint(3, 8)
-    each = random.randint(150, 950)
+    n = random.randint(*_by_d(d, (2, 5), (3, 8), (6, 15)))
+    each = random.randint(1, 9) * 100 if d == 0 else random.randint(_by_d(d, 0, 150, 105),
+                                                                   _by_d(d, 0, 950, 995))
     total = n * each
     return _num_q("%s buys %d bags of rice, each %d g. What is the total mass in "
                   "kilograms?" % (who, n, each), total / 1000.0, "num", unit="kg",
@@ -2058,14 +2442,26 @@ def _(d=1):
                                            "%d ÷ 1000 = %d m³." % (v * 1000, v)])
 
     if t == 13:                                       # estimate imperial measurements
-        item, unit, ans = pick([
+        item, unit, ans = pick(_by_d(d, [
+            ("the height of a door", "feet", 7),
+            ("the amount of milk in a large carton", "pints", 4),
+            ("the length of an adult's foot", "inches", 10),
+        ], [
             ("the length of a school bus", "feet", 40),
             ("the height of a door", "feet", 7),
             ("the mass of an apple", "ounces", 6),
             ("the amount of milk in a large carton", "pints", 4),
             ("the length of an adult's foot", "inches", 10),
-        ])
-        distractors = sorted({ans * 3, max(1, ans // 3), ans * 8} - {ans})
+        ], [                                              # stretch: less familiar objects
+            ("the length of a school bus", "feet", 40),
+            ("the mass of an apple", "ounces", 6),
+            ("the mass of a newborn baby", "pounds", 7),
+            ("the length of a football pitch", "yards", 100),
+            ("the width of a laptop screen", "inches", 13),
+        ]))
+        # stretch: distractors closer to the answer (× 2 and ÷ 2 rather than × 3, ÷ 3)
+        distractors = (sorted({ans * 3, max(1, ans // 3), ans * 8} - {ans}) if d < 2 else
+                       sorted({ans * 2, max(1, ans // 2), ans * 5} - {ans}))
         opts = sorted(set([ans] + distractors[:2]))
         return _num_q("Estimate this imperial measurement. Which is the most reasonable "
                       "estimate for %s: %s %s? (type the number)"
@@ -2074,8 +2470,11 @@ def _(d=1):
                       solution=["A sensible estimate is about %d %s." % (ans, unit)])
 
     if t == 9:                                        # area conversion table (visual)
-        big, small, k = pick([("cm²", "mm²", 100), ("m²", "cm²", 10000)])
-        vs = [random.randint(1, 5) + i for i in range(4)]
+        big, small, k = pick([("cm²", "mm²", 100), ("m²", "cm²", 10000)] if d else
+                             [("cm²", "mm²", 100)])
+        step = pick([3, 4]) if d == 2 else 1      # stretch: rows go up in 3s or 4s
+        first = random.randint(1, _by_d(d, 4, 5, 9))      # one start, so the rows count up
+        vs = [first + i * step for i in range(4)]
         rows = [[str(v), str(v * k)] for v in vs]
         i = random.randrange(4)
         j = random.randrange(2)
@@ -2111,7 +2510,7 @@ def _(d=1):
 
     if t == 2:                                        # area convert back (divide)
         big, small, k = pick([("cm²", "mm²", 100), ("m²", "cm²", 10000)])
-        v = random.randint(2, 8) * k
+        v = random.randint(_by_d(d, 2, 2, 12), _by_d(d, 5, 8, 75)) * k
         return _num_q("Convert %d %s into %s. (1 %s = %d %s)"
                       % (v, small, big, big, k, small),
                       v // k, "int", unit=big,
@@ -2146,8 +2545,8 @@ def _(d=1):
                                 "%d × %s = %s %s." % (n, _f(factor), _f(val), unit_to)])
 
     if t == 5:                                        # round to decimal places
-        whole = random.randint(2, 98)
-        dp = pick([1, 2])
+        whole = random.randint(2, _by_d(d, 20, 98, 98))
+        dp = _by_d(d, 1, pick([1, 2]), 2)                 # easy: 1 d.p.; stretch: 2 d.p.
         if dp == 1:                                   # 2 decimals in, round to 1
             dec = random.randint(1, 99)
             while dec % 10 in (0, 5):                 # avoid halves and trivial cases
@@ -2157,6 +2556,8 @@ def _(d=1):
             dec = random.randint(1, 999)
             while dec % 10 in (0, 5):
                 dec = random.randint(1, 999)
+            if d == 2 and random.random() < 0.5:      # stretch: rounding up carries (…96 -> …00)
+                dec = random.randint(0, 9) * 100 + 90 + random.randint(6, 9)
             v = whole + dec / 1000.0
         res = round(v, dp)
         return _num_q("Round %s to %d decimal place%s."
@@ -2167,10 +2568,11 @@ def _(d=1):
                                 "%s rounds to %s." % (_f(v), _f(res))])
 
     if t == 6:                                        # round to significant figures
-        sf = pick([1, 2, 3])
-        v = random.randint(1000, 99999)
+        sf = pick(_by_d(d, [1, 2], [1, 2, 3], [2, 3]))
+        lo, hi = _by_d(d, (1000, 9999), (1000, 99999), (10000, 999999))
+        v = random.randint(lo, hi)
         while v % (10 ** (len(str(v)) - sf)) == 0:     # already at that accuracy: nothing to do
-            v = random.randint(1000, 99999)
+            v = random.randint(lo, hi)
         # round v to sf significant figures
         from math import log10, floor
         digits = int(floor(log10(v)))
@@ -2185,7 +2587,17 @@ def _(d=1):
                                 "%d to %d s.f. is %d." % (v, sf, res)])
 
     if t == 7:                                        # precision: bounds / nearest
-        v = random.randint(10, 90) * 10
+        if d == 2:                                    # stretch: measured to the nearest 0.1 cm
+            v = random.randint(100, 999) / 10.0
+            lo = round(v - 0.05, 2)
+            return _num_q("A length is given as %s cm, measured to the nearest 0.1 cm. "
+                          "What is the SMALLEST length it could actually be, in cm?" % _f(v),
+                          lo, "num", unit="cm", tolerance=0.001,
+                          solution=["Measured to the nearest 0.1 cm, the true value is within "
+                                    "0.05 cm.",
+                                    "The smallest possible value is %s − 0.05 = %s cm."
+                                    % (_f(v), _f(lo))])
+        v = random.randint(*_by_d(d, (1, 9), (10, 90), (10, 90))) * 10
         return _num_q("A length is given as %d cm, measured to the nearest 10 cm. "
                       "What is the SMALLEST length it could actually be, in cm?" % v,
                       v - 5, "num", unit="cm", tolerance=0.001,
@@ -2195,7 +2607,13 @@ def _(d=1):
                                 % (v, v - 5)])
 
     # area word problem
-    side = random.randint(2, 6)
+    if d == 2:                                        # stretch: a rectangular tile, bigger sides
+        w, l = random.randint(6, 15), random.randint(16, 30)
+        return _num_q("A rectangular tile measures %d cm by %d cm. What is its area in mm²? "
+                      "(1 cm² = 100 mm²)" % (w, l), w * l * 100, "int", unit="mm²",
+                      solution=["Area = %d × %d = %d cm²." % (w, l, w * l),
+                                "%d × 100 = %d mm²." % (w * l, w * l * 100)])
+    side = random.randint(2, _by_d(d, 4, 6, 6))
     return _num_q("A square tile has sides of %d cm, so its area is %d cm². "
                   "What is that area in mm²? (1 cm² = 100 mm²)" % (side, side * side),
                   side * side * 100, "int", unit="mm²",
@@ -2209,8 +2627,8 @@ def _(d=1):
     t = _pick_t([2, 2, 2, 2, 2, 2, 1, 1, 1, 5, 3])
 
     if t == 9:                                        # area from a measurements table (visual)
-        base = random.randint(4, 20)
-        h = random.randint(3, 14)
+        base = random.randint(_by_d(d, 4, 4, 12), _by_d(d, 12, 20, 36))
+        h = random.randint(3, _by_d(d, 10, 14, 28))
         while (base * h) % 2:
             h += 1
         return _measure_table("The table gives the base and perpendicular height of a "
@@ -2221,8 +2639,8 @@ def _(d=1):
                                % (base, h, base * h // 2)])
 
     if t == 10:                                       # parallelogram area from table (visual)
-        base = random.randint(4, 20)
-        h = random.randint(3, 14)
+        base = random.randint(_by_d(d, 4, 4, 12), _by_d(d, 12, 20, 36))
+        h = random.randint(3, _by_d(d, 10, 14, 28))
         return _measure_table("The table gives the base and perpendicular height of a "
                               "parallelogram. Work out its area, in cm². "
                               "(Area = base × height.)", "Parallelogram",
@@ -2250,8 +2668,8 @@ def _(d=1):
                                 "= %d cm²." % (base * h)])
 
     if t == 2:                                        # trapezium area
-        aa = random.randint(3, 10)
-        bb = random.randint(aa + 1, aa + 12)
+        aa = random.randint(_by_d(d, 2, 3, 8), _by_d(d, 8, 10, 25))
+        bb = random.randint(aa + 1, aa + _by_d(d, 8, 12, 20))
         h = random.randint(2, _by_d(d, 8, 12, 18))
         while ((aa + bb) * h) % 2:
             h += 1
@@ -2263,8 +2681,8 @@ def _(d=1):
                                 "= ½ × %d × %d = %d cm²." % (aa + bb, h, area)])
 
     if t == 3:                                        # rhombus / kite from diagonals
-        d1 = random.randint(4, 16)
-        d2 = random.randint(4, 16)
+        d1 = random.randint(_by_d(d, 2, 4, 10), _by_d(d, 10, 16, 30))
+        d2 = random.randint(_by_d(d, 2, 4, 10), _by_d(d, 10, 16, 30))
         while (d1 * d2) % 2:
             d2 += 1
         return _num_q("A rhombus has diagonals of %d cm and %d cm. "
@@ -2274,8 +2692,8 @@ def _(d=1):
                                 "= %d cm²." % (d1 * d2 // 2)])
 
     if t == 4:                                        # inverse: triangle base from area
-        base = random.randint(4, 16)
-        h = random.randint(3, 12)
+        base = random.randint(_by_d(d, 4, 4, 10), _by_d(d, 10, 16, 30))
+        h = random.randint(3, _by_d(d, 8, 12, 24))
         while (base * h) % 2:
             h += 1
         area = base * h // 2
@@ -2286,8 +2704,8 @@ def _(d=1):
                                 "2 × %d ÷ %d = %d cm." % (area, h, base)])
 
     if t == 5:                                        # inverse: parallelogram height
-        base = random.randint(4, 15)
-        h = random.randint(3, 12)
+        base = random.randint(_by_d(d, 2, 4, 11), _by_d(d, 10, 15, 30))
+        h = random.randint(3, _by_d(d, 9, 12, 25))
         area = base * h
         return _num_q("A parallelogram has area %d cm² and base %d cm. "
                       "What is its perpendicular height, in cm?" % (area, base), h, "int",
@@ -2297,8 +2715,8 @@ def _(d=1):
 
     if t == 6:                                        # triangle area word problem
         who = pick(NAMES)
-        base = random.randint(6, 20)
-        h = random.randint(4, 16)
+        base = random.randint(_by_d(d, 4, 6, 20), _by_d(d, 12, 20, 45))
+        h = random.randint(4, _by_d(d, 10, 16, 36))
         while (base * h) % 2:
             h += 1
         return _num_q("%s cuts a triangular flag with base %d cm and height %d cm. "
@@ -2308,6 +2726,21 @@ def _(d=1):
                                 % (base, h, base * h // 2)])
 
     if t == 7:                                        # compare two areas
+        if d != 1:                                    # work both areas out from their measurements
+            tb, th = random.randint(*_by_d(d, (4, 10), None, (8, 20))), random.randint(*_by_d(d, (2, 8), None, (6, 18)))
+            th += (tb * th) % 2
+            pb, ph = random.randint(*_by_d(d, (2, 8), None, (4, 14))), random.randint(*_by_d(d, (2, 6), None, (3, 12)))
+            while pb * ph == tb * th // 2:
+                ph += 1
+            A1, A2 = tb * th // 2, pb * ph
+            ans = "A" if A1 > A2 else "B"
+            return _num_q("Triangle A has base %d cm and perpendicular height %d cm. Parallelogram B has "
+                          "base %d cm and perpendicular height %d cm. Which has the LARGER area? "
+                          "(type A or B)" % (tb, th, pb, ph), ans, "str",
+                          text=True, placeholder="A / B",
+                          solution=["A: ½ × %d × %d = %d cm². B: %d × %d = %d cm²."
+                                    % (tb, th, A1, pb, ph, A2),
+                                    "The larger is %s." % ans])
         A1 = random.randint(20, 60)
         A2 = random.randint(20, 60)
         while A1 == A2:
@@ -2320,9 +2753,13 @@ def _(d=1):
                                 "The larger is %s." % ans])
 
     # trapezium: find the missing parallel side
-    aa = random.randint(3, 9)
-    h = random.randint(2, 8) * 2
-    bb = random.randint(aa + 2, aa + 10)
+    aa = random.randint(_by_d(d, 2, 3, 7), _by_d(d, 6, 9, 20))
+    h = random.randint(2, _by_d(d, 5, 8, 12)) * 2
+    if d == 2 and random.random() < 0.5:              # stretch: an odd height
+        h += 1
+    bb = random.randint(aa + 2, aa + _by_d(d, 8, 10, 20))
+    if ((aa + bb) * h) % 2:
+        bb += 1
     area = (aa + bb) * h // 2
     return _num_q("A trapezium has area %d cm², a height of %d cm and one parallel side "
                   "of %d cm. How long is the other parallel side, in cm? "
@@ -2430,11 +2867,11 @@ def _(d=1):
     t = _pick_t([2, 2, 2, 2, 2, 2, 1, 1, 5, 3, 3])
 
     if t == 9:                                         # triangle + semicircle compound area
-        b = random.randint(6, 14)
-        h = random.randint(4, 12)
+        b = random.randint(_by_d(d, 4, 6, 12), _by_d(d, 10, 14, 24))
+        h = random.randint(_by_d(d, 4, 4, 9), _by_d(d, 8, 12, 20))
         while (b * h) % 2:
             h += 1
-        r = random.randint(2, 6)
+        r = random.randint(_by_d(d, 1, 2, 5), _by_d(d, 4, 6, 12))
         tri = b * h // 2
         semi = round(3.14 * r * r / 2.0, 2)
         total = round(tri + semi, 2)
@@ -2448,9 +2885,9 @@ def _(d=1):
                                 "%d + %s = %s cm²." % (tri, _f(semi), _f(total))])
 
     if t == 10:                                        # rectangle + quarter circle compound
-        L = random.randint(5, 12)
-        Wd = random.randint(3, 8)
-        r = random.randint(2, 6)
+        L = random.randint(_by_d(d, 4, 5, 10), _by_d(d, 10, 12, 25))
+        Wd = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 15))
+        r = random.randint(_by_d(d, 2, 2, 5), _by_d(d, 4, 6, 12))
         rect = L * Wd
         quarter = _half_up(Fraction(314 * r * r, 400), 2)
         total = round(rect + quarter, 2)
@@ -2465,8 +2902,8 @@ def _(d=1):
                                 "%d + %s = %s cm²." % (rect, _f(quarter), _f(total))])
 
     if t == 8:                                        # two-rectangle area from a table (visual)
-        a1, b1 = random.randint(3, 12), random.randint(3, 9)
-        a2, b2 = random.randint(3, 12), random.randint(3, 9)
+        a1, b1 = random.randint(_by_d(d, 2, 3, 10), _by_d(d, 10, 12, 25)), random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 9, 18))
+        a2, b2 = random.randint(_by_d(d, 2, 3, 10), _by_d(d, 10, 12, 25)), random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 9, 18))
         area = a1 * b1 + a2 * b2
         return _measure_table("A compound shape is made of two rectangles. The table "
                               "gives their sides. Work out the total area, in cm².",
@@ -2491,8 +2928,8 @@ def _(d=1):
                                 "%d − %d = %d cm²." % (W * H, w * h, area)])
 
     if t == 1:                                        # L-shape perimeter (unchanged)
-        W = random.randint(8, 20)
-        H = random.randint(6, 16)
+        W = random.randint(_by_d(d, 5, 8, 18), _by_d(d, 12, 20, 45))
+        H = random.randint(_by_d(d, 4, 6, 14), _by_d(d, 10, 16, 38))
         return _num_q("An L-shape is made by cutting a small rectangle out of one corner "
                       "of %s cm by %d cm rectangle. The perimeter of an L-shape like "
                       "this equals the perimeter of the whole rectangle. What is the "
@@ -2501,8 +2938,8 @@ def _(d=1):
                                 "= %d cm." % (2 * (W + H))])
 
     if t == 2:                                        # two rectangles joined - area
-        a1, b1 = random.randint(3, 10), random.randint(3, 8)
-        a2, b2 = random.randint(3, 10), random.randint(3, 8)
+        a1, b1 = random.randint(_by_d(d, 2, 3, 9), _by_d(d, 8, 10, 24)), random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 16))
+        a2, b2 = random.randint(_by_d(d, 2, 3, 9), _by_d(d, 8, 10, 24)), random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 16))
         area = a1 * b1 + a2 * b2
         return _num_q("A compound shape is made of two rectangles: one %d cm by %d cm "
                       "and one %d cm by %d cm. What is the total area, in cm²?"
@@ -2512,9 +2949,9 @@ def _(d=1):
                                 "%d + %d = %d cm²." % (a1 * b1, a2 * b2, area)])
 
     if t == 3:                                        # rectangle + square area
-        L = random.randint(6, 14)
-        Wd = random.randint(3, 8)
-        s = random.randint(2, 6)
+        L = random.randint(_by_d(d, 4, 6, 12), _by_d(d, 10, 14, 28))
+        Wd = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 16))
+        s = random.randint(_by_d(d, 2, 2, 5), _by_d(d, 4, 6, 13))
         area = L * Wd + s * s
         return _num_q("A shape is %s cm by %d cm rectangle with %s cm square attached "
                       "to one side. What is the total area, in cm²?" % (_an(L), Wd, _an(s)),
@@ -2524,9 +2961,9 @@ def _(d=1):
                                 "%d + %d = %d cm²." % (L * Wd, s * s, area)])
 
     if t == 4:                                        # border / frame area
-        W = random.randint(8, 16)
-        H = random.randint(6, 14)
-        m = random.randint(1, min(3, (min(W, H) - 2) // 2))
+        W = random.randint(_by_d(d, 6, 8, 15), _by_d(d, 12, 16, 32))
+        H = random.randint(_by_d(d, 6, 6, 12), _by_d(d, 10, 14, 28))
+        m = random.randint(_by_d(d, 1, 1, 2), min(_by_d(d, 2, 3, 5), (min(W, H) - 2) // 2))
         outer = W * H
         inner = (W - 2 * m) * (H - 2 * m)
         return _num_q("A photo frame is %s cm by %d cm rectangle with a rectangular "
@@ -2539,8 +2976,8 @@ def _(d=1):
                                 "%d − %d = %d cm²." % (outer, inner, outer - inner)])
 
     if t == 5:                                        # missing length in an L-shape
-        W = random.randint(8, 16)
-        a = random.randint(2, W - 3)
+        W = random.randint(_by_d(d, 6, 8, 24), _by_d(d, 12, 16, 75))
+        a = random.randint(_by_d(d, 2, 2, 7), W - 3)
         b = W - a
         return _num_q("Along the top of an L-shape, the full width is %d cm. One part of "
                       "the top edge is %d cm. How long is the remaining part of that "
@@ -2549,9 +2986,9 @@ def _(d=1):
                                 "%d − %d = %d cm." % (W, a, b)])
 
     if t == 6:                                        # rectangle with square hole - area
-        W = random.randint(8, 16)
-        H = random.randint(8, 16)
-        s = random.randint(2, min(W, H) - 3)
+        W = random.randint(_by_d(d, 6, 8, 14), _by_d(d, 12, 16, 30))
+        H = random.randint(_by_d(d, 6, 8, 14), _by_d(d, 12, 16, 30))
+        s = random.randint(_by_d(d, 2, 2, 4), min(W, H) - 3)
         area = W * H - s * s
         return _num_q("%s cm by %d cm rectangular sheet has %s cm square hole cut out "
                       "of the middle. What area of sheet is left, in cm²?"
@@ -2563,8 +3000,8 @@ def _(d=1):
 
     # T-shape / cross area from two rectangles, word problem
     who = pick(NAMES)
-    a1, b1 = random.randint(6, 12), random.randint(2, 4)
-    a2, b2 = random.randint(2, 4), random.randint(4, 8)
+    a1, b1 = random.randint(_by_d(d, 4, 6, 12), _by_d(d, 10, 12, 26)), random.randint(_by_d(d, 2, 2, 3), _by_d(d, 3, 4, 9))
+    a2, b2 = random.randint(_by_d(d, 2, 2, 3), _by_d(d, 3, 4, 9)), random.randint(_by_d(d, 3, 4, 8), _by_d(d, 6, 8, 20))
     area = a1 * b1 + a2 * b2
     return _num_q("%s makes a T-shape from %s cm by %d cm bar and %s cm by %d cm bar. "
                   "What is the total area, in cm²?" % (who, _an(a1), b1, _an(a2), b2), area, "int",
@@ -2580,10 +3017,11 @@ def _(d=1):
     t = _pick_t([2, 2, 2, 2, 2, 2, 1, 1, 5, 4])
 
     if t == 9:                                         # volume of a compound solid
-        l1, w1, h1 = (random.randint(3, 10), random.randint(2, 6),
-                      random.randint(2, 6))
-        l2, w2, h2 = (random.randint(2, 6), random.randint(2, 6),
-                      random.randint(2, 6))
+        l1, w1, h1 = (random.randint(_by_d(d, 2, 3, 8), _by_d(d, 6, 10, 20)),
+                      random.randint(2, _by_d(d, 4, 6, 12)),
+                      random.randint(2, _by_d(d, 4, 6, 12)))
+        l2, w2, h2 = (random.randint(2, _by_d(d, 4, 6, 12)), random.randint(2, _by_d(d, 4, 6, 12)),
+                      random.randint(2, _by_d(d, 4, 6, 12)))
         v1 = l1 * w1 * h1
         v2 = l2 * w2 * h2
         total = v1 + v2
@@ -2599,9 +3037,9 @@ def _(d=1):
                                 "%d + %d = %d cm³." % (v1, v2, total)])
 
     if t == 8:                                        # cuboid volume from a table (visual)
-        l = random.randint(2, 15)
-        w = random.randint(2, 12)
-        h = random.randint(2, 12)
+        l = random.randint(_by_d(d, 2, 2, 8), _by_d(d, 8, 15, 30))
+        w = random.randint(_by_d(d, 2, 2, 6), _by_d(d, 6, 12, 25))
+        h = random.randint(_by_d(d, 2, 2, 6), _by_d(d, 6, 12, 25))
         return _measure_table("The table gives the length, width and height of a cuboid. "
                               "Work out its volume, in cm³. "
                               "(Volume = length × width × height.)", "Cuboid",
@@ -2634,11 +3072,11 @@ def _(d=1):
                       solution=["V = %d × %d." % (A, L), "= %d cm³." % (A * L)])
 
     if t == 3:                                        # triangular prism volume
-        base = random.randint(3, 12)
-        h = random.randint(2, 10)
+        base = random.randint(_by_d(d, 2, 3, 8), _by_d(d, 8, 12, 24))
+        h = random.randint(_by_d(d, 2, 2, 5), _by_d(d, 6, 10, 18))
         while (base * h) % 2:
             h += 1
-        L = random.randint(4, 15)
+        L = random.randint(_by_d(d, 2, 4, 10), _by_d(d, 10, 15, 35))
         cross = base * h // 2
         return _num_q("A triangular prism has a triangular cross-section with base %d cm "
                       "and height %d cm, and a length of %d cm. What is its volume, in "
@@ -2649,9 +3087,9 @@ def _(d=1):
                                 "V = %d × %d = %d cm³." % (cross, L, cross * L)])
 
     if t == 4:                                        # inverse: cuboid missing edge
-        l = random.randint(2, 10)
-        w = random.randint(2, 10)
-        h = random.randint(2, 10)
+        l = random.randint(2, _by_d(d, 6, 10, 20))
+        w = random.randint(2, _by_d(d, 5, 10, 16))
+        h = random.randint(_by_d(d, 2, 2, 6), _by_d(d, 6, 10, 25))
         V = l * w * h
         return _num_q("A cuboid has volume %d cm³. Its base measures %d cm by %d cm. "
                       "How tall is it, in cm?" % (V, l, w), h, "int", unit="cm",
@@ -2660,16 +3098,19 @@ def _(d=1):
                                 % (V, l, w, V, l * w, h)])
 
     if t == 5:                                        # cube edge from volume
-        s = pick([2, 3, 4, 5, 6, 7, 8, 9, 10])
+        s = pick(_by_d(d, [2, 3, 4, 5, 10], [2, 3, 4, 5, 6, 7, 8, 9, 10], [7, 8, 9, 11, 12, 15, 20]))
         return _num_q("A cube has volume %d cm³. How long is each edge, in cm?" % (s ** 3),
                       s, "int", unit="cm",
                       solution=["Edge = cube root of the volume.",
                                 "The cube root of %d is %d cm." % (s ** 3, s)])
 
     if t == 6:                                        # capacity litres word problem
-        l = random.randint(10, 40)
-        w = random.randint(10, 40)
-        h = random.randint(10, 40)
+        if d == 0:                                    # easy: whole-litre answers
+            l, w, h = 10 * random.randint(1, 5), 10 * random.randint(1, 4), 10 * random.randint(1, 4)
+        else:
+            l = random.randint(10, _by_d(d, 40, 40, 90))
+            w = random.randint(10, _by_d(d, 40, 40, 75))
+            h = random.randint(_by_d(d, 10, 10, 25), _by_d(d, 40, 40, 60))
         V = l * w * h
         return _num_q("A tank measures %d cm by %d cm by %d cm. How many litres of water "
                       "does it hold when full? (1 litre = 1000 cm³)" % (l, w, h),
@@ -2678,8 +3119,8 @@ def _(d=1):
                                 "%d ÷ 1000 = %s litres." % (V, _f(V / 1000.0))])
 
     # stacking cubes word problem
-    s = random.randint(2, 5)
-    n = random.randint(3, 8)
+    s = random.randint(_by_d(d, 1, 2, 4), _by_d(d, 3, 5, 9))
+    n = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 15))
     return _num_q("%d identical cubes, each of edge %d cm, are stacked together. "
                   "What is the total volume, in cm³?" % (n, s), n * s ** 3, "int",
                   unit="cm³",
@@ -2695,9 +3136,9 @@ def _(d=1):
     hh = random.randint(_by_d(d, 3, 4, 5), _by_d(d, 10, 14, 20))
 
     if t == 8:                                        # cuboid surface area from a table (visual)
-        l = random.randint(2, 10)
-        w = random.randint(2, 10)
-        h = random.randint(2, 10)
+        l = random.randint(2, _by_d(d, 5, 10, 20))
+        w = random.randint(2, _by_d(d, 5, 10, 18))
+        h = random.randint(_by_d(d, 1, 2, 5), _by_d(d, 5, 10, 16))
         SA = 2 * (l * w + l * h + w * h)
         return _measure_table("The table gives the dimensions of a cuboid. Work out its "
                               "total surface area, in cm². (SA = 2(lw + lh + wh).)",
@@ -2724,9 +3165,9 @@ def _(d=1):
                                 "So k = %d." % (rr * rr * hh)])
 
     if t == 2:                                        # cuboid surface area
-        l = random.randint(2, 9)
-        w = random.randint(2, 9)
-        h = random.randint(2, 9)
+        l = random.randint(2, _by_d(d, 5, 9, 20))
+        w = random.randint(2, _by_d(d, 5, 9, 18))
+        h = random.randint(_by_d(d, 1, 2, 5), _by_d(d, 5, 9, 16))
         SA = 2 * (l * w + l * h + w * h)
         return _num_q("A cuboid measures %d cm by %d cm by %d cm. Surface area = "
                       "2(lw + lh + wh). What is its total surface area, in cm²?"
@@ -2736,7 +3177,7 @@ def _(d=1):
                                 "2 × %d = %d cm²." % (l * w + l * h + w * h, SA)])
 
     if t == 3:                                        # cube surface area
-        s = random.randint(2, 12)
+        s = random.randint(_by_d(d, 1, 2, 9), _by_d(d, 6, 12, 25))
         return _num_q("A cube has edges of %d cm. Surface area = 6 × (edge)². "
                       "What is its surface area, in cm²?" % s, 6 * s * s, "int",
                       unit="cm²",
@@ -2752,22 +3193,20 @@ def _(d=1):
                                 "So k = %d." % (2 * rr * hh)])
 
     if t == 5:                                        # triangular prism surface area
-        a = 3
-        b = 4
-        c = 5
-        L = random.randint(5, 15)
-        # right triangle 3-4-5 cross-section, area 6
-        cross = 6
+        # right-angled triangle cross-section; stretch uses bigger triples
+        a, b, c = pick(_by_d(d, [(3, 4, 5)], [(3, 4, 5)], [(6, 8, 10), (5, 12, 13), (8, 15, 17), (9, 12, 15)]))
+        L = random.randint(_by_d(d, 2, 5, 8), _by_d(d, 10, 15, 30))
+        cross = a * b // 2
         SA = 2 * cross + (a + b + c) * L
         return _num_q("A triangular prism has a right-angled triangular cross-section "
-                      "with sides 3 cm, 4 cm and 5 cm (area 6 cm²) and length %d cm. "
+                      "with sides %d cm, %d cm and %d cm (area %d cm²) and length %d cm. "
                       "Surface area = 2 × cross-section + perimeter × length. "
-                      "What is the total surface area, in cm²?" % L, SA, "int",
+                      "What is the total surface area, in cm²?" % (a, b, c, cross, L), SA, "int",
                       unit="cm²",
-                      solution=["Two triangular ends = 2 × 6 = 12 cm².",
-                                "Three rectangles = (3 + 4 + 5) × %d = %d cm²."
-                                % (L, 12 * L),
-                                "12 + %d = %d cm²." % (12 * L, SA)])
+                      solution=["Two triangular ends = 2 × %d = %d cm²." % (cross, 2 * cross),
+                                "Three rectangles = (%d + %d + %d) × %d = %d cm²."
+                                % (a, b, c, L, (a + b + c) * L),
+                                "%d + %d = %d cm²." % (2 * cross, (a + b + c) * L, SA)])
 
     if t == 6:                                        # cylinder total SA in terms of pi
         # 2πr(r+h) = coeff = 2r(r+h)
@@ -2808,7 +3247,8 @@ def _(d=1):
     title, cats, unit = pick(_CHART8)
     n = len(cats)
     lo, hi = _by_d(d, (4, 20), (6, 40), (8, 90))
-    vals = _distinct(n, lo, hi)
+    # hard bars run past 50, too many single units to read off the scale, so they are even (read in 2s)
+    vals = [2 * v for v in _distinct(n, lo // 2, hi // 2)] if hi > 50 else _distinct(n, lo, hi)
     i, j = random.sample(range(n), 2)
     t = _pick_t([2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1])
 
@@ -2948,8 +3388,9 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     t = _pick_t([3, 3, 2, 2, 2, 2, 2, 1])
-    stems = sorted(random.sample(range(1, 9), _by_d(d, 3, 3, 4)))
-    leaves = [sorted(random.sample(range(0, 10), random.randint(2, 4))) for _ in stems]
+    stems = sorted(random.sample(range(1, 9), _by_d(d, 3, 3, 5)))
+    leaves = [sorted(random.sample(range(0, 10), random.randint(_by_d(d, 1, 2, 3), _by_d(d, 3, 4, 6))))
+              for _ in stems]
     values = sorted([s * 10 + lf for s, lvs in zip(stems, leaves) for lf in lvs])
     rows = [[str(s), " ".join(str(lf) for lf in lvs)]
             for s, lvs in zip(stems, leaves)]

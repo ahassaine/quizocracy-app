@@ -524,23 +524,44 @@ def _(d=1):
     r = x.quantize(q, rounding="ROUND_HALF_UP")
 
     def t_plain():
-        return _tb("Round %s to %d decimal place%s." % (_ds(x), dp, "" if dp == 1 else "s"), _ds(r), "num", {},
+        return _tb("Round %s to %d decimal place%s." % (_ds(x), dp, "" if dp == 1 else "s"), format(r, "f"), "num", {},
                    ["Look at the next digit after place %d." % dp, "%s → %s." % (_ds(x), format(r, "f"))])
 
     def t_money():
-        p = Decimal(random.randint(10000, 999999)) / 1000
+        # easy: 3 d.p. under £10; medium: up to £1000; hard: 4 d.p. (exchange-rate style)
+        places = _by(d, 3, 3, 4)
+        p = Decimal(random.randint(_by(d, 1000, 10000, 100000), _by(d, 9999, 999999, 9999999))) / 10 ** places
         return _tb("A calculator shows £%s. Round it to the nearest penny, in pounds." % _ds(p),
-                   _ds(p.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")), "num", {"unit": "£"},
+                   format(p.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP"), "f"), "num", {"unit": "£"},
                    ["2 decimal places: £%s." % format(p.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP"), "f")])
 
     def t_trap_nine():
         w = random.randint(1, 30)
+        if d == 0:      # no carry: 0.8x rounds within the tenths
+            v = Decimal(w) + Decimal("0.8") + Decimal(random.randint(5, 9)) / 100
+            r1 = v.quantize(Decimal("0.1"), rounding="ROUND_HALF_UP")
+            return _tb("Round %s to 1 decimal place." % _ds(v), format(r1, "f"), "num", {},
+                       ["The hundredths digit is 5 or more, so the 8 rounds up to 9: %s." % format(r1, "f")])
+        if d == 2:      # 2 d.p. with a double carry: x.99y → (x+1).00
+            v = Decimal(w) + Decimal("0.99") + Decimal(random.randint(5, 9)) / 1000
+            r2 = v.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+            return _tb("Round %s to 2 decimal places." % _ds(v), format(r2, "f"), "num", {},
+                       ["The 9 hundredths round up, carrying through the tenths into the ones: %s (written %s to 2 d.p.)."
+                        % (_ds(r2), format(r2, "f"))])
         v = Decimal(w) + Decimal("0.9") + Decimal(random.randint(5, 9)) / 100
         r1 = v.quantize(Decimal("0.1"), rounding="ROUND_HALF_UP")
-        return _tb("Round %s to 1 decimal place." % _ds(v), _ds(r1), "num", {},
+        return _tb("Round %s to 1 decimal place." % _ds(v), format(r1, "f"), "num", {},
                    ["The 9 rounds up, carrying into the ones: %s (written %s to 1 d.p.)." % (_ds(r1), format(r1, "f"))])
 
     def t_between():
+        if d == 0:      # nearest whole number
+            lo = Decimal(random.randint(2, 30))
+            return _tb("A number rounds to %s to the nearest whole number. What is the smallest it could be?" % _ds(lo),
+                       _ds(lo - Decimal("0.5")), "num", {}, ["Halfway down: %s." % _ds(lo - Decimal("0.5"))])
+        if d == 2:      # 2 d.p.
+            lo = Decimal(random.randint(101, 999)) / 100
+            return _tb("A number rounds to %s to 2 decimal places. What is the smallest it could be?" % format(lo, "f"),
+                       _ds(lo - Decimal("0.005")), "num", {}, ["Halfway down: %s." % _ds(lo - Decimal("0.005"))])
         lo = Decimal(random.randint(10, 99)) / 10
         return _tb("A number rounds to %s to 1 decimal place. What is the smallest it could be?" % _ds(lo),
                    _ds(lo - Decimal("0.05")), "num", {}, ["Halfway down: %s." % _ds(lo - Decimal("0.05"))])
@@ -548,21 +569,43 @@ def _(d=1):
     def t_measure():
         what, unit, lo, hi = pick([("A runner's time", "seconds", 9000, 99999), ("A baby's mass", "kg", 2000, 5000),
                                    ("The length of a leaf", "cm", 1000, 25000), ("A bottle's capacity", "litres", 500, 3000)])
-        v = Decimal(random.randint(lo, hi)) / 1000
-        k = random.randint(1, 2)
+        if d == 0:      # 2 d.p. reading, round to 1 d.p.
+            v = Decimal(random.randint(lo // 10, hi // 10)) / 100
+            k = 1
+        elif d == 2:    # 4 d.p. reading, round to 2 or 3 d.p.
+            v = Decimal(random.randint(lo * 10, hi * 10)) / 10000
+            k = random.randint(2, 3)
+        else:
+            v = Decimal(random.randint(lo, hi)) / 1000
+            k = random.randint(1, 2)
         r1 = v.quantize(Decimal(1).scaleb(-k), rounding="ROUND_HALF_UP")
-        return _tb("%s is %s %s. Round this to %d decimal place%s." % (what, _ds(v), unit, k, "" if k == 1 else "s"), _ds(r1),
+        return _tb("%s is %s %s. Round this to %d decimal place%s." % (what, _ds(v), unit, k, "" if k == 1 else "s"), format(r1, "f"),
                    "num", {"unit": unit}, ["%s → %s." % (_ds(v), format(r1, "f"))])
 
     def t_divide_round():
-        a, b = random.randint(10, 99), pick([3, 6, 7, 9, 11, 12])
+        a, b = random.randint(_by(d, 10, 10, 100), _by(d, 50, 99, 999)), pick(_by(d, [3, 6, 9], [3, 6, 7, 9, 11, 12],
+                                                                                    [7, 11, 12, 13, 17]))
         if a % b == 0:
             a += 1
-        q = (Decimal(a) / Decimal(b)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
-        return _tb("Work out %d ÷ %d on a calculator and round the answer to 2 decimal places." % (a, b), _ds(q), "num", {},
-                   ["%d ÷ %d = %s…" % (a, b, format(Decimal(a) / Decimal(b), ".5f")), "To 2 d.p.: %s." % format(q, "f")])
+        k = _by(d, 1, 2, 3)
+        q = (Decimal(a) / Decimal(b)).quantize(Decimal(1).scaleb(-k), rounding="ROUND_HALF_UP")
+        return _tb("Work out %d ÷ %d on a calculator and round the answer to %d decimal place%s."
+                   % (a, b, k, "" if k == 1 else "s"), format(q, "f"), "num", {},
+                   ["%d ÷ %d = %s…" % (a, b, format(Decimal(a) / Decimal(b), ".5f")), "To %d d.p.: %s." % (k, format(q, "f"))])
 
     def t_largest_2dp():
+        if d == 0:      # 1 d.p. that rounds to a whole number
+            r0 = Decimal(random.randint(2, 30))
+            return _tb("What is the largest number with 1 decimal place that rounds to %s to the nearest whole number?" % _ds(r0),
+                       _ds(r0 + Decimal("0.4")), "num", {},
+                       ["%s rounds up to %s, so the largest is %s." % (_ds(r0 + Decimal("0.5")), _ds(r0 + 1),
+                                                                      _ds(r0 + Decimal("0.4")))])
+        if d == 2:      # 3 d.p. that rounds to a 2 d.p. number
+            r2 = Decimal(random.randint(101, 999)) / 100
+            return _tb("What is the largest number with 3 decimal places that rounds to %s to 2 decimal places?" % format(r2, "f"),
+                       _ds(r2 + Decimal("0.004")), "num", {},
+                       ["%s rounds up to %s, so the largest is %s." % (_ds(r2 + Decimal("0.005")), format(r2 + Decimal("0.01"), "f"),
+                                                                      _ds(r2 + Decimal("0.004")))])
         r1 = Decimal(random.randint(11, 99)) / 10
         return _tb("What is the largest number with 2 decimal places that rounds to %s to 1 decimal place?" % _ds(r1),
                    _ds(r1 + Decimal("0.04")), "num", {},
@@ -571,33 +614,56 @@ def _(d=1):
 
     def t_error():
         w = random.randint(1, 20)
+        if d == 0:      # rounded up when the next digit was under 5
+            t, h = random.randint(1, 7), random.randint(1, 4)
+            v = Decimal(w) + Decimal(t) / 10 + Decimal(h) / 100
+            r1 = v.quantize(Decimal("0.1"), rounding="ROUND_HALF_UP")
+            return _tb("%s rounded %s to 1 decimal place and wrote %s. What is the correct answer?"
+                       % (_who(), _ds(v), _ds(r1 + Decimal("0.1"))), format(r1, "f"), "num", {},
+                       ["The hundredths digit is %d, which is less than 5, so round down: %s." % (h, _ds(r1))])
+        if d == 2:      # 2 d.p. version of the 9-carry slip
+            v = Decimal(w) + Decimal("0.99") + Decimal(random.randint(5, 9)) / 1000
+            r2 = v.quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+            return _tb("%s rounded %s to 2 decimal places and wrote %d.910. What is the correct answer?" % (_who(), _ds(v), w),
+                       format(r2, "f"), "num", {}, ["The 9 hundredths round up, carrying through the tenths into the ones: %s (written %s)."
+                                            % (_ds(r2), format(r2, "f"))])
         v = Decimal(w) + Decimal(random.randint(95, 99)) / 100
         r1 = v.quantize(Decimal("0.1"), rounding="ROUND_HALF_UP")
         return _tb("%s rounded %s to 1 decimal place and wrote %d.10. What is the correct answer?" % (_who(), _ds(v), w),
-                   _ds(r1), "num", {}, ["The 9 tenths round up to a whole one: %s (written %s)." % (_ds(r1), format(r1, "f"))])
+                   format(r1, "f"), "num", {}, ["The 9 tenths round up to a whole one: %s (written %s)." % (_ds(r1), format(r1, "f"))])
 
     def t_whole():
-        v = Decimal(random.randint(1001, 99999)) / 100
+        # easy: one decimal place; medium: two; hard: three, larger numbers
+        places = _by(d, 1, 2, 3)
+        v = Decimal(random.randint(_by(d, 11, 1001, 10001), _by(d, 999, 99999, 9999999))) / 10 ** places
         r1 = v.quantize(Decimal(1), rounding="ROUND_HALF_UP")
-        return _tb("Round %s to the nearest whole number." % _ds(v), _ds(r1), "num", {}, ["Look at the tenths digit: %s." % _ds(r1)])
+        return _tb("Round %s to the nearest whole number." % _ds(v), format(r1, "f"), "num", {}, ["Look at the tenths digit: %s." % _ds(r1)])
 
     def t_which():
-        r1 = Decimal(random.randint(11, 99)) / 10
-        good = r1 + Decimal(random.randint(-5, 4)) / 100
-        bads = [r1 - Decimal("0.06"), r1 + Decimal("0.05"), r1 + Decimal("0.11"), r1 - Decimal("0.1")]
+        # easy: rounds to a whole number; medium: to 1 d.p.; hard: to 2 d.p.
+        k = _by(d, 0, 1, 2)
+        u = Decimal(1).scaleb(-k)                 # the rounding unit
+        r1 = Decimal(random.randint(_by(d, 2, 11, 101), _by(d, 30, 99, 999))) * u
+        good = r1 + Decimal(random.randint(-5, 4)) * u / 10
+        bads = [r1 - u * Decimal("0.6"), r1 + u * Decimal("0.5"), r1 + u * Decimal("1.1"), r1 - u]
         shown = [good] + random.sample(bads, 3)
         random.shuffle(shown)
-        return _tb("Which of these rounds to %s to 1 decimal place?  %s" % (_ds(r1), ", ".join(format(s, ".2f") for s in shown)),
-                   _ds(good), "num", {}, ["Numbers from %s up to (not including) %s round to %s." % (_ds(r1 - Decimal("0.05")),
-                                                                                                   _ds(r1 + Decimal("0.05")), _ds(r1))])
+        to = "the nearest whole number" if k == 0 else "%d decimal place%s" % (k, "" if k == 1 else "s")
+        fmt = "." + str(k + 1) + "f"
+        return _tb("Which of these rounds to %s to %s?  %s" % (format(r1, "." + str(k) + "f"), to, ", ".join(format(s, fmt) for s in shown)),
+                   _ds(good), "num", {}, ["Numbers from %s up to (not including) %s round to %s." % (_ds(r1 - u / 2),
+                                                                                                   _ds(r1 + u / 2), _ds(r1))])
 
     def t_table():
         names = random.sample(["Ava", "Ben", "Cal", "Dee", "Eli"], 3)
-        vals = [Decimal(random.randint(1100, 1999)) / 1000 for _ in names]
-        k = random.randrange(3)
-        r1 = vals[k].quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
-        return _dt("The table shows jump heights in metres. Round %s's jump to 2 decimal places." % names[k], ["Name", "Height (m)"],
-                   [[n, _ds(v)] for n, v in zip(names, vals)], _ds(r1), ["%s → %s." % (_ds(vals[k]), format(r1, "f"))], atype="num")
+        # easy: 2 d.p. heights to 1 d.p.; medium: 3 d.p. to 2 d.p.; hard: 4 d.p. to 3 d.p.
+        k = _by(d, 1, 2, 3)
+        vals = [Decimal(random.randint(11, 19) * 10 ** k + random.randint(0, 10 ** k - 1)) / 10 ** (k + 1) for _ in names]
+        kk = random.randrange(3)
+        r1 = vals[kk].quantize(Decimal(1).scaleb(-k), rounding="ROUND_HALF_UP")
+        return _dt("The table shows jump heights in metres. Round %s's jump to %d decimal place%s." % (names[kk], k, "" if k == 1 else "s"),
+                   ["Name", "Height (m)"], [[n, _ds(v)] for n, v in zip(names, vals)], _ds(r1),
+                   ["%s → %s." % (_ds(vals[kk]), format(r1, "f"))], atype="num")
 
     return _pick_t([t_plain, t_money, t_trap_nine, t_between, t_measure, t_divide_round, t_largest_2dp, t_error, t_whole,
                     t_which], [t_table])

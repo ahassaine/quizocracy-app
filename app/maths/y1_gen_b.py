@@ -19,73 +19,109 @@ def _(d=1):
                 "tolerance": 0.5, "solution": ["It starts at 0 and ends at %d cm." % cm]}
 
     def t_scale():
-        kg = random.randint(1, 9)
+        top = _by(d, 5, 10, 20)                        # hard: a dial to 20 kg
+        kg = random.randint(_by(d, 1, 1, 2), top - 1)
         return {"prompt": "Read the scale. How many kilograms?", "component": "ruler",
-                "spec": {"mode": "mass", "value": kg, "max": 10, "unit": "kg"}, "answer": kg, "answer_type": "num",
+                "spec": {"mode": "mass", "value": kg, "max": top, "unit": "kg"}, "answer": kg, "answer_type": "num",
                 "tolerance": 0.5, "solution": ["The pointer is on %d kg." % kg]}
 
     def t_jug():
-        v = random.randint(1, 9) * 100
+        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 ml lines
         return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": 50, "solution": ["The water is level with %d ml." % v]}
+                "spec": {"mode": "capacity", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "ml"}, "answer": v, "answer_type": "num",
+                "tolerance": _by(d, 50, 50, 20), "solution": ["The water is level with %d ml." % v]}
 
     def t_cubes():
-        a = random.randint(3, 12)
+        a = random.randint(_by(d, 3, 3, 10), _by(d, 8, 12, 20))
         what = pick(["pencil", "spoon", "shoe", "book"])
         return _tb("A %s is as long as %d cubes in a row. How many cubes long is it?" % (what, a), a, "int", {},
                    ["Count the cubes: %d." % a])
 
     def t_balance():
-        a = random.randint(2, 9)
+        a = random.randint(2, _by(d, 5, 9, 9))
         what = pick(["apple", "toy car", "orange", "teddy"])
+        if d == 2:                                      # hard: two of them balance double
+            return _tb("One %s balances %d cubes on the scales. How many cubes balance 2 of them?" % (what, a), 2 * a, "int", {},
+                       ["Double %d is %d." % (a, 2 * a)])
         return _tb("A %s balances %d cubes on the scales. How many cubes does it weigh?" % (what, a), a, "int", {},
                    ["The scales balance, so it weighs %d cubes." % a])
 
     def t_cups():
-        a, b = random.sample(range(2, 10), 2)
+        if d == 2:                                      # hard: three jugs, most or least
+            v = random.sample(range(2, 15), 3)
+            jugs = ["red", "blue", "green"]
+            most = random.random() < 0.5
+            w = max(v) if most else min(v)
+            return _wq("A red jug fills %d cups, a blue jug fills %d cups and a green jug fills %d cups. Which jug holds the %s? "
+                       "(red, blue or green)" % (v[0], v[1], v[2], "most" if most else "least"), jugs[v.index(w)],
+                       ["%d cups is the %s." % (w, "most" if most else "least")], "red / blue / green")
+        a, b = random.sample(range(2, _by(d, 7, 10, 10)), 2)
         return _wq("A red jug fills %d cups. A blue jug fills %d cups. Which jug holds more? (red or blue)" % (a, b),
                    "red" if a > b else "blue", ["%d cups is more than %d cups." % (max(a, b), min(a, b))], "red / blue")
 
     def t_unit_time():
-        q, a = pick([("Which takes about one second: a clap or a night's sleep? (clap or sleep)", "clap"),
-                     ("Which takes longer: one minute or one hour? (minute or hour)", "hour"),
-                     ("Which is shorter: one second or one minute? (second or minute)", "second"),
-                     ("Would you measure a football match in seconds or hours?", "hours"),
-                     ("Would you time a blink in seconds or hours?", "seconds"),
-                     ("Would you time brushing your teeth in minutes or days?", "minutes")])
+        q, a = pick(_by(d, [("Which takes about one second: a clap or a night's sleep? (clap or sleep)", "clap"),
+                            ("Would you time a blink in seconds or hours?", "seconds"),
+                            ("Which takes longer: one minute or one hour? (minute or hour)", "hour")],
+                        [("Which takes about one second: a clap or a night's sleep? (clap or sleep)", "clap"),
+                         ("Which takes longer: one minute or one hour? (minute or hour)", "hour"),
+                         ("Which is shorter: one second or one minute? (second or minute)", "second"),
+                         ("Would you measure a football match in seconds or hours?", "hours"),
+                         ("Would you time a blink in seconds or hours?", "seconds"),
+                         ("Would you time brushing your teeth in minutes or days?", "minutes")],
+                        [("Which is shorter: one second or one minute? (second or minute)", "second"),
+                         ("Would you measure a football match in seconds or hours?", "hours"),
+                         ("Would you time brushing your teeth in minutes or days?", "minutes"),
+                         ("Would you time a sneeze in seconds or minutes?", "seconds"),
+                         ("Would you measure a school day in minutes or hours?", "hours"),
+                         ("Which is longer: 10 seconds or 10 minutes? (seconds or minutes)", "minutes")]))
         return _wq(q, a, ["Seconds are short, minutes are longer, hours are longer still."], "type it")
 
     def t_race():
-        kids = random.sample(KIDS, 3)
-        t = random.sample(range(8, 30), 3)
-        k = pick(["fastest", "slowest"])
+        m = _by(d, 3, 3, 4)                            # hard: four runners, closer times
+        kids = random.sample(KIDS, m)
+        t = random.sample(range(_by(d, 8, 8, 20), _by(d, 20, 30, 40)), m)
+        k = "fastest" if d == 0 else pick(["fastest", "slowest"])
         win = kids[t.index(min(t))] if k == "fastest" else kids[t.index(max(t))]
         return _dt("The table shows race times in seconds. Who was the %s?" % k, ["Name", "Seconds"],
-                   [[kids[i], t[i]] for i in range(3)], win,
+                   [[kids[i], t[i]] for i in range(m)], win,
                    ["Fewer seconds is faster." if k == "fastest" else "More seconds is slower."], atype="str", placeholder="name")
 
     def t_part_day():
-        q, a = pick([("Do you eat breakfast in the morning or the evening?", "morning"),
-                     ("Do you go to bed in the morning or the evening?", "evening"),
-                     ("Does school finish in the morning or the afternoon?", "afternoon"),
-                     ("Is lunch before or after breakfast?", "after"),
-                     ("Is the morning before or after the afternoon?", "before")])
+        q, a = pick(_by(d, [("Do you eat breakfast in the morning or the evening?", "morning"),
+                            ("Do you go to bed in the morning or the evening?", "evening")],
+                        [("Do you eat breakfast in the morning or the evening?", "morning"),
+                         ("Do you go to bed in the morning or the evening?", "evening"),
+                         ("Does school finish in the morning or the afternoon?", "afternoon"),
+                         ("Is lunch before or after breakfast?", "after"),
+                         ("Is the morning before or after the afternoon?", "before")],
+                        [("Does school finish in the morning or the afternoon?", "afternoon"),
+                         ("Is lunch before or after breakfast?", "after"),
+                         ("Is the evening before or after the afternoon?", "after"),
+                         ("Which comes just before the evening: the morning or the afternoon?", "afternoon"),
+                         ("Is dinner before or after lunch?", "after")]))
         return _wq(q, a, ["Morning comes first, then afternoon, then evening."], "word")
 
     def t_longer_by():
-        a, b = random.sample(range(2, 20), 2)
+        a, b = random.sample(range(_by(d, 2, 2, 5), _by(d, 11, 20, 21)), 2)
+        if d == 2 and random.random() < 0.5:            # hard: how much shorter
+            return _tb("A blue pencil is %d cm long. A red pencil is %d cm long. How much shorter is the shorter pencil, in cm?" % (a, b),
+                       abs(a - b), "int", {"unit": "cm"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
         return _tb("A blue pencil is %d cm long. A red pencil is %d cm long. How much longer is the longer pencil, in cm?" % (a, b),
                    abs(a - b), "int", {"unit": "cm"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
     def t_half_full():
-        q, a = pick([("A glass holds 10 sips of juice. It has 5 sips in it. Is it full, half full or empty?", "half full"),
-                     ("A glass holds 10 sips of juice. It has 10 sips in it. Is it full, half full or empty?", "full"),
-                     ("A glass holds 10 sips of juice. It has no juice in it. Is it full, half full or empty?", "empty")])
-        return _wq(q, a, ["Half of 10 is 5."], "full / half full / empty")
+        c = _by(d, 10, 10, pick([4, 6, 8, 12, 20]))   # hard: half of a different amount
+        k = pick(_by(d, [c, 0], [c // 2, c, 0], [c // 2, c // 2, c, 0]))
+        a = "full" if k == c else ("empty" if k == 0 else "half full")
+        return _wq("A glass holds %d sips of juice. It has %s in it. Is it full, half full or empty?" % (c, "%d sips" % k if k else "no juice"),
+                   a, ["Half of %d is %d." % (c, c // 2)], "full / half full / empty")
 
     def t_double_length():
-        a = random.randint(2, 10)
+        a = random.randint(_by(d, 2, 2, 6), _by(d, 5, 10, 10))
+        if d == 2 and random.random() < 0.5:            # hard: half the length
+            return _tb("A snake is %d cm long. Another snake is half that length. How long is it, in cm?" % (2 * a), a, "int",
+                       {"unit": "cm"}, ["Half of %d is %d." % (2 * a, a)])
         return _tb("A snake is %d cm long. Another snake is double that length. How long is it, in cm?" % a, 2 * a, "int",
                    {"unit": "cm"}, ["Double %d is %d." % (a, 2 * a)])
 

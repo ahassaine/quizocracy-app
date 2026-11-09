@@ -206,7 +206,7 @@ def _(d=1):
                                              "The angle is %d°." % deg]}
 
     def t_scale_trap():
-        deg = random.randint(2, 16) * 10
+        deg = random.randint(3, 15) * 10 if d == 0 else random.randint(2, 16) * 10 if d == 1 else random.randint(4, 32) * 5
         return {"prompt": "Measure this angle. Be careful to read the scale that starts at 0 on the horizontal arm. "
                           "How many degrees is it?", "component": "angle",
                 "spec": {"mode": "measure", "degrees": deg, "protractor": True}, "answer": deg, "answer_type": "num",
@@ -214,20 +214,25 @@ def _(d=1):
                                              "The angle is %d°." % deg]}
 
     def t_reflex_from_inner():
-        inner = random.randint(3, 16) * 10
+        inner = random.randint(*_by(d, (3, 9), (3, 16), (7, 34))) * _by(d, 10, 10, 5)
         return _tb("The inside angle between two arms measures %d°. What is the reflex angle on the other side?"
                    % inner, 360 - inner, "int", {"unit": "°"}, ["360 − %d = %d." % (inner, 360 - inner)])
 
     def t_difference():
-        a, b = random.randint(2, 17) * 10, random.randint(2, 17) * 10
+        u = _by(d, 10, 10, 5)
+        a, b = random.randint(2, 170 // u) * u, random.randint(2, 170 // u) * u
         if a == b:
-            b += 10
+            b += u
         return _tb("One angle measures %d° and another measures %d°. What is the difference in degrees?" % (a, b),
                    abs(a - b), "int", {"unit": "°"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
     def t_two_readings():
-        a = random.randint(1, 8) * 10
-        b = a + random.randint(3, 10) * 10
+        if d == 0:                                        # one arm starts near zero
+            a = random.randint(0, 3) * 10
+            b = a + random.randint(3, 8) * 10
+        else:
+            a = random.randint(1, 8) * 10 + (pick([0, 5]) if d == 2 else 0)
+            b = a + random.randint(3, 10) * 10 + (pick([0, 5]) if d == 2 else 0)
         if b > 180:
             b = 180
         return _tb("A protractor is placed on an angle. One arm crosses the scale at %d° and the other arm crosses the same "
@@ -235,7 +240,7 @@ def _(d=1):
                    ["Count from %d to %d: %d − %d = %d." % (a, b, b, a, b - a)])
 
     def t_reflex_pic():
-        deg = random.randint(3, 16) * 10
+        deg = random.randint(*_by(d, (3, 9), (3, 16), (7, 34))) * _by(d, 10, 10, 5)
         return {"prompt": "Measure the angle shown. Then work out the reflex angle that goes the other way round. How big "
                           "is the reflex angle?", "component": "angle",
                 "spec": {"mode": "measure", "degrees": deg, "protractor": True}, "answer": 360 - deg,
@@ -243,37 +248,52 @@ def _(d=1):
                 "solution": ["The angle shown is %d°." % deg, "360 − %d = %d." % (deg, 360 - deg)]}
 
     def t_wrong_scale():
-        deg = random.randint(2, 16) * 10
+        deg = random.randint(*_by(d, (2, 16), (2, 16), (5, 34))) * _by(d, 10, 10, 5)
         return _tb("%s measured an angle and read %d°, but used the wrong scale on the protractor. What is the real size of "
                    "the angle?" % (_who(), 180 - deg), deg, "int", {"unit": "°"},
                    ["The two scales add up to 180°: 180 − %d = %d." % (180 - deg, deg)])
 
     def t_between():
-        a, b = random.sample([20, 35, 50, 65, 80, 95, 110, 125, 140, 155, 170], 2)
+        a, b = random.sample(_by(d, list(range(20, 180, 10)), [20, 35, 50, 65, 80, 95, 110, 125, 140, 155, 170],
+                                 list(range(12, 178))), 2)
         lo_, hi_ = min(a, b), max(a, b)
         return _tb("How many degrees bigger is an angle of %d° than an angle of %d°?" % (hi_, lo_), hi_ - lo_, "int",
                    {"unit": "°"}, ["%d − %d = %d." % (hi_, lo_, hi_ - lo_)])
 
     def t_possible():
-        deg = random.randint(2, 17) * 10 + pick([0, 5])
+        if d == 2:                                        # close to a right angle
+            deg = pick([x for x in range(78, 103) if x != 90])
+        else:
+            deg = random.randint(2, 17) * 10 + (pick([0, 5]) if d else 0)
         claim = pick(["acute", "obtuse"])
         ok = _kind(deg) == claim
         return _wq("%s measures an angle as %d° and says it is %s. Could that be right? (yes or no)"
                    % (_who(), deg, claim), "yes" if ok else "no", ["%d° is %s." % (deg, _kind(deg))], "yes / no")
 
     def t_halfway_mark():
-        a = random.randint(1, 16) * 10
+        g = pick([30, 50]) if d == 2 else 10              # stretch: a wider gap to halve
+        a = random.randint(1, _by(d, 8, 16, 13)) * 10
         return _tb("An arm of an angle points exactly halfway between the %d° mark and the %d° mark on a protractor. What "
-                   "reading is that, in degrees?" % (a, a + 10), a + 5, "int", {"unit": "°"},
-                   ["Halfway between %d and %d is %d." % (a, a + 10, a + 5)])
+                   "reading is that, in degrees?" % (a, a + g), a + g // 2, "int", {"unit": "°"},
+                   ["Halfway between %d and %d is %d." % (a, a + g, a + g // 2)])
 
     def t_right_split():
-        a = random.randint(10, 80)
+        if d == 2:                                        # three parts
+            a, b = random.randint(10, 45), random.randint(10, 35)
+            return _tb("A right angle is split into three angles. Two are measured as %d° and %d°. How big is the third, "
+                       "in degrees?" % (a, b), 90 - a - b, "int", {"unit": "°"},
+                       ["90 − %d − %d = %d." % (a, b, 90 - a - b)])
+        a = random.randint(1, 8) * 10 if d == 0 else random.randint(10, 80)
         return _tb("A right angle is split into two angles. One is measured as %d°. How big is the other, in degrees?" % a,
                    90 - a, "int", {"unit": "°"}, ["90 − %d = %d." % (a, 90 - a)])
 
     def t_sum_measured():
-        a, b = random.randint(2, 9) * 10, random.randint(2, 9) * 10 + 5
+        if d == 0:
+            a, b = random.randint(2, 9) * 10, random.randint(2, 8) * 10
+        elif d == 1:
+            a, b = random.randint(2, 9) * 10, random.randint(2, 9) * 10 + 5
+        else:
+            a, b = random.randint(21, 89), random.randint(21, 89)
         return _tb("Two angles next to each other are measured as %d° and %d°. How big is the angle they make together, in "
                    "degrees?" % (a, b), a + b, "int", {"unit": "°"}, ["%d + %d = %d." % (a, b, a + b)])
 
@@ -288,7 +308,10 @@ def _(d=1):
 
     def t_missing():
         k = _by(d, 2, 3, 4)
-        parts = [random.randint(20, 120) for _ in range(k)]
+        if d == 0:                                        # tens only
+            parts = [random.randint(3, 12) * 10 for _ in range(k)]
+        else:
+            parts = [random.randint(20, 120) for _ in range(k)]
         while sum(parts) >= 340:
             parts = [random.randint(20, 100) for _ in range(k)]
         return _tb("Angles of %s meet at a point with one more angle. How many degrees is the missing angle?"
@@ -296,23 +319,35 @@ def _(d=1):
                    ["Angles at a point add up to 360°.", "360 − %d = %d." % (sum(parts), 360 - sum(parts))])
 
     def t_equal():
-        k = pick([3, 4, 5, 6, 8, 9, 10, 12])
+        k = pick(_by(d, [2, 3, 4, 6], [3, 4, 5, 6, 8, 9, 10, 12], [5, 8, 9, 10, 12, 15, 20]))
         return _tb("%d equal angles meet at a point. How big is each one, in degrees?" % k, 360 // k, "int",
                    {"unit": "°"}, ["360 ÷ %d = %d." % (k, 360 // k)])
 
     def t_turn():
-        f, name = pick([(Fraction(1, 4), "a quarter"), (Fraction(1, 2), "a half"), (Fraction(3, 4), "three quarters"),
-                        (Fraction(1, 3), "a third"), (Fraction(1, 8), "an eighth")])
+        f, name = pick(_by(d, [(Fraction(1, 4), "a quarter"), (Fraction(1, 2), "a half"), (Fraction(3, 4), "three quarters")],
+                           [(Fraction(1, 4), "a quarter"), (Fraction(1, 2), "a half"), (Fraction(3, 4), "three quarters"),
+                            (Fraction(1, 3), "a third"), (Fraction(1, 8), "an eighth")],
+                           [(Fraction(2, 3), "two thirds"), (Fraction(3, 8), "three eighths"), (Fraction(5, 6), "five sixths"),
+                            (Fraction(1, 10), "a tenth"), (Fraction(5, 8), "five eighths"), (Fraction(1, 6), "a sixth")]))
         return _tb("How many degrees is %s of a full turn?" % name, int(360 * f), "int", {"unit": "°"},
                    ["A full turn is 360°.", "%s × 360 = %d." % (_fs(f), int(360 * f))])
 
     def t_clock():
-        h = random.randint(1, 11)
+        if d == 2:                                        # starts from a mark other than 12
+            h1 = random.randint(1, 6)
+            h2 = random.randint(h1 + 2, 11)
+            return _tb("The minute hand of a clock turns clockwise from %d to %d. How many degrees has it turned?"
+                       % (h1, h2), 30 * (h2 - h1), "int", {"unit": "°"},
+                       ["Each hour mark is 360 ÷ 12 = 30°.", "%d marks × 30 = %d." % (h2 - h1, 30 * (h2 - h1))])
+        h = pick([3, 6, 9]) if d == 0 else random.randint(1, 11)
         return _tb("The minute hand of a clock turns from 12 to %d. How many degrees has it turned?" % h, 30 * h,
                    "int", {"unit": "°"}, ["Each hour mark is 360 ÷ 12 = 30°.", "%d × 30 = %d." % (h, 30 * h)])
 
     def t_pie():
-        a, b = random.randint(3, 10) * 10, random.randint(3, 10) * 10
+        if d == 0:                                        # a right angle or half turn makes it easy
+            a, b = pick([90, 180]), random.randint(1, 3) * 30
+        else:
+            a, b = [random.randint(*_by(d, (3, 10), (3, 10), (7, 30))) * _by(d, 10, 10, 5) for _ in range(2)]
         c = 360 - a - b
         return {"prompt": "A circle is split into three angles at the centre. Two are %d° and %d°. How many degrees "
                           "is the third?" % (a, b), "component": "pie_chart",
@@ -320,7 +355,7 @@ def _(d=1):
                 "answer": c, "answer_type": "int", "solution": ["360 − %d − %d = %d." % (a, b, c)]}
 
     def t_angle_pic():
-        deg = random.randint(4, 16) * 10
+        deg = pick([30, 60, 90, 120, 150]) if d == 0 else random.randint(4, 16) * 10 if d == 1 else random.randint(7, 34) * 5
         return {"prompt": "The angle shown is %d°. What angle would make a full turn with it?" % deg,
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 360 - deg,
                 "answer_type": "int", "solution": ["360 − %d = %d." % (deg, 360 - deg)]}

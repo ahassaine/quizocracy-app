@@ -464,13 +464,18 @@ def _(d=1):
                    ["%s − %s = %s." % (_ds(a + b), _ds(a), _ds(b))])
 
     def t_measure():
-        x = Decimal(random.randint(101, 999)) / 100
-        y = Decimal(random.randint(11, 99)) / 100
+        x = Decimal(random.randint(*_by(d, (11, 99), (101, 999), (101, 999)))) / _by(d, 10, 100, 100)
+        y = Decimal(random.randint(*_by(d, (1, 9), (11, 99), (101, 999)))) / _by(d, 10, 100, 1000)
         return _tb("A ribbon is %s m long. %s m is cut off. How much is left, in metres?" % (_ds(x), _ds(y)),
                    _ds(x - y), "num", {"unit": "m"}, ["%s − %s = %s." % (_ds(x), _ds(y), _ds(x - y))])
 
     def t_three():
-        xs = [Decimal(random.randint(1, 99)) / 10 for _ in range(3)]
+        if d == 2:                                        # mixed numbers of places
+            xs = [Decimal(random.randint(11, 99)) / 10, Decimal(random.randint(101, 999)) / 100,
+                  Decimal(random.randint(1, 99)) / 100]
+            random.shuffle(xs)
+        else:
+            xs = [Decimal(random.randint(1, _by(d, 9, 99, 99))) / 10 for _ in range(3)]
         return _tb("Add: %s + %s + %s" % tuple(_ds(v) for v in xs), _ds(sum(xs)), "num", {},
                    ["= %s." % _ds(sum(xs))])
 
@@ -481,14 +486,23 @@ def _(d=1):
                       ["%s − %s = %s." % (_ds(a + b), _ds(a), _ds(b))], atype="num")
 
     def t_line():
-        s = Decimal(random.randint(10, 80)) / 10
-        k = Decimal(random.randint(1, 9)) / 10
+        if d == 0:                                        # stays inside the same whole number
+            w, t = random.randint(1, 8), random.randint(1, 5)
+            s, k = Decimal(w) + Decimal(t) / 10, Decimal(random.randint(1, 9 - t)) / 10
+        else:
+            s = Decimal(random.randint(10, 80)) / 10
+            k = Decimal(random.randint(1, 9)) / 10
+        if d == 2:                                        # take away, back across a whole number
+            s = Decimal(random.randint(11, 89)) / 10
+            lo = int(s - k)
+            return _nld("Start at %s and subtract %s. Mark where you land." % (_ds(s), _ds(k)), s - k, lo, lo + 2,
+                        Decimal("0.1"), Decimal("0.5"), ["%s − %s = %s." % (_ds(s), _ds(k), _ds(s - k))])
         return _nld("Start at %s and add %s. Mark where you land." % (_ds(s), _ds(k)), s + k, int(s), int(s) + 2,
                     Decimal("0.1"), Decimal("0.5"), ["%s + %s = %s." % (_ds(s), _ds(k), _ds(s + k))])
 
     def t_change():
-        cost = Decimal(random.randint(101, 1999)) / 100
-        pay = pick([5, 10, 20]) if cost < 5 else pick([10, 20]) if cost < 10 else 20
+        cost = Decimal(random.randint(*_by(d, (11, 99), (101, 1999), (1001, 4999)))) / _by(d, 10, 100, 100)
+        pay = 50 if cost >= 20 else pick([5, 10, 20]) if cost < 5 else pick([10, 20]) if cost < 10 else 20
         return _tb("Something costs £%s. You pay with a £%d note. How much change do you get, in pounds?"
                    % (format(cost, ".2f"), pay), _ds(pay - cost), "num", {"unit": "£"},
                    ["£%d − £%s = £%s." % (pay, format(cost, ".2f"), format(pay - cost, ".2f"))])
@@ -503,13 +517,14 @@ def _(d=1):
                    "yes" if right else "no", ["%s + %s = %s." % (_ds(a), _ds(b), _ds(s))], "yes / no")
 
     def t_to_one():
-        y = Decimal(random.randint(1, 999)) / 1000
-        return _tb("What must be added to %s to make 1?" % _ds(y), _ds(1 - y), "num", {},
-                   ["1 − %s = %s." % (_ds(y), _ds(1 - y))])
+        y = Decimal(random.randint(1, _by(d, 99, 999, 9999))) / _by(d, 100, 1000, 1000)
+        w = 10 if d == 2 else 1                           # stretch: make 10, not 1
+        return _tb("What must be added to %s to make %d?" % (_ds(y), w), _ds(w - y), "num", {},
+                   ["%d − %s = %s." % (w, _ds(y), _ds(w - y))])
 
     def t_table():
-        xs = [Decimal(random.randint(11, 99)) / 10 for _ in range(3)]
-        ys = [Decimal(random.randint(11, 99)) / 100 for _ in range(3)]
+        xs = [Decimal(random.randint(*_by(d, (11, 99), (11, 99), (101, 999)))) / _by(d, 10, 10, 100) for _ in range(3)]
+        ys = [Decimal(random.randint(11, 99)) / _by(d, 10, 100, 1000) for _ in range(3)]
         rows = [[_ds(x), _ds(y), _ds(x + y)] for x, y in zip(xs, ys)]
         r = random.randrange(3)
         return _dt("In each row, first + second = total. What is the missing total?", ["First", "Second", "Total"], rows,
@@ -517,19 +532,32 @@ def _(d=1):
                    missing=[r, 2], atype="num")
 
     def t_basket():
-        a, b = Decimal(random.randint(55, 899)) / 100, Decimal(random.randint(55, 899)) / 100
+        if d == 2:                                        # three items
+            ps = [Decimal(random.randint(55, 1299)) / 100 for _ in range(3)]
+            return _tb("A book costs £%s, a pen costs £%s and a ruler costs £%s. How much do they cost altogether, in "
+                       "pounds?" % tuple(format(v, ".2f") for v in ps), _ds(sum(ps)), "num", {"unit": "£"},
+                       ["£%s + £%s + £%s = £%s." % tuple(format(v, ".2f") for v in ps + [sum(ps)])])
+        if d == 0:
+            a, b = Decimal(random.randint(6, 89)) / 10, Decimal(random.randint(6, 89)) / 10
+        else:
+            a, b = Decimal(random.randint(55, 899)) / 100, Decimal(random.randint(55, 899)) / 100
         return _tb("A book costs £%s and a pen costs £%s. How much do they cost together, in pounds?"
                    % (format(a, ".2f"), format(b, ".2f")), _ds(a + b), "num", {"unit": "£"},
                    ["£%s + £%s = £%s." % (format(a, ".2f"), format(b, ".2f"), format(a + b, ".2f"))])
 
     def t_thousandths_sub():
-        x = Decimal(random.randint(1001, 9999)) / 1000
-        y = Decimal(random.randint(1, 999)) / 1000
+        if d == 0:                                        # hundredths, smaller numbers
+            x, y = Decimal(random.randint(101, 999)) / 100, Decimal(random.randint(1, 99)) / 100
+        elif d == 1:
+            x, y = Decimal(random.randint(1001, 9999)) / 1000, Decimal(random.randint(1, 999)) / 1000
+        else:                                             # fewer places on top: fill with zeros
+            x, y = Decimal(random.randint(50, 99)) / 10, Decimal(random.randint(1001, 4999)) / 1000
         return _tb("Work out %s − %s." % (_ds(x), _ds(y)), _ds(x - y), "num", {},
-                   ["Line up the thousandths.", "= %s." % _ds(x - y)])
+                   ["Line up the %s." % DPLACE[_places_after(y) or 1], "= %s." % _ds(x - y)])
 
     def t_difference():
-        x, y = sorted([Decimal(random.randint(101, 999)) / 100, Decimal(random.randint(11, 99)) / 10])
+        x, y = sorted([Decimal(random.randint(*_by(d, (11, 99), (101, 999), (1001, 9999)))) / _by(d, 10, 100, 1000),
+                       Decimal(random.randint(11, 99)) / 10])
         if x == y:
             y += Decimal("0.1")
         return _tb("What is the difference between %s and %s?" % (_ds(y), _ds(x)), _ds(y - x), "num", {},
@@ -993,36 +1021,53 @@ def _(d=1):
                    ["%d %s = 1 %s, so ÷ %d." % (f, small, big, f)])
 
     def t_mixed_units():
-        w, r = random.randint(1, 9), random.randint(1, f - 1)
+        w = random.randint(1, _by(d, 5, 9, 19))
+        if d == 0 and f >= 100:                           # a friendly round part
+            r = random.randint(1, 9) * (f // 10)
+        elif d == 2 and f >= 100:                         # a small part: needs a zero place holder
+            r = random.randint(1, f // 10 - 1)
+        else:
+            r = random.randint(1, f - 1)
         return _tb("Write %d %s %d %s in %s." % (w, big, r, small, small), w * f + r, "int", {"unit": small},
                    ["%d × %d + %d = %d." % (w, f, r, w * f + r)])
 
     def t_compare():
-        x = random.randint(1, 9)
-        y = x * f + pick([-1, 1]) * random.randint(1, f // 2)
+        if d == 2:                                        # a decimal amount, a close rival
+            x = Decimal(random.randint(11, 99)) / 10
+            y = int(x * f) + pick([-1, 1]) * random.randint(1, max(1, f // 20))
+        else:
+            x = random.randint(1, _by(d, 5, 9, 9))
+            y = x * f + pick([-1, 1]) * random.randint(1, f // 2)
         bigger = big if x * f > y else small
-        return _wq("Which is more: %d %s or %d %s? Type the unit of the larger amount (%s or %s)."
-                   % (x, big, y, small, big, small), bigger,
-                   ["%d %s = %d %s." % (x, big, x * f, small)], "%s or %s" % (big, small))
+        return _wq("Which is more: %s %s or %s %s? Type the unit of the larger amount (%s or %s)."
+                   % (_ds(x), big, _c(y), small, big, small), bigger,
+                   ["%s %s = %s %s." % (_ds(x), big, _ds(x * f), small)], "%s or %s" % (big, small))
 
     def t_add():
-        a = Decimal(random.randint(11, 99)) / 10
-        b = random.randint(100, f - 1) if f >= 1000 else random.randint(1, f - 1)
+        if d == 0:                                        # whole big units, a round small part
+            a = Decimal(random.randint(1, 9))
+            b = random.randint(1, 9) * (f // 10) if f >= 100 else random.randint(1, f - 1)
+        else:
+            a = Decimal(random.randint(*_by(d, (11, 99), (11, 99), (101, 999)))) / (100 if d == 2 and f >= 100 else 10)
+            b = random.randint(100, f - 1) if f >= 1000 else random.randint(1, f - 1)
         return _tb("Add %s %s and %d %s. Give your answer in %s." % (_ds(a), big, b, small, small),
                    _ds(a * f + b), "num", {"unit": small},
                    ["%s %s = %s %s." % (_ds(a), big, _ds(a * f), small), "+ %d = %s." % (b, _ds(a * f + b))])
 
     def t_table():
-        xs = random.sample(range(1, 20), 4)
-        rows = [["%d %s" % (x, big), "%d %s" % (x * f, small)] for x in xs]
+        if d == 2:                                        # decimal amounts to convert
+            xs = [Decimal(v) / 10 for v in random.sample(range(11, 200), 4)]
+        else:
+            xs = random.sample(range(1, _by(d, 10, 20, 20)), 4)
+        rows = [["%s %s" % (_ds(x), big), "%s %s" % (_ds(x * f), small)] for x in xs]
         k = random.randrange(4)
         rows[k][1] = ""
         return _dt("This table converts %s to %s. What number belongs in the empty cell, in %s?"
-                   % (big, small, small), [big, small], rows, xs[k] * f,
-                   ["%d × %d = %d." % (xs[k], f, xs[k] * f)], missing=[k, 1])
+                   % (big, small, small), [big, small], rows, int(xs[k] * f),
+                   ["%s × %d = %s." % (_ds(xs[k]), f, _ds(xs[k] * f))], missing=[k, 1])
 
     def t_ruler():
-        mm = random.randint(11, 189)
+        mm = _by(d, random.randint(2, 19) * 10, random.randint(11, 189), (2 * random.randint(1, 19) + 1) * 5)
         return {"prompt": "Read the ruler. How long is the line, in millimetres?",
                 "component": "ruler", "spec": {"mode": "length", "value": mm / 10, "max": 20, "unit": "cm"},
                 "answer": mm, "answer_type": "num", "tolerance": 3,
@@ -1150,8 +1195,14 @@ def _(d=1):
                       "2 × (%d + %d) = %d cm." % (W, H, 2 * (W + H))])
 
     def t_l_words():
-        W, H = random.randint(8, 20), random.randint(6, 16)
+        W, H = random.randint(_by(d, 6, 8, 12), _by(d, 12, 20, 40)), random.randint(_by(d, 5, 6, 10), _by(d, 10, 16, 30))
         cw, ch = random.randint(2, W - 3), random.randint(2, H - 3)
+        if d == 2:                                        # only four of the six edges are given
+            return _tb("An L-shaped garden has a bottom edge of %d m and a left edge of %d m. Its top edge is %d m and "
+                       "its right edge is %d m. The two edges of the step are not marked. What is the perimeter of the "
+                       "garden, in m?" % (W, H, W - cw, H - ch), 2 * (W + H), "int", {"unit": "m"},
+                       ["The step edges are %d − %d = %d m and %d − %d = %d m." % (W, W - cw, cw, H, H - ch, ch),
+                        "%d + %d + %d + %d + %d + %d = %d m." % (W, H, W - cw, H - ch, cw, ch, 2 * (W + H))])
         return _tb("An L-shaped garden is made by cutting a rectangle %d m by %d m out of one corner of a rectangle "
                    "%d m by %d m. What is the perimeter of the garden, in m?" % (cw, ch, W, H),
                    2 * (W + H), "int", {"unit": "m"},
@@ -1159,47 +1210,57 @@ def _(d=1):
                     "2 × (%d + %d) = %d m." % (W, H, 2 * (W + H))])
 
     def t_missing_side():
-        W, H = random.randint(8, 20), random.randint(6, 16)
+        W, H = random.randint(_by(d, 6, 8, 12), _by(d, 12, 20, 40)), random.randint(_by(d, 5, 6, 10), _by(d, 10, 16, 30))
         cw = random.randint(2, W - 3)
+        if d == 2:                                        # both step edges, then add
+            ch = random.randint(2, H - 3)
+            return _tb("An L-shape has a bottom edge of %d cm and a top edge of %d cm. Its left edge is %d cm and its "
+                       "right edge is %d cm. What is the total length of the two short edges of the step, in cm?"
+                       % (W, W - cw, H, H - ch), cw + ch, "int", {"unit": "cm"},
+                       ["%d − %d = %d and %d − %d = %d." % (W, W - cw, cw, H, H - ch, ch), "%d + %d = %d." % (cw, ch, cw + ch)])
         return _tb("An L-shape has a bottom edge of %d cm. Its top edge is %d cm. A step in the shape "
                    "makes a short horizontal edge. How long is that short edge, in cm?" % (W, W - cw), cw,
                    "int", {"unit": "cm"}, ["%d − %d = %d." % (W, W - cw, cw)])
 
     def t_rect():
-        a, b = random.randint(3, 30), random.randint(3, 30)
+        a, b = random.randint(_by(d, 2, 3, 15), _by(d, 12, 30, 99)), random.randint(_by(d, 2, 3, 15), _by(d, 12, 30, 99))
         unit = pick(["cm", "m"])
         return _tb("A rectangle is %d %s by %d %s. What is its perimeter, in %s?" % (a, unit, b, unit, unit),
                    2 * (a + b), "int", {"unit": unit}, ["2 × (%d + %d) = %d." % (a, b, 2 * (a + b))])
 
     def t_inverse():
-        a = random.randint(3, 25)
-        p = 2 * (a + random.randint(3, 25))
+        a = random.randint(_by(d, 2, 3, 10), _by(d, 10, 25, 60))
+        p = 2 * (a + random.randint(_by(d, 2, 3, 10), _by(d, 10, 25, 60)))
         return _tb("A rectangle has a perimeter of %d cm. One side is %d cm. How long is the other side, in "
                    "cm?" % (p, a), p // 2 - a, "int", {"unit": "cm"},
                    ["Half the perimeter is %d." % (p // 2), "%d − %d = %d." % (p // 2, a, p // 2 - a)])
 
     def t_metres():
-        a, b = Decimal(random.randint(15, 95)) / 10, Decimal(random.randint(15, 95)) / 10
+        if d == 0:                                        # halves only
+            a, b = Decimal(random.randint(3, 19)) / 2, Decimal(random.randint(3, 19)) / 2
+        else:
+            a, b = [Decimal(random.randint(*_by(d, (15, 95), (15, 95), (105, 995)))) / _by(d, 10, 10, 100) for _ in range(2)]
         return _tb("A rectangular pond is %s m by %s m. What is its perimeter, in metres?" % (_ds(a), _ds(b)),
                    _ds(2 * (a + b)), "num", {"unit": "m"}, ["2 × (%s + %s) = %s." % (_ds(a), _ds(b), _ds(2 * (a + b)))])
 
     def t_fence():
-        a, b = random.randint(4, 20), random.randint(4, 20)
-        cost = random.randint(3, 12)
+        a, b = random.randint(_by(d, 3, 4, 10), _by(d, 10, 20, 45)), random.randint(_by(d, 3, 4, 10), _by(d, 10, 20, 45))
+        cost = random.randint(_by(d, 2, 3, 4), _by(d, 5, 12, 15))
         return _tb("A rectangular field is %d m by %d m. Fencing costs £%d a metre. How much does it cost to fence all the "
                    "way round, in pounds?" % (a, b, cost), 2 * (a + b) * cost, "int", {"unit": "£"},
                    ["Perimeter: 2 × (%d + %d) = %d m." % (a, b, 2 * (a + b)), "%d × %d = %d." % (2 * (a + b), cost,
                                                                                                2 * (a + b) * cost)])
 
     def t_rect_grid():
-        w, h = random.randint(2, 8), random.randint(2, 6)
+        w, h = random.randint(_by(d, 2, 2, 5), _by(d, 5, 8, 10)), random.randint(_by(d, 2, 2, 4), _by(d, 4, 6, 8))
         cells = [[r, c] for r in range(h) for c in range(w)]
         return _area("Each square is 1 cm long. What is the perimeter of this rectangle, in cm?",
                      {"mode": "read_perimeter", "cells": cells, "rows": h, "cols": w}, 2 * (w + h),
                      ["2 × (%d + %d) = %d cm." % (w, h, 2 * (w + h))])
 
     def t_table():
-        dims = [(random.randint(3, 20), random.randint(3, 20)) for _ in range(3)]
+        lo, hi = _by(d, (2, 10), (3, 20), (8, 45))
+        dims = [(random.randint(lo, hi), random.randint(lo, hi)) for _ in range(3)]
         rows = [["%d cm" % a, "%d cm" % b, "%d cm" % (2 * (a + b))] for a, b in dims]
         r = random.randrange(3)
         c = pick([1, 2])
@@ -1212,7 +1273,7 @@ def _(d=1):
                    missing=[r, c])
 
     def t_which_longer():
-        a, b, c, e = [random.randint(3, 15) for _ in range(4)]
+        a, b, c, e = [random.randint(_by(d, 2, 3, 5), _by(d, 9, 15, 30)) for _ in range(4)]
         if a + b == c + e:
             e += 1
         return _wq("Rectangle A is %d cm by %d cm. Rectangle B is %d cm by %d cm. Which has the longer perimeter? (A or B)"
@@ -1221,7 +1282,7 @@ def _(d=1):
 
     def t_regular_mix():
         name, n = pick([("pentagon", 5), ("hexagon", 6), ("octagon", 8)])
-        s = random.randint(3, 12)
+        s = random.randint(_by(d, 2, 3, 8), _by(d, 6, 12, 25))
         return _tb("A garden is a square of side %d m joined to a regular %s of side %d m along one edge. What is the "
                    "perimeter of the whole garden, in m?" % (s, name, s), (4 - 1) * s + (n - 1) * s, "int", {"unit": "m"},
                    ["The shared edge is inside, so it does not count.", "%d + %d = %d sides of %d m: %d m." % (
@@ -1242,12 +1303,12 @@ def _(d=1):
                    a * b, "int", {"unit": unit + "²"}, ["%d × %d = %d." % (a, b, a * b)])
 
     def t_side():
-        a, b = random.randint(2, 15), random.randint(2, 15)
+        a, b = random.randint(_by(d, 2, 2, 3), _by(d, 10, 15, 12)), random.randint(_by(d, 2, 2, 12), _by(d, 10, 15, 40))
         return _tb("A rectangle has an area of %d cm². One side is %d cm. How long is the other side, in cm?"
                    % (a * b, a), b, "int", {"unit": "cm"}, ["%d ÷ %d = %d." % (a * b, a, b)])
 
     def t_square():
-        k = random.randint(2, 12)
+        k = random.randint(_by(d, 2, 2, 8), _by(d, 6, 12, 15))
         return _tb("A square has sides of %d m. What is its area, in m²?" % k, k * k, "int", {"unit": "m²"},
                    ["%d × %d = %d." % (k, k, k * k)])
 
@@ -1259,7 +1320,7 @@ def _(d=1):
                       "Cut-out: %d × %d = %d." % (cw, ch, cw * ch), "%d − %d = %d." % (W * H, cw * ch, len(cells))])
 
     def t_l_words():
-        W, H = random.randint(8, 20), random.randint(6, 16)
+        W, H = random.randint(_by(d, 5, 8, 12), _by(d, 10, 20, 30)), random.randint(_by(d, 5, 6, 10), _by(d, 8, 16, 25))
         cw, ch = random.randint(2, W - 3), random.randint(2, H - 3)
         return _tb("An L-shaped room is a rectangle %d m by %d m with a corner %d m by %d m missing. What is "
                    "its floor area, in m²?" % (W, H, cw, ch), W * H - cw * ch, "int", {"unit": "m²"},
@@ -1267,7 +1328,7 @@ def _(d=1):
                     "%d − %d = %d." % (W * H, cw * ch, W * H - cw * ch)])
 
     def t_compare():
-        a, b, c, e = [random.randint(3, 12) for _ in range(4)]
+        a, b, c, e = [random.randint(_by(d, 2, 3, 6), _by(d, 9, 12, 20)) for _ in range(4)]
         if a * b == c * e:
             e += 1
         return _wq("Rectangle A is %d cm by %d cm. Rectangle B is %d cm by %d cm. Which has the larger "
@@ -1275,27 +1336,28 @@ def _(d=1):
                    ["A = %d cm², B = %d cm²." % (a * b, c * e)], "A or B")
 
     def t_same_perimeter():
-        a, b = random.randint(2, 6), random.randint(7, 12)
+        a, b = random.randint(2, _by(d, 4, 6, 8)), random.randint(_by(d, 5, 7, 10), _by(d, 8, 12, 20))
         p = 2 * (a + b)
         side = p // 4
-        return _tb("A %d cm by %d cm rectangle and a square have the same perimeter (%d cm). How much larger "
-                   "is the area of the square, in cm²?" % (a, b, p), side * side - a * b, "int", {"unit": "cm²"},
+        return _tb("%s %d cm by %d cm rectangle and a square have the same perimeter (%d cm). How much larger "
+                   "is the area of the square, in cm²?" % ("An" if a in (8, 11, 18) or 80 <= a <= 89 else "A", a, b, p), side * side - a * b, "int", {"unit": "cm²"},
                    ["The square has sides of %d cm, area %d cm²." % (side, side * side),
                     "The rectangle's area is %d cm²." % (a * b)]) if p % 4 == 0 else t_compare()
 
     def t_build():
-        n = random.randint(8, 30)
+        n = random.randint(_by(d, 4, 8, 20), _by(d, 15, 30, 40))
         return _area("Each square is 1 cm². Shade squares to make a shape with an area of %d cm²." % n,
                      {"mode": "build_area", "rows": 6, "cols": 8}, n, ["Shade %d squares." % n])
 
     def t_carpet():
-        a, b, cost = random.randint(2, 9), random.randint(2, 9), random.randint(5, 25)
+        a, b = random.randint(2, _by(d, 6, 9, 12)), random.randint(_by(d, 2, 2, 4), _by(d, 6, 9, 12))
+        cost = random.randint(_by(d, 2, 5, 12), _by(d, 10, 25, 35))
         return _tb("A room is %d m by %d m. Carpet costs £%d for each m². How much does it cost to carpet the room, in "
                    "pounds?" % (a, b, cost), a * b * cost, "int", {"unit": "£"},
                    ["Area: %d × %d = %d m²." % (a, b, a * b), "%d × %d = %d." % (a * b, cost, a * b * cost)])
 
     def t_table():
-        dims = [(random.randint(2, 15), random.randint(2, 15)) for _ in range(3)]
+        dims = [(random.randint(2, _by(d, 10, 15, 12)), random.randint(_by(d, 2, 2, 12), _by(d, 10, 15, 30))) for _ in range(3)]
         rows = [["%d cm" % a, "%d cm" % b, "%d cm²" % (a * b)] for a, b in dims]
         r, c = random.randrange(3), pick([1, 2])
         ans = dims[r][1] if c == 1 else dims[r][0] * dims[r][1]
@@ -1306,7 +1368,7 @@ def _(d=1):
                    missing=[r, c])
 
     def t_two_rooms():
-        a, b, c, e = [random.randint(2, 8) for _ in range(4)]
+        a, b, c, e = [random.randint(2, _by(d, 6, 8, 14)) for _ in range(4)]
         return _tb("A flat has two rectangular rooms: one %d m by %d m and one %d m by %d m. What is the total floor area, "
                    "in m²?" % (a, b, c, e), a * b + c * e, "int", {"unit": "m²"},
                    ["%d + %d = %d." % (a * b, c * e, a * b + c * e)])
@@ -1790,39 +1852,56 @@ def _(d=1):
 
     def t_change():
         n = _by(d, 2, 3, 3)
-        pay = pick([5, 10, 20])
-        items = [Decimal(random.randint(50, pay * 100 // n - 10)) / 100 for _ in range(n)]
-        return _tb("%s buys items costing %s and pays with £%d. How much change, in pounds?"
-                   % (_who(), ", ".join("£" + format(i, ".2f") for i in items), pay), _ds(pay - sum(items)), "num",
+        pay = pick(_by(d, [5, 10], [5, 10, 20], [10, 20, 50]))
+        if d == 0:                                        # prices in whole tens of pence
+            items = [Decimal(random.randint(5, pay * 10 // n - 1)) / 10 for _ in range(n)]
+        else:
+            items = [Decimal(random.randint(50, pay * 100 // n - 10)) / 100 for _ in range(n)]
+        prices = ["£" + format(i, ".2f") for i in items]
+        return _tb("%s buys items costing %s and %s, and pays with £%d. How much change, in pounds?"
+                   % (_who(), ", ".join(prices[:-1]), prices[-1], pay), _ds(pay - sum(items)), "num",
                    {"unit": "£"}, ["Total: £%s." % format(sum(items), ".2f"),
                                    "£%d − £%s = £%s." % (pay, format(sum(items), ".2f"), format(pay - sum(items), ".2f"))])
 
     def t_multiple():
-        p = Decimal(random.randint(105, 999)) / 100
-        n = random.randint(3, 9)
+        p = Decimal(random.randint(*_by(d, (11, 99), (105, 999), (1050, 4999)))) / _by(d, 10, 100, 100)
+        n = random.randint(*_by(d, (2, 5), (3, 9), (6, 9)))
         return _tb("A comic costs £%s. How much do %d comics cost, in pounds?" % (format(p, ".2f"), n), _ds(p * n),
                    "num", {"unit": "£"}, ["£%s × %d = £%s." % (format(p, ".2f"), n, format(p * n, ".2f"))])
 
     def t_split():
-        n = random.randint(2, 6)
-        each = Decimal(random.randint(150, 2500)) / 100
+        n = random.randint(*_by(d, (2, 4), (2, 6), (5, 9)))
+        each = Decimal(random.randint(*_by(d, (10, 60), (150, 2500), (1000, 4999)))) / _by(d, 10, 100, 100)
         return _tb("A bill of £%s is shared equally between %d friends. How much does each pay, in pounds?"
                    % (format(each * n, ".2f"), n), _ds(each), "num", {"unit": "£"},
                    ["£%s ÷ %d = £%s." % (format(each * n, ".2f"), n, format(each, ".2f"))])
 
     def t_save():
-        price = Decimal(random.randint(1500, 9000)) / 100
-        have = Decimal(random.randint(200, int(price * 100) - 100)) / 100
+        if d == 0:                                        # whole pounds and 50p steps
+            price = Decimal(random.randint(15, 50))
+            have = Decimal(random.randint(4, int(price) * 2 - 2)) / 2
+        else:
+            price = Decimal(random.randint(*_by(d, (1500, 9000), (1500, 9000), (5000, 15000)))) / 100
+            have = Decimal(random.randint(200, int(price * 100) - 100)) / 100
+        if d == 2:                                        # an extra step: a gift towards it
+            gift = Decimal(random.randint(1, int((price - have) * 100) - 1)) / 100
+            left = price - have - gift
+            return _tb("A bike helmet costs £%s. %s has saved £%s and is given £%s by a grandparent. How much more is "
+                       "needed, in pounds?" % (format(price, ".2f"), _who(), format(have, ".2f"), format(gift, ".2f")),
+                       _ds(left), "num", {"unit": "£"},
+                       ["£%s + £%s = £%s." % (format(have, ".2f"), format(gift, ".2f"), format(have + gift, ".2f")),
+                        "£%s − £%s = £%s." % (format(price, ".2f"), format(have + gift, ".2f"), format(left, ".2f"))])
         return _tb("A bike helmet costs £%s. %s has saved £%s. How much more is needed, in pounds?"
                    % (format(price, ".2f"), _who(), format(have, ".2f")), _ds(price - have), "num", {"unit": "£"},
                    ["£%s − £%s = £%s." % (format(price, ".2f"), format(have, ".2f"), format(price - have, ".2f"))])
 
     def t_table():
-        menu = [("Sandwich", random.randint(180, 399)), ("Juice", random.randint(80, 199)),
-                ("Fruit pot", random.randint(90, 249)), ("Muffin", random.randint(120, 299))]
+        r = (lambda lo, hi: random.randint(lo // 10, hi // 10) * 10) if d == 0 else random.randint
+        menu = [("Sandwich", r(180, 399)), ("Juice", r(80, 199)),
+                ("Fruit pot", r(90, 249)), ("Muffin", r(120, 299))]
         rows = [[n, "£" + format(Decimal(p) / 100, ".2f")] for n, p in menu]
         a, b = random.sample(range(4), 2)
-        qa = random.randint(1, 3)
+        qa = random.randint(*_by(d, (1, 2), (1, 3), (2, 5)))
         tot = Decimal(menu[a][1] * qa + menu[b][1]) / 100
         return _dt("Use the price list. How much do %s %s%s and one %s cost altogether, in pounds?"
                    % (n_words(qa), menu[a][0].lower(), "" if qa == 1 else ("es" if menu[a][0] == "Sandwich" else "s"),

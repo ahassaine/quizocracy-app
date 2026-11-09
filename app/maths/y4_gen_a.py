@@ -429,32 +429,44 @@ def _(d=1):
         ans = random.randint(1, 19) * 500 + random.randint(0, 4) * 100
         if d == 0:
             ans = random.randint(1, 9) * 100
+        elif d == 2:                         # finer ticks: every 50, labelled every 250
+            step, major = 50, 250
+            ans = random.randint(2, 98) * 100 + 50
         return _nl("Place %s on the number line." % _c(ans), ans, step, major,
                    ["%s lies between %s and %s."
-                    % (_c(ans), _c((ans // 500) * 500), _c((ans // 500) * 500 + 500))])
+                    % (_c(ans), _c((ans // major) * major), _c((ans // major) * major + major))])
 
     def t_place_words():
-        ans = random.randint(2, 19) * 500
-        return _nl("Place '%s' on the number line." % _w4(ans), ans, 500, 1000,
+        step, major = {0: (1000, 1000), 1: (500, 1000), 2: (100, 500)}[d]
+        ans = {0: random.randint(1, 9) * 1000, 1: random.randint(2, 19) * 500,
+               2: random.randint(11, 99) * 100}[d]
+        return _nl("Place '%s' on the number line." % _w4(ans), ans, step, major,
                    ["'%s' is %s." % (_w4(ans), _c(ans))])
 
     def t_halfway():
-        a = random.randint(1, 8) * 1000
-        b = a + 1000
-        ans = a + 500
+        gap = {0: 2000, 1: 1000, 2: pick([200, 400, 600, 800])}[d]
+        a = random.randint(1, 7) * 1000 + (random.randint(0, 9 - gap // 100) * 100 if d == 2 else 0)
+        b = a + gap
+        ans = a + gap // 2
+        step, major = (500, 1000) if d == 0 else (100, 500)
         return _nl("Place the number that is halfway between %s and %s on the number line."
-                   % (_c(a), _c(b)), ans, 100, 500,
-                   ["Half of 1,000 is 500.",
-                    "%s + 500 = %s." % (_c(a), _c(ans))])
+                   % (_c(a), _c(b)), ans, step, major,
+                   ["Half of %s is %s." % (_c(gap), _c(gap // 2)),
+                    "%s + %s = %s." % (_c(a), _c(gap // 2), _c(ans))])
 
     def t_place_1000():
-        ans = random.randint(1, 9) * 1000
+        if d == 2:                           # a half-thousand between the labelled marks
+            ans = random.randint(1, 8) * 1000 + 500
+            return _nl("Place %s on the number line." % _c(ans), ans, 500, 1000,
+                       ["%s is halfway between %s and %s."
+                        % (_c(ans), _c(ans - 500), _c(ans + 500))], lo=0, hi=10000)
+        ans = random.randint(1, 5 if d == 0 else 9) * 1000
         return _nl("Place %s on the number line." % _c(ans), ans, 1000, 5000,
                    ["%s is %s of 1,000." % (_c(ans), _pl(ans // 1000, "lot"))])
 
     def t_mark():
-        k = random.randint(2, 9)
-        gap = pick([500, 1000])
+        k = random.randint(2, 5) if d == 0 else random.randint(2, 9)
+        gap = {0: 1000, 1: pick([500, 1000]), 2: pick([200, 250, 500])}[d]
         ans = k * gap
         return _tb("A number line runs from 0 to %s with a mark every %s. "
                    "What number is at the %s mark after 0?" % (_c(10 * gap), _c(gap), ordinal(k)),
@@ -462,26 +474,39 @@ def _(d=1):
                    ["%d × %s = %s." % (k, _c(gap), _c(ans))])
 
     def t_how_many_hundreds():
-        m = random.randint(11, 99) * 100
+        if d == 2:                           # tens in a 4-digit multiple of 10
+            m = random.randint(101, 999) * 10
+            return _tb("How many tens are there in %s?" % _c(m), m // 10, "int",
+                       {"unit": "tens"},
+                       ["%s ÷ 10 = %d." % (_c(m), m // 10)])
+        m = random.randint(11, 30 if d == 0 else 99) * 100
         return _tb("How many hundreds are there in %s?" % _c(m), m // 100, "int",
                    {"unit": "hundreds"},
                    ["%s ÷ 100 = %d." % (_c(m), m // 100)])
 
     def t_how_many_thousands():
-        m = random.randint(1, 9) * 1000
+        m = random.randint(1, 5 if d == 0 else 9) * 1000
+        if d == 2:
+            m += random.randint(1, 9) * 100
         return _tb("How many hundreds make %s?" % _c(m), m // 100, "int", {"unit": "hundreds"},
                    ["Ten hundreds make 1,000.",
                     "%s ÷ 100 = %d." % (_c(m), m // 100)])
 
     def t_blocks_words():
-        m = random.randint(101, 999)
+        if d == 0:
+            m = random.randint(1, 5) * 100 + random.randint(1, 9) * 10 + random.randint(1, 9)
+        elif d == 2:                         # a zero digit to notice
+            m = random.randint(1, 9) * 100 + pick([0, random.randint(1, 9) * 10])
+            m += random.randint(1, 9) if m % 100 == 0 else 0
+        else:
+            m = random.randint(101, 999)
         return _bt("Build the number '%s' with the place-value blocks." % _w4(m), m,
                    ["'%s' is %d." % (_w4(m), m)])
 
     def t_blocks_part():
-        n = _thousands(max(d, 1))
+        n = _thousands(d)
         while n % 1000 == 0:
-            n = _thousands(max(d, 1))
+            n = _thousands(d)
         part = n % 1000
         return _bt("Here is the number %s. Build the part that is left when the thousands "
                    "are taken away." % _c(n), part,
@@ -489,18 +514,20 @@ def _(d=1):
                     "%d = %s." % (part, _thto(part))])
 
     def t_blocks_regroup():
-        h = random.randint(1, 6)
-        t = random.randint(10, 15)
-        o = random.randint(0, 9)
+        h = random.randint(1, 3 if d == 0 else 6)
+        t = random.randint(10, {0: 12, 1: 15, 2: 19}[d])
+        o = random.randint(10, 15) if d == 2 else random.randint(0, 9)   # d=2: regroup twice
         val = h * 100 + t * 10 + o
         who = pick(NAMES)
+        sol = ["%d tens is %d, so ten of them swap for another hundred." % (t, t * 10)]
+        if o >= 10:
+            sol.append("%d ones is %d, so ten of them swap for another ten." % (o, o))
         return _bt("%s has %s, %s and %s. Build that number with the blocks."
                    % (who, _pl(h, "hundred"), _pl(t, "ten"), _pl(o, "one")), val,
-                   ["%d tens is %d, so ten of them swap for another hundred." % (t, t * 10),
-                    "%d + %d + %d = %d." % (h * 100, t * 10, o, val)])
+                   sol + ["%d + %d + %d = %d." % (h * 100, t * 10, o, val)])
 
     def t_blocks_1000_less():
-        n = _thousands(max(d, 1))
+        n = _thousands(d)
         ans = n % 1000 + 1000 * 0
         ans = n - (n // 1000) * 1000
         if ans == 0:
@@ -756,6 +783,17 @@ def _(d=1):
                    [t_table, t_build_expr])
 
 
+def _cross(a, up):
+    """A 4-digit number where adding (up) or taking away `a` crosses the next boundary."""
+    th = random.randint(1, 8)
+    if a == 10:
+        h = random.randint(0, 9)
+        return th * 1000 + h * 100 + (90 + random.randint(0, 9) if up else random.randint(0, 9))
+    if a == 100:
+        return th * 1000 + (900 + random.randint(0, 99) if up else random.randint(0, 99))
+    return th * 1000 + random.randint(0, 999)
+
+
 @skill("Y4.0.f", "1000, 100 or 10 more or less", S0)
 def _(d=1):
     d = _d(d)
@@ -771,6 +809,25 @@ def _(d=1):
 
     def t_boundary():
         """A calculation that crosses a place-value boundary."""
+        if d == 0:                           # 3-digit, crossing one hundred
+            up = random.random() < 0.5
+            base = random.randint(1, 8) * 100 + (random.randint(90, 99) if up
+                                                 else random.randint(1, 9))
+            ans = base + 10 if up else base - 10
+            return _tb("What is 10 %s than %d?" % ("more" if up else "less", base),
+                       ans, "int", {},
+                       ["Watch the place-value boundary.",
+                        "%d %s 10 = %d." % (base, "+" if up else "−", ans)])
+        if d == 2:                           # crosses a thousand
+            a = pick([10, 100])
+            up = random.random() < 0.5
+            base = random.randint(1, 8) * 1000 + \
+                (1000 - a + random.randint(0, a - 1) if up else random.randint(0, a - 1))
+            ans = base + a if up else base - a
+            return _tb("What is %s %s than %s?" % (_c(a), "more" if up else "less", _c(base)),
+                       ans, "int", {},
+                       ["Watch the place-value boundary: the thousands digit changes too.",
+                        "%s %s %s = %s." % (_c(base), "+" if up else "−", _c(a), _c(ans))])
         a = pick([10, 100, 1000])
         if a == 10:
             base = random.randint(1, 8) * 1000 + random.randint(1, 9) * 100 + 95
@@ -800,8 +857,12 @@ def _(d=1):
 
     def t_money():
         who = pick(NAMES)
-        a = pick([100, 1000])
+        a = {0: 100, 1: pick([100, 1000]), 2: pick([10, 100, 1000])}[d]
         base = random.randint(2, 8) * 1000 + random.randint(0, 9) * 100
+        if d == 0:
+            base = random.randint(2, 8) * 100 + random.randint(0, 9) * 10
+        elif d == 2:
+            base = _cross(a, more)
         return _tb("A charity has raised £%s. %s donates another £%s. How much has the "
                    "charity raised now?" % (_c(base), who, _c(a)), base + a, "int", {"unit": "£"},
                    ["£%s + £%s = £%s." % (_c(base), _c(a), _c(base + a))]) if more else \
@@ -818,8 +879,22 @@ def _(d=1):
                     % (_c(result), "−" if more else "+", _c(amt), _c(n))])
 
     def t_two_step():
+        if d == 0:
+            base = random.randint(220, 780)
+            ans = base + 100 - 10
+            return _tb("Start at %d. Add 100, then take away 10. What number do you reach?"
+                       % base, ans, "int", {},
+                       ["%d + 100 = %d." % (base, base + 100),
+                        "%d − 10 = %d." % (base + 100, ans)])
         base = random.randint(2200, 7800)
         ans = base + 1000 - 100
+        if d == 2:                           # three steps
+            ans -= 10
+            return _tb("Start at %s. Add 1,000, take away 100, then take away 10. "
+                       "What number do you reach?" % _c(base), ans, "int", {},
+                       ["%s + 1,000 = %s." % (_c(base), _c(base + 1000)),
+                        "%s − 100 = %s." % (_c(base + 1000), _c(base + 900)),
+                        "%s − 10 = %s." % (_c(base + 900), _c(ans))])
         return _tb("Start at %s. Add 1,000, then take away 100. What number do you reach?"
                    % _c(base), ans, "int", {},
                    ["%s + 1,000 = %s." % (_c(base), _c(base + 1000)),
@@ -828,31 +903,61 @@ def _(d=1):
     def t_how_much():
         a = random.randint(1, 8) * 1000 + random.randint(0, 9) * 100
         gap = pick([10, 100, 1000])
+        if d == 0:
+            a = random.randint(1, 8) * 100 + random.randint(1, 8) * 10
+            gap = pick([10, 100])
+        elif d == 2:                         # the gap crosses a boundary: harder to spot
+            gap = pick([10, 100])
+            a = _cross(gap, True)
         b = a + gap
+        if d == 2:
+            return _tb("Complete:  %s + ___ = %s" % (_c(a), _c(b)), gap, "int", {},
+                       ["%s − %s = %s." % (_c(b), _c(a), _c(gap))])
         return _tb("How much MORE is %s than %s?" % (_c(b), _c(a)), gap, "int", {},
                    ["%s − %s = %s." % (_c(b), _c(a), _c(gap))])
 
     def t_line():
         base = random.randint(2, 18) * 500
         a = pick([100, 1000])
+        step, major = 100, 500
+        if d == 0:
+            base, a, step, major = random.randint(2, 8) * 1000, 1000, 500, 1000
+        elif d == 2:                         # a finer line, counting in tens
+            base, a, step, major = random.randint(101, 989) * 10, 10, 10, 50
         up = random.random() < 0.5 or base - a < 0
         ans = base + a if up else base - a
         return _nl("Place the number that is %s %s than %s on the number line."
-                   % (_c(a), "more" if up else "less", _c(base)), ans, 100, 500,
+                   % (_c(a), "more" if up else "less", _c(base)), ans, step, major,
                    ["%s %s %s = %s." % (_c(base), "+" if up else "−", _c(a), _c(ans))])
 
     def t_build():
         base = random.randint(150, 850)
         a = pick([10, 100])
         up = random.random() < 0.5
+        if d == 0:                           # no boundary to cross
+            base = random.randint(2, 8) * 100 + random.randint(1, 8) * 10 + random.randint(0, 9)
+        elif d == 2:                         # crosses a hundred
+            a = 10
+            base = random.randint(1, 8) * 100 + (random.randint(90, 99) if up
+                                                 else random.randint(0, 9))
         ans = base + a if up else base - a
         return _bt("Build the number that is %d %s than %d." % (a, "more" if up else "less", base),
                    ans, ["%d %s %d = %d." % (base, "+" if up else "−", a, ans)])
 
     def t_io():
-        a = pick([10, 100, 1000])
+        a = pick([10, 100]) if d == 0 else pick([10, 100, 1000])
         up = random.random() < 0.5
-        ins = sorted(random.sample(range(1200, 8800), 4))
+        if d == 0:
+            ins = sorted(random.sample(range(120, 880), 4))
+        elif d == 2 and a < 1000:            # every row crosses a boundary
+            ins = []
+            while len(ins) < 4:
+                x = _cross(a, up)
+                if x not in ins:
+                    ins.append(x)
+            ins.sort()
+        else:
+            ins = sorted(random.sample(range(1200, 8800), 4))
         rows = [[i, i + a if up else i - a] for i in ins]
         miss = random.randint(0, 3)
         return _io("Every Out number follows the same rule. What number goes in the empty cell?",
@@ -863,8 +968,19 @@ def _(d=1):
                    rule="%s %s" % ("+" if up else "−", _c(a)))
 
     def t_table():
-        ns = sorted(random.sample(range(1200, 8800), 3))
-        a = pick([10, 100, 1000])
+        if d == 0:
+            ns = sorted(random.sample(range(120, 880), 3))
+            a = pick([10, 100])
+        else:
+            ns = sorted(random.sample(range(1200, 8800), 3))
+            a = pick([10, 100, 1000])
+        if d == 2 and a < 1000:              # numbers sitting on a boundary
+            ns = []
+            while len(ns) < 3:
+                x = _cross(a, random.random() < 0.5)
+                if x not in ns:
+                    ns.append(x)
+            ns.sort()
         rows = [[_c(x), _c(x - a), _c(x + a)] for x in ns]
         r = random.randint(0, 2)
         col = pick([1, 2])
@@ -1169,7 +1285,7 @@ def _(d=1):
                     "So %s is %s from the back." % (who, ordinal(total - pos + 1))])
 
     def t_who():
-        k = 6
+        k = {0: 4, 1: 6, 2: 8}[d]
         names = random.sample(NAMES, k)
         pos = random.randint(2, k)
         return _wq("The finishing order was: %s. Who finished %s? (write the name)"
@@ -1197,8 +1313,8 @@ def _(d=1):
                     "That is the %s day." % ordinal(a + gap)], "e.g. 41st")
 
     def t_term():
-        step = pick([3, 4, 6, 7, 9, 25])
-        k = random.randint(4, 12)
+        step = pick({0: [2, 5, 10], 1: [3, 4, 6, 7, 9, 25], 2: [6, 7, 9, 25]}[d])
+        k = random.randint(*{0: (4, 8), 1: (4, 12), 2: (10, 20)}[d])
         ans = k * step
         return _tb("A sequence starts at %d and goes up in %ds: %d, %d, %d, ... "
                    "What is the %s term?" % (step, step, step, 2 * step, 3 * step, ordinal(k)),
@@ -1207,8 +1323,8 @@ def _(d=1):
                     "%d × %d = %s." % (k, step, _c(ans))])
 
     def t_every_nth():
-        gap = pick([2, 5, 10])
-        k = random.randint(3, 12)
+        gap = pick([3, 4, 6, 25] if d == 2 else [2, 5, 10])
+        k = random.randint(*{0: (3, 8), 1: (3, 12), 2: (8, 20)}[d])
         ans = gap * k
         return _tb("Every %s house on a street is painted white, starting with house number %d. "
                    "What is the number of the %s white house?" % (ordinal(gap), gap, ordinal(k)),
@@ -1216,8 +1332,8 @@ def _(d=1):
                    ["%d × %d = %d." % (k, gap, ans)])
 
     def t_position_of():
-        gap = pick([2, 5, 10])
-        k = random.randint(3, 12)
+        gap = pick([3, 4, 6, 25] if d == 2 else [2, 5, 10])
+        k = random.randint(*{0: (3, 8), 1: (3, 12), 2: (8, 20)}[d])
         val = gap * k
         return _wq("Trees are planted every %d metres along a path, the first at %d m. "
                    "Which tree is at %d m? (write it like 4th)" % (gap, gap, val),
@@ -1232,8 +1348,8 @@ def _(d=1):
                    ["The last of %d people is the %s." % (total, ordinal(total))], "e.g. 40th")
 
     def t_line():
-        gap = pick([5, 10])
-        k = random.randint(3, 9)
+        gap = {0: 10, 1: pick([5, 10]), 2: pick([5, 25])}[d]
+        k = random.randint(3, 5) if d == 0 else random.randint(3, 9) if d == 1 else random.randint(6, 12)
         ans = gap * k
         major = 50 if gap == 5 else 100
         return _nl("Lamp posts stand every %d metres along a road, the first at %d m. "
@@ -1245,7 +1361,9 @@ def _(d=1):
         names = random.sample(NAMES, 5)
         times = sorted(random.sample(range(45, 90), 5))
         rows = [[names[i], "%d seconds" % times[i]] for i in range(5)]
-        pos = random.randint(1, 5)
+        pos = random.randint(1, 3) if d == 0 else random.randint(1, 5)
+        if d == 2:                           # rows not in finishing order: sort them first
+            random.shuffle(rows)
         return _dt("This table shows the times in a 400 m race (the fastest time wins). "
                    "Who finished %s? (write the name)" % ordinal(pos),
                    ["Runner", "Time"], rows, names[pos - 1],
@@ -1260,8 +1378,18 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     span = {0: 6, 1: 10, 2: 20}[d]
+    lim = min(9, span) if d < 2 else 19      # how far from 0 the number line reaches
+    lo, hi = (-10, 10) if d < 2 else (-20, 20)
 
     def t_count_back():
+        if d == 2:                           # in tens, further below zero
+            start = 10 * random.randint(1, 2)
+            terms = [start - 10 * i for i in range(4)]
+            ans = terms[-1] - 10
+            return _tb("Count back in tens:  %s, ___  What number comes next?"
+                       % ", ".join(str(t) for t in terms), ans, "int", {},
+                       ["Keep subtracting 10, straight through zero.",
+                        "%d − 10 = %d." % (terms[-1], ans)])
         start = random.randint(1, 3)
         terms = [start - i for i in range(4)]
         ans = terms[-1] - 1
@@ -1271,7 +1399,7 @@ def _(d=1):
                     "%d − 1 = %d." % (terms[-1], ans)])
 
     def t_count_back_step():
-        step = pick([2, 3, 5])
+        step = pick({0: [2, 5], 1: [2, 3, 5], 2: [4, 6, 25]}[d])
         start = step * random.randint(1, 3)
         terms = [start - i * step for i in range(4)]
         ans = terms[-1] - step
@@ -1309,8 +1437,8 @@ def _(d=1):
                     % (b, b, b - a)])
 
     def t_missing():
-        step = pick([1, 2, 5])
-        start = step * 2
+        step = pick({0: [1, 2], 1: [1, 2, 5], 2: [3, 4, 25]}[d])
+        start = step * (2 if d < 2 else random.randint(1, 3))
         terms = [start - i * step for i in range(6)]
         idx = random.randint(3, 5)
         shown = ", ".join("___" if i == idx else str(t) for i, t in enumerate(terms))
@@ -1321,9 +1449,18 @@ def _(d=1):
 
     def t_lift():
         who = pick(NAMES)
-        down = random.randint(1, 3)
-        up = random.randint(1, 5)
+        down = random.randint(1, 2 if d == 0 else 3)
+        up = random.randint(1, 3 if d == 0 else 5)
         ans = -down + up
+        if d == 2:                           # two moves
+            back = random.randint(ans + 1, ans + 4)
+            return _tb("In a car park, floor 0 is the ground floor and the basement floors are "
+                       "−1, −2 and so on. %s parks on floor %d, goes up %s, then down %s. "
+                       "Which floor is %s on now?"
+                       % (who, -down, _pl(up, "floor"), _pl(back, "floor"), who),
+                       ans - back, "int", {},
+                       ["%d + %d = %d." % (-down, up, ans),
+                        "%d − %d = %d." % (ans, back, ans - back)])
         return _tb("In a car park, floor 0 is the ground floor and the basement floors are "
                    "−1, −2 and so on. %s parks on floor %d, then goes up %s. "
                    "Which floor is %s on now?" % (who, -down, _pl(up, "floor"), who), ans, "int", {},
@@ -1335,48 +1472,48 @@ def _(d=1):
                    ["From %d to 0 is %d." % (n, -n)])
 
     def t_line_place():
-        ans = -random.randint(1, min(9, span))
-        return _nl("Place %d on the number line." % ans, ans, 1, 5, lo=-10, hi=10,
+        ans = -random.randint(1, lim)
+        return _nl("Place %d on the number line." % ans, ans, 1, 5, lo=lo, hi=hi,
                    solution=["Negative numbers sit to the LEFT of zero.",
                              "%d is %d to the left of 0." % (ans, -ans)])
 
     def t_graph_integer():
-        ans = pick([-1, 1]) * random.randint(1, min(9, span))
-        return _nl("Mark the number %d on the number line." % ans, ans, 1, 5, lo=-10, hi=10,
+        ans = pick([-1, 1]) * random.randint(1, lim)
+        return _nl("Mark the number %d on the number line." % ans, ans, 1, 5, lo=lo, hi=hi,
                    solution=["Numbers below zero go to the left of zero; "
                              "numbers above zero go to the right.",
                              "%d is %d to the %s of 0."
                              % (ans, abs(ans), "left" if ans < 0 else "right")])
 
     def t_graph_integer_count():
-        start = random.randint(-5, 5)
-        move = random.randint(1, 5)
+        start = random.randint(-5, 5) if d < 2 else random.randint(-9, 9)
+        move = random.randint(1, 5) if d < 2 else random.randint(6, 11)
         back = random.random() < 0.5
         ans = start - move if back else start + move
         return _nl("Start at %d and count %s %d. "
                    "Mark the number you reach on the number line."
-                   % (start, "back" if back else "on", move), ans, 1, 5, lo=-10, hi=10,
+                   % (start, "back" if back else "on", move), ans, 1, 5, lo=lo, hi=hi,
                    solution=["%d %s %d = %d." % (start, "−" if back else "+", move, ans)])
 
     def t_line_count():
-        start = random.randint(1, 5)
-        back = start + random.randint(1, 8)
+        start = random.randint(1, {0: 3, 1: 5, 2: 9}[d])
+        back = start + random.randint(1, {0: 4, 1: 8, 2: 10}[d])
         ans = start - back
         return _nl("Start at %d and count back %d. Place the number you land on."
-                   % (start, back), ans, 1, 5, lo=-10, hi=10,
+                   % (start, back), ans, 1, 5, lo=lo, hi=hi,
                    solution=["%d − %d = %d." % (start, back, ans)])
 
     def t_line_temp():
-        ans = -random.randint(1, min(9, span))
+        ans = -random.randint(1, lim)
         return _nl("The temperature is %d°C. Place that temperature on the number line." % ans,
-                   ans, 1, 5, lo=-10, hi=10,
+                   ans, 1, 5, lo=lo, hi=hi,
                    solution=["%d°C is %s below zero." % (ans, _pl(-ans, "degree"))])
 
     def t_graph():
         hours = ["6 am", "9 am", "12 pm", "3 pm", "6 pm"]
-        vals = [-random.randint(2, 6)]
-        for _i in range(4):
-            vals.append(vals[-1] + random.randint(1, 3))
+        vals = [-random.randint(*{0: (1, 3), 1: (2, 6), 2: (6, 10)}[d])]
+        for _i in range(4):                  # d=2: the temperature can dip as well as rise
+            vals.append(vals[-1] + (pick([-2, -1, 1, 2, 3]) if d == 2 else random.randint(1, 3)))
         idx = random.randint(0, 4)
         return _lg("This graph shows the temperature during one day. "
                    "What was the temperature at %s?" % hours[idx],
@@ -1386,9 +1523,9 @@ def _(d=1):
 
     def t_graph_rise():
         hours = ["6 am", "8 am", "10 am", "12 pm", "2 pm"]
-        vals = [-random.randint(3, 7)]
+        vals = [-random.randint(*{0: (1, 3), 1: (3, 7), 2: (6, 10)}[d])]
         for _i in range(4):
-            vals.append(vals[-1] + random.randint(1, 3))
+            vals.append(vals[-1] + random.randint(1, 4 if d == 2 else 3))
         return _lg("This graph shows the temperature during one morning. "
                    "How many degrees did the temperature rise between 6 am and 2 pm?",
                    list(zip(hours, vals)), vals[-1] - vals[0],
@@ -1548,6 +1685,18 @@ def _(d=1):
         b = a if random.random() < 0.12 else one()
         return a, b
 
+    def vals_for(k):
+        """k different 4-digit values: d=0 all thousands digits differ, d=2 they share one."""
+        if d == 0:
+            return [t * 1000 + random.randint(0, 999) for t in random.sample(range(1, 10), k)]
+        if d == 2:
+            th = random.randint(1, 9) * 1000
+            if random.random() < 0.5:        # same hundreds digit too
+                th += random.randint(0, 9) * 100
+                return [th + x for x in random.sample(range(0, 100), k)]
+            return [th + x for x in random.sample(range(0, 1000), k)]
+        return random.sample(range(1200, 9800), k)
+
     def t_symbol():
         a, b = two()
         ans = "=" if a == b else (">" if a > b else "<")
@@ -1559,6 +1708,20 @@ def _(d=1):
         a = random.randint(1000, 4000)
         b = random.randint(100, 3000)
         cc = random.randint(1500, 7000)
+        if d == 0:                           # whole thousands and hundreds only
+            a, b = random.randint(1, 4) * 1000, random.randint(1, 9) * 100
+            cc = random.randint(15, 70) * 100
+        elif d == 2:                         # a sum on each side
+            e = random.randint(100, 3000)
+            cc = random.randint(1000, 4000)
+            e = a + b - cc + pick([-10, -1, 0, 1, 10, 100]) if 100 < a + b - cc < 3000 else e
+            left, right = a + b, cc + e
+            ans = "=" if left == right else (">" if left > right else "<")
+            return _wq("Compare:  %s + %s ___ %s + %s   (write <, > or =)"
+                       % (_c(a), _c(b), _c(cc), _c(e)), ans,
+                       ["%s + %s = %s." % (_c(a), _c(b), _c(left)),
+                        "%s + %s = %s." % (_c(cc), _c(e), _c(right)),
+                        "%s %s %s." % (_c(left), ans, _c(right))], "<, > or =")
         left = a + b
         ans = "=" if left == cc else (">" if left > cc else "<")
         return _wq("Compare:  %s + %s ___ %s   (write <, > or =)" % (_c(a), _c(b), _c(cc)), ans,
@@ -1596,6 +1759,8 @@ def _(d=1):
 
     def t_extreme():
         ns = random.sample(range(1000, 9999) if d >= 1 else range(101, 999), 4)
+        if d == 2:                           # stretch: they share the thousands digit
+            ns = vals_for(4)
         big = random.random() < 0.5
         ans = max(ns) if big else min(ns)
         return _tb("Which is the %s of these numbers?   %s"
@@ -1605,6 +1770,8 @@ def _(d=1):
 
     def t_nth():
         ns = random.sample(range(1000, 9999) if d >= 1 else range(101, 999), 5)
+        if d == 2:
+            ns = vals_for(5)
         k = random.randint(2, 4)
         asc = random.random() < 0.5
         ans = sorted(ns)[k - 1] if asc else sorted(ns, reverse=True)[k - 1]
@@ -1617,10 +1784,15 @@ def _(d=1):
     def t_between():
         a = random.randint(1000, 7000)
         b = a + random.randint(300, 900)
+        if d == 0:
+            a = random.randint(1, 7) * 1000
+            b = a + 1000
+        elif d == 2:                         # a narrow gap, distractors just outside it
+            b = a + random.randint(20, 90)
         target = random.randint(a + 1, b - 1)
         opts = [target]
         while len(opts) < 4:
-            m = random.randint(1000, 9999)
+            m = random.randint(a - 200, b + 200) if d == 2 else random.randint(1000, 9999)
             if not (a < m < b) and m not in opts:
                 opts.append(m)
         random.shuffle(opts)
@@ -1631,7 +1803,7 @@ def _(d=1):
 
     def t_table_extreme():
         teams = random.sample(["Rovers", "City", "United", "Albion", "Wanderers", "Athletic"], 4)
-        vals = random.sample(range(1200, 9800), 4)
+        vals = vals_for(4)
         rows = [[teams[i], _c(vals[i])] for i in range(4)]
         big = random.random() < 0.5
         val = max(vals) if big else min(vals)
@@ -1645,7 +1817,7 @@ def _(d=1):
 
     def t_table_nth():
         towns = random.sample(["Ashby", "Redhill", "Newport", "Stanton", "Hartley", "Elmwood"], 5)
-        vals = random.sample(range(1200, 9800), 5)
+        vals = vals_for(5)
         rows = [[towns[i], _c(vals[i])] for i in range(5)]
         k = random.randint(1, 5)
         order = sorted(range(5), key=lambda i: -vals[i])
@@ -1659,7 +1831,7 @@ def _(d=1):
 
     def t_table_value():
         towns = random.sample(["Ashby", "Redhill", "Newport", "Stanton", "Hartley"], 4)
-        vals = random.sample(range(1200, 9800), 4)
+        vals = vals_for(4)
         rows = [[towns[i], _c(vals[i])] for i in range(4)]
         k = random.randint(1, 4)
         val = sorted(vals)[k - 1]
@@ -1670,19 +1842,31 @@ def _(d=1):
                     "The %s number is %s." % (_rank(k, "smallest"), _c(val))])
 
     def t_line():
+        unit, step, major = {0: (1000, 1000, 5000), 1: (500, 500, 2500), 2: (100, 100, 500)}[d]
         a = random.randint(2, 19) * 500
-        b = random.randint(2, 19) * 500
+        if d == 0:
+            a = random.randint(1, 9) * 1000
+        elif d == 2:                         # close together: only the hundreds differ
+            a = random.randint(11, 95) * 100
+        b = a
         while b == a:
-            b = random.randint(2, 19) * 500
+            b = random.randint(2, 19) * 500 if d == 1 else \
+                random.randint(1, 9) * 1000 if d == 0 else a + random.randint(-4, 4) * 100
         big = random.random() < 0.5
         ans = max(a, b) if big else min(a, b)
         return _nl("Compare %s and %s. Place the %s number on the number line."
-                   % (_c(a), _c(b), "GREATER" if big else "SMALLER"), ans, 500, 2500,
+                   % (_c(a), _c(b), "GREATER" if big else "SMALLER"), ans, step, major,
                    ["On a number line the greater number is further to the right.",
                     "%s is greater than %s." % (_c(max(a, b)), _c(min(a, b)))])
 
     def t_build():
         a, b = random.sample(range(101, 999), 2)
+        if d == 0:                           # different hundreds digits
+            h1, h2 = random.sample(range(1, 10), 2)
+            a, b = h1 * 100 + random.randint(0, 99), h2 * 100 + random.randint(0, 99)
+        elif d == 2:                         # same hundreds digit: compare the tens and ones
+            h = random.randint(1, 9) * 100
+            a, b = [h + x for x in random.sample(range(0, 100), 2)]
         return _bt("Build the SMALLER of these two numbers: %d and %d." % (a, b), min(a, b),
                    ["%d is greater than %d." % (max(a, b), min(a, b)),
                     "The smaller number is %d." % min(a, b)])
@@ -1698,8 +1882,14 @@ def _(d=1):
     lo, hi = {0: (101, 989), 1: (1001, 9899), 2: (1001, 9899)}[d]
 
     def num(unit):
-        if d == 2 and random.random() < 0.35:
-            return random.randint(lo // unit, (hi - unit) // unit) * unit + unit // 2
+        if d == 2:
+            r = random.random()
+            if r < 0.35:                     # exactly halfway
+                return random.randint(lo // unit, (hi - unit) // unit) * unit + unit // 2
+            if r < 0.7:                      # rounding up rolls over the next place: 3,697 -> 3,700
+                if unit == 10:
+                    return random.randint(11, 98) * 100 - random.randint(1, 4)
+                return random.randint(2, 9) * 1000 - random.randint(1, 49)
         return random.randint(lo, hi)
 
     def t_bare10():
@@ -1726,6 +1916,8 @@ def _(d=1):
     def t_crowd():
         n = random.randint(105, 985) if d == 0 else random.randint(1005, 9895)
         unit = pick([10, 100])
+        if d == 2:
+            n = num(unit)
         return _tb("%s people watched a match. Round that number to the nearest %d."
                    % (_c(n), unit), _r(n, unit), "int", {"unit": "people"},
                    ["Look at the digit to the right of the %s place."
@@ -1735,6 +1927,8 @@ def _(d=1):
     def t_inverse():
         unit = pick([10, 100])
         r = random.randint(lo // unit + 1, hi // unit) * unit
+        if d == 2:                           # a round number: the range crosses the next place
+            r = random.randint(2, 9) * 10 * unit if unit == 100 else random.randint(11, 98) * 100
         smallest = random.random() < 0.5
         ans = r - unit // 2 if smallest else r + unit // 2 - 1
         return _tb("A whole number rounds to %s when rounded to the nearest %d. "
@@ -1750,7 +1944,7 @@ def _(d=1):
         target = random.randint(r - unit // 2, r + unit // 2 - 1)
         opts = [target]
         while len(opts) < 4:
-            m = random.randint(lo, hi)
+            m = random.randint(r - 2 * unit, r + 2 * unit) if d == 2 else random.randint(lo, hi)
             if _r(m, unit) != r and m not in opts:
                 opts.append(m)
         random.shuffle(opts)
@@ -1761,8 +1955,8 @@ def _(d=1):
                     "%s rounds to %s." % (_c(target), _c(r))])
 
     def t_both():
-        n = random.randint(1011, 9889)
         unit = pick([10, 100])
+        n = num(unit)
         other = 100 if unit == 10 else 10
         return _tb("%s is rounded to the nearest %d and to the nearest %d. "
                    "What is it rounded to the nearest %d?" % (_c(n), other, unit, unit),
@@ -1770,8 +1964,10 @@ def _(d=1):
                    ["To the nearest %d, %s rounds to %s." % (unit, _c(n), _c(_r(n, unit)))])
 
     def t_difference():
-        n = random.randint(1011, 9889)
         unit = pick([10, 100])
+        n = num(unit)
+        while n % unit == 0:                 # a change of 0 is no question
+            n = num(unit)
         ans = abs(_r(n, unit) - n)
         return _tb("%s is rounded to the nearest %d. How much does the number change by?"
                    % (_c(n), unit), ans, "int", {},
@@ -1794,7 +1990,12 @@ def _(d=1):
 
     def t_io():
         unit = pick([10, 100])
-        ins = sorted(random.sample(range(1011, 9889), 4))
+        ins = []
+        while len(ins) < 4:
+            x = num(unit)
+            if x not in ins:
+                ins.append(x)
+        ins.sort()
         rows = [[i, _r(i, unit)] for i in ins]
         miss = random.randint(0, 3)
         return _io("Each Out number is the In number rounded to the nearest %d. "
@@ -1803,7 +2004,12 @@ def _(d=1):
                    rule="round to nearest %d" % unit)
 
     def t_table():
-        ns = sorted(random.sample(range(1011, 9889), 3))
+        ns = []
+        while len(ns) < 3:
+            x = num(pick([10, 100]))
+            if x not in ns:
+                ns.append(x)
+        ns.sort()
         rows = [[_c(x), _c(_r10(x)), _c(_r100(x))] for x in ns]
         r = random.randint(0, 2)
         col = pick([1, 2])
@@ -1816,6 +2022,12 @@ def _(d=1):
     def t_build():
         n = random.randint(111, 899)
         unit = pick([10, 100])
+        if d == 2:                           # halfway, or rounding rolls over a hundred
+            if unit == 100:
+                n = random.randint(1, 8) * 100 + 50
+            else:
+                n = pick([random.randint(2, 9) * 100 - random.randint(1, 4),
+                          random.randint(11, 89) * 10 + 5])
         ans = _r(n, unit)
         return _bt("Round %d to the nearest %d, then build your answer with the blocks."
                    % (n, unit), ans, ["%d rounds to %d." % (n, ans)])
@@ -2447,12 +2659,31 @@ def _(d=1):
                    [t_io, t_io_rule, t_line, t_table])
 
 
+def _best(digs, big, ok=None):
+    """Largest/smallest number using each digit once (no leading zero), optionally filtered."""
+    from itertools import permutations
+    ns = [int("".join(map(str, p))) for p in permutations(digs) if p[0] != 0]
+    ns = [m for m in ns if ok is None or ok(m)]
+    return max(ns) if big else min(ns)
+
+
 @skill("Y4.1.g", "Number puzzles and logical reasoning", S1)
 def _(d=1):
     d = _d(d)
 
     def t_digit_clues():
-        t, o = random.sample(range(1, 10), 2)
+        if d == 2:                           # 3-digit: one more clue to juggle
+            h = random.randint(1, 9)
+            t, o = random.sample(range(0, 10), 2)
+            n = h * 100 + t * 10 + o
+            rel = ("its tens digit is %d more than its ones digit" % (t - o) if t > o else
+                   "its ones digit is %d more than its tens digit" % (o - t))
+            return _tb("Guess the number: it is a 3-digit number with %d hundreds. Its digits "
+                       "add up to %d and %s. What is the number?" % (h, h + t + o, rel),
+                       n, "int", {},
+                       ["The tens and ones digits add up to %d − %d = %d." % (h + t + o, h, t + o),
+                        "They are %d and %d, so the number is %d." % (t, o, n)])
+        t, o = random.sample(range(1, 6 if d == 0 else 10), 2)
         n = t * 10 + o
         return _tb("Guess the number: it is a 2-digit number. Its digits add up to %d and "
                    "its tens digit is %d more than its ones digit. What is the number?"
@@ -2466,22 +2697,34 @@ def _(d=1):
     def t_largest_from_digits():
         k = 4 if d >= 1 else 3
         digs = random.sample(range(1, 10), k)
+        if d == 2:                           # a zero cannot go first
+            digs[random.randrange(k)] = 0
         big = random.random() < 0.5
-        order = sorted(digs, reverse=True) if big else sorted(digs)
-        ans = int("".join(str(x) for x in order))
+        ans = _best(digs, big)
         return _tb("Use each of the digits %s once. What is the %s number you can make?"
                    % (", ".join(str(x) for x in digs), "LARGEST" if big else "SMALLEST"),
                    ans, "int", {},
-                   ["Put the %s digit first." % ("largest" if big else "smallest"),
+                   ["Put the %s digit first%s." % ("largest" if big else "smallest",
+                                                  "" if big or 0 not in digs else
+                                                  " (not 0: it cannot start a number)"),
                     "The answer is %s." % _c(ans)])
 
     def t_largest_even():
-        digs = random.sample([1, 2, 3, 4, 5, 6, 7, 8, 9], 4)
+        if d == 2:                           # the SMALLEST even number is a harder search
+            digs = random.sample(range(1, 10), 4)
+            if all(x % 2 for x in digs):
+                digs[0] = pick([2, 4, 6, 8])
+            ans = _best(digs, False, lambda m: m % 2 == 0)
+            return _tb("Use each of the digits %s once. What is the smallest EVEN number you "
+                       "can make?" % ", ".join(str(x) for x in digs), ans, "int", {},
+                       ["An even number must end in an even digit.",
+                        "Keep the smallest digits at the front: the answer is %s." % _c(ans)])
+        digs = random.sample([1, 2, 3, 4, 5, 6, 7, 8, 9], 4 if d else 3)
         evens = [x for x in digs if x % 2 == 0]
         if not evens:
             digs[0] = pick([2, 4, 6, 8])
             digs = list(dict.fromkeys(digs))
-            while len(digs) < 4:
+            while len(digs) < (4 if d else 3):
                 m = random.randint(1, 9)
                 if m not in digs:
                     digs.append(m)
@@ -2496,8 +2739,8 @@ def _(d=1):
                     "The answer is %s." % _c(ans)])
 
     def t_sum_and_diff():
-        small = random.randint(5, 40)
-        gap = random.randint(2, 20)
+        small = random.randint(*{0: (3, 15), 1: (5, 40), 2: (25, 150)}[d])
+        gap = random.randint(*{0: (2, 10), 1: (2, 20), 2: (10, 60)}[d])
         big = small + gap
         want_big = random.random() < 0.5
         return _tb("Two numbers add up to %d. The difference between the two numbers is %d. "
@@ -2510,7 +2753,7 @@ def _(d=1):
                                               big if want_big else small)])
 
     def t_product_and_sum():
-        a, b = random.sample(range(2, 13), 2)
+        a, b = random.sample({0: range(2, 7), 1: range(2, 13), 2: range(6, 13)}[d], 2)
         want_big = random.random() < 0.5
         return _tb("Two whole numbers multiply to make %d and add up to %d. "
                    "What is the %s number?" % (a * b, a + b,
@@ -2521,8 +2764,8 @@ def _(d=1):
                                               max(a, b) if want_big else min(a, b))])
 
     def t_find_two_sum_diff():
-        small = random.randint(3, 15 if d == 0 else 40)
-        gap = random.randint(2, 10 if d == 0 else 20)
+        small = random.randint(*{0: (3, 15), 1: (3, 40), 2: (25, 150)}[d])
+        gap = random.randint(*{0: (2, 10), 1: (2, 20), 2: (10, 60)}[d])
         big = small + gap
         want_big = random.random() < 0.5
         return _tb("Find two numbers with a sum of %d and a difference of %d. "
@@ -2534,8 +2777,8 @@ def _(d=1):
                     "The two numbers are %d and %d." % (small, big)])
 
     def t_find_two_product_quotient():
-        b = random.randint(2, 5 if d == 0 else 8)
-        q = random.randint(2, 4 if d == 0 else 6)
+        b = random.randint(2, {0: 5, 1: 8, 2: 12}[d])
+        q = random.randint(2, {0: 4, 1: 6, 2: 9}[d])
         a = q * b
         want_big = random.random() < 0.5
         return _tb("Find two numbers with a product of %s and a quotient of %d. "
@@ -2546,8 +2789,8 @@ def _(d=1):
                     "The two numbers are %d and %d." % (b, a)])
 
     def t_find_two_all_clues():
-        b = random.randint(2, 5 if d == 0 else 9)
-        q = random.randint(2, 3 if d == 0 else 5)
+        b = random.randint(2, {0: 5, 1: 9, 2: 12}[d])
+        q = random.randint(2, {0: 3, 1: 5, 2: 8}[d])
         a = q * b
         want_big = random.random() < 0.5
         return _tb("Find two numbers from these clues: the sum of the two numbers is %d, "
@@ -2560,7 +2803,18 @@ def _(d=1):
                     "%d and %d fit every clue." % (b, a)])
 
     def t_consecutive():
-        mid = random.randint(5, 60)
+        if d == 2:                           # four in a row: no single middle number
+            first = random.randint(10, 80)
+            total = 4 * first + 6
+            want = pick(["smallest", "largest"])
+            ans = first if want == "smallest" else first + 3
+            return _tb("Four numbers that follow one after the other (like 7, 8, 9, 10) add up "
+                       "to %d. What is the %s number?" % (total, want.upper()), ans, "int", {},
+                       ["The others are 1, 2 and 3 more than the smallest: %d − 6 = %d."
+                        % (total, total - 6),
+                        "%d ÷ 4 = %d, so the numbers are %d, %d, %d and %d."
+                        % (total - 6, first, first, first + 1, first + 2, first + 3)])
+        mid = random.randint(3, 20) if d == 0 else random.randint(5, 60)
         total = 3 * mid
         want = pick(["smallest", "middle", "largest"])
         ans = {"smallest": mid - 1, "middle": mid, "largest": mid + 1}[want]
@@ -2571,9 +2825,9 @@ def _(d=1):
 
     def t_think_of_number():
         who = pick(NAMES)
-        start = random.randint(3, 12)
-        mult = random.randint(2, 5)
-        add = random.randint(3, 20)
+        start = random.randint(*{0: (2, 10), 1: (3, 12), 2: (6, 25)}[d])
+        mult = random.randint(*{0: (2, 3), 1: (2, 5), 2: (3, 9)}[d])
+        add = random.randint(*{0: (1, 10), 1: (3, 20), 2: (10, 50)}[d])
         end = start * mult + add
         return _tb("%s thinks of a number, multiplies it by %d and then adds %d. "
                    "The answer is %d. What number did %s think of?"
@@ -2584,31 +2838,34 @@ def _(d=1):
 
     def t_think_of_number2():
         who = pick(NAMES)
-        start = random.randint(20, 90)
-        sub = random.randint(5, 15)
-        end = (start - sub) * 2
-        return _tb("%s thinks of a number, subtracts %d and then doubles the result. "
-                   "The answer is %d. What number did %s think of?" % (who, sub, end, who),
+        start = random.randint(10, 30) if d == 0 else random.randint(20, 90)
+        sub = random.randint(1, 9) if d == 0 else random.randint(5, 15)
+        k = 3 if d == 2 else 2               # stretch: trebles instead of doubles
+        end = (start - sub) * k
+        return _tb("%s thinks of a number, subtracts %d and then %s the result. "
+                   "The answer is %d. What number did %s think of?"
+                   % (who, sub, "trebles" if k == 3 else "doubles", end, who),
                    start, "int", {},
-                   ["Work backwards: %d ÷ 2 = %d." % (end, end // 2),
-                    "%d + %d = %d." % (end // 2, sub, start)])
+                   ["Work backwards: %d ÷ %d = %d." % (end, k, end // k),
+                    "%d + %d = %d." % (end // k, sub, start)])
 
     def t_rounding_puzzle():
-        r = random.randint(2, 9) * 100
+        unit = {0: 10, 1: 100, 2: 1000}[d]
+        r = random.randint(2, 9) * (100 if d < 2 else 1000) + (random.randint(1, 9) * 10 if d == 0 else 0)
         big = random.random() < 0.5
-        ans = r + 49 if big else r - 50
+        ans = r + unit // 2 - 1 if big else r - unit // 2
         return _tb("What is the %s whole number that rounds to %s when rounded to the "
-                   "nearest 100?" % ("LARGEST" if big else "SMALLEST", _c(r)), ans, "int", {},
-                   ["Numbers from %s to %s round to %s." % (_c(r - 50), _c(r + 49), _c(r)),
+                   "nearest %s?" % ("LARGEST" if big else "SMALLEST", _c(r), _c(unit)), ans, "int", {},
+                   ["Numbers from %s to %s round to %s." % (_c(r - unit // 2), _c(r + unit // 2 - 1), _c(r)),
                     "The %s is %s." % ("largest" if big else "smallest", _c(ans))])
 
     def t_multiple_clues():
         """Brute-forced so the clues have exactly one answer."""
         for _try in range(60):
-            lo = random.randint(20, 400)
-            hi = lo + random.randint(20, 60)
-            m = pick([3, 4, 6, 7, 9, 25])
-            s = random.randint(3, 18)
+            lo = random.randint(*{0: (20, 100), 1: (20, 400), 2: (400, 950)}[d])
+            hi = lo + random.randint(*{0: (20, 40), 1: (20, 60), 2: (60, 120)}[d])
+            m = pick({0: [2, 5, 10], 1: [3, 4, 6, 7, 9, 25], 2: [6, 7, 9]}[d])
+            s = random.randint(3, 18 if d < 2 else 24)
             cands = [x for x in range(lo + 1, hi)
                      if x % m == 0 and sum(int(ch) for ch in str(x)) == s]
             if len(cands) == 1:
@@ -2624,8 +2881,8 @@ def _(d=1):
 
     def t_coins():
         who = pick(NAMES)
-        two = random.randint(2, 9)
-        one = random.randint(2, 9)
+        two = random.randint(*{0: (1, 5), 1: (2, 9), 2: (8, 20)}[d])
+        one = random.randint(*{0: (1, 5), 1: (2, 9), 2: (8, 20)}[d])
         return _tb("%s has %d coins altogether. Every coin is either a £2 coin or a £1 coin, "
                    "and the coins are worth £%d in total. How many £2 coins does %s have?"
                    % (who, two + one, 2 * two + one, who),
@@ -2636,9 +2893,17 @@ def _(d=1):
                     % (2 * two + one, two + one, two, two)])
 
     def t_ages():
-        small = random.randint(3, 12)
-        k = random.randint(2, 4)
+        small = random.randint(3, 8) if d == 0 else random.randint(3, 12)
+        k = 2 if d == 0 else random.randint(2, 4)
         who1, who2 = random.sample(NAMES, 2)
+        if d == 2:                           # given the difference instead of the total
+            k = random.randint(3, 6)
+            return _tb("%s is %d times as old as %s. %s is %d years older than %s. "
+                       "How old is %s?" % (who1, k, who2, who1, small * (k - 1), who2, who2),
+                       small, "int", {"unit": "years"},
+                       ["Think of %s's age as 1 part and %s's age as %d parts, so the "
+                        "difference is %d parts." % (who2, who1, k, k - 1),
+                        "%d ÷ %d = %d, so %s is %d." % (small * (k - 1), k - 1, small, who2, small)])
         return _tb("%s is %d times as old as %s. The two ages add up to %d years altogether. "
                    "How old is %s?" % (who1, k, who2, small * (k + 1), who2),
                    small, "int", {"unit": "years"},
@@ -2653,6 +2918,11 @@ def _(d=1):
         o = random.randint(0, 9)
         n = th * 1000 + h * 100 + t * 10 + o
         target = random.randint(1, 9) * 1000 + random.randint(0, 9) * 100
+        if d == 0:                           # 3-digit, up to the next hundred
+            n = h * 100 + t * 10 + 100 * (h == 0)
+            target = (n // 100 + 1) * 100
+        elif d == 2:                         # the target has tens too: no tidy complement
+            target += random.randint(1, 9) * 10
         diff = target - n
         if diff <= 0:
             return t_rounding_puzzle()
@@ -2661,8 +2931,8 @@ def _(d=1):
                    ["%s − %s = %s." % (_c(target), _c(n), _c(diff))])
 
     def t_line():
-        small = random.randint(5, 30)
-        gap = random.randint(2, 15)
+        small = random.randint(*{0: (2, 10), 1: (5, 30), 2: (20, 60)}[d])
+        gap = random.randint(*{0: (2, 8), 1: (2, 15), 2: (5, 30)}[d])
         big = small + gap
         return _nl("Two numbers add up to %d. The difference between the two numbers is %d. "
                    "Place the LARGER number on the number line." % (small + big, gap),
@@ -2672,9 +2942,10 @@ def _(d=1):
 
     def t_build():
         digs = random.sample(range(1, 10), 3)
+        if d == 2:                           # with a zero
+            digs[random.randrange(3)] = 0
         big = random.random() < 0.5
-        order = sorted(digs, reverse=True) if big else sorted(digs)
-        ans = int("".join(str(x) for x in order))
+        ans = _best(digs, big)
         return _bt("Use each of the digits %s once to make the %s possible number, then "
                    "build it." % (", ".join(str(x) for x in digs),
                                   "largest" if big else "smallest"), ans,

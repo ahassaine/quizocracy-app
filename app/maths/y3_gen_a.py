@@ -696,9 +696,16 @@ def _(d=1):
                    ["Position %d is written %s." % (n, ordinal(n))])
 
     def t_who():
-        k = 5 if d == 0 else 6
+        k = {0: 4, 1: 6, 2: 8}[d]
         names = random.sample(NAMES, k)
         pos = random.randint(2, k)
+        if d == 2 and pos < k:
+            # stretch: count from the other end
+            back = k - pos + 1
+            return _tb("The finishing order was: %s. Who finished %s from LAST?" % (_lst(names), ordinal(back)),
+                       names[pos - 1], "str", {"text": True, "placeholder": "a name"},
+                       ["Count back from the end of the list: the last is 1st from last.",
+                        "%s is %s from last." % (names[pos - 1], ordinal(back))])
         return _tb("The finishing order was: %s. Who finished %s?" % (_lst(names), ordinal(pos)),
                    names[pos - 1], "str", {"text": True, "placeholder": "a name"},
                    ["Counting along the list, %s is %s." % (names[pos - 1], ordinal(pos))])
@@ -716,10 +723,18 @@ def _(d=1):
                     "So %s is %s from the back." % (who, ordinal(total - pos + 1))])
 
     def t_line():
-        gap = pick([5, 10])
-        k = random.randint(3, 9)
-        ans = gap * k
+        gap = 10 if d == 0 else pick([5, 10])
+        k = random.randint(*{0: (2, 5), 1: (3, 9), 2: (6, 12)}[d])
         major = 50 if gap == 5 else 100
+        if d == 2:
+            # stretch: the 1st tree is at 0 m, so the kth is (k - 1) gaps along
+            ans = gap * (k - 1)
+            return _nl("Trees are planted every %d metres along a path, the 1st at 0 m. "
+                       "Place the %s tree on the line." % (gap, ordinal(k)),
+                       ans, gap, major,
+                       ["From the 1st to the %s tree there are %d gaps." % (ordinal(k), k - 1),
+                        "%d × %d = %d m." % (k - 1, gap, ans)])
+        ans = gap * k
         return _nl("Trees are planted every %d metres along a path, the 1st at %d m. "
                    "Place the %s tree on the line." % (gap, gap, ordinal(k)),
                    ans, gap, major,

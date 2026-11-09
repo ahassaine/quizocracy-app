@@ -43,72 +43,106 @@ def _bracket(p, var="x"):
 def _(d=1):
     d = _d(d)
     b = random.randint(2, _by(d, 5, 10, 10))
-    n = random.randint(1, _by(d, 2, 3, 3))
+    n = random.randint(_by(d, 1, 1, 2), _by(d, 2, 3, 3))      # hard: never a plain reciprocal
 
     def t_zero():
-        return _tb("Work out %d^0." % random.randint(2, 999), 1, "int", {}, ["Any non-zero number to the power 0 is 1."])
+        if d == 2:      # hard: a zero power beside a first power
+            k = random.randint(2, 30)
+            return _tb("Work out %d^0 + %d^1." % (k, k), 1 + k, "int", {}, ["%d^0 = 1 and %d^1 = %d." % (k, k, k), "1 + %d = %d." % (k, 1 + k)])
+        return _tb("Work out %d^0." % random.randint(2, _by(d, 20, 999, 999)), 1, "int", {}, ["Any non-zero number to the power 0 is 1."])
 
     def t_neg():
         return _fq("Work out %d^-%d as a fraction." % (b, n), Fraction(1, b ** n), ["%d^-%d = 1/%d^%d = 1/%d." % (b, n, b, n, b ** n)])
 
     def t_neg_decimal():
-        k = pick([1, 2, 3])
+        k = pick(_by(d, [1, 2], [1, 2, 3], [2, 3, 4]))
+        if d == 2:      # hard: a multiple of a negative power of 10
+            m = random.randint(2, 9)
+            v = m * Decimal(1) / 10 ** k
+            return _tb("Write %d × 10^-%d as a decimal." % (m, k), _ds(v), "num", {},
+                       ["10^-%d = %s." % (k, _ds(Decimal(1) / 10 ** k)), "%d × %s = %s." % (m, _ds(Decimal(1) / 10 ** k), _ds(v))])
         return _tb("Write 10^-%d as a decimal." % k, _ds(Decimal(1) / 10 ** k), "num", {}, ["1/%d = %s." % (10 ** k, _ds(Decimal(1) / 10 ** k))])
 
     def t_frac_neg():
-        p, q = random.randint(2, 5), random.randint(2, 5)
+        if d == 0:      # easy: a unit fraction flips to a whole number
+            q = random.randint(2, 9)
+            return _fq("Work out (1/%d)^-1." % q, Fraction(q), ["A power of −1 flips the fraction: %d/1 = %d." % (q, q)])
+        p, q = random.randint(2, _by(d, 5, 5, 4)), random.randint(2, _by(d, 5, 5, 5))
         if p == q:
             q += 1
+        if d == 2:      # hard: a power of −3
+            return _fq("Work out (%d/%d)^-3 as a fraction." % (p, q), Fraction(q, p) ** 3,
+                       ["Flip the fraction: (%d/%d)^3." % (q, p), "= %d/%d." % (q ** 3, p ** 3)])
         return _fq("Work out (%d/%d)^-1." % (p, q), Fraction(q, p), ["A power of −1 flips the fraction: %d/%d." % (q, p)])
 
     def t_which_power():
         return _tb("%d^? = 1/%d. What is the power?" % (b, b ** n), -n, "int", {}, ["1/%d = %d^-%d." % (b ** n, b, n)])
 
     def t_laws():
-        a1, a2 = random.randint(-4, 6), random.randint(-6, 4)
+        if d == 0:      # easy: one negative power, multiplying
+            a1, a2 = random.randint(1, 6), random.randint(-3, -1)
+        else:
+            a1, a2 = random.randint(-4, 6), random.randint(-6, 4)
+        if d == 2:      # hard: dividing, so subtract a possibly negative power
+            return _tb("Simplify x^%d ÷ x^%d. What is the power of x?" % (a1, a2), a1 - a2, "int", {},
+                       ["Subtract the powers: %d − (%d) = %d." % (a1, a2, a1 - a2)])
         return _tb("Simplify x^%d × x^%d. What is the power of x?" % (a1, a2), a1 + a2, "int", {}, ["Add the powers: %d + (%d) = %d." % (a1, a2, a1 + a2)])
 
     def t_frac_neg_sq():
-        p, q = pick([(2, 3), (3, 4), (2, 5), (3, 5), (1, 2), (1, 3)])
+        p, q = pick(_by(d, [(1, 2), (1, 3), (1, 4), (1, 5)], [(2, 3), (3, 4), (2, 5), (3, 5), (1, 2), (1, 3)],
+                        [(2, 3), (3, 4), (2, 5), (3, 5), (4, 5), (2, 7), (3, 7), (5, 6)]))
         return _fq("Work out (%d/%d)^-2 as a fraction." % (p, q), Fraction(q * q, p * p),
                    ["Flip the fraction: (%d/%d)^2." % (q, p), "= %d/%d." % (q * q, p * p)])
 
     def t_sum():
-        k = pick([2, 3])
+        k = pick([2, 3]) if d < 2 else pick([2, 3, 4, 5])
+        if d == 0:      # easy: a reciprocal plus a zero power
+            return _fq("Work out %d^-1 + %d^0 as a single fraction." % (k, k), Fraction(1, k) + 1,
+                       ["1/%d + 1." % k, "= %s." % _fs(Fraction(1, k) + 1)])
+        if d == 2:      # hard: two different bases
+            j = pick([x for x in (2, 3, 4, 5) if x != k])
+            v = Fraction(1, k) + Fraction(1, j * j)
+            return _fq("Work out %d^-1 + %d^-2 as a single fraction." % (k, j), v,
+                       ["1/%d + 1/%d." % (k, j * j), "= %s." % _fs(v)])
         return _fq("Work out %d^-1 + %d^-2 as a single fraction." % (k, k), Fraction(1, k) + Fraction(1, k * k),
                    ["1/%d + 1/%d." % (k, k * k), "= %s." % _fs(Fraction(1, k) + Fraction(1, k * k))])
 
     def t_power_of_ten():
-        k = random.randint(1, 5)
+        k = random.randint(_by(d, 1, 1, 4), _by(d, 3, 5, 8))
         return _tb("Write %s as a power of 10. What is the power?" % _ds(Decimal(1) / 10 ** k), -k, "int", {},
                    ["%s = 1/%s = 10^-%d." % (_ds(Decimal(1) / 10 ** k), _c(10 ** k), k)])
 
     def t_decimal_base():
-        bb = pick([2, 4, 5, 8])
-        return _tb("Work out %d^-1 as a decimal." % bb, _ds(Fraction(1, bb)), "num", {}, ["1/%d = %s." % (bb, _ds(Fraction(1, bb)))])
+        bb, e = pick(_by(d, [(2, 1), (4, 1), (5, 1), (10, 1)], [(2, 1), (4, 1), (5, 1), (8, 1)],
+                         [(2, 2), (2, 3), (4, 2), (5, 2), (20, 2), (5, 3)]))
+        v = Fraction(1, bb ** e)
+        return _tb("Work out %d^-%d as a decimal." % (bb, e), _ds(v), "num", {},
+                   ["1/%d = %s." % (bb ** e, _ds(v))] if e == 1 else
+                   ["%d^-%d = 1/%d^%d = 1/%d." % (bb, e, bb, e, bb ** e), "= %s." % _ds(v)])
 
     def t_spot():
         return _fq("Sam says %d^-%d = −%d. What is the correct value, as a fraction?" % (b, n, b ** n), Fraction(1, b ** n),
                    ["A negative power means a reciprocal, not a negative number.", "%d^-%d = 1/%d." % (b, n, b ** n)])
 
     def t_mixed_laws():
-        bb = pick([2, 3, 5])
-        p, q = random.randint(-4, -1), random.randint(2, 5)
+        bb = pick(_by(d, [2, 10], [2, 3, 5], [2, 3, 5]))
+        p, q = random.randint(*_by(d, (-2, -1), (-4, -1), (-6, -3))), random.randint(*_by(d, (2, 4), (2, 5), (1, 4)))
         v = Fraction(bb) ** (p + q)
         return _fq("Work out %d^%d × %d^%d. Give a whole number or a fraction." % (bb, p, bb, q), v,
                    ["Add the powers: %d + %d = %d." % (p, q, p + q), "%d^%d = %s." % (bb, p + q, _fs(v))])
 
     def t_divide_powers():
-        bb = pick([2, 3, 10])
-        p, q = random.randint(1, 4), random.randint(5, 7)
+        bb = pick(_by(d, [2, 10], [2, 3, 10], [2, 3, 5]))
+        # easy: small positive powers; hard: the first power can be zero or negative
+        p, q = random.randint(*_by(d, (1, 2), (1, 4), (-2, 2))), random.randint(*_by(d, (3, 4), (5, 7), (3, 5)))
         return _fq("Work out %d^%d ÷ %d^%d as a fraction." % (bb, p, bb, q), Fraction(1, bb ** (q - p)),
                    ["Subtract the powers: %d − %d = %d." % (p, q, p - q), "%d^%d = 1/%d." % (bb, p - q, bb ** (q - p))])
 
     def t_pattern():
-        bb = pick([2, 3, 10])
-        pw = [3, 2, 1, 0, -1, -2]
+        bb = pick(_by(d, [2, 10], [2, 3, 10], [3, 4, 5]))
+        pw = [3, 2, 1, 0, -1, -2] + ([-3] if d == 2 else [])
         rows = [["%d^%d" % (bb, k), _fs(Fraction(bb) ** k)] for k in pw]
-        i = random.randint(3, 5)
+        i = random.randint(3, _by(d, 4, 5, 6))
         return _dt("Each row is the one above divided by %d. Complete the table." % bb, ["Power", "Value"], rows,
                    _fs(Fraction(bb) ** pw[i]), ["Keep dividing by %d: %s = %s." % (bb, rows[i][0], rows[i][1])],
                    missing=[i, 1], atype="frac", placeholder="e.g. 1/4")

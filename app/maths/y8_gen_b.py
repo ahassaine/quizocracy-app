@@ -747,7 +747,7 @@ def _(d=1):
                    solution=["%d ÷ 100 = %s." % (p, _txt(pounds))])
 
     def io_x10():
-        a = _mk(1, 12, 89)
+        a = _mk(_by_d(d, 0, 1, 3), *_by_d(d, (12, 98), (12, 89), (1005, 8995)))
         rows = [[_txt(a), _txt(a * 10)], [_txt(a * 10), _txt(a * 100)],
                 [_txt(a * 100), ""]]
         return _dtq("Each 'Out' is the 'In' multiplied by 10. Complete the "
@@ -1811,7 +1811,7 @@ def _(d=1):
                              "So %d/%d is %s one half." % (n, dd, sym)])
 
     def line_place():
-        dd = pick([4, 5, 6, 8])
+        dd = pick(_by_d(d, [2, 3, 4, 5], [4, 5, 6, 8], [7, 9, 10, 12]))
         n = random.randint(1, dd - 1)
         return _nlq("The number line runs from 0 to 1 in %s. Mark %d/%d."
                     % (_ths(dd), n, dd), _fl(Fraction(n, dd)), 0, 1,
@@ -1910,7 +1910,8 @@ def _(d=1):
                     "So %s = %s." % (_mixed_str(w, n, dd), _txt(dec))])
 
     def grid_convert():
-        n = random.randint(1, 99)
+        n = _by_d(d, random.randint(1, 9) * 10, random.randint(1, 99),
+                  pick([random.randint(1, 9), random.randint(1, 9) * 10 + random.randint(1, 9)]))   # stretch: 0.0x traps
         dec = _frac_to_dec(n, 100)
         return _agread("The hundredths grid shows %d of 100 squares shaded. "
                        "Write the shaded amount as a decimal." % n, 100, n,

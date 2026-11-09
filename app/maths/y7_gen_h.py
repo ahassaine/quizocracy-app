@@ -425,7 +425,8 @@ def _(d=1):
                    rows, v[k], ["%d − %d = %d." % (sum(v), sum(v) - v[k], v[k])], missing=[k, 1])
 
     def t_goals():
-        f = [random.randint(1, 8) for _ in range(5)]
+        # easy: 0–2 goals, small frequencies; hard: 0–5 goals, frequencies to 12
+        f = [random.randint(1, _by(d, 5, 8, 12)) for _ in range(_by(d, 3, 5, 6))]
         return _dt("The table shows the number of goals a team scored in each match of a season. How many goals did they score "
                    "altogether?", ["Goals in a match", "Number of matches"], [[g, n] for g, n in enumerate(f)],
                    sum(g * n for g, n in enumerate(f)),
@@ -433,27 +434,43 @@ def _(d=1):
                                                                                   sum(g * n for g, n in enumerate(f)))])
 
     def t_matches():
-        f = [random.randint(1, 8) for _ in range(5)]
+        f = [random.randint(1, _by(d, 5, 8, 12)) for _ in range(_by(d, 3, 5, 6))]
+        if d == 2:      # hard: matches in which they scored at least g goals
+            g = random.randint(2, 4)
+            return _dt("The table shows the number of goals a team scored in each match. In how many matches did they score "
+                       "%d or more goals?" % g, ["Goals in a match", "Number of matches"], [[i, n] for i, n in enumerate(f)],
+                       sum(f[g:]), ["%s = %d." % (" + ".join(map(str, f[g:])), sum(f[g:]))])
         return _dt("The table shows the number of goals a team scored in each match. How many matches did they play?",
                    ["Goals in a match", "Number of matches"], [[g, n] for g, n in enumerate(f)], sum(f),
                    ["Add the frequencies: %d." % sum(f)])
 
     def t_grouped():
         groups = ["0–9", "10–19", "20–29", "30–39", "40–49"]
-        f = [random.randint(1, 12) for _ in groups]
-        lo = random.randint(1, 3)
+        f = [random.randint(1, _by(d, 8, 12, 20)) for _ in groups]
+        if d == 2:      # hard: a band in the middle of the table
+            lo = random.randint(1, 2)
+            hi = random.randint(lo + 2, 5)
+            return _dt("The grouped frequency table shows test marks out of 50. How many pupils scored from %d to %d?"
+                       % (10 * lo, 10 * hi - 1), ["Mark", "Frequency"], [[g, n] for g, n in zip(groups, f)], sum(f[lo:hi]),
+                       ["%s = %d." % (" + ".join(map(str, f[lo:hi])), sum(f[lo:hi]))])
+        lo = random.randint(_by(d, 2, 1, 1), 3)
         return _dt("The grouped frequency table shows test marks out of 50. How many pupils scored %d or more?" % (10 * lo),
                    ["Mark", "Frequency"], [[g, n] for g, n in zip(groups, f)], sum(f[lo:]),
                    ["%s = %d." % (" + ".join(map(str, f[lo:])), sum(f[lo:]))])
 
     def t_bar_over():
-        lim = random.randint(5, 15)
+        lim = random.randint(_by(d, 3, 5, 8), _by(d, 8, 15, 22))
         days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-        vals = [random.randint(2, 20) for _ in days]
+        vals = [random.randint(2, _by(d, 12, 20, 30)) for _ in days]
         while lim in vals:
             lim += 1
+        over = [x for x in vals if x > lim]
+        if d == 2:      # hard: add up the busy days as well
+            return _bar("The bar chart shows how many books were borrowed each day. How many books were borrowed altogether on "
+                        "the days when more than %d were borrowed?" % lim, days, vals, sum(over),
+                        ["Bars above %d: %s." % (lim, ", ".join(map(str, over)) or "none"), "Total %d." % sum(over)])
         return _bar("The bar chart shows how many books were borrowed each day. On how many days were more than %d books "
-                    "borrowed?" % lim, days, vals, sum(1 for x in vals if x > lim),
+                    "borrowed?" % lim, days, vals, len(over),
                     ["Bars above %d: %s." % (lim, ", ".join(dd for dd, x in zip(days, vals) if x > lim) or "none")])
 
     def t_bar_two_smallest():
@@ -466,40 +483,86 @@ def _(d=1):
 
     def t_line_read():
         hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm"]
-        t = [random.randint(8, 24) for _ in hours]
+        t = [random.randint(8, 24) // _by(d, 2, 1, 1) * _by(d, 2, 1, 1) for _ in hours]      # easy: even readings
         i = random.randrange(6)
+        if d == 2:      # hard: read two points and find the change
+            j = random.choice([x for x in range(6) if x != i and t[x] != t[i]] or [i])
+            i, j = min(i, j), max(i, j)
+            if t[i] == t[j]:
+                t[j] += 3
+            word = "rise" if t[j] > t[i] else "fall"
+            return _lg("The line graph shows the temperature during a day. By how many degrees did the temperature %s between "
+                       "%s and %s?" % (word, hours[i], hours[j]), list(zip(hours, t)), abs(t[j] - t[i]),
+                       ["%s: %d °C, %s: %d °C." % (hours[i], t[i], hours[j], t[j]), "Difference %d °C." % abs(t[j] - t[i])],
+                       "°C", "Time")
         return _lg("The line graph shows the temperature during a day. What was the temperature at %s, in °C?" % hours[i],
                    list(zip(hours, t)), t[i], ["Read up from %s: %d °C." % (hours[i], t[i])], "°C", "Time")
 
     def t_line_range():
-        hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm"]
+        hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm"][: _by(d, 4, 6, 8)]
         t = [random.randint(8, 24) for _ in hours]
+        if d == 2:      # hard: the biggest rise from one hour to the next
+            rises = [t[i + 1] - t[i] for i in range(len(t) - 1)]
+            if max(rises) <= 0:
+                t[1] = t[0] + 4
+                rises = [t[i + 1] - t[i] for i in range(len(t) - 1)]
+            i = rises.index(max(rises))
+            return _lg("The line graph shows the temperature during a day. What was the biggest rise in temperature from one hour "
+                       "to the next, in °C?", list(zip(hours, t)), max(rises),
+                       ["The steepest climb is %s to %s: %d − %d = %d." % (hours[i], hours[i + 1], t[i + 1], t[i], max(rises))],
+                       "°C", "Time")
         return _lg("The line graph shows the temperature during a day. What is the difference between the highest and lowest "
                    "temperatures, in °C?", list(zip(hours, t)), max(t) - min(t),
                    ["%d − %d = %d." % (max(t), min(t), max(t) - min(t))], "°C", "Time")
 
     def t_two_classes():
-        a, b = [random.randint(2, 15) for _ in cats], [random.randint(2, 15) for _ in cats]
+        a, b = [random.randint(2, _by(d, 10, 15, 25)) for _ in cats], [random.randint(2, _by(d, 10, 15, 25)) for _ in cats]
         if a[k] == b[k]:
             b[k] += 3
+        if d == 2:      # hard: compare the class totals
+            if sum(a) == sum(b):
+                b[k] += 1
+            return _dt("The table shows the %s of two classes. How many more pupils are there in %s than in %s altogether?"
+                       % (topic, "7A" if sum(a) > sum(b) else "7B", "7B" if sum(a) > sum(b) else "7A"),
+                       ["Choice", "7A", "7B"], [[c, x, y] for c, x, y in zip(cats, a, b)], abs(sum(a) - sum(b)),
+                       ["7A: %d, 7B: %d." % (sum(a), sum(b)), "%d − %d = %d." % (max(sum(a), sum(b)), min(sum(a), sum(b)),
+                                                                              abs(sum(a) - sum(b)))])
         return _dt("The table shows the %s of two classes. How many more pupils in %s than in %s chose %s?"
                    % (topic, "7A" if a[k] > b[k] else "7B", "7B" if a[k] > b[k] else "7A", cats[k]),
                    ["Choice", "7A", "7B"], [[c, x, y] for c, x, y in zip(cats, a, b)], abs(a[k] - b[k]),
                    ["%d − %d = %d." % (max(a[k], b[k]), min(a[k], b[k]), abs(a[k] - b[k]))])
 
     def t_pictogram_half():
-        key = pick([2, 4, 6, 10])
-        vals = [key * random.randint(1, 6) + (key // 2 if random.random() < 0.5 else 0) for _ in cats]
+        # easy: whole symbols only; medium: halves; hard: halves of bigger keys, and comparing two rows
+        key = pick(_by(d, [2, 5, 10], [2, 4, 6, 10], [4, 6, 8, 12]))
+        vals = [key * random.randint(1, 6) + (key // 2 if d and random.random() < 0.5 else 0) for _ in cats]
+        spec = {"categories": cats, "values": vals, "key": key, "symbol": "star", "unit": "people"}
+        if d == 2:
+            j = random.choice([x for x in range(4) if x != k])
+            if vals[j] == vals[k]:
+                vals[j] += key
+            hi_, lo_ = (k, j) if vals[k] > vals[j] else (j, k)
+            return {"prompt": "The pictogram shows the %s of a group. Each symbol stands for %d people. How many more people "
+                              "chose %s than %s?" % (topic, key, cats[hi_], cats[lo_]), "component": "pictogram",
+                    "spec": spec, "answer": vals[hi_] - vals[lo_], "answer_type": "int",
+                    "solution": ["%s: %d, %s: %d (half a symbol is %d)." % (cats[hi_], vals[hi_], cats[lo_], vals[lo_], key // 2),
+                                 "%d − %d = %d." % (vals[hi_], vals[lo_], vals[hi_] - vals[lo_])]}
         return {"prompt": "The pictogram shows the %s of a group. Each symbol stands for %d people. How many people chose %s?"
                           % (topic, key, cats[k]), "component": "pictogram",
-                "spec": {"categories": cats, "values": vals, "key": key, "symbol": "star", "unit": "people"},
-                "answer": vals[k], "answer_type": "int",
-                "solution": ["Whole symbols × %d, and half a symbol is %d: %d." % (key, key // 2, vals[k])]}
+                "spec": spec, "answer": vals[k], "answer_type": "int",
+                "solution": ["Whole symbols × %d, and half a symbol is %d: %d." % (key, key // 2, vals[k]) if d else
+                             "Count the symbols and multiply by %d: %d." % (key, vals[k])]}
 
     def t_modal_group():
-        groups = ["0–9", "10–19", "20–29", "30–39"]
-        f = random.sample(range(2, 20), 4)
+        groups = ["0–9", "10–19", "20–29", "30–39", "40–49"][: _by(d, 3, 4, 5)]
+        f = random.sample(range(2, _by(d, 13, 20, 30)), len(groups))
         i = f.index(max(f))
+        if d == 2:      # hard: modal group compared with the smallest group
+            j = f.index(min(f))
+            return _dt("The table shows test marks. How many more pupils are in the modal group than in the group with the "
+                       "lowest frequency?", ["Mark", "Frequency"], [[g, n] for g, n in zip(groups, f)], max(f) - min(f),
+                       ["Modal group %s has %d; %s has %d." % (groups[i], max(f), groups[j], min(f)),
+                        "%d − %d = %d." % (max(f), min(f), max(f) - min(f))])
         return _dt("The table shows test marks. How many pupils are in the modal group (the group with the highest frequency)?",
                    ["Mark", "Frequency"], [[g, n] for g, n in zip(groups, f)], max(f),
                    ["The modal group is %s with %d pupils." % (groups[i], max(f))])

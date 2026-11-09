@@ -316,8 +316,9 @@ def _(d=1):
 @skill("Y7.5.g", "Squares, cubes and roots", S5)
 def _(d=1):
     d = _d(d)
-    n = random.randint(2, _by(d, 10, 12, 15))
-    c = random.randint(2, _by(d, 5, 6, 10))
+    # easy: squares to 10², cubes to 5³; medium: to 12² and 6³; hard: 11² to 20², cubes 4³ to 10³
+    n = random.randint(_by(d, 2, 2, 11), _by(d, 10, 12, 20))
+    c = random.randint(_by(d, 2, 2, 4), _by(d, 5, 6, 10))
 
     def t_square():
         return _tb("Work out %d²." % n, n * n, "int", {}, ["%d × %d = %d." % (n, n, n * n)])
@@ -329,45 +330,62 @@ def _(d=1):
         return _tb("Work out √%d." % (n * n), n, "int", {}, ["%d × %d = %d." % (n, n, n * n)])
 
     def t_cube_root():
-        return _tb("Work out the cube root of %d." % c ** 3, c, "int", {}, ["%d × %d × %d = %d." % (c, c, c, c ** 3)])
+        return _tb("Work out the cube root of %s." % _c(c ** 3), c, "int", {}, ["%d × %d × %d = %d." % (c, c, c, c ** 3)])
 
     def t_between():
-        v = random.choice([x for x in range(3, 140) if int(x ** 0.5) ** 2 != x])
+        v = random.choice([x for x in range(_by(d, 3, 3, 140), _by(d, 50, 140, 400)) if int(x ** 0.5) ** 2 != x])
         lo = int(v ** 0.5)
         return _tb("√%d lies between two whole numbers next to each other. What is the smaller one?" % v, lo, "int", {},
                    ["%d² = %d and %d² = %d, so √%d is between %d and %d." % (lo, lo * lo, lo + 1, (lo + 1) ** 2, v, lo, lo + 1)])
 
     def t_decimal_sq():
-        k = random.randint(1, 9)
+        k = random.randint(1, _by(d, 5, 9, 9))
+        if d == 2:      # hard: 1.k², a whole-number part as well
+            x = 1 + Decimal(k) / 10
+            return _tb("Work out %s²." % _ds(x), _ds(x * x), "num", {},
+                       ["%s × %s = %s." % (_ds(x), _ds(x), _ds(x * x))])
         return _tb("Work out 0.%d²." % k, _ds(Decimal(k * k) / 100), "num", {},
                    ["0.%d × 0.%d = %s." % (k, k, _ds(Decimal(k * k) / 100))])
 
     def t_negative():
+        if d == 2:      # hard: a negative cube stays negative
+            return _tb("Work out (−%d)³." % c, -c ** 3, "int", {},
+                       ["(−%d) × (−%d) = %d, then × (−%d) = −%d." % (c, c, c * c, c, c ** 3)])
         return _tb("Work out (−%d)²." % n, n * n, "int", {}, ["Negative × negative is positive: %d." % (n * n)])
 
     def t_only_square():
-        lo = random.randint(2, 11)
+        lo = random.randint(_by(d, 2, 2, 12), _by(d, 6, 11, 19))
         a, b = lo * lo + 1, (lo + 1) ** 2 + 1          # only (lo + 1)² lies strictly between
         return _tb("Which square number is between %d and %d?" % (a, b), (lo + 1) ** 2, "int", {},
                    ["%d² = %d." % (lo + 1, (lo + 1) ** 2)])
 
     def t_sum():
-        p, q = random.randint(1, 9), random.randint(1, 9)
+        if d == 2:      # hard: a square and a cube
+            p, q = random.randint(2, 12), random.randint(2, 5)
+            return _tb("Work out %d² + %d³." % (p, q), p * p + q ** 3, "int", {},
+                       ["%d + %d = %d." % (p * p, q ** 3, p * p + q ** 3)])
+        p, q = random.randint(1, _by(d, 5, 9, 9)), random.randint(1, _by(d, 5, 9, 9))
         return _tb("Work out %d² + %d²." % (p, q), p * p + q * q, "int", {}, ["%d + %d = %d." % (p * p, q * q, p * p + q * q)])
 
     def t_both():
-        v, ans = pick([(64, "yes"), (1, "yes"), (729, "yes"), (36, "no"), (8, "no"), (100, "no"), (27, "no"), (16, "no")])
-        return _wq("Is %d both a square number and a cube number? (yes or no)" % v, ans,
+        v, ans = pick(_by(d, [(1, "yes"), (64, "yes"), (4, "no"), (8, "no"), (9, "no"), (27, "no")],
+                          [(64, "yes"), (1, "yes"), (729, "yes"), (36, "no"), (8, "no"), (100, "no"), (27, "no"), (16, "no")],
+                          [(729, "yes"), (4096, "yes"), (125, "no"), (144, "no"), (216, "no"), (1000, "no"), (196, "no"),
+                           (343, "no")]))
+        return _wq("Is %s both a square number and a cube number? (yes or no)" % _c(v), ans,
                    ["Squares: 1, 4, 9, 16, 25, 36, 49, 64, … Cubes: 1, 8, 27, 64, 125, …, 729."], "yes / no")
 
     def t_grid():
-        sd = random.randint(2, 9)
+        sd = random.randint(_by(d, 2, 2, 7), _by(d, 6, 9, 12))
         return _area("The square is made of 1 cm squares. Its area is a square number. What is its side length, in cm?",
                      {"mode": "read_area", "rows": sd, "cols": sd, "placeholder": "cm"}, sd,
                      ["%d × %d = %d squares, so each side is %d cm." % (sd, sd, sd * sd, sd)])
 
     def t_power_ten():
-        k = random.randint(2, 6)
+        k = random.randint(_by(d, 2, 2, 4), _by(d, 4, 6, 9))
+        if d == 2:      # hard: the inverse, find the power
+            return _tb("10 to the power of what is %s?" % _c(10 ** k), k, "int", {},
+                       ["%s is 1 followed by %d zeros, so it is 10^%d." % (_c(10 ** k), k, k)])
         return _tb("Work out 10^%d." % k, 10 ** k, "int", {}, ["1 followed by %d zeros: %s." % (k, _c(10 ** k))])
 
     def t_side_from_area():

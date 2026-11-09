@@ -317,8 +317,8 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, b = random.randint(_by(d, 1, 3, 5), _by(d, 6, 10, 10)), random.randint(_by(d, 1, 3, 5), _by(d, 6, 10, 10))
-    p = random.randint(1, 9)
-    q = random.randint(1, 10 - p)      # tens facts stay within 100
+    p = random.randint(_by(d, 1, 1, 3), _by(d, 4, 9, 8))
+    q = random.randint(_by(d, 1, 1, 2), _by(d, 5, 10, 10) - p)      # tens facts stay within 100 (easy: within 50)
 
     def t_fact():
         return _tb("%d + %d = ___" % (a, b), a + b, "int", {}, ["%d + %d = %d." % (a, b, a + b)])
@@ -330,10 +330,17 @@ def _(d=1):
         return _tb("%d + %d = ___" % (10 * p, 10 * q), 10 * (p + q), "int", {}, ["%d + %d = %d, so %d." % (p, q, p + q, 10 * (p + q))])
 
     def t_bond100():
-        t = random.randint(1, 9) * 10
-        return _tb("%d + ___ = 100" % t, 100 - t, "int", {}, ["%d + %d = 10, so %d + %d = 100." % (t // 10, 10 - t // 10, t, 100 - t)])
+        t = random.randint(_by(d, 5, 1, 1), 9) * 10
+        sol = ["%d + %d = 10, so %d + %d = 100." % (t // 10, 10 - t // 10, t, 100 - t)]
+        if d == 2:                                      # hard: the missing number first, or the = sign on the left
+            return _tb("___ + %d = 100" % t, 100 - t, "int", {}, sol) if random.random() < 0.5 else \
+                _tb("100 = %d + ___" % t, 100 - t, "int", {}, sol)
+        return _tb("%d + ___ = 100" % t, 100 - t, "int", {}, sol)
 
     def t_related():
+        if d == 2 and random.random() < 0.5:            # hard: a related subtraction fact
+            return _tb("%d − %d = %d. Use this to work out %d − %d." % (a + b, b, a, a + b + 10, b), a + 10, "int", {},
+                       ["%d is 10 more than %d, so the answer is 10 more." % (a + b + 10, a + b)])
         return _tb("%d + %d = %d. Use this to work out %d + %d." % (a, b, a + b, a, b + 10), a + b + 10, "int", {},
                    ["%d is 10 more than %d, so the answer is 10 more." % (b + 10, b)])
 
@@ -341,11 +348,15 @@ def _(d=1):
         return _tb("%d − %d = ___" % (10 * (p + q), 10 * q), 10 * p, "int", {}, ["%d − %d = %d, so %d." % (p + q, q, p, 10 * p)])
 
     def t_bond20():
-        k = random.randint(1, 19)
+        k = random.randint(_by(d, 10, 1, 1), 19)       # easy: from a teen number
+        if d == 2:                                      # hard: take away a missing number
+            return _tb("20 − ___ = %d" % k, 20 - k, "int", {}, ["%d and %d make 20." % (k, 20 - k)])
         return _tb("%d + ___ = 20" % k, 20 - k, "int", {}, ["%d and %d make 20." % (k, 20 - k)])
 
     def t_from100():
-        t = random.randint(1, 9) * 10
+        t = random.randint(_by(d, 5, 1, 1), 9) * 10
+        if d == 2:
+            return _tb("100 − ___ = %d" % (100 - t), t, "int", {}, ["%d + %d = 100." % (t, 100 - t)])
         return _tb("100 − %d = ___" % t, 100 - t, "int", {}, ["%d + %d = 100." % (t, 100 - t)])
 
     def t_word():
@@ -359,7 +370,9 @@ def _(d=1):
                       ["%d − %d = %d." % (a + b, a, b)])
 
     def t_double_tens():
-        k = random.randint(1, 5)
+        k = random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
+        if d == 2:                                      # hard: the inverse, halving
+            return _tb("Double ___ = %d" % (20 * k), 10 * k, "int", {}, ["Half of %d is %d, so double %d is %d." % (2 * k, k, 10 * k, 20 * k)])
         return _tb("Double %d = ___" % (10 * k), 20 * k, "int", {}, ["Double %d is %d, so double %d is %d." % (k, 2 * k, 10 * k, 20 * k)])
 
     def t_true():
@@ -1033,75 +1046,114 @@ def _(d=1):
     d = _d(d)
 
     def t_unit():
-        q, a = pick([("Would you measure the length of a pencil in cm or m?", "cm"),
-                     ("Would you measure the height of a door in cm or m?", "m"),
-                     ("Would you weigh a bag of potatoes in g or kg?", "kg"),
-                     ("Would you weigh a sweet in g or kg?", "g"),
-                     ("Would you measure a bath of water in ml or litres?", "litres"),
-                     ("Would you measure a spoon of medicine in ml or litres?", "ml")])
+        q, a = pick(_by(d, [("Would you measure the length of a pencil in cm or m?", "cm"),
+                            ("Would you weigh a bag of potatoes in g or kg?", "kg"),
+                            ("Would you measure a bath of water in ml or litres?", "litres")],
+                        [("Would you measure the length of a pencil in cm or m?", "cm"),
+                         ("Would you measure the height of a door in cm or m?", "m"),
+                         ("Would you weigh a bag of potatoes in g or kg?", "kg"),
+                         ("Would you weigh a sweet in g or kg?", "g"),
+                         ("Would you measure a bath of water in ml or litres?", "litres"),
+                         ("Would you measure a spoon of medicine in ml or litres?", "ml")],
+                        [("Would you measure the length of a playground in cm or m?", "m"),
+                         ("Would you measure the width of a book in cm or m?", "cm"),
+                         ("Would you weigh an apple in g or kg?", "g"),
+                         ("Would you weigh a car in g or kg?", "kg"),
+                         ("Would you measure the water in a fish tank in ml or litres?", "litres"),
+                         ("Would you measure a glass of milk in ml or litres?", "ml")]))       # hard: less obvious objects
         return _wq(q, a, ["Choose the unit that fits the size."], "unit")
 
     def t_ruler():
-        cm = random.randint(3, 19)
-        return {"prompt": "How long is it, in cm?", "component": "ruler", "spec": {"mode": "length", "value": cm, "max": 20, "unit": "cm"},
+        mx = _by(d, 10, 20, 30)
+        cm = random.randint(_by(d, 2, 3, 11), mx - 1)
+        return {"prompt": "How long is it, in cm?", "component": "ruler", "spec": {"mode": "length", "value": cm, "max": mx, "unit": "cm"},
                 "answer": cm, "answer_type": "num", "tolerance": 0.5, "solution": ["%d cm." % cm]}
 
     def t_scale():
-        mx = pick([10, 20])
-        v = random.randint(1, mx - 1)
+        mx = _by(d, 10, pick([10, 20]), 50)
+        v = 2 * random.randint(1, 24) if d == 2 else random.randint(1, mx - 1)      # hard: a 0-50 dial marked in 2s
         return {"prompt": "Read the scale. How many kg?", "component": "ruler", "spec": {"mode": "mass", "value": v, "max": mx, "unit": "kg"},
                 "answer": v, "answer_type": "num", "tolerance": 0.5, "solution": ["%d kg." % v]}
 
     def t_jug():
-        v = random.randint(1, 9) * 100
+        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 ml lines
         return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": 50, "solution": ["%d ml." % v]}
+                "spec": {"mode": "capacity", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "ml"}, "answer": v, "answer_type": "num",
+                "tolerance": _by(d, 50, 50, 20), "solution": ["%d ml." % v]}
 
     def t_thermo():
-        t = random.randint(0, 30)
+        t = random.randint(_by(d, 0, 0, 12), _by(d, 10, 30, 35))
+        if d == 2:                                      # hard: a bigger change, warmer or colder
+            k = random.randint(6, 12)
+            if random.random() < 0.5:
+                return _tb("A thermometer shows %d °C. It gets %d degrees colder. What does it show now, in °C?" % (t, k), t - k, "int",
+                           {"unit": "°C"}, ["%d − %d = %d." % (t, k, t - k)])
+            return _tb("A thermometer shows %d °C. It gets %d degrees warmer. What does it show now, in °C?" % (t, k), t + k, "int",
+                       {"unit": "°C"}, ["%d + %d = %d." % (t, k, t + k)])
         return _tb("A thermometer shows %d °C. It gets 5 degrees warmer. What does it show now, in °C?" % t, t + 5, "int",
                    {"unit": "°C"}, ["%d + 5 = %d." % (t, t + 5)])
 
     def t_temp():
-        a, b = random.sample(range(0, 35), 2)
+        if d == 2:                                      # hard: three readings, warmest or coldest
+            v = random.sample(range(0, 35), 3)
+            hot = random.random() < 0.5
+            w = max(v) if hot else min(v)
+            return _tb("Which is %s: %s? Type the number." % ("warmest" if hot else "coldest", ", ".join("%d °C" % x for x in v)), w, "int",
+                       {}, ["%d is the %s." % (w, "highest" if hot else "lowest")])
+        a, b = random.sample(range(0, _by(d, 20, 35, 35)), 2)
         return _tb("Which is warmer, %d °C or %d °C? Type the number." % (a, b), max(a, b), "int", {}, ["%d is higher." % max(a, b)])
 
     def t_estimate():
-        q, a = pick([("A door is about 2 ___ tall. Is it m or cm?", "m"),
-                     ("A bag of sugar has a mass of about 1 ___. Is it kg or g?", "kg"),
-                     ("A cup holds about 200 ___. Is it ml or litres?", "ml"),
-                     ("A paper clip is about 3 ___ long. Is it cm or m?", "cm"),
-                     ("A hot summer day is about ___ °C. Is it 25 or 95?", "25"),
-                     ("A child has a mass of about 25 ___. Is it kg or g?", "kg")])
+        q, a = pick(_by(d, [("A door is about 2 ___ tall. Is it m or cm?", "m"),
+                            ("A paper clip is about 3 ___ long. Is it cm or m?", "cm"),
+                            ("A hot summer day is about ___ °C. Is it 25 or 95?", "25")],
+                        [("A door is about 2 ___ tall. Is it m or cm?", "m"),
+                         ("A bag of sugar has a mass of about 1 ___. Is it kg or g?", "kg"),
+                         ("A cup holds about 200 ___. Is it ml or litres?", "ml"),
+                         ("A paper clip is about 3 ___ long. Is it cm or m?", "cm"),
+                         ("A hot summer day is about ___ °C. Is it 25 or 95?", "25"),
+                         ("A child has a mass of about 25 ___. Is it kg or g?", "kg")],
+                        [("A bag of sugar has a mass of about 1 ___. Is it kg or g?", "kg"),
+                         ("A cup holds about 200 ___. Is it ml or litres?", "ml"),
+                         ("A child has a mass of about 25 ___. Is it kg or g?", "kg"),
+                         ("An apple has a mass of about 100 ___. Is it g or kg?", "g"),
+                         ("A bucket holds about 10 ___. Is it ml or litres?", "litres"),
+                         ("A classroom is about 8 ___ long. Is it m or cm?", "m"),
+                         ("A cold winter day is about ___ °C. Is it 2 or 40?", "2")]))
         return _wq(q, a, ["Think about how big the real thing is."], "type it")
 
     def t_grams():
-        v = random.randint(1, 9) * 100
-        return {"prompt": "Read the scale. How many grams?", "component": "ruler", "spec": {"mode": "mass", "value": v, "max": 1000, "unit": "g"},
-                "answer": v, "answer_type": "num", "tolerance": 50, "solution": ["%d g." % v]}
+        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 g marks
+        return {"prompt": "Read the scale. How many grams?", "component": "ruler",
+                "spec": {"mode": "mass", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "g"},
+                "answer": v, "answer_type": "num", "tolerance": _by(d, 50, 50, 20), "solution": ["%d g." % v]}
 
     def t_long_ruler():
-        cm = random.randint(5, 29) if d else random.randint(5, 15)
+        cm = random.randint(_by(d, 5, 5, 15), _by(d, 15, 29, 29))
         return {"prompt": "Measure the pencil. How long is it, in cm?", "component": "ruler",
                 "spec": {"mode": "length", "value": cm, "max": 30, "unit": "cm"}, "answer": cm, "answer_type": "num", "tolerance": 0.5,
                 "solution": ["It ends at %d cm." % cm]}
 
     def t_colder():
-        a, b = random.sample(range(0, 30), 2)
+        a, b = random.sample(range(_by(d, 10, 0, 0), _by(d, 20, 30, 36)), 2)     # easy: both in the teens
         return _tb("It was %d °C in the morning and %d °C at night. How many degrees colder was the colder time?" % (max(a, b), min(a, b)),
                    abs(a - b), "int", {"unit": "°C"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
     def t_litres():
-        v = random.randint(2, 9)
+        v = random.randint(2, _by(d, 5, 9, 9))
+        if d == 2:                                      # hard: 5 or 10 buckets
+            k = pick([5, 10])
+            return _tb("A bucket holds %d litres. How much do %d buckets hold, in litres?" % (v, k), k * v, "int", {"unit": "litres"},
+                       ["%d × %d = %d." % (k, v, k * v)])
         return _tb("A bucket holds %d litres. How much do 2 buckets hold, in litres?" % v, 2 * v, "int", {"unit": "litres"},
                    ["%d + %d = %d." % (v, v, 2 * v)])
 
     def t_jug_more():
-        v = random.randint(1, 8) * 100
-        return {"prompt": "How much more water is needed to make 1000 ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"}, "answer": 1000 - v, "answer_type": "num",
-                "tolerance": 0, "solution": ["The jug shows %d ml; 1000 − %d = %d." % (v, v, 1000 - v)]}
+        top = _by(d, 500, 1000, 1000)                  # easy: a 500 ml jug; hard: 50 ml steps
+        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, top // 100 - 1) * 100
+        return {"prompt": "How much more water is needed to make %d ml?" % top, "component": "ruler",
+                "spec": {"mode": "capacity", "value": v, "max": top, "unit": "ml"}, "answer": top - v, "answer_type": "num",
+                "tolerance": 0, "solution": ["The jug shows %d ml; %d − %d = %d." % (v, top, v, top - v)]}
 
     return _pick_t([t_unit, t_temp, t_thermo, t_estimate, t_colder, t_litres], [t_ruler, t_scale, t_jug, t_grams, t_long_ruler, t_jug_more])
 
@@ -1173,65 +1225,102 @@ def _(d=1):
 @skill("Y2.4.c", "Money: £ and p, making amounts and giving change", S4)
 def _(d=1):
     d = _d(d)
+    coins = _by(d, [1, 2, 5, 10], [1, 2, 5, 10, 20, 50], [1, 2, 5, 10, 20, 50])
+
+    def _m(p):
+        return "£1" if p == 100 else "%dp" % p
 
     def t_total():
-        cs = random.sample([1, 2, 5, 10, 20, 50], _by(d, 2, 3, 4))
+        cs = random.sample(coins, _by(d, 2, 3, 4))
         return _tb("What is the total of %s, in pence?" % " + ".join("%dp" % c for c in cs), sum(cs), "int", {"unit": "p"},
                    ["%s = %dp." % (" + ".join(map(str, cs)), sum(cs))])
 
     def t_pounds():
-        a, b = random.randint(1, 5), pick([10, 20, 50])
+        a = random.randint(1, _by(d, 3, 5, 9))
+        b = random.randint(5, 95) if d == 2 else pick(_by(d, [10, 50], [10, 20, 50], None))   # hard: any pence
         return _tb("How many pence is £%d and %dp?" % (a, b), 100 * a + b, "int", {"unit": "p"}, ["£1 = 100p, so %dp." % (100 * a + b)])
 
     def t_make():
-        target = pick([15, 25, 30, 35, 60, 70, 80])
+        target = pick(_by(d, [15, 25, 30, 60, 70], [15, 25, 30, 35, 60, 70, 80], [45, 75, 80, 90, 95, 38, 67]))
         return _tb("What is the fewest coins you can use to make %dp?" % target,
                    _fewest(target), "int", {}, ["Use the biggest coins first."])
 
     def t_change():
-        cost = random.randint(5, 95)
-        pay = 100 if cost >= 50 else pick([50, 100])
+        if d == 2 and random.random() < 0.5:            # hard: two things, then the change
+            x, y = random.randint(10, 45), random.randint(10, 45)
+            return _tb("A comic costs %dp and a sticker costs %dp. You pay with £1. How much change, in pence?" % (x, y),
+                       100 - x - y, "int", {"unit": "p"}, ["%d + %d = %d." % (x, y, x + y), "100 − %d = %d." % (x + y, 100 - x - y)])
+        cost = random.randint(1, 9) * 5 if d == 0 else random.randint(5, 95)     # easy: 5p steps from 50p
+        pay = 50 if d == 0 else (100 if cost >= 50 else pick([50, 100]))
         return _tb("A comic costs %dp. You pay with %s. How much change, in pence?" % (cost, "£1" if pay == 100 else "50p"),
                    pay - cost, "int", {"unit": "p"}, ["%d − %d = %d." % (pay, cost, pay - cost)])
 
     def t_two_ways():
-        return _wq("Do 20p + 20p + 10p and 50p make the same amount? (yes or no)", "yes", ["Both make 50p."], "yes / no")
+        cs, one = pick(_by(d, [([10, 10], 20), ([5, 5], 10), ([2, 2, 1], 5), ([10, 5], 20), ([10, 10, 10], 20)],
+                           [([20, 20, 10], 50)],
+                           [([20, 20, 5, 5], 50), ([20, 20, 5, 2], 50), ([50, 20, 20, 10], 100), ([50, 20, 20, 5], 100),
+                            ([20, 10, 10, 5, 5], 50)]))
+        same = sum(cs) == one
+        return _wq("Do %s and %s make the same amount? (yes or no)" % (" + ".join("%dp" % c for c in cs), _m(one)), "yes" if same else "no",
+                   ["Both make %s." % _m(one) if same else "%s = %dp, not %s." % (" + ".join("%dp" % c for c in cs), sum(cs), _m(one))],
+                   "yes / no")
 
     def t_shop():
-        a, b = random.randint(10, 45), random.randint(10, 45)
+        if d == 2:                                      # hard: three things
+            x = [random.randint(10, 30) for _ in range(3)]
+            return _tb("A pencil costs %dp, a rubber costs %dp and a ruler costs %dp. How much for all three, in pence?" % tuple(x),
+                       sum(x), "int", {"unit": "p"}, ["%d + %d + %d = %d." % (x[0], x[1], x[2], sum(x))])
+        if d == 0:                                      # easy: the ones do not cross ten
+            a = random.randint(1, 3) * 10 + random.randint(0, 5)
+            b = random.randint(1, 3) * 10 + random.randint(0, 9 - a % 10)
+        else:
+            a, b = random.randint(10, 45), random.randint(10, 45)
         return _tb("A pencil costs %dp and a rubber costs %dp. How much for both, in pence?" % (a, b), a + b, "int", {"unit": "p"},
                    ["%d + %d = %d." % (a, b, a + b)])
 
     def t_how_many_coins():
-        c, tot = pick([(5, 20), (5, 30), (10, 50), (10, 70), (2, 10), (2, 16), (20, 100), (5, 50), (10, 100)])
-        return _tb("How many %dp coins make %dp?" % (c, tot), tot // c, "int", {}, ["%d ÷ %d = %d." % (tot, c, tot // c)])
+        c, tot = pick(_by(d, [(2, 10), (5, 20), (10, 50), (10, 30), (5, 10)],
+                          [(5, 20), (5, 30), (10, 50), (10, 70), (2, 10), (2, 16), (20, 100), (5, 50), (10, 100)],
+                          [(20, 100), (5, 50), (10, 100), (2, 18), (5, 45), (2, 20), (20, 80), (5, 35)]))
+        return _tb("How many %dp coins make %s?" % (c, _m(tot)), tot // c, "int", {}, ["%d ÷ %d = %d." % (tot, c, tot // c)])
 
     def t_missing_coin():
-        c = pick([1, 2, 5, 10, 20, 50])
-        known = pick([x for x in (5, 10, 20, 50) if x + c <= 100])
+        c = pick(coins)
+        if d == 2:                                      # hard: two coins known
+            k = random.sample([5, 10, 20, 50], 2)
+            while sum(k) + c > 100:
+                k = random.sample([5, 10, 20, 50], 2)
+            return _tb("%dp + %dp + ___p = %dp. Which coin is missing? Type its value in pence." % (k[0], k[1], sum(k) + c), c, "int",
+                       {"unit": "p"}, ["%d + %d = %d." % (k[0], k[1], sum(k)), "%d − %d = %d." % (sum(k) + c, sum(k), c)])
+        known = pick([x for x in _by(d, (10, 20), (5, 10, 20, 50), None) if x + c <= 100])
         return _tb("%dp + ___p = %dp. Which coin is missing? Type its value in pence." % (known, known + c), c, "int", {"unit": "p"},
                    ["%d − %d = %d." % (known + c, known, c)])
 
     def t_same():
-        a = random.sample([1, 2, 5, 10, 20], 3)
+        a = random.sample(_by(d, [1, 2, 5, 10], [1, 2, 5, 10, 20], [1, 2, 5, 10, 20, 50]), _by(d, 2, 3, 4))
         b = sum(a) + pick([0, 0, 1, 5])
         return _wq("Mia has %s. Ben has %dp. Do they have the same amount? (yes or no)" % (" + ".join("%dp" % x for x in a), b),
                    "yes" if sum(a) == b else "no", ["%s = %dp." % (" + ".join(map(str, a)), sum(a))], "yes / no")
 
     def t_whole_pounds():
-        p = random.randint(1, 9) * 100 + pick([0, 0, 20, 50])
+        p = random.randint(1, _by(d, 5, 9, 9)) * 100 + (random.randint(1, 99) if d == 2 else pick(_by(d, [0, 50], [0, 0, 20, 50], None)))
         return _tb("%dp is how many whole pounds and some pence? Type the number of whole pounds." % p, p // 100, "int", {},
                    ["100p = £1, so %dp = £%d and %dp." % (p, p // 100, p % 100)])
 
     def t_notes():
         a, b = random.sample([5, 10, 20], 2)
-        n = random.randint(1, 3)
-        return _tb("%s has %s and a £%d note. How many pounds is that?" % (_kid(), _pn(n, "£%d note" % a), b), n * a + b, "int",
+        n = random.randint(_by(d, 1, 1, 2), _by(d, 1, 3, 4))     # hard: more notes of one kind
+        return _tb("%s has %s and a £%d note. How many pounds is that?" % (_kid(), "a £%d note" % a if n == 1 else _pn(n, "£%d note" % a), b),
+                   n * a + b, "int",
                    {"unit": "£"}, ["%d × £%d + £%d = £%d." % (n, a, b, n * a + b)])
 
     def t_change_pounds():
-        cost = random.randint(2, 9)
-        pay = pick([10, 20]) if cost >= 5 else pick([5, 10])
+        if d == 2:                                      # hard: change from £20 or £50
+            pay = pick([20, 50])
+            cost = random.randint(3, pay - 1)
+        else:
+            cost = random.randint(2, 9)
+            pay = 10 if d == 0 else (pick([10, 20]) if cost >= 5 else pick([5, 10]))
         return _tb("A book costs £%d. You pay with a £%d note. How much change, in pounds?" % (cost, pay), pay - cost, "int", {"unit": "£"},
                    ["%d − %d = %d." % (pay, cost, pay - cost)])
 
@@ -1585,66 +1674,71 @@ def _(d=1):
 @skill("Y2.7.a", "Pictograms and tally charts", S7)
 def _(d=1):
     d = _d(d)
-    cats = random.sample(["Apples", "Bananas", "Grapes", "Pears", "Oranges"], 4)
+    m = _by(d, 3, 4, 5)                                # easy: three rows; hard: five
+    cats = random.sample(["Apples", "Bananas", "Grapes", "Pears", "Oranges"], m)
 
     def t_pictogram():
-        key = pick([1, 2, 5]) if d else 1
-        vals = [key * random.randint(1, 6) for _ in cats]
-        k = random.randrange(4)
+        key = pick(_by(d, [1], [1, 2, 5], [2, 5, 10]))
+        vals = [key * random.randint(1, _by(d, 5, 6, 8)) for _ in cats]
+        k = random.randrange(m)
         return {"prompt": "Each symbol stands for %d. How many %s?" % (key, cats[k].lower()), "component": "pictogram",
                 "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"}, "answer": vals[k], "answer_type": "int",
                 "solution": ["%s × %d = %d." % (_pn(vals[k] // key, "symbol"), key, vals[k])]}
 
     def t_tally():
-        vals = [random.randint(2, 14) for _ in cats]
+        vals = [random.randint(_by(d, 2, 2, 6), _by(d, 9, 14, 24)) for _ in cats]
         rows = [[c, _tally(v), v] for c, v in zip(cats, vals)]
-        k = random.randrange(4)
+        k = random.randrange(m)
         return _dt("Read the tally chart. What number goes in the empty box?", ["Fruit", "Tally", "Total"], rows, vals[k],
                    ["Count in 5s for each bundle, then the extra ones: %d." % vals[k]], missing=[k, 2])
 
     def t_most():
-        vals = random.sample(range(1, 10), 4)
+        key = _by(d, 1, 1, 2)                           # hard: a key of 2 and half symbols
+        vals = random.sample(range(1, _by(d, 7, 10, 16)), m)
         return {"prompt": "Which fruit was chosen most?", "component": "pictogram",
-                "spec": {"categories": cats, "values": vals, "key": 1, "symbol": "circle"}, "answer": cats[vals.index(max(vals))],
+                "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"}, "answer": cats[vals.index(max(vals))],
                 "answer_type": "str", "solution": ["%s has the most symbols." % cats[vals.index(max(vals))]]}
 
     def t_read_tally():
-        v = random.randint(3, 19)
+        v = random.randint(_by(d, 3, 3, 12), _by(d, 10, 19, 30))
         return _tb("How many does this tally show?  %s" % _tally(v), v, "int", {}, ["Each bundle is 5: %d." % v])
 
     def t_total():
-        vals = [random.randint(1, 8) for _ in cats]
-        return {"prompt": "Each symbol stands for 1. How many fruits were chosen altogether?", "component": "pictogram",
-                "spec": {"categories": cats, "values": vals, "key": 1, "symbol": "circle"}, "answer": sum(vals), "answer_type": "int",
+        key = _by(d, 1, 1, pick([2, 5]))               # hard: count in 2s or 5s across five rows
+        vals = [key * random.randint(1, _by(d, 5, 8, 4)) for _ in cats]
+        return {"prompt": "Each symbol stands for %d. How many fruits were chosen altogether?" % key, "component": "pictogram",
+                "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"}, "answer": sum(vals), "answer_type": "int",
                 "solution": ["%s = %d." % (" + ".join(map(str, vals)), sum(vals))]}
 
     def t_diff():
-        vals = random.sample(range(1, 10), 4)
-        i, j = random.sample(range(4), 2)
+        vals = random.sample(range(1, _by(d, 7, 10, 10)), m)
+        i, j = random.sample(range(m), 2)
         if vals[i] < vals[j]:
             i, j = j, i
-        key = pick([1, 2]) if d else 1
+        key = pick(_by(d, [1], [1, 2], [2, 5]))
         vv = [v * key for v in vals]
         return {"prompt": "Each symbol stands for %d. How many more chose %s than %s?" % (key, cats[i].lower(), cats[j].lower()),
                 "component": "pictogram", "spec": {"categories": cats, "values": vv, "key": key, "symbol": "circle"},
                 "answer": vv[i] - vv[j], "answer_type": "int", "solution": ["%d − %d = %d." % (vv[i], vv[j], vv[i] - vv[j])]}
 
     def t_half_symbol():
-        vals = [2 * random.randint(1, 5) - pick([0, 1]) for _ in cats]
-        k = random.randrange(4)
-        return {"prompt": "Each whole symbol stands for 2. Half a symbol stands for 1. How many %s?" % cats[k].lower(),
-                "component": "pictogram", "spec": {"categories": cats, "values": vals, "key": 2, "symbol": "circle"},
+        key = pick([2, 10]) if d == 2 else 2           # hard: a key of 10, half a symbol is 5
+        vals = [key * random.randint(1, 5) - (key // 2) * pick(_by(d, [0], [0, 1], [0, 1])) for _ in cats]   # easy: whole symbols only
+        k = random.randrange(m)
+        return {"prompt": "Each whole symbol stands for %d. Half a symbol stands for %d. How many %s?" % (key, key // 2, cats[k].lower()),
+                "component": "pictogram", "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"},
                 "answer": vals[k], "answer_type": "int", "solution": ["%d." % vals[k]]}
 
     def t_least():
-        vals = random.sample(range(1, 10), 4)
+        key = _by(d, 1, 1, 2)
+        vals = random.sample(range(1, _by(d, 7, 10, 16)), m)
         return {"prompt": "Which fruit was chosen the least?", "component": "pictogram",
-                "spec": {"categories": cats, "values": vals, "key": 1, "symbol": "circle"}, "answer": cats[vals.index(min(vals))],
+                "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"}, "answer": cats[vals.index(min(vals))],
                 "answer_type": "str", "solution": ["%s has the fewest symbols." % cats[vals.index(min(vals))]]}
 
     def t_tally_more():
-        vals = random.sample(range(2, 15), 4)
-        i, j = random.sample(range(4), 2)
+        vals = random.sample(range(_by(d, 2, 2, 5), _by(d, 11, 15, 26)), m)
+        i, j = random.sample(range(m), 2)
         rows = [[c, _tally(v)] for c, v in zip(cats, vals)]
         return _dt("The tally chart shows favourite fruit. How many more chose %s than %s?" % (cats[i].lower(), cats[j].lower())
                    if vals[i] > vals[j] else "The tally chart shows favourite fruit. How many fewer chose %s than %s?" % (cats[i].lower(), cats[j].lower()),
@@ -1652,8 +1746,8 @@ def _(d=1):
                    ["%s: %d, %s: %d; the difference is %d." % (cats[i], vals[i], cats[j], vals[j], abs(vals[i] - vals[j]))])
 
     def t_order():
-        vals = random.sample(range(1, 10), 4)
-        k = random.randint(1, 4)
+        vals = random.sample(range(1, _by(d, 7, 10, 10)), m)
+        k = random.randint(1, m)
         return {"prompt": "Put the fruits in order, most popular first. Which fruit is number %d?" % k, "component": "pictogram",
                 "spec": {"categories": cats, "values": vals, "key": 1, "symbol": "circle"},
                 "answer": [c for _, c in sorted(zip(vals, cats), reverse=True)][k - 1], "answer_type": "str",

@@ -2186,7 +2186,7 @@ def _(d=1):
 
     def boundary_value():
         op = pick(["<", "<=", ">", ">="])
-        v = random.randint(-3, 6)
+        v = random.randint(*_by_d(d, (0, 8), (-3, 6), (-15, -2)))     # stretch: a negative boundary
         lo, hi = _bounds(v)
         return _ineqq("What is the boundary value marked by the circle on this number "
                       "line?", _ineq_spec(op, v, lo, hi), v,
@@ -2194,7 +2194,7 @@ def _(d=1):
 
     def open_or_closed():
         op = pick(["<", "<=", ">", ">="])
-        v = random.randint(-3, 6)
+        v = random.randint(*_by_d(d, (0, 8), (-3, 6), (-15, -2)))
         lo, hi = _bounds(v)
         closed = op in ("<=", ">=")
         return _ineqq("Is the value %d included in the inequality shown (is the circle "

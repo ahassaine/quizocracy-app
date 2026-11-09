@@ -190,7 +190,8 @@ def _perim(cells):
 @skill("Y4.8.a", "Identify and classify polygons", S8)
 def _(d=1):
     d = _tier(d)
-    pool = _by_d(d, [s for s in _DRAWN if s[1] <= 6], _DRAWN, _DRAWN)
+    # stretch: the many-sided shapes, where counting and naming are harder
+    pool = _by_d(d, [s for s in _DRAWN if s[1] <= 6], _DRAWN, [s for s in _DRAWN if s[1] >= 5])
     name, sides = pick(pool)
     t = _pick_t([2, 2, 2, 1, 1, 1, 1, 1, 1, 1])
 
@@ -224,9 +225,12 @@ def _(d=1):
 
     if t == 4:                                        # regular or irregular
         regular = random.random() < 0.5
-        sd = pick([4, 5, 6, 8])
+        sd = pick(_by_d(d, [3, 4, 6], [4, 5, 6, 8], [4, 5, 6, 7, 8]))
         desc = ("all %d sides equal and all %d angles equal" % (sd, sd)) if regular else \
                ("%d sides, but the sides are not all the same length" % sd)
+        if d == 2 and not regular:                    # stretch: only half the rule is met
+            desc = pick(["all %d sides equal, but its angles are not all equal" % sd,
+                         "all %d angles equal, but its sides are not all equal" % sd])
         return _num_q("A polygon has %s. Is this polygon regular or irregular? "
                       "(type one word)" % desc,
                       "regular" if regular else "irregular", "str", text=True,
@@ -235,14 +239,14 @@ def _(d=1):
                                 "This polygon is %s." % ("regular" if regular else "irregular")])
 
     if t == 5:                                        # real world
-        thing, nm, sd = pick([
-            ("a stop sign", "octagon", 8),
-            ("a honeycomb cell", "hexagon", 6),
-            ("a football's black patch", "pentagon", 5),
-            ("a road warning sign", "triangle", 3),
-            ("a chess board square", "square", 4),
-            ("a 50p coin's outline", "heptagon", 7),
-        ])
+        things = [("a stop sign", "octagon", 8),
+                  ("a honeycomb cell", "hexagon", 6),
+                  ("a football's black patch", "pentagon", 5),
+                  ("a road warning sign", "triangle", 3),
+                  ("a chess board square", "square", 4),
+                  ("a 50p coin's outline", "heptagon", 7)]
+        thing, nm, sd = pick(_by_d(d, [things[i] for i in (1, 3, 4)], things,
+                                   [things[i] for i in (0, 2, 5)]))
         ask_sides = random.random() < 0.5
         if ask_sides:
             return _num_q("In the real world, %s is shaped like %s. "
@@ -256,9 +260,10 @@ def _(d=1):
                       solution=["A regular polygon with %d sides is %s." % (sd, _a(nm))])
 
     if t == 6:                                        # comparison
-        (n1, s1), (n2, s2) = random.sample(_POLY, 2)
+        polys = _by_d(d, _POLY[:5], _POLY, _POLY[2:])
+        (n1, s1), (n2, s2) = random.sample(polys, 2)
         while s1 == s2:
-            (n1, s1), (n2, s2) = random.sample(_POLY, 2)
+            (n1, s1), (n2, s2) = random.sample(polys, 2)
         big, bs, small, ss = (n1, s1, n2, s2) if s1 > s2 else (n2, s2, n1, s1)
         return _num_q("How many MORE vertices does %s have than %s?" % (_a(big), _a(small)),
                       bs - ss, "int", unit="vertices",
@@ -267,8 +272,8 @@ def _(d=1):
                                 "%d − %d = %d." % (bs, ss, bs - ss)])
 
     if t == 7:                                        # sorting
-        chosen = random.sample(_POLY, 4)
-        cut = pick([4, 5, 6])
+        chosen = random.sample(_by_d(d, _POLY[:6], _POLY, _POLY), _by_d(d, 3, 4, 5))
+        cut = pick(_by_d(d, [4, 5], [4, 5, 6], [5, 6, 7, 8]))
         cnt = sum(1 for _, sd in chosen if sd > cut)
         return _num_q("Sort these polygons by their number of sides: %s. "
                       "How many of them have MORE than %d sides?"
@@ -278,7 +283,13 @@ def _(d=1):
                                 "%d of them have more than %d sides." % (cnt, cut)])
 
     if t == 8:                                        # total sides
-        (n1, s1), (n2, s2) = random.sample(_POLY, 2)
+        if d == 2:                                    # stretch: three of the larger polygons
+            (n1, s1), (n2, s2), (n3, s3) = random.sample(_POLY[3:], 3)
+            return _num_q("%s, %s and %s are drawn side by side. How many sides do they "
+                          "have altogether?" % (_a(n1).capitalize(), _a(n2), _a(n3)),
+                          s1 + s2 + s3, "int", unit="sides",
+                          solution=["%d + %d + %d = %d sides." % (s1, s2, s3, s1 + s2 + s3)])
+        (n1, s1), (n2, s2) = random.sample(_POLY[:5] if d == 0 else _POLY, 2)
         return _num_q("%s and %s are drawn side by side. How many sides do they have "
                       "altogether?" % (_a(n1).capitalize(), _a(n2)),
                       s1 + s2, "int", unit="sides",
@@ -440,7 +451,12 @@ def _(d=1):
             a, b, c = sorted(random.sample(range(4, 15), 3))
             while a + b <= c:
                 a, b, c = sorted(random.sample(range(4, 15), 3))
+            if d == 2:                                # stretch: lengths one apart, easy to misread
+                a = random.randint(5, 12)
+                b, c = a + 1, a + 2
             sides = (a, b, c)
+        if d == 2:                                    # stretch: the equal sides are not listed first
+            sides = tuple(random.sample(sides, 3))
         return _num_q("A triangle has sides of %d cm, %d cm and %d cm. Is it scalene, "
                       "isosceles or equilateral? (type one word)" % sides,
                       kind, "str", text=True,
@@ -455,7 +471,8 @@ def _(d=1):
             a = random.randint(20, 70)
             angles = (90, a, 90 - a)
         elif kind == "obtuse":
-            a = random.choice([100, 110, 120, 130, 140])
+            a = random.choice(_by_d(d, [120, 130, 140], [100, 110, 120, 130, 140],
+                                    [92, 95, 98, 102, 105]))   # stretch: only just obtuse
             b = random.randint(10, 180 - a - 10)
             angles = (a, b, 180 - a - b)
         else:
@@ -467,6 +484,8 @@ def _(d=1):
                 b = random.randint(max(20, 100 - a), 85)
                 c = 180 - a - b
             angles = (a, b, c)
+        if d == 2:                                    # stretch: the big angle is not listed first
+            angles = tuple(random.sample(angles, 3))
         return _num_q("A triangle has angles of %d°, %d° and %d°. Is it an acute, right "
                       "or obtuse triangle? (type one word)" % angles,
                       kind, "str", text=True, placeholder="acute / right / obtuse",
@@ -476,7 +495,13 @@ def _(d=1):
                                 % (max(angles), kind)])
 
     if t == 2:                                        # name -> equal sides
-        kind, eq = pick([("equilateral", 3), ("isosceles", 2), ("scalene", 0)])
+        kind, eq = pick([("equilateral", 3), ("isosceles", 2), ("scalene", 0)][:2 if d == 0 else 3])
+        if d == 2:                                    # stretch: equal angles go with equal sides
+            return _num_q("How many equal angles does %s triangle have? (type 0 if none "
+                          "are equal)" % _a(kind), eq, "int", unit="angles",
+                          solution=["Equal sides sit opposite equal angles.",
+                                    "%s triangle has %s, so it has %d equal angles."
+                                    % (_a(kind).capitalize(), _pl(eq, "equal side"), eq)])
         return _num_q("How many equal sides does %s triangle have?" % _a(kind),
                       eq, "int", unit="sides",
                       solution=["%s triangle has %s of equal length."
@@ -493,19 +518,29 @@ def _(d=1):
                                 "%d + %d = %d, and 180 − %d = %d°." % (a, b, a + b, a + b, c)])
 
     if t == 4:                                        # description -> name
-        desc, kind = pick([
-            ("all three sides the same length", "equilateral"),
-            ("exactly two sides the same length", "isosceles"),
-            ("no two sides the same length", "scalene"),
-            ("all three angles equal to 60°", "equilateral"),
-            ("two equal angles at its base", "isosceles"),
-        ])
+        descs = [("all three sides the same length", "equilateral"),
+                 ("exactly two sides the same length", "isosceles"),
+                 ("no two sides the same length", "scalene"),
+                 ("all three angles equal to 60°", "equilateral"),
+                 ("two equal angles at its base", "isosceles"),
+                 ("three different angles", "scalene")]
+        desc, kind = pick(_by_d(d, descs[:3], descs[:5], descs[3:]))
         return _num_q("A triangle has %s. What kind of triangle is it? (type one word)" % desc,
                       kind, "str", text=True,
                       placeholder="scalene / isosceles / equilateral",
                       solution=["A triangle with %s is %s." % (desc, _a(kind))])
 
     if t == 5:                                        # equilateral angle size
+        if d == 2:                                    # stretch: use the two equal sides
+            a = random.randint(5, 15)
+            b = random.randint(2, 2 * a - 1)
+            while b == a:
+                b = random.randint(2, 2 * a - 1)
+            return _num_q("An isosceles triangle has two sides of %d cm and a third side of "
+                          "%d cm. What is its perimeter?" % (a, b),
+                          2 * a + b, "int", unit="cm",
+                          solution=["The two equal sides are %d cm each." % a,
+                                    "%d + %d + %d = %d cm." % (a, a, b, 2 * a + b)])
         return _num_q("All three angles of an equilateral triangle are equal. "
                       "How many degrees is each angle?",
                       60, "int", unit="degrees",
@@ -513,7 +548,7 @@ def _(d=1):
                                 "180 ÷ 3 = 60°."])
 
     if t == 6:                                        # visual (the drawn triangle is regular)
-        ask = pick(["classify", "symmetry"])
+        ask = _by_d(d, "classify", pick(["classify", "symmetry"]), "symmetry")
         if ask == "classify":
             return {"prompt": "This triangle has three equal sides and three equal angles. "
                               "Is it scalene, isosceles or equilateral? (type one word)",
@@ -531,9 +566,16 @@ def _(d=1):
                              "An equilateral triangle has 3 lines of symmetry."]}
 
     if t == 7:                                        # isosceles: find the equal angles
-        apex = random.choice([20, 30, 40, 50, 70, 80, 100])
+        apex = random.choice(_by_d(d, [20, 40, 60, 80, 100], [20, 30, 40, 50, 70, 80, 100],
+                                   [24, 36, 48, 54, 66, 72, 108, 116]))
         base = (180 - apex) // 2
         apex = 180 - 2 * base
+        if d == 2 and random.random() < 0.5:          # stretch: the other way round
+            return _num_q("An isosceles triangle has two equal base angles of %d° each. "
+                          "How many degrees is the angle at the top?" % base,
+                          apex, "int", unit="degrees",
+                          solution=["%d + %d = %d°." % (base, base, 2 * base),
+                                    "180 − %d = %d°." % (2 * base, apex)])
         return _num_q("An isosceles triangle has an angle of %d° at the top and two equal "
                       "angles at the base. How many degrees is each base angle?" % apex,
                       base, "int", unit="degrees",
@@ -549,9 +591,15 @@ def _(d=1):
                                 "3 × %d = %d cm." % (s, 3 * s)])
 
     # reasoning: can a triangle be both?
-    kind, ans = pick([("a right angle and two equal sides", "isosceles"),
-                      ("one angle of 120° and no equal sides", "scalene"),
-                      ("three 60° angles", "equilateral")])
+    kind, ans = pick(_by_d(d, [("three 60° angles", "equilateral"),
+                               ("a right angle and two equal sides", "isosceles")],
+                           [("a right angle and two equal sides", "isosceles"),
+                            ("one angle of 120° and no equal sides", "scalene"),
+                            ("three 60° angles", "equilateral")],
+                           [("angles of 50°, 50° and 80°", "isosceles"),
+                            ("angles of 30°, 60° and 90°", "scalene"),
+                            ("a right angle and two 45° angles", "isosceles"),
+                            ("one angle of 120° and no equal sides", "scalene")]))
     return _num_q("A triangle has %s. Classify it by its sides: scalene, isosceles or "
                   "equilateral? (type one word)" % kind,
                   ans, "str", text=True, placeholder="scalene / isosceles / equilateral",
@@ -750,18 +798,36 @@ def _(d=1):
     t = _pick_t([1, 1, 1, 1, 1, 2, 1, 1, 1, 1])
 
     if t == 0:                                        # vocabulary: which is it?
-        desc, ans = pick([
+        desc, ans = pick(_by_d(d, [
+            ("goes on for ever in both directions", "line"),
+            ("has two endpoints", "line segment"),
+        ], [
             ("goes on for ever in both directions", "line"),
             ("has two endpoints", "line segment"),
             ("starts at one endpoint and goes on for ever in one direction", "ray"),
-        ])
+        ], [                                          # stretch: described indirectly
+            ("can be measured with a ruler because it stops at both ends", "line segment"),
+            ("has exactly one endpoint", "ray"),
+            ("has no endpoints at all", "line"),
+            ("is like a beam of torchlight, starting at the torch", "ray"),
+        ]))
         return _num_q("A straight path %s. Is it a line, a line segment or a ray? "
                       "(type the answer)" % desc,
                       ans, "str", text=True, placeholder="line / line segment / ray",
                       solution=["A straight path that %s is called a %s." % (desc, ans)])
 
     if t == 1:                                        # count endpoints
-        thing, ends = pick([("a line segment", 2), ("a ray", 1), ("a line", 0)])
+        if d == 2:                                    # stretch: a mixture to total up
+            ns, nr, nl = random.randint(1, 4), random.randint(1, 3), random.randint(0, 2)
+            tot = 2 * ns + nr
+            return _num_q("A drawing has %s, %s and %s. How many endpoints are there "
+                          "altogether?" % (_pl(ns, "line segment"), _pl(nr, "ray"),
+                                           _pl(nl, "line")),
+                          tot, "int", unit="endpoints",
+                          solution=["A line segment has 2 endpoints, a ray has 1 and a line "
+                                    "has none.",
+                                    "%d × 2 + %d × 1 + %d × 0 = %d." % (ns, nr, nl, tot)])
+        thing, ends = pick([("a line segment", 2), ("a ray", 1), ("a line", 0)][:2 if d == 0 else 3])
         return _num_q("How many endpoints does %s have?" % thing,
                       ends, "int", unit="endpoints",
                       solution=["%s has %s." % (thing.capitalize(),
@@ -792,25 +858,29 @@ def _(d=1):
                                 "It is %s." % ans])
 
     if t == 3:                                        # parallel / perpendicular vocab
-        desc, ans = pick([
-            ("never meet, however far they are extended", "parallel"),
-            ("cross at a right angle", "perpendicular"),
-            ("stay exactly the same distance apart", "parallel"),
-            ("make a 90° angle where they meet", "perpendicular"),
-        ])
+        descs = [("never meet, however far they are extended", "parallel"),
+                 ("cross at a right angle", "perpendicular"),
+                 ("stay exactly the same distance apart", "parallel"),
+                 ("make a 90° angle where they meet", "perpendicular"),
+                 ("meet to make a square corner, a quarter turn", "perpendicular"),
+                 ("are like the opposite sides of a rectangle", "parallel")]
+        desc, ans = pick(_by_d(d, descs[:2], descs[:4], descs[2:]))
         return _num_q("Two straight lines %s. What are they called? (type one word)" % desc,
                       ans, "str", text=True, placeholder="parallel / perpendicular",
                       solution=["Lines that %s are %s." % (desc, ans)])
 
     if t == 4:                                        # real-life parallel / perpendicular
-        case, ans = pick([("the two long rails of a ladder", "parallel"),
-                          ("the two strokes of the letter L", "perpendicular"),
-                          ("the two edges of a straight road", "parallel"),
-                          ("the corner of a picture frame", "perpendicular"),
-                          ("railway tracks", "parallel"),
-                          ("the two long strokes of the letter H", "parallel"),
-                          ("a flagpole and the flat ground", "perpendicular"),
-                          ("the lines on lined writing paper", "parallel")])
+        cases = [("railway tracks", "parallel"),
+                 ("the two strokes of the letter L", "perpendicular"),
+                 ("the lines on lined writing paper", "parallel"),
+                 ("a flagpole and the flat ground", "perpendicular"),
+                 ("the two long rails of a ladder", "parallel"),
+                 ("the two edges of a straight road", "parallel"),
+                 ("the corner of a picture frame", "perpendicular"),
+                 ("the two long strokes of the letter H", "parallel"),
+                 ("the two strokes of the letter T", "perpendicular"),
+                 ("the top and bottom edges of a door", "parallel")]
+        case, ans = pick(_by_d(d, cases[:4], cases[:8], cases[4:]))
         return _num_q("Are %s parallel or perpendicular? (type one word)" % case,
                       ans, "str", text=True, placeholder="parallel / perpendicular",
                       solution=["%s are %s." % (case.capitalize(), ans)])
@@ -839,7 +909,17 @@ def _(d=1):
                              % (k, dirn.replace(" of", ""), _coord(x, y), _coord(ax, ay))]}
 
     if t == 6:                                        # clock hands
-        h, ans = pick([(3, "perpendicular"), (9, "perpendicular"), (6, "neither")])
+        if d == 2:                                    # stretch: find the other time
+            h = pick([3, 9])
+            other = 12 - h
+            return _num_q("At %d o'clock the hands of a clock are perpendicular. At which "
+                          "other o'clock time are the hands perpendicular too? "
+                          "(type the hour)" % h,
+                          other, "int",
+                          solution=["The hands are perpendicular when they make a right angle.",
+                                    "At %d o'clock the hour hand points the opposite way, "
+                                    "still at a right angle to the minute hand." % other])
+        h, ans = pick([(3, "perpendicular"), (9, "perpendicular"), (6, "neither")][:2 if d == 0 else 3])
         if ans == "neither":
             return _num_q("At 6 o'clock the two hands of a clock point in exactly opposite "
                           "directions, making a straight line. How many degrees is the "
@@ -854,12 +934,18 @@ def _(d=1):
                       solution=["Lines that meet at a right angle are perpendicular."])
 
     if t == 7:                                        # counting in a shape
-        nm, par, per = pick([("square", 2, 4), ("rectangle", 2, 4), ("regular hexagon", 3, 0),
-                             ("regular octagon", 4, 0)])
-        return _num_q("How many pairs of parallel sides does %s have?" % _a(nm),
+        nm, par, per = pick(_by_d(d, [("square", 2, 4), ("rectangle", 2, 4)],
+                                  [("square", 2, 4), ("rectangle", 2, 4),
+                                   ("regular hexagon", 3, 0), ("regular octagon", 4, 0)],
+                                  [("regular hexagon", 3, 0), ("regular octagon", 4, 0),
+                                   ("trapezium", 1, 0), ("parallelogram", 2, 0),
+                                   ("triangle", 0, 0)]))
+        return _num_q("How many pairs of parallel sides does %s have?%s"
+                      % (_a(nm), " (type 0 if none)" if d == 2 else ""),
                       par, "int", unit="pairs",
-                      solution=["Opposite sides of %s are parallel." % _a(nm),
-                                "There are %s." % _pl(par, "pair")])
+                      solution=["Opposite sides of %s are parallel." % _a(nm) if par >= 2 else
+                                "Check each pair of sides of %s to see if they never meet." % _a(nm),
+                                "There %s %s." % ("is" if par == 1 else "are", _pl(par, "pair"))])
 
     if t == 8:                                        # perpendicular from coordinates
         x = random.randint(1, size - 1)
@@ -921,7 +1007,7 @@ def _(d=1):
                              "The angle measures %d°." % deg]}
 
     if t == 2:                                        # angle: turn (visual)
-        deg = pick([90, 180, 270, 360])
+        deg = pick(_by_d(d, [90, 180], [90, 180, 270, 360], [180, 270, 360]))
         ask = pick(["degrees", "turn"])
         if ask == "degrees":
             return {"prompt": "The arrow shows a turn. How many degrees is the turn?",
@@ -941,16 +1027,23 @@ def _(d=1):
                                       270: "three quarters", 360: "all"}[deg], word)]}
 
     if t == 3:                                        # degrees in a turn (typed)
-        word, deg = pick([("a quarter turn", 90), ("a half turn", 180),
-                          ("a three-quarter turn", 270), ("a full turn", 360),
-                          ("a right angle", 90), ("a straight angle", 180)])
+        word, deg = pick(_by_d(d, [("a quarter turn", 90), ("a half turn", 180),
+                                   ("a right angle", 90)],
+                               [("a quarter turn", 90), ("a half turn", 180),
+                                ("a three-quarter turn", 270), ("a full turn", 360),
+                                ("a right angle", 90), ("a straight angle", 180)],
+                               [("two right angles", 180), ("three right angles", 270),
+                                ("four right angles", 360), ("half a right angle", 45),
+                                ("a three-quarter turn", 270)]))
         return _num_q("How many degrees are there in %s?" % word,
                       deg, "int", unit="degrees",
                       solution=["A full turn is 360°.", "%s is %d°." % (word.capitalize(), deg)])
 
     if t == 4:                                        # classify by size (typed)
-        deg = random.choice([15, 35, 55, 75, 89, 90, 95, 120, 145, 179, 180,
-                             200, 260, 300])
+        deg = random.choice(_by_d(d, [15, 35, 55, 75, 90, 120, 145],
+                                  [15, 35, 55, 75, 89, 90, 95, 120, 145, 179, 180,
+                                   200, 260, 300],
+                                  [85, 89, 90, 91, 95, 175, 179, 180, 181, 185]))  # stretch: near the boundaries
         if deg < 90:
             kind = "acute"
         elif deg == 90:
@@ -973,6 +1066,11 @@ def _(d=1):
 
     if t == 5:                                        # compare two angles
         a, b = random.sample([25, 40, 55, 70, 85, 95, 110, 130, 150, 165], 2)
+        if d == 0:                                    # far apart
+            a, b = random.choice([25, 30, 40, 45]), random.choice([120, 135, 150, 160])
+        elif d == 2:                                  # stretch: close together
+            a = random.randint(30, 160)
+            b = a + pick([-1, 1]) * random.randint(3, 12)
         ask_diff = random.random() < 0.5
         if ask_diff:
             return _num_q("One angle is %d° and another is %d°. How many degrees BIGGER is "
@@ -985,7 +1083,16 @@ def _(d=1):
                       solution=["%d° is larger than %d°." % (max(a, b), min(a, b))])
 
     if t == 6:                                        # angles on a straight line
-        a = random.randint(20, 160)
+        a = random.randint(2, 16) * 10 if d == 0 else random.randint(20, 160)
+        if d == 2:                                    # stretch: three angles on the line
+            a = random.randint(20, 90)
+            b = random.randint(20, 160 - a)
+            return _num_q("Three angles sit side by side on a straight line. Two of them are "
+                          "%d° and %d°. How many degrees is the third?" % (a, b),
+                          180 - a - b, "int", unit="degrees",
+                          solution=["Angles on a straight line add up to 180°.",
+                                    "%d + %d = %d, and 180 − %d = %d°."
+                                    % (a, b, a + b, a + b, 180 - a - b)])
         return _num_q("Two angles sit side by side on a straight line. One of them is %d°. "
                       "How many degrees is the other?" % a,
                       180 - a, "int", unit="degrees",
@@ -1007,7 +1114,7 @@ def _(d=1):
                                 "360 − %d = %d°." % (sum(angs), rest)])
 
     if t == 8:                                        # minute hand turn
-        mins = pick([5, 10, 15, 20, 30, 45])
+        mins = pick(_by_d(d, [15, 30, 45], [5, 10, 15, 20, 30, 45], [7, 12, 25, 35, 40, 50]))
         return _num_q("The minute hand of a clock turns all the way round in 60 minutes. "
                       "How many degrees does it turn in %d minutes?" % mins,
                       6 * mins, "int", unit="degrees",
@@ -1017,21 +1124,25 @@ def _(d=1):
     # compass turn in degrees
     dirs = ["North", "East", "South", "West"]
     i = random.randrange(4)
-    j = (i + random.randint(1, 3)) % 4
+    j = (i + random.randint(1, 2 if d == 0 else 3)) % 4
     deg = 90 * ((j - i) % 4)
     who = pick(NAMES)
-    return _num_q("%s faces %s and turns clockwise to face %s. How many degrees has %s "
-                  "turned?" % (who, dirs[i], dirs[j], who),
+    way = "clockwise"
+    if d == 2 and random.random() < 0.5:              # stretch: anticlockwise
+        way, deg = "anticlockwise", 360 - deg
+    return _num_q("%s faces %s and turns %s to face %s. How many degrees has %s "
+                  "turned?" % (who, dirs[i], way, dirs[j], who),
                   deg, "int", unit="degrees",
                   solution=["Each quarter turn between compass points is 90°.",
-                            "%s to %s clockwise is %d°." % (dirs[i], dirs[j], deg)])
+                            "%s to %s %s is %d°." % (dirs[i], dirs[j], way, deg)])
 
 
 @skill("Y4.8.g", "Lines of symmetry and symmetric figures", S8)
 def _(d=1):
     d = _tier(d)
     drawn = list(_SYM_DRAWN.items())
-    pool = [k for k, v in drawn if v[0] <= 4] if d == 0 else [k for k, v in drawn]
+    pool = _by_d(d, [k for k, v in drawn if v[0] <= 4], [k for k, v in drawn],
+                 [k for k, v in drawn if v[0] >= 3])  # stretch: more lines to find
     t = _pick_t([2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2])
 
     if t in (0, 1):                                   # visual count
@@ -1047,8 +1158,10 @@ def _(d=1):
                              % (_a(label).capitalize(), _pl(lines, "line"))]}
 
     if t == 2:                                        # recall by name
+        tricky = ("rectangle", "isosceles triangle", "scalene triangle", "rhombus",
+                  "parallelogram", "kite")             # the ones pupils get wrong
         nm, lines = pick(_by_d(d, [s for s in _SYM_NAMED if s[1] <= 4],
-                               _SYM_NAMED, _SYM_NAMED))
+                               _SYM_NAMED, [s for s in _SYM_NAMED if s[0] in tricky]))
         return _num_q("How many lines of symmetry does %s have?" % _a(nm),
                       lines, "int", unit="lines",
                       solution=["%s has %s of symmetry."
@@ -1063,7 +1176,7 @@ def _(d=1):
                                 "So it has %d lines of symmetry." % sides])
 
     if t == 4:                                        # inverse
-        sides = pick([3, 4, 5, 6, 8])
+        sides = pick(_by_d(d, [3, 4], [3, 4, 5, 6, 8], [5, 6, 7, 8, 9, 10]))
         return _num_q("A regular polygon has %d lines of symmetry. How many sides does it "
                       "have?" % sides,
                       sides, "int", unit="sides",
@@ -1071,7 +1184,18 @@ def _(d=1):
                                 "So it has %d sides." % sides])
 
     if t == 5:                                        # capital letters
-        L, lines = pick(_SYM_LETTERS)
+        if d == 2:                                    # stretch: some letters have none
+            L, lines = pick([x for x in _SYM_LETTERS if x[1] == 2] +
+                            [("F", 0), ("J", 0), ("L", 0), ("N", 0), ("P", 0), ("S", 0),
+                             ("Z", 0), ("K", 1), ("D", 1)])
+            return _num_q("Here is the capital letter %s. How many lines of symmetry does it "
+                          "have? (type 0 if it has none)" % L,
+                          lines, "int", unit="lines",
+                          solution=["Fold the letter and see which folds match exactly.",
+                                    "The letter %s has %s of symmetry."
+                                    % (L, _pl(lines, "line") if lines else "no lines")])
+        L, lines = pick(_SYM_LETTERS if d else [x for x in _SYM_LETTERS
+                                                if x[0] in "AMTUVW"])
         return _num_q("The capital letter %s is written as a symmetric figure. How many "
                       "lines of symmetry does it have?" % L,
                       lines, "int", unit="lines",
@@ -1079,9 +1203,13 @@ def _(d=1):
                                 "The letter %s has %s of symmetry." % (L, _pl(lines, "line"))])
 
     if t == 6:                                        # comparison
-        (n1, l1), (n2, l2) = random.sample(_SYM_NAMED, 2)
+        named = _by_d(d, [s for s in _SYM_NAMED if s[0] in ("square", "rectangle",
+                                                           "equilateral triangle",
+                                                           "regular hexagon")],
+                      _SYM_NAMED, _SYM_NAMED[3:])
+        (n1, l1), (n2, l2) = random.sample(named, 2)
         while l1 == l2:
-            (n1, l1), (n2, l2) = random.sample(_SYM_NAMED, 2)
+            (n1, l1), (n2, l2) = random.sample(named, 2)
         big, bl, small, sl = (n1, l1, n2, l2) if l1 > l2 else (n2, l2, n1, l1)
         return _num_q("How many MORE lines of symmetry does %s have than %s?"
                       % (_a(big), _a(small)),
@@ -1091,7 +1219,17 @@ def _(d=1):
                                 "%d − %d = %d." % (bl, sl, bl - sl)])
 
     if t == 7:                                        # total
-        (n1, l1), (n2, l2) = random.sample(_SYM_NAMED, 2)
+        if d == 2:                                    # stretch: three shapes
+            (n1, l1), (n2, l2), (n3, l3) = random.sample(_SYM_NAMED, 3)
+            return _num_q("%s, %s and %s are drawn on a poster. How many lines of symmetry "
+                          "do the three shapes have altogether?"
+                          % (_a(n1).capitalize(), _a(n2), _a(n3)),
+                          l1 + l2 + l3, "int", unit="lines",
+                          solution=["%s has %d, %s has %d and %s has %d."
+                                    % (_a(n1).capitalize(), l1, _a(n2), l2, _a(n3), l3),
+                                    "%d + %d + %d = %d." % (l1, l2, l3, l1 + l2 + l3)])
+        (n1, l1), (n2, l2) = random.sample(_SYM_NAMED[:3] + _SYM_NAMED[8:] if d == 0
+                                           else _SYM_NAMED, 2)
         return _num_q("%s and %s are drawn on a poster. How many lines of symmetry do the "
                       "two shapes have altogether?" % (_a(n1).capitalize(), _a(n2)),
                       l1 + l2, "int", unit="lines",
@@ -1909,7 +2047,8 @@ def _(d=1):
 @skill("Y4.8.l", "3-D shapes: faces, edges and vertices", S8)
 def _(d=1):
     d = _tier(d)
-    pool = _by_d(d, [s for s in _SOLIDS if s[0] in ("cube", "cuboid")], _SOLIDS, _SOLIDS)
+    pool = _by_d(d, [s for s in _SOLIDS if s[0] in ("cube", "cuboid")], _SOLIDS,
+                 [s for s in _SOLIDS if s[0] != "cube"])     # stretch: the less familiar solids
     name, f, e, v = pick(pool)
     t = _pick_t([2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2])
 
@@ -1943,15 +2082,38 @@ def _(d=1):
                              "It is %s." % _a(nm)]}
 
     if t == 4:                                        # riddle
-        nm, ff, ee, vv = pick([s for s in _SOLIDS if s[0] != "cuboid"])
-        return _num_q("A solid has %d faces, %d edges and %d vertices. What is it called?"
-                      % (ff, ee, vv),
+        nm, ff, ee, vv = pick([s for s in _SOLIDS if s[0] != "cuboid"][:2 if d == 0 else 3])
+        if d == 2:                                    # stretch: one clue fewer
+            extra = ", and every face is a square" if nm == "cube" else ""
+            return _num_q("A solid has %d faces and %d vertices%s. What is it called?"
+                          % (ff, vv, extra),
+                          nm, "str", text=True, placeholder="solid name",
+                          solution=["Check the faces and vertices of each solid you know.",
+                                    "%d faces and %d vertices%s describe %s."
+                                    % (ff, vv, extra, _a(nm))])
+        sq = ", and every face is a square" if nm == "cube" else ""     # a cuboid has the same counts
+        return _num_q("A solid has %d faces, %d edges and %d vertices%s. What is it called?"
+                      % (ff, ee, vv, sq),
                       nm, "str", text=True, placeholder="solid name",
-                      solution=["%d faces, %d edges and %d vertices describe %s."
-                                % (ff, ee, vv, _a(nm))])
+                      solution=["%d faces, %d edges and %d vertices%s describe %s."
+                                % (ff, ee, vv, sq, _a(nm))])
 
     if t == 5:                                        # faces + vertices - edges
-        nm, ff, ee, vv = pick(_SOLIDS)
+        if d == 2:                                    # stretch: compare two solids
+            (n1, f1, e1, v1), (n2, f2, e2, v2) = random.sample(_SOLIDS[1:], 2)
+            what = pick(["edges", "vertices"])
+            a1, a2 = (e1, e2) if what == "edges" else (v1, v2)
+            while a1 == a2:
+                (n1, f1, e1, v1), (n2, f2, e2, v2) = random.sample(_SOLIDS[1:], 2)
+                a1, a2 = (e1, e2) if what == "edges" else (v1, v2)
+            if a1 < a2:
+                n1, n2, a1, a2 = n2, n1, a2, a1
+            return _num_q("How many MORE %s does %s have than %s?" % (what, _a(n1), _a(n2)),
+                          a1 - a2, "int", unit=what,
+                          solution=["%s has %d %s and %s has %d."
+                                    % (_a(n1).capitalize(), a1, what, _a(n2), a2),
+                                    "%d − %d = %d." % (a1, a2, a1 - a2)])
+        nm, ff, ee, vv = pick(_SOLIDS[:2] if d == 0 else _SOLIDS)
         which = pick(["sum", "diff"])
         if which == "sum":
             return _num_q("How many faces and vertices does %s have altogether?" % _a(nm),
@@ -1966,12 +2128,12 @@ def _(d=1):
                                 "%d − %d = %d." % (ee, ff, ee - ff)])
 
     if t == 6:                                        # real world
-        thing, solid, ff, ee, vv = pick([
-            ("a dice", "cube", 6, 12, 8),
-            ("a cereal box", "cuboid", 6, 12, 8),
-            ("a tent with triangular ends", "triangular prism", 5, 9, 6),
-            ("an Egyptian pyramid", "square-based pyramid", 5, 8, 5),
-        ])
+        things = [("a dice", "cube", 6, 12, 8),
+                  ("a cereal box", "cuboid", 6, 12, 8),
+                  ("a tent with triangular ends", "triangular prism", 5, 9, 6),
+                  ("an Egyptian pyramid", "square-based pyramid", 5, 8, 5),
+                  ("a chocolate bar box with triangular ends", "triangular prism", 5, 9, 6)]
+        thing, solid, ff, ee, vv = pick(_by_d(d, things[:2], things[:4], things[2:]))
         ask = pick(["faces", "edges", "vertices", "name"])
         if ask == "name":
             return _num_q("In the real world, %s is shaped like which solid? "
@@ -2001,8 +2163,20 @@ def _(d=1):
                           traced, "str", text=True, placeholder="shape name",
                           solution=["%s of %s is %s."
                                     % (part.capitalize(), _a(solid), _a(traced))])
-        solid, faces, face_shape = pick([("cube", 6, "square"),
-                                         ("square-based pyramid", 4, "triangle")])
+        solid, faces, face_shape = pick(_by_d(d, [("cube", 6, "square")],
+                                              [("cube", 6, "square"),
+                                               ("square-based pyramid", 4, "triangle")],
+                                              [("square-based pyramid", 4, "triangle"),
+                                               ("triangular prism", 3, "rectangle"),
+                                               ("triangular prism", 2, "triangle")]))
+        if solid == "triangular prism":               # stretch: a net with two kinds of face
+            return _num_q("A net of a triangular prism is cut out and folded up. It has "
+                          "rectangles and triangles. How many %ss does the net need?"
+                          % face_shape,
+                          faces, "int", unit=face_shape + "s",
+                          solution=["A triangular prism has 5 faces: 2 triangular ends and "
+                                    "3 rectangles joining them.",
+                                    "So the net needs %d %ss." % (faces, face_shape)])
         if solid == "cube":
             return _num_q("A net of a cube is cut out and folded up. How many squares does "
                           "the net need?",
@@ -2018,7 +2192,18 @@ def _(d=1):
                                 "5 − 1 = 4 triangles."])
 
     if t == 8:                                        # sorting solids
-        chosen = random.sample(_SOLIDS, 3)
+        chosen = random.sample(_SOLIDS, _by_d(d, 2, 3, 4))
+        if d == 2:                                    # stretch: sort by edges or vertices
+            what, k = pick([("vertices", 3), ("edges", 2)])
+            cut = pick([6, 8] if what == "vertices" else [9, 12])
+            cnt = sum(1 for s in chosen if s[k] == cut)
+            return _num_q("Sort these solids into two groups: those with %d %s and those "
+                          "without. Solids: %s. How many of them have %d %s?"
+                          % (cut, what, ", ".join(s[0] for s in chosen), cut, what),
+                          cnt, "int", unit="solids",
+                          solution=["%s: %s." % (what.capitalize(),
+                                                 ", ".join("%s %d" % (s[0], s[k]) for s in chosen)),
+                                    "%d of them have %d %s." % (cnt, cut, what)])
         cnt = sum(1 for s in chosen if s[1] == 6)
         return _num_q("Sort these solids into two groups: those with 6 faces and those "
                       "without. Solids: %s. How many of them have 6 faces?"
@@ -2029,8 +2214,8 @@ def _(d=1):
                                 "%d of them have 6 faces." % cnt])
 
     if t == 9:                                        # identify objects with volume
-        n_solid = random.randint(2, 3)
-        n_flat = random.randint(1, 2)
+        n_solid = random.randint(*_by_d(d, (1, 2), (2, 3), (3, 5)))
+        n_flat = random.randint(*_by_d(d, (1, 1), (1, 2), (2, 4)))
         solids = random.sample(_HAS_VOLUME, n_solid)
         flats = random.sample(_NO_VOLUME, n_flat)
         items = solids + flats
@@ -2082,11 +2267,20 @@ def _(d=1):
                              "%d vertices." % (ff, ee, vv),
                              "This three-dimensional shape is %s." % _a(nm)]}
     nm2, ff2, ee2, vv2 = pick([s for s in _SOLIDS if s[0] != "cuboid"])
+    if d == 2:                                        # stretch: edges and vertices only
+        extra = ", and every face is a square" if nm2 == "cube" else ""
+        return _num_q("Identify the three-dimensional shape that has %d edges and %d "
+                      "vertices%s. Type its name." % (ee2, vv2, extra),
+                      nm2, "str", text=True, placeholder="shape name",
+                      solution=["Check the edges and vertices of each solid you know.",
+                                "A three-dimensional shape with %d edges and %d vertices%s "
+                                "is %s." % (ee2, vv2, extra, _a(nm2))])
+    sq2 = ", and every face is a square" if nm2 == "cube" else ""   # a cuboid has the same counts
     return _num_q("Identify the three-dimensional shape that has %d flat faces, %d edges "
-                  "and %d vertices. Type its name." % (ff2, ee2, vv2),
+                  "and %d vertices%s. Type its name." % (ff2, ee2, vv2, sq2),
                   nm2, "str", text=True, placeholder="shape name",
                   solution=["A three-dimensional shape with %d faces, %d edges and %d "
-                            "vertices is %s." % (ff2, ee2, vv2, _a(nm2))])
+                            "vertices%s is %s." % (ff2, ee2, vv2, sq2, _a(nm2))])
 
 
 # ================================================================== 4.9 ======

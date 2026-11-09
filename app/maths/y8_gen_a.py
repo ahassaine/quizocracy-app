@@ -528,10 +528,10 @@ def _(d=1):
                       "%d to %d s.f. is %s." % (n, sig, _fmt(ans))])
 
     def t_money():
-        p = random.randint(101, 9999)
-        x = Decimal(p) / 100
-        ans = _dround(x, 2)
+        p = random.randint(101, [999, 9999, 99999][d])
         raw = Decimal(p) / 100 + Decimal(random.randint(1, 9)) / 1000
+        if d == 2:                                    # stretch: 4 d.p. on the till
+            raw += Decimal(random.randint(1, 9)) / 10000
         ans = _dround(raw, 2)
         return _numq("A till shows £%s. Round this to 2 decimal places (the nearest "
                      "penny)." % _fmt(raw), _fmt(ans),
@@ -539,7 +539,10 @@ def _(d=1):
                       "£%s to 2 d.p. is £%s." % (_fmt(raw), _fmt(ans))], unit="£")
 
     def t_measure():
-        x = Decimal(pick([n for n in range(100, 10000) if n % 10])) / 100     # always 2 d.p. to round
+        if d == 2:                                    # stretch: 3 d.p., the thousandths can mislead
+            x = Decimal(pick([n for n in range(1000, 100000) if n % 100])) / 1000
+        else:                                         # always 2 d.p. to round
+            x = Decimal(pick([n for n in range(100, 1000 if d == 0 else 10000) if n % 10])) / 100
         who = pick(NAMES)
         ans = _dround(x, 1)
         return _numq("%s measures a plank as %s m. Round this length to 1 decimal "
@@ -547,10 +550,16 @@ def _(d=1):
                      ["%s m to 1 d.p. is %s m." % (_fmt(x), _fmt(ans))], unit="m")
 
     def t_which_rounds():
-        base = Decimal(random.randint(1, 8)) + Decimal(random.randint(1, 8)) / 10
-        good = base + Decimal(random.randint(1, 4)) / 100
-        opts = [good, base - Decimal("0.07"), base + Decimal("0.09"),
-                base + Decimal("0.13")]
+        base = Decimal(random.randint(1, 8) if d < 2 else random.randint(10, 99)) \
+            + Decimal(random.randint(1, 8)) / 10
+        if d == 2:                                    # stretch: the right one is just BELOW, decoys close by
+            good = base - Decimal(random.randint(1, 4)) / 100
+            opts = [good, base - Decimal("0.06"), base + Decimal("0.05"),
+                    base - Decimal("0.1")]
+        else:
+            good = base + Decimal(random.randint(1, 4)) / 100
+            opts = [good, base - Decimal("0.07"), base + Decimal("0.09"),
+                    base + Decimal("0.13")]
         opts = [o for o in opts if _dround(o, 1) == base] + \
                [o for o in opts if _dround(o, 1) != base]
         want = opts[0]
@@ -592,8 +601,10 @@ def _(d=1):
     d = _d(d)
 
     def t_int_pos():
-        lo = random.randint(0, 40)
-        step = pick([1, 2])
+        lo = random.randint(0, [20, 40, 40][d]) * (5 if d == 2 else 1)
+        step = pick([[1], [1, 2], [5, 10, 25]][d])
+        if d == 2:
+            lo -= lo % step
         ans = lo + step * random.randint(1, 9)
         return _nl("Place %d on the number line." % ans, ans, lo, lo + step * 10,
                    step, step * 5, ["%d is %d %s of %d past %d."
@@ -601,23 +612,34 @@ def _(d=1):
                                        "step" if ans - lo == step else "steps", step, lo)])
 
     def t_int_neg():
-        span = pick([10, 20])
-        ans = random.randint(-span, span)
+        span = pick([[10], [10, 20], [40, 60]][d])
+        step = 2 if d == 2 else 1                     # stretch: the line counts in 2s
+        ans = step * random.randint(-span // step, span // step)
         while ans == 0:
-            ans = random.randint(-span, span)
-        return _nl("Place %d on the number line." % ans, ans, -span, span, 1,
-                   5, ["Count %s from zero." % ("left" if ans < 0 else "right")])
+            ans = step * random.randint(-span // step, span // step)
+        return _nl("Place %d on the number line." % ans, ans, -span, span, step,
+                   step * 5, ["Count %s from zero%s." % ("left" if ans < 0 else "right",
+                                                         " in steps of 2" if step == 2 else "")])
 
     def t_dec_tenths():
         whole = random.randint(0, 5)
         k = random.randint(1, 9)
+        if d == 2:                                    # stretch: hundredths on a zoomed-in line
+            lo = Decimal(whole) + Decimal(k - 1) / 10
+            j = random.randint(1, 9)
+            ans = lo + Decimal(j) / 100
+            return _nl("Place %s on the number line." % _fmt(ans), ans, lo, lo + Decimal("0.1"),
+                       Decimal("0.01"), Decimal("0.05"),
+                       ["Each small step is one hundredth.",
+                        "%s is %d %s past %s." % (_fmt(ans), j, "hundredth" if j == 1 else "hundredths",
+                                                  _fmt(lo))])
         ans = Decimal(whole) + Decimal(k) / 10
         return _nl("Place %s on the number line." % _fmt(ans), ans, whole, whole + 1,
                    Decimal("0.1"), Decimal("0.5"),
                    ["%s is %d %s past %d." % (_fmt(ans), k, "tenth" if k == 1 else "tenths", whole)])
 
     def t_dec_neg():
-        whole = -random.randint(1, 4)
+        whole = -random.randint(*[(0, 0), (1, 4), (5, 19)][d])     # easy: between -1 and 0
         k = random.randint(1, 9)
         ans = Decimal(whole) - Decimal(k) / 10
         return _nl("Place %s on the number line." % _fmt(ans), ans, whole - 1, whole + 1,
@@ -625,36 +647,54 @@ def _(d=1):
                    ["%s is between %d and %d." % (_fmt(ans), whole - 1, whole)])
 
     def t_between():
-        lo = random.randint(-5, 5)
+        lo = random.randint(*[(0, 5), (-5, 5), (-9, 2)][d])
         a = lo + 2 + random.randint(0, 1)
         b = a + 2
         ans = a + 1
+        if d == 2:                                    # stretch: decimal bounds, often negative
+            a = Decimal(ans) - Decimal(random.randint(1, 9)) / 10
+            b = Decimal(ans) + Decimal(random.randint(1, 9)) / 10
+            return _nl("Place the whole number on the line that is greater than %s and less "
+                       "than %s." % (_fmt(a), _fmt(b)), ans, lo, lo + 8, 1, 4,
+                       ["The only whole number between %s and %s is %d." % (_fmt(a), _fmt(b), ans)])
         return _nl("Place the whole number on the line that is greater than %d and less "
                    "than %d." % (a, b), ans, lo, lo + 8, 1, 4,
                    ["The only whole number between %d and %d is %d." % (a, b, ans)])
 
     def t_rounded():
         x = Decimal(random.randint(1, 8)) + Decimal(random.randint(1, 9)) / 10
+        if d == 0:
+            x = Decimal(random.randint(1, 8)) + Decimal(pick([1, 2, 3, 7, 8, 9])) / 10   # never near .5
+        elif d == 2:                                  # stretch: 2 d.p., and negative half the time
+            x = Decimal(random.randint(1, 8)) + Decimal(pick([n for n in range(1, 100) if n != 50])) / 100
+            if random.random() < 0.5:
+                x = -x
         ans = _dround(x, 0)
-        lo = int(x) - 1
+        lo = math.floor(x) - 1
         return _nl("Round %s to the nearest whole number, then place your answer on "
                    "the line." % _fmt(x), ans, lo, lo + 4, 1, 1,
                    ["%s rounds to %s." % (_fmt(x), _fmt(ans))])
 
     def t_midpoint():
-        step = pick([2, 4, 10])
-        lo = random.randint(-2, 4) * step
+        step = pick([[2, 10], [2, 4, 10], [Decimal("0.2"), Decimal("0.6"), 20]][d])
+        lo = random.randint(*[(0, 4), (-2, 4), (-6, 0)][d]) * step
         a = lo + step
         b = lo + 3 * step
-        ans = (a + b) // 2
-        return _nl("Place the number that is exactly halfway between %d and %d."
-                   % (a, b), ans, lo, lo + 4 * step, step // 2, step,
-                   ["Halfway between %d and %d is %d." % (a, b, ans)])
+        ans = (a + b) / 2 if d == 2 else (a + b) // 2
+        return _nl("Place the number that is exactly halfway between %s and %s."
+                   % (_fmt(a), _fmt(b)), ans, lo, lo + 4 * step, step / 2 if d == 2 else step // 2, step,
+                   ["Halfway between %s and %s is %s." % (_fmt(a), _fmt(b), _fmt(ans))])
 
     def t_count_on():
-        start = random.randint(-6, 6)
-        step = pick([1, 2, 3])
-        jumps = random.randint(2, 4)
+        start = random.randint(*[(0, 6), (-6, 6), (-6, 6)][d])
+        step = pick([[1, 2], [1, 2, 3], [3, 4, 5]][d])
+        jumps = random.randint(2, 4 if d < 2 else 3)
+        if d == 2 and random.random() < 0.6:          # stretch: count BACK, often past zero
+            ans = start - step * jumps
+            return _nl("Start at %d and count back %d jumps of %d. Place where you land."
+                       % (start, jumps, step), ans, min(start, ans) - 2,
+                       min(start, ans) - 2 + 20, 1, 5,
+                       ["%d − %d × %d = %d." % (start, jumps, step, ans)])
         ans = start + step * jumps
         return _nl("Start at %d and count on %d jumps of %d. Place where you land."
                    % (start, jumps, step), ans, min(start, ans) - 2,
@@ -662,9 +702,15 @@ def _(d=1):
                    ["%d + %d × %d = %d." % (start, jumps, step, ans)])
 
     def t_temp_line():
-        ans = random.randint(-8, 8)
+        if d == 2:                                    # stretch: work out the reading first
+            start = random.randint(-4, 9)
+            ans = start - random.randint(max(3, start + 2), start + 14)
+            return _nl("A thermometer reads %d°C. The temperature falls by %d degrees. Place the new "
+                       "temperature on the line." % (start, start - ans), ans, -20, 20, 1, 5,
+                       ["%d − %d = %d, so the new temperature is %d°C." % (start, start - ans, ans, ans)])
+        ans = random.randint(-5 if d == 0 else -8, 8)
         while ans == 0:
-            ans = random.randint(-8, 8)
+            ans = random.randint(-5 if d == 0 else -8, 8)
         return _nl("A thermometer reads %d°C. Place that temperature on the line."
                    % ans, ans, -10, 10, 1, 5,
                    ["%d°C is %d below zero." % (ans, -ans) if ans < 0
@@ -865,7 +911,17 @@ def _(d=1):
         return random.randint(-hi, hi)
 
     def _dec():
+        if d == 0:                                    # easy: positive, 1 d.p.
+            return Decimal(random.randint(0, 20)) + Decimal(random.randint(0, 9)) / 10
         return Decimal(random.randint(-50, 50)) + Decimal(random.randint(0, 99)) / 100
+
+    def _dec_pair():
+        a = _dec()
+        if d < 2:
+            return a, _dec()
+        # stretch: two numbers very close together, often negative, with different numbers of d.p.
+        b = a + Decimal(pick([n for n in range(-90, 91) if n])) / 1000
+        return (a, b) if random.random() < 0.5 else (b, a)
 
     def _sym(a, b):
         return "<" if a < b else (">" if a > b else "=")
@@ -876,25 +932,36 @@ def _(d=1):
                    ["%d %s %d." % (a, _sym(a, b), b)], "< > or =")
 
     def t_dec_sym():
-        a, b = _dec(), _dec()
+        a, b = _dec_pair()
         return _wq("Type <, > or = to compare:   %s ___ %s" % (_fmt(a), _fmt(b)),
                    _sym(a, b), ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))], "< > or =")
 
     def t_equal_case():
-        f = Fraction(random.randint(1, 5), pick([2, 4, 5, 10]))
+        f = Fraction(random.randint(1, [3, 5, 9][d]), pick([[2, 4, 10], [2, 4, 5, 10], [8, 20, 25, 40]][d]))
+        if d == 2 and random.random() < 0.5:          # stretch: negative fractions too
+            f = -f
         dv = Decimal(f.numerator) / Decimal(f.denominator)
         if random.random() < 0.5:
             b = dv
         else:
-            b = dv + pick([Decimal("0.1"), Decimal("-0.1")])
+            gap = Decimal("0.01") if d == 2 else Decimal("0.1")
+            b = dv + pick([gap, -gap])
         return _wq("Type <, > or = to compare:   %s ___ %s" % (_fmt_frac(f), _fmt(b)),
                    _sym(dv, b),
                    ["%s = %s." % (_fmt_frac(f), _fmt(dv)),
                     "%s %s %s." % (_fmt(dv), _sym(dv, b), _fmt(b))], "< > or =")
 
     def t_neg_vs_pos():
-        a = -random.randint(1, 30)
-        b = random.randint(1, 30)
+        top = [10, 30, 99][d]
+        a = -random.randint(1, top)
+        b = random.randint(1, top)
+        if d == 2 and random.random() < 0.6:          # stretch: two negatives
+            while -b == a:
+                b = random.randint(1, top)
+            b = -b
+            return _wq("Type <, > or = to compare:   %d ___ %d" % (a, b), _sym(a, b),
+                       ["For negative numbers, the one further from zero is the smaller.",
+                        "%d %s %d." % (a, _sym(a, b), b)], "< > or =")
         if random.random() < 0.5:
             a, b = b, a
         return _wq("Type <, > or = to compare:   %d ___ %d" % (a, b), _sym(a, b),
@@ -902,8 +969,15 @@ def _(d=1):
                     "%d %s %d." % (a, _sym(a, b), b)], "< > or =")
 
     def t_expr():
-        a = random.randint(-8, 8)
-        b = random.randint(-8, 8)
+        a = random.randint(*[(1, 10), (-8, 8), (-15, 15)][d])
+        b = random.randint(*[(-5, -1), (-8, 8), (-15, 15)][d])
+        if d == 2:                                    # stretch: subtract a directed number
+            left = a - b
+            right = left + pick([-2, -1, 0, 1, 2])
+            return _wq("Type <, > or = to compare:   %d − (%d) ___ %d" % (a, b, right),
+                       _sym(left, right),
+                       ["%d − (%d) = %d." % (a, b, left),
+                        "%d %s %d." % (left, _sym(left, right), right)], "< > or =")
         left = a + b
         right = random.randint(-16, 16)
         return _wq("Type <, > or = to compare:   %d + (%d) ___ %d" % (a, b, right),
@@ -912,10 +986,10 @@ def _(d=1):
                     "%d %s %d." % (left, _sym(left, right), right)], "< > or =")
 
     def t_ineq_yes():
-        op = pick(["<", ">"])
+        op = pick(["<", ">"] if d < 2 else ["<", ">", "<=", ">="])
         value = random.randint(-4, 6)
-        test = value + pick([-2, -1, 1, 2])
-        sat = (test < value) if op == "<" else (test > value)
+        test = value + pick([[-3, -2, 2, 3], [-2, -1, 1, 2], [-1, 0, 0, 1]][d])   # stretch: on the boundary
+        sat = {"<": test < value, ">": test > value, "<=": test <= value, ">=": test >= value}[op]
         return _ineq("The number line shows an inequality in x. Does x = %d satisfy "
                      "it? (yes/no)" % test, op, value, value - 6, value + 6,
                      "yes" if sat else "no",
@@ -924,8 +998,8 @@ def _(d=1):
                                            "true" if sat else "false")])
 
     def t_ineq_read():
-        op = pick(["<", ">", "<=", ">="])
-        value = random.randint(-4, 6)
+        op = pick(["<", ">"] if d == 0 else ["<", ">", "<=", ">="])
+        value = random.randint(*[(0, 6), (-4, 6), (-12, 12)][d])
         disp = {"<": "<", ">": ">", "<=": "<=", ">=": ">="}[op]
         return _ineq("Read the inequality shown on the number line and type it (use x, "
                      "like x>3; type ≤ as <= and ≥ as >=).", op, value, value - 6, value + 6,
@@ -945,7 +1019,7 @@ def _(d=1):
                     % (a, _sym(a, b), b, "true" if truth else "false")])
 
     def t_table_sym():
-        a, b = _dec(), _dec()
+        a, b = _dec_pair()
         return _dt("Type <, > or = for the empty cell to compare the two numbers.",
                    ["First", "Symbol", "Second"], [[_fmt(a), "?", _fmt(b)]],
                    _sym(a, b), ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))],
@@ -1145,7 +1219,7 @@ def _(d=1):
     d = _d(d)
 
     def t_product():
-        a = random.randint(11, 89) * (10 if d else 1) + random.randint(0, 9)
+        a = random.randint(11, 89) * [1, 10, 100][d] + random.randint(0, 9)
         b = random.randint(11, 89)
         A, B = _r1sf(a), _r1sf(b)
         return _tb("Estimate %d × %d by rounding each number to 1 significant figure."
@@ -1154,7 +1228,8 @@ def _(d=1):
                     "%d × %d = %d." % (A, B, A * B)])
 
     def t_sum():
-        xs = [random.randint(110, 890) for _ in range(3)]
+        lo, hi = [(11, 89), (110, 890), (1100, 8900)][d]
+        xs = [random.randint(lo, hi) for _ in range([2, 3, 4][d])]
         est = sum(_r1sf(x) for x in xs)
         return _tb("Estimate %s by rounding each number to 1 significant figure."
                    % " + ".join(str(x) for x in xs), est, "int", {},
@@ -1162,8 +1237,12 @@ def _(d=1):
                     "Estimate = %d." % est])
 
     def t_diff():
-        a = random.randint(400, 900)
-        b = random.randint(100, 350)
+        if d == 0:                                    # easy: 2-digit numbers
+            a, b = random.randint(40, 90), random.randint(10, 34)
+        elif d == 1:
+            a, b = random.randint(400, 900), random.randint(100, 350)
+        else:                                         # stretch: 4-digit numbers
+            a, b = random.randint(4000, 9000), random.randint(1000, 3400)
         A, B = _r1sf(a), _r1sf(b)
         return _tb("Estimate %d − %d by rounding each number to 1 significant figure."
                    % (a, b), A - B, "int", {},
@@ -1171,11 +1250,12 @@ def _(d=1):
                     "%d − %d = %d." % (A, B, A - B)])
 
     def t_quotient():
-        for _ in range(30):
-            B = pick([2, 3, 4, 5, 6, 8]) * pick([1, 10])
-            q = random.randint(2, 40)
+        for _ in range(30 if d < 2 else 300):
+            B = pick([[2, 3, 4, 5], [2, 3, 4, 5, 6, 8], [3, 4, 6, 7, 8, 9]][d]) \
+                * pick([[1], [1, 10], [10, 100]][d])
+            q = random.randint(2, [20, 40, 90][d])
             A = B * q
-            if len(str(A)) <= 4 and _r1sf(A) == A:
+            if len(str(A)) <= [3, 4, 5][d] and _r1sf(A) == A:
                 a = _near_1sf(A)
                 b = _near_1sf(B)
                 if _r1sf(a) == A and _r1sf(b) == B:
@@ -1187,8 +1267,8 @@ def _(d=1):
                    30, "int", {}, ["600 ÷ 20 = 30."])
 
     def t_reasonable():
-        a = random.randint(21, 89)
-        b = random.randint(21, 89)
+        a = random.randint(*[(11, 49), (21, 89), (210, 890)][d])     # stretch: 3-digit × 2-digit
+        b = random.randint(*[(11, 49), (21, 89), (21, 89)][d])
         real = a * b
         A, B = _r1sf(a), _r1sf(b)
         est = A * B
@@ -1202,8 +1282,8 @@ def _(d=1):
                         "reasonable" if claim == real else "not reasonable")])
 
     def t_money():
-        items = random.randint(3, 5)
-        prices = [random.randint(180, 690) for _ in range(items)]
+        items = random.randint(*[(2, 3), (3, 5), (4, 6)][d])
+        prices = [random.randint(*[(110, 490), (180, 690), (180, 1890)][d]) for _ in range(items)]
         est = sum(_r1sf(p) for p in prices)
         show = ", ".join("£%s" % _fmt(Decimal(p) / 100) for p in prices)
         return _tb("A shopper buys items priced %s (in pence: %s). Estimate the total "
@@ -1213,7 +1293,7 @@ def _(d=1):
                     "Estimate = %dp." % est])
 
     def t_which_est():
-        a = random.randint(180, 620)
+        a = random.randint(*[(18, 62), (180, 620), (1800, 6200)][d])
         b = random.randint(18, 62)
         A, B = _r1sf(a), _r1sf(b)
         good = A * B
@@ -1231,8 +1311,8 @@ def _(d=1):
 
     def t_check_div():
         for _ in range(200):                          # the rounded division must be exact
-            b = pick([19, 21, 29, 31, 39, 41])
-            q = random.randint(15, 45)
+            b = pick([[19, 21, 29, 31], [19, 21, 29, 31, 39, 41], [39, 41, 59, 61, 79, 81]][d])
+            q = random.randint(*[(5, 15), (15, 45), (30, 90)][d])
             a = b * q + random.randint(0, b - 1)
             A, B = _r1sf(a), _r1sf(b)
             if A % B == 0:
@@ -1248,8 +1328,8 @@ def _(d=1):
         want = None
         r_i = random.randint(0, 2)
         for i in range(3):
-            a = random.randint(21, 89)
-            b = random.randint(21, 89)
+            a = random.randint(*[(11, 49), (21, 89), (210, 890)][d])
+            b = random.randint(*[(11, 49), (21, 89), (21, 89)][d])
             A, B = _r1sf(a), _r1sf(b)
             rows.append(["%d × %d" % (a, b), str(A * B)])
             if i == r_i:
@@ -1262,10 +1342,17 @@ def _(d=1):
 
     def t_dec_estimate():
         def dec(lo, hi):
+            if d == 2:                                # stretch: 2 d.p.
+                return Decimal(random.randint(lo, hi)) + Decimal(random.randint(1, 99)) / 100
             return Decimal(random.randint(lo, hi)) + Decimal(random.randint(0, 9)) / 10
 
-        op = pick(["sum", "difference", "product"])
-        if op == "sum":
+        op = pick(["sum", "difference"] if d == 0 else ["sum", "difference", "product"])
+        if d == 2 and op == "product":
+            a, b = dec(2, 19), dec(2, 9)
+            ra, rb = _dround(a, 0), _dround(b, 0)
+            est = ra * rb
+            expr = "%s × %s" % (_fmt(a), _fmt(b))
+        elif op == "sum":
             a, b = dec(3, 29), dec(3, 29)
             ra, rb = _dround(a, 0), _dround(b, 0)
             est = ra + rb
@@ -1335,28 +1422,37 @@ def _(d=1):
         base = a * 100 + b * 10
         need = (-(a + b)) % k
         n = base + need
+        if d == 2:                                    # stretch: 4 digits, and the LARGEST digit
+            c = random.randint(0, 9)
+            need = (-(a + b + c)) % k
+            big = need + k * ((9 - need) // k)
+            return _tb("What is the LARGEST single digit that can go in the box to make %d%d%d_ "
+                       "divisible by %d?" % (a, b, c, k), big, "int", {},
+                       ["The digit sum must be a multiple of %d." % k,
+                        "%d + %d + %d + %d = %d, a multiple of %d, and no bigger digit works."
+                        % (a, b, c, big, a + b + c + big, k)])
         return _tb("What single digit goes in the box to make %d%d_ divisible by %d? "
                    "(smallest such digit)" % (a, b, k), need, "int", {},
                    ["The digit sum must be a multiple of %d." % k,
                     "%d + %d + %d = %d, a multiple of %d." % (a, b, need, a + b + need, k)])
 
     def t_rule_word():
-        k = pick([2, 3, 4, 5, 9, 10])
-        n = random.randint(100, 999)
+        k = pick([[2, 5, 10], [2, 3, 4, 5, 9, 10], [3, 4, 6, 9]][d])
+        n = random.randint(*[(100, 999), (100, 999), (1000, 99999)][d])
         return _yn("You can test divisibility by %d using the rule: %s. Using this, is "
                    "%d divisible by %d? (yes/no)" % (k, RULES[k], n, k),
                    "yes" if n % k == 0 else "no",
                    ["%d ÷ %d %s exact." % (n, k, "is" if n % k == 0 else "is not")])
 
     def t_digit_sum():
-        n = random.randint(100, 9999)
+        n = random.randint(*[(100, 999), (100, 9999), (10000, 999999)][d])
         ds = sum(int(c) for c in str(n))
         return _tb("What is the digit sum of %d? (This tests divisibility by 3 and 9.)"
                    % n, ds, "int", {},
                    ["Add the digits: %s = %d." % (" + ".join(str(n)), ds)])
 
     def t_by_six():
-        n = random.randint(100, 999)
+        n = random.randint(*[(30, 200), (100, 999), (1000, 99999)][d])
         return _yn("A number is divisible by 6 if it is divisible by both 2 and 3. Is "
                    "%d divisible by 6? (yes/no)" % n, "yes" if n % 6 == 0 else "no",
                    ["%d is %s and %s." % (n, "even" if n % 2 == 0 else "odd",
@@ -1365,8 +1461,8 @@ def _(d=1):
                     "So it %s divisible by 6." % ("is" if n % 6 == 0 else "is not")])
 
     def t_count():
-        k = pick([2, 3, 5])
-        xs = random.sample(range(20, 200), 6)
+        k = pick([[2, 5, 10], [2, 3, 5], [3, 4, 6, 9]][d])
+        xs = random.sample(range(*[(20, 100), (20, 200), (100, 1000)][d]), 6)
         c = sum(1 for x in xs if x % k == 0)
         return _tb("How many of these numbers are divisible by %d?   %s" % (k, _lst(xs)),
                    c, "int", {},
@@ -1420,47 +1516,51 @@ def _(d=1):
                     "%d is %s." % (n, "prime" if is_p else "composite")])
 
     def t_nth_multiple():
-        k = random.randint(3, 12)
-        i = random.randint(3, 9)
+        k = random.randint(*[(2, 10), (3, 12), (11, 25)][d])
+        i = random.randint(*[(2, 6), (3, 9), (6, 15)][d])
         return _tb("What is the %s multiple of %d?" % (ordinal(i), k), k * i, "int", {},
                    ["%d × %d = %d." % (k, i, k * i)])
 
     def t_is_factor():
-        b = random.randint(2, 12)
-        n = b * random.randint(2, 9) if random.random() < 0.5 else random.randint(20, 90)
+        b = random.randint(*[(2, 10), (2, 12), (6, 19)][d])
+        n = b * random.randint(2, [9, 9, 30][d]) if random.random() < 0.5 \
+            else random.randint(*[(10, 60), (20, 90), (100, 400)][d])
         return _yn("Is %d a factor of %d? (yes/no)" % (b, n),
                    "yes" if n % b == 0 else "no",
                    ["%d ÷ %d %s exact." % (n, b, "is" if n % b == 0 else "is not")])
 
     def t_is_multiple():
-        k = random.randint(3, 12)
-        n = k * random.randint(2, 12) if random.random() < 0.5 else random.randint(20, 140)
+        k = random.randint(*[(2, 10), (3, 12), (7, 25)][d])
+        n = k * random.randint(2, [10, 12, 30][d]) if random.random() < 0.5 \
+            else random.randint(*[(20, 100), (20, 140), (100, 500)][d])
         return _yn("Is %d a multiple of %d? (yes/no)" % (n, k),
                    "yes" if n % k == 0 else "no",
                    ["%d %s in the %d times table." % (n, "is" if n % k == 0 else "is not", k)])
 
     def t_common_factors():
-        a = random.randint(12, 40)
-        b = random.randint(12, 40)
+        lo, hi = [(6, 24), (12, 40), (30, 99)][d]
+        a = random.randint(lo, hi)
+        b = random.randint(lo, hi)
         while b == a:
-            b = random.randint(12, 40)
+            b = random.randint(lo, hi)
         common = sorted(set(_factors(a)) & set(_factors(b)))
         return _setq("Type all the common factors of %d and %d." % (a, b), common,
                      ["Common factors of %d and %d: %s." % (a, b, _lst(common))],
                      "e.g. 1, 2, 4")
 
     def t_count_factors():
-        n = random.randint(12, 60)
+        n = random.randint(*[(6, 30), (12, 60), (60, 200)][d])
         c = len(_factors(n))
         return _tb("How many factors does %d have?" % n, c, "int", {},
                    ["Factors of %d: %s." % (n, _lst(_factors(n))),
                     "That is %d factors." % c])
 
     def t_which_prime():
-        pool = random.sample(range(2, 50), 5)
+        lo, hi = [(2, 30), (2, 50), (50, 120)][d]
+        pool = random.sample(range(lo, hi), 5)
         primes = [x for x in pool if len(_factors(x)) == 2]
         if not primes:
-            p = pick([x for x in (2, 3, 5, 7, 11, 13, 17, 19, 23) if x not in pool])
+            p = pick([x for x in range(lo, hi) if len(_factors(x)) == 2 and x not in pool])
             pool[0] = p
             primes = [x for x in pool if len(_factors(x)) == 2]
         return _setq("Type all the prime numbers in this list:   %s" % _lst(pool),
@@ -1468,7 +1568,7 @@ def _(d=1):
                      "e.g. 2, 3, 5")
 
     def t_largest_factor():
-        n = random.randint(20, 90)
+        n = random.randint(*[(10, 50), (20, 90), (100, 300)][d])
         fs = _factors(n)
         second = fs[-2]
         return _tb("What is the largest factor of %d that is less than %d itself?"
@@ -1477,7 +1577,7 @@ def _(d=1):
                     "The largest below %d is %d." % (n, second)])
 
     def t_table():
-        ns = random.sample(range(12, 60), 3)
+        ns = random.sample(range(*[(6, 30), (12, 60), (60, 200)][d]), 3)
         rows = [[str(n), str(len(_factors(n)))] for n in ns]
         r_i = random.randint(0, 2)
         want = len(_factors(ns[r_i]))
@@ -1695,10 +1795,15 @@ def _(d=1):
     d = _d(d)
 
     def _pair():
+        if d == 2:                                    # stretch: bigger, neither a multiple of the other
+            while True:
+                a, b = random.sample(range(6, 25), 2)
+                if max(a, b) % min(a, b) and math.gcd(a, b) > 1:
+                    return a, b
         a = random.randint(2, 9 if d == 0 else 12)
         b = random.randint(2, 9 if d == 0 else 12)
         while a == b:
-            b = random.randint(2, 12)
+            b = random.randint(2, 9 if d == 0 else 12)
         return a, b
 
     def t_two():
@@ -1709,15 +1814,17 @@ def _(d=1):
                     "LCM(%d, %d) = %d." % (a, b, _lcm(a, b))])
 
     def t_three():
-        a, b, c = random.sample(range(2, 8), 3)
+        a, b, c = random.sample([2, 3, 4, 5, 6] if d == 0 else
+                                (range(2, 8) if d == 1 else range(4, 16)), 3)
         l = _lcm(_lcm(a, b), c)
         return _tb("Find the LCM of %d, %d and %d." % (a, b, c), l, "int", {},
                    ["LCM(%d, %d, %d) = %d." % (a, b, c, l)])
 
     def t_from_pf():
-        a, b = random.randint(6, 20), random.randint(6, 20)
+        lo, hi = (4, 12) if d == 0 else ((6, 20) if d == 1 else (24, 90))
+        a, b = random.randint(lo, hi), random.randint(lo, hi)
         while a == b:
-            b = random.randint(6, 20)
+            b = random.randint(lo, hi)
         return _tb("Using %d = %s and %d = %s, find their LCM."
                    % (a, _pf_str(_pf(a)).replace("x", " × "),
                       b, _pf_str(_pf(b)).replace("x", " × ")), _lcm(a, b), "int", {},
@@ -1733,9 +1840,12 @@ def _(d=1):
                     "LCM = %d minutes." % _lcm(a, b)])
 
     def t_laps():
-        a, b = random.randint(3, 9), random.randint(3, 9)
-        while a == b:
-            b = random.randint(3, 9)
+        if d == 1:
+            a, b = random.randint(3, 9), random.randint(3, 9)
+            while a == b:
+                b = random.randint(3, 9)
+        else:
+            a, b = _pair()
         return _tb("Two runners start together. One completes a lap every %d minutes, "
                    "the other every %d minutes. After how many minutes are they next at "
                    "the start line together?" % (a, b), _lcm(a, b), "int", {},
@@ -1744,7 +1854,12 @@ def _(d=1):
     def t_nth_common():
         a, b = _pair()
         l = _lcm(a, b)
-        i = random.randint(2, 3)
+        i = random.randint(2, 3) if d < 2 else random.randint(3, 5)
+        if d == 2:                                    # stretch: the pupil finds the LCM first
+            return _tb("What is the %s common multiple of %d and %d?" % (ordinal(i), a, b),
+                       l * i, "int", {},
+                       ["LCM(%d, %d) = %d, and common multiples are multiples of it." % (a, b, l),
+                        "The %s is %d × %d = %d." % (ordinal(i), i, l, i * l)])
         return _tb("The lowest common multiple of %d and %d is %d. What is their "
                    "%s common multiple?" % (a, b, l, ordinal(i)),
                    l * i, "int", {},
@@ -1754,7 +1869,7 @@ def _(d=1):
     def t_check():
         a, b = _pair()
         l = _lcm(a, b)
-        claim = l if random.random() < 0.5 else l + a
+        claim = l if random.random() < 0.5 else (l + a if d < 2 else a * b)   # stretch: the a × b slip
         return _yn("%s says the LCM of %d and %d is %d. Is that correct? (yes/no)"
                    % (pick(NAMES), a, b, claim), "yes" if claim == l else "no",
                    ["The true LCM of %d and %d is %d." % (a, b, l)])
@@ -1781,11 +1896,21 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _pair():
+        lo, hi = (2, 6) if d == 0 else ((4, 12) if d == 1 else (12, 30))
+        a = random.randint(lo, hi)
+        b = random.randint(lo, hi)
+        while a == b or (d == 2 and max(a, b) % min(a, b) == 0):   # stretch: no easy multiples
+            b = random.randint(lo, hi)
+        return a, b
+
+    def _h():
+        """Common factor and the multipliers for the HCF framings."""
+        return (random.randint(2, 5), 2, 5) if d == 0 else \
+               ((None, 3, 8) if d == 1 else (random.randint(8, 18), 3, 11))
+
     def t_bells():
-        a = random.randint(4, 12)
-        b = random.randint(4, 12)
-        while a == b:
-            b = random.randint(4, 12)
+        a, b = _pair()
         return _tb("At a station, one train departs every %d minutes and another every "
                    "%d minutes. They leave together at 09:00. After how many minutes do "
                    "they next leave together?" % (a, b), _lcm(a, b), "int", {},
@@ -1793,9 +1918,10 @@ def _(d=1):
                     "LCM = %d minutes." % _lcm(a, b)])
 
     def t_slabs():
-        h = random.randint(3, 9)
-        a = h * random.randint(3, 8)
-        b = h * random.randint(3, 8)
+        h, m0, m1 = _h()
+        h = h or random.randint(3, 9)
+        a = h * random.randint(m0, m1)
+        b = h * random.randint(m0, m1)
         return _tb("A rectangular floor is %d cm by %d cm. It is to be tiled with "
                    "identical square tiles, using whole tiles only. What is the largest "
                    "side length (in cm) each square tile can have?" % (a, b),
@@ -1804,11 +1930,17 @@ def _(d=1):
                     "Largest = HCF = %d cm." % math.gcd(a, b)])
 
     def t_hampers():
-        h = random.randint(4, 10)
-        a = h * random.randint(2, 6)
-        b = h * random.randint(2, 6)
-        c = h * random.randint(2, 6)
+        h = random.randint(4, 10) if d == 1 else (random.randint(2, 5) if d == 0 else random.randint(6, 15))
+        a = h * random.randint(2, 6 if d < 2 else 9)
+        b = h * random.randint(2, 6 if d < 2 else 9)
+        c = h * random.randint(2, 6 if d < 2 else 9)
         g = math.gcd(math.gcd(a, b), c)
+        if d == 2:                                    # stretch: one more step after the HCF
+            return _tb("A shop makes the greatest possible number of identical hampers using "
+                       "all of %d apples, %d oranges and %d pears, with nothing left over. How "
+                       "many apples go in each hamper?" % (a, b, c), a // g, "int", {},
+                       ["The greatest number of hampers is HCF(%d, %d, %d) = %d." % (a, b, c, g),
+                        "Each hamper gets %d ÷ %d = %d apples." % (a, g, a // g)])
         return _tb("A shop makes identical hampers using all of %d apples, %d oranges "
                    "and %d pears, with nothing left over. What is the greatest number "
                    "of hampers?" % (a, b, c), g, "int", {},
@@ -1816,19 +1948,22 @@ def _(d=1):
                     "Greatest = HCF = %d." % g])
 
     def t_lighthouse():
-        a = pick([6, 8, 9, 10, 12])
-        b = pick([4, 5, 6, 15])
+        A, B = ([2, 3, 4, 6], [3, 5, 10]) if d == 0 else \
+               (([6, 8, 9, 10, 12], [4, 5, 6, 15]) if d == 1 else ([14, 15, 18, 20, 24], [16, 21, 25, 27, 35]))
+        a = pick(A)
+        b = pick(B)
         while a == b:
-            b = pick([4, 5, 6, 15])
+            b = pick(B)
         return _tb("Two lighthouses flash: one every %d seconds, the other every %d "
                    "seconds. They flash together now. After how many seconds do they "
                    "next flash together?" % (a, b), _lcm(a, b), "int", {},
                    ["LCM(%d, %d) = %d seconds." % (a, b, _lcm(a, b))])
 
     def t_ribbon():
-        h = random.randint(4, 12)
-        a = h * random.randint(3, 8)
-        b = h * random.randint(3, 8)
+        h, m0, m1 = _h()
+        h = h or random.randint(4, 12)
+        a = h * random.randint(m0, m1)
+        b = h * random.randint(m0, m1)
         return _tb("Two ribbons of length %d cm and %d cm are cut into equal pieces as "
                    "long as possible, with none wasted. How long (in cm) is each piece?"
                    % (a, b), math.gcd(a, b), "int", {},
@@ -1836,10 +1971,12 @@ def _(d=1):
                     "Longest = HCF = %d cm." % math.gcd(a, b)])
 
     def t_buses():
-        a = pick([12, 15, 18, 20, 24])
-        b = pick([10, 15, 20, 25, 30])
+        A, B = ([5, 10, 15], [10, 20, 30]) if d == 0 else \
+               (([12, 15, 18, 20, 24], [10, 15, 20, 25, 30]) if d == 1 else ([16, 18, 24, 27], [20, 30, 36, 40, 45]))
+        a = pick(A)
+        b = pick(B)
         while a == b:
-            b = pick([10, 15, 20, 25, 30])
+            b = pick(B)
         return _tb("Bus A comes every %d minutes and bus B every %d minutes. Both are "
                    "at the stop at 08:00. At how many minutes past 08:00 are they both "
                    "at the stop together again?" % (a, b), _lcm(a, b), "int", {},
@@ -1847,13 +1984,14 @@ def _(d=1):
 
     def t_which_op():
         if random.random() < 0.5:
-            a, b = random.sample([6, 8, 9, 10, 12, 15], 2)
+            a, b = random.sample([4, 6, 8, 10] if d == 0 else
+                                 ([6, 8, 9, 10, 12, 15] if d == 1 else [12, 15, 16, 18, 20, 24]), 2)
             return _wq("Buns come in packs of %d and rolls in packs of %d. To buy the same "
                        "number of buns and rolls, using the fewest packs, do you need the "
                        "HCF or the LCM? (type 'HCF' or 'LCM')" % (a, b), "LCM",
                        ["'Smallest number both pack sizes go into' means the lowest "
                         "common multiple.", "You need the LCM."], "HCF or LCM")
-        h = random.randint(4, 9)
+        h = random.randint(4, 9) if d == 1 else (random.randint(2, 5) if d == 0 else random.randint(8, 16))
         a = h * random.randint(3, 6)
         b = h * random.randint(3, 6)
         return _wq("To pack %d red and %d blue pens into identical boxes (single colour "
@@ -1863,9 +2001,16 @@ def _(d=1):
                     "You need the HCF."], "HCF or LCM")
 
     def t_greatest_people():
-        h = random.randint(5, 12)
-        a = h * random.randint(2, 6)
-        b = h * random.randint(2, 6)
+        h = random.randint(5, 12) if d == 1 else (random.randint(2, 6) if d == 0 else random.randint(8, 20))
+        a = h * random.randint(2, 6 if d < 2 else 9)
+        b = h * random.randint(2, 6 if d < 2 else 9)
+        if d == 2:                                    # stretch: one more step after the HCF
+            g = math.gcd(a, b)
+            return _tb("%d biscuits and %d sweets are shared equally among as many children "
+                       "as possible, with none left over and every child getting the same. "
+                       "How many biscuits does each child get?" % (a, b), a // g, "int", {},
+                       ["The greatest number of children is HCF(%d, %d) = %d." % (a, b, g),
+                        "Each child gets %d ÷ %d = %d biscuits." % (a, g, a // g)])
         return _tb("%d biscuits and %d sweets are shared equally among as many children "
                    "as possible, with none left over and every child getting the same. "
                    "What is the greatest number of children?" % (a, b),
@@ -1886,7 +2031,9 @@ def _(d=1):
             return random.randint(2, 6), 2
         if d == 1:
             return random.randint(2, 8), random.randint(2, 3)
-        return random.randint(2, 6), random.randint(2, 4)
+        if random.random() < 0.3:                     # stretch: high powers of 2
+            return 2, random.randint(6, 10)
+        return random.randint(3, 9), random.randint(3, 4)
 
     def t_eval():
         b, e = _base_exp()
@@ -1895,25 +2042,33 @@ def _(d=1):
                    ["%d^%d = %s = %d." % (b, e, " × ".join([str(b)] * e), b ** e)])
 
     def t_square():
-        b = random.randint(2, 15 if d else 10)
+        b = random.randint(2, 10) if d == 0 else (random.randint(2, 15) if d == 1 else random.randint(13, 25))
         return _tb("What is %d squared (%d^2)?" % (b, b), b * b, "int", {},
                    ["%d^2 = %d × %d = %d." % (b, b, b, b * b)])
 
     def t_cube():
-        b = random.randint(2, 8 if d else 5)
+        b = random.randint(2, 5) if d == 0 else (random.randint(2, 8) if d == 1 else random.randint(6, 12))
         return _tb("What is %d cubed (%d^3)?" % (b, b), b ** 3, "int", {},
                    ["%d^3 = %d × %d × %d = %d." % (b, b, b, b, b ** 3)])
 
     def t_missing_exp():
-        b = random.randint(2, 5)
-        e = random.randint(2, 4)
+        if d == 2:                                    # stretch: longer powers
+            b = pick([2, 2, 3, 4, 5])
+            e = random.randint(5, 9) if b == 2 else random.randint(4, 6 if b == 3 else 5)
+        else:
+            b = random.randint(2, 3 if d == 0 else 5)
+            e = random.randint(2, 4 if d else 3)
         return _tb("Solve for the power:   %d^? = %d" % (b, b ** e), e, "int", {},
                    ["%d^%d = %d." % (b, e, b ** e),
                     "So the power is %d." % e])
 
     def t_missing_base():
-        b = random.randint(2, 9)
-        e = pick([2, 3])
+        if d == 2:                                    # stretch: bigger bases, or a fourth power
+            e = pick([2, 3, 4])
+            b = random.randint(11, 20) if e == 2 else (random.randint(6, 12) if e == 3 else random.randint(3, 6))
+        else:
+            b = random.randint(2, 9 if d else 6)
+            e = pick([2, 3] if d else [2])
         return _tb("Solve for the base:   ?^%d = %d" % (e, b ** e), b, "int", {},
                    ["%d^%d = %d." % (b, e, b ** e), "So the base is %d." % b])
 
@@ -1929,25 +2084,28 @@ def _(d=1):
                     "The larger value is %d." % big])
 
     def t_powers_of_ten():
-        e = random.randint(2, 6)
+        e = random.randint(2, 3) if d == 0 else (random.randint(2, 6) if d == 1 else random.randint(6, 9))
+        if d == 2 and random.random() < 0.5:          # stretch: the inverse
+            return _tb("10^? = %s. What is the power?" % "{:,}".format(10 ** e), e, "int", {},
+                       ["%s is 1 followed by %d zeros, so it is 10^%d." % ("{:,}".format(10 ** e), e, e)])
         return _tb("Work out 10^%d." % e, 10 ** e, "int", {},
                    ["10^%d is 1 followed by %d zeros = %d." % (e, e, 10 ** e)])
 
     def t_word():
         who = pick(NAMES)
         b = random.randint(2, 4)
-        e = random.randint(3, 5)
+        e = random.randint(2, 4) if d == 0 else (random.randint(3, 5) if d == 1 else random.randint(6, 10))
         return _tb("%s folds a piece of paper in half %d times. The number of layers is "
                    "2^%d. How many layers is that?" % (who, e, e), 2 ** e, "int", {},
                    ["2^%d = %d." % (e, 2 ** e)])
 
     def t_between():
-        b = pick([2, 3])
-        e = random.randint(3, 5)
+        b = 2 if d < 2 else pick([3, 5])
+        e = random.randint(2, 4) if d == 0 else (random.randint(3, 5) if d == 1 else random.randint(3, 6 if b == 3 else 4))
         val = b ** e
-        return _tb("2 to some power equals %d (2^? = %d). What is the power?"
-                   % (2 ** e, 2 ** e), e, "int", {},
-                   ["2^%d = %d." % (e, 2 ** e)])
+        return _tb("%d to some power equals %d (%d^? = %d). What is the power?"
+                   % (b, val, b, val), e, "int", {},
+                   ["%d^%d = %d." % (b, e, val)])
 
     def t_table():
         rows = []
@@ -1964,11 +2122,11 @@ def _(d=1):
                    missing=[r_i, 1])
 
     def t_eval_expr_index():
-        b = random.randint(2, 5)
-        e = random.randint(2, 3)
+        b = random.randint(2, 5 if d else 3)
+        e = random.randint(2, 3) if d < 2 else random.randint(3, 4)
         p = b ** e
         forms = []
-        c = random.randint(2, 12)
+        c = random.randint(2, 12 if d else 9)
         forms.append(("%d + %d^%d" % (c, b, e), c + p,
                       "%d^%d = %d, then %d + %d = %d." % (b, e, p, c, p, c + p)))
         forms.append(("%d × %d^%d" % (c, b, e), c * p,
@@ -1976,7 +2134,7 @@ def _(d=1):
         c2 = random.randint(2, p - 1)
         forms.append(("%d^%d − %d" % (b, e, c2), p - c2,
                       "%d^%d = %d, then %d − %d = %d." % (b, e, p, p, c2, p - c2)))
-        b2 = random.randint(2, 4)
+        b2 = random.randint(2, 4 if d < 2 else 9)
         forms.append(("%d^%d + %d^2" % (b, e, b2), p + b2 * b2,
                       "%d^%d = %d and %d^2 = %d, so %d + %d = %d."
                       % (b, e, p, b2, b2 * b2, p, b2 * b2, p + b2 * b2)))
@@ -1994,16 +2152,24 @@ def _(d=1):
     d = _d(d)
 
     def t_neg_even():
-        b = random.randint(2, 9)
-        e = pick([2, 4] if d else [2])
+        if d == 2:                                    # stretch: higher even powers
+            e = pick([4, 6])
+            b = random.randint(2, 6 if e == 4 else 3)
+        else:
+            b = random.randint(2, 9 if d else 5)
+            e = pick([2, 4] if d else [2])
         val = (-b) ** e
         return _tb("Work out (−%d)^%d." % (b, e), val, "int", {},
                    ["A negative number to an even power is positive.",
                     "(−%d)^%d = %d." % (b, e, val)])
 
     def t_neg_odd():
-        b = random.randint(2, 9)
-        e = pick([3, 5] if d else [3])
+        if d == 2:                                    # stretch: fifth powers or bigger cubes
+            e = pick([3, 5])
+            b = random.randint(6, 12) if e == 3 else random.randint(2, 4)
+        else:
+            b = random.randint(2, 9 if d else 5)
+            e = pick([3, 5] if d else [3])
         val = (-b) ** e
         return _tb("Work out (−%d)^%d." % (b, e), val, "int", {},
                    ["A negative number to an odd power stays negative.",
@@ -2011,7 +2177,7 @@ def _(d=1):
 
     def t_sign_only():
         b = random.randint(2, 9)
-        e = random.randint(2, 6)
+        e = random.randint(2, 3) if d == 0 else (random.randint(2, 6) if d == 1 else random.randint(7, 25))
         pos = e % 2 == 0
         return _wq("Is (−%d)^%d positive or negative? (type 'positive' or 'negative')"
                    % (b, e), "positive" if pos else "negative",
@@ -2019,14 +2185,16 @@ def _(d=1):
                     % ("even" if pos else "odd", "positive" if pos else "negative")])
 
     def t_dec_square():
-        t = random.randint(1, 9)
-        base = Decimal(t) / 10
+        if d == 2:                                    # stretch: 1.x or 0.0x bases
+            base = pick([Decimal(random.randint(11, 19)) / 10, Decimal(random.randint(1, 9)) / 100])
+        else:
+            base = Decimal(random.randint(1, 9 if d else 5)) / 10
         val = base * base
         return _numq("Work out %s^2." % _fmt(base), _fmt(val),
                      ["%s × %s = %s." % (_fmt(base), _fmt(base), _fmt(val))])
 
     def t_dec_cube():
-        t = pick([2, 3, 4, 5])
+        t = pick([1, 2, 3] if d == 0 else ([2, 3, 4, 5] if d == 1 else [6, 7, 8, 9, 11, 12]))
         base = Decimal(t) / 10
         val = base ** 3
         return _numq("Work out %s^3." % _fmt(base), _fmt(val),
@@ -2035,27 +2203,30 @@ def _(d=1):
 
     def t_half_power():
         base = Decimal("0.5")
-        e = pick([2, 3, 4])
+        e = pick([2, 3] if d == 0 else ([2, 3, 4] if d == 1 else [4, 5, 6]))
         val = base ** e
         return _numq("Work out %s^%d." % (_fmt(base), e), _fmt(val),
                      ["%s^%d = %s." % (_fmt(base), e, _fmt(val))])
 
     def t_neg_dec():
-        t = random.randint(1, 9)
+        t = random.randint(1, 5) if d == 0 else (random.randint(1, 9) if d == 1 else random.randint(11, 15))
         base = Decimal(t) / 10
-        e = pick([2, 3])
+        e = pick([2] if d == 0 else [2, 3])
         val = (-base) ** e
         return _numq("Work out (−%s)^%d." % (_fmt(base), e), _fmt(val),
                      ["(−%s)^%d = %s (%s power)." % (_fmt(base), e, _fmt(val),
                                                      "even" if e % 2 == 0 else "odd")])
 
     def t_compare_sign():
-        b = random.randint(2, 6)
-        a1 = (-b) ** 2
-        a2 = (-b) ** 3
-        return _tb("Which is greater, (−%d)^2 or (−%d)^3? Type its value." % (b, b),
+        b = random.randint(2, 6 if d else 4)
+        e1, e2 = (2, 3) if d < 2 else pick([(4, 5), (3, 5), (5, 4), (3, 4)])
+        if d == 2:
+            b = random.randint(2, 3)
+        a1 = (-b) ** e1
+        a2 = (-b) ** e2
+        return _tb("Which is greater, (−%d)^%d or (−%d)^%d? Type its value." % (b, e1, b, e2),
                    max(a1, a2), "int", {},
-                   ["(−%d)^2 = %d and (−%d)^3 = %d." % (b, a1, b, a2),
+                   ["(−%d)^%d = %d and (−%d)^%d = %d." % (b, e1, a1, b, e2, a2),
                     "The greater value is %d." % max(a1, a2)])
 
     return _pick_t([t_neg_even, t_neg_odd, t_sign_only, t_dec_square, t_dec_cube,
@@ -2066,10 +2237,13 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _rng(easy, core, hard):
+        return (easy, core, hard)[d]
+
     def t_multiply_exp():
         b = random.randint(2, 6)
-        m = random.randint(2, 6)
-        n = random.randint(2, 6)
+        m = random.randint(*_rng((2, 4), (2, 6), (5, 15)))
+        n = random.randint(*_rng((2, 4), (2, 6), (4, 12)))
         return _tb("Using the laws of indices, %d^%d × %d^%d = %d^?. What is the missing "
                    "power?" % (b, m, b, n, b), m + n, "int", {},
                    ["Add the powers: %d + %d = %d." % (m, n, m + n),
@@ -2077,8 +2251,8 @@ def _(d=1):
 
     def t_divide_exp():
         b = random.randint(2, 6)
-        m = random.randint(4, 9)
-        n = random.randint(1, m - 1)
+        m = random.randint(*_rng((4, 7), (4, 9), (10, 24)))
+        n = random.randint(1 if d < 2 else 3, m - 1)
         return _tb("Using the laws of indices, %d^%d ÷ %d^%d = %d^?. What is the missing "
                    "power?" % (b, m, b, n, b), m - n, "int", {},
                    ["Subtract the powers: %d − %d = %d." % (m, n, m - n),
@@ -2086,8 +2260,8 @@ def _(d=1):
 
     def t_power_of_power():
         b = random.randint(2, 5)
-        m = random.randint(2, 4)
-        n = random.randint(2, 4)
+        m = random.randint(*_rng((2, 3), (2, 4), (3, 7)))
+        n = random.randint(*_rng((2, 3), (2, 4), (3, 6)))
         return _tb("Using the laws of indices, (%d^%d)^%d = %d^?. What is the missing "
                    "power?" % (b, m, n, b), m * n, "int", {},
                    ["Multiply the powers: %d × %d = %d." % (m, n, m * n),
@@ -2095,21 +2269,39 @@ def _(d=1):
 
     def t_single_power():
         b = random.randint(2, 6)
-        m = random.randint(2, 5)
-        n = random.randint(2, 5)
+        m = random.randint(*_rng((2, 4), (2, 5), (4, 9)))
+        n = random.randint(*_rng((2, 4), (2, 5), (3, 8)))
+        if d == 2:                                    # stretch: multiply then divide
+            p = random.randint(2, m + n - 2)
+            return _wq("Write %d^%d × %d^%d ÷ %d^%d as a single power. Use ^ , like %d^7 (no "
+                       "spaces)." % (b, m, b, n, b, p, b), "%d^%d" % (b, m + n - p),
+                       ["Add the powers: %d + %d = %d." % (m, n, m + n),
+                        "Then subtract: %d − %d = %d, so = %d^%d." % (m + n, p, m + n - p, b, m + n - p)],
+                       "e.g. %d^7" % b)
         return _wq("Write %d^%d × %d^%d as a single power. Use ^ , like %d^7 (no "
                    "spaces)." % (b, m, b, n, b), "%d^%d" % (b, m + n),
                    ["Add the powers: %d + %d = %d." % (m, n, m + n),
                     "= %d^%d." % (b, m + n)], "e.g. %d^7" % b)
 
     def t_solve_index():
-        b = pick([2, 3, 5])
-        e = random.randint(2, 5)
+        b = pick([2, 10] if d == 0 else ([2, 3, 5] if d == 1 else [2, 3, 4, 6, 7]))
+        e = random.randint(2, 4) if d == 0 else (random.randint(2, 5) if d == 1 else
+                                                 random.randint(7, 12) if b == 2 else random.randint(3, 5))
         return _tb("Solve for x:   %d^x = %d" % (b, b ** e), e, "int", {},
                    ["%d^%d = %d." % (b, e, b ** e), "So x = %d." % e])
 
     def t_solve_from_law():
         b = random.randint(2, 5)
+        if d == 2:                                    # stretch: the unknown inside a division or a bracket
+            if random.random() < 0.5:
+                m, n = random.randint(9, 20), random.randint(2, 7)
+                return _tb("Solve for x:   %d^%d ÷ %d^x = %d^%d" % (b, m, b, b, m - n), n, "int", {},
+                           ["Dividing subtracts the powers, so %d − x = %d." % (m, m - n),
+                            "x = %d." % n])
+            m, n = random.randint(2, 6), random.randint(2, 5)
+            return _tb("Solve for x:   (%d^x)^%d = %d^%d" % (b, n, b, m * n), m, "int", {},
+                       ["A power of a power multiplies the indices, so %d × x = %d." % (n, m * n),
+                        "x = %d." % m])
         m = random.randint(2, 4)
         target = m + random.randint(1, 3)
         n = target - m
@@ -2119,17 +2311,24 @@ def _(d=1):
                     "x = %d." % n])
 
     def t_evaluate_after():
-        b = random.randint(2, 4)
-        m = random.randint(1, 3)
-        n = random.randint(1, 3)
+        b = random.randint(2, 3) if d == 0 else (random.randint(2, 4) if d == 1 else random.randint(2, 5))
+        m = random.randint(1 if d < 2 else 2, 2 if d == 0 else 3)
+        n = random.randint(1 if d < 2 else 2, 2 if d == 0 else 3)
+        if d == 2:                                    # stretch: three factors
+            k = random.randint(1, 2)
+            while b ** (m + n + k) > 20000:
+                b -= 1
+            return _tb("Simplify then evaluate:   %d^%d × %d^%d × %d^%d" % (b, m, b, n, b, k),
+                       b ** (m + n + k), "int", {},
+                       ["= %d^%d = %d." % (b, m + n + k, b ** (m + n + k))])
         return _tb("Simplify then evaluate:   %d^%d × %d^%d" % (b, m, b, n),
                    b ** (m + n), "int", {},
                    ["= %d^%d = %d." % (b, m + n, b ** (m + n))])
 
     def t_divide_value():
-        b = random.randint(2, 4)
-        m = random.randint(4, 6)
-        n = random.randint(1, 3)
+        b = random.randint(2, 3) if d == 0 else random.randint(2, 4 if d == 1 else 6)
+        m = random.randint(*_rng((3, 5), (4, 6), (8, 15)))
+        n = random.randint(1, 2) if d == 0 else (random.randint(1, 3) if d == 1 else m - random.randint(2, 4))
         return _tb("Simplify then evaluate:   %d^%d ÷ %d^%d" % (b, m, b, n),
                    b ** (m - n), "int", {},
                    ["= %d^%d = %d." % (b, m - n, b ** (m - n))])
@@ -2140,8 +2339,8 @@ def _(d=1):
         want = None
         r_i = random.randint(0, 2)
         for i in range(3):
-            m = random.randint(2, 5)
-            n = random.randint(2, 5)
+            m = random.randint(*_rng((2, 4), (2, 5), (4, 12)))
+            n = random.randint(*_rng((2, 4), (2, 5), (4, 12)))
             rows.append(["%d^%d × %d^%d" % (b, m, b, n), "%d^%d" % (b, m + n)])
             if i == r_i:
                 m0, n0, want = m, n, "%d^%d" % (b, m + n)
@@ -2152,8 +2351,8 @@ def _(d=1):
                     "= %s." % want], missing=[r_i, 1], atype="str")
 
     def t_solve_var_index():
-        b = pick([2, 3, 5, 10])
-        e = random.randint(2, 5)
+        b = pick([2, 10] if d == 0 else ([2, 3, 5, 10] if d == 1 else [3, 4, 5, 6]))
+        e = random.randint(2, 4) if d == 0 else (random.randint(2, 5) if d == 1 else random.randint(3, 6 if b < 5 else 5))
         return _tb("Solve this equation, where the index (power) is the variable "
                    "x:   %d^x = %d" % (b, b ** e), e, "int", {},
                    ["%d^%d = %d, so the variable index x = %d." % (b, e, b ** e, e)])
@@ -2168,27 +2367,41 @@ def _(d=1):
     d = _d(d)
 
     def t_sqrt():
-        r = random.randint(2, 15 if d else 10)
+        r = random.randint(2, 10) if d == 0 else (random.randint(2, 15) if d == 1 else random.randint(14, 30))
         return _tb("Work out √%d." % (r * r), r, "int", {},
                    ["%d × %d = %d, so √%d = %d." % (r, r, r * r, r * r, r)])
 
     def t_cbrt():
-        r = random.randint(2, 8 if d else 5)
+        r = random.randint(2, 5) if d == 0 else (random.randint(2, 8) if d == 1 else random.randint(7, 12))
         return _tb("Work out the cube root of %d (∛%d)." % (r ** 3, r ** 3), r, "int", {},
                    ["%d × %d × %d = %d, so ∛%d = %d." % (r, r, r, r ** 3, r ** 3, r)])
 
     def t_solve_sq():
-        r = random.randint(2, 12)
+        r = random.randint(2, 10 if d == 0 else 12)
+        if d == 2:                                    # stretch: one step before the root
+            c = random.randint(5, 60)
+            r = random.randint(6, 20)
+            return _tb("Solve for the positive value of x:   x^2 + %d = %d" % (c, r * r + c), r,
+                       "int", {}, ["x^2 = %d − %d = %d." % (r * r + c, c, r * r),
+                                   "x = √%d = %d." % (r * r, r)])
         return _tb("Solve for the positive value of x:   x^2 = %d" % (r * r), r,
                    "int", {}, ["x = √%d = %d." % (r * r, r)])
 
     def t_solve_cube():
-        r = random.randint(2, 7)
+        r = random.randint(2, 4 if d == 0 else 7)
+        if d == 2:                                    # stretch: divide first, or a negative cube
+            a = random.randint(2, 5)
+            if random.random() < 0.5:
+                return _tb("Solve for x:   %dx^3 = %d" % (a, a * r ** 3), r, "int", {},
+                           ["x^3 = %d ÷ %d = %d." % (a * r ** 3, a, r ** 3),
+                            "x = ∛%d = %d." % (r ** 3, r)])
+            return _tb("Solve for x:   x^3 = −%d" % (r ** 3), -r, "int", {},
+                       ["(−%d)^3 = −%d, so x = −%d." % (r, r ** 3, r)])
         return _tb("Solve for x:   x^3 = %d" % (r ** 3), r, "int", {},
                    ["x = ∛%d = %d." % (r ** 3, r)])
 
     def t_estimate_nearest():
-        r = random.randint(3, 12)
+        r = random.randint(2, 6) if d == 0 else (random.randint(3, 12) if d == 1 else random.randint(12, 22))
         n = r * r + random.randint(1, 2 * r)          # not a perfect square
         k = math.isqrt(n)
         nearest = k + 1 if 4 * n > (2 * k + 1) ** 2 else k
@@ -2197,7 +2410,7 @@ def _(d=1):
                     "√%d is closest to %d." % (n, nearest)])
 
     def t_between_lower():
-        r = random.randint(3, 12)
+        r = random.randint(2, 6) if d == 0 else (random.randint(3, 12) if d == 1 else random.randint(12, 22))
         n = r * r + random.randint(1, 2 * r)
         k = math.isqrt(n)
         return _tb("√%d lies between two consecutive whole numbers. Type the smaller "
@@ -2207,19 +2420,30 @@ def _(d=1):
                     "The smaller is %d." % k])
 
     def t_area():
-        r = random.randint(4, 15)
+        r = random.randint(3, 10) if d == 0 else random.randint(4, 15 if d == 1 else 25)
+        if d == 2:                                    # stretch: side first, then the perimeter
+            return _tb("A square has area %d cm². What is its perimeter (in cm)?" % (r * r),
+                       4 * r, "int", {},
+                       ["Side = √%d = %d cm." % (r * r, r), "Perimeter = 4 × %d = %d cm." % (r, 4 * r)])
         return _tb("A square has area %d cm². What is the length of one side (in cm)?"
                    % (r * r), r, "int", {},
                    ["Side = √area = √%d = %d cm." % (r * r, r)])
 
     def t_volume():
-        r = random.randint(2, 8)
+        r = random.randint(2, 5 if d == 0 else 8)
+        if d == 2:                                    # stretch: edge first, then one face
+            r = random.randint(3, 10)
+            return _tb("A cube has volume %d cm³. What is the area of one face (in cm²)?" % (r ** 3),
+                       r * r, "int", {},
+                       ["Edge = ∛%d = %d cm." % (r ** 3, r), "Face area = %d × %d = %d cm²." % (r, r, r * r)])
         return _tb("A cube has volume %d cm³. What is the length of one edge (in cm)?"
                    % (r ** 3), r, "int", {},
                    ["Edge = ∛volume = ∛%d = %d cm." % (r ** 3, r)])
 
     def t_which_between():
-        n = pick([2, 3, 5, 7, 10, 15, 20, 27, 40, 50, 60])
+        n = pick([2, 3, 5, 7, 8, 10, 15, 20] if d == 0 else
+                 ([2, 3, 5, 7, 10, 15, 20, 27, 40, 50, 60] if d == 1 else
+                  [75, 90, 110, 130, 150, 175, 200, 250, 300, 450, 500]))
         k = math.isqrt(n)
         return _tb("Between which two consecutive whole numbers does √%d lie? Type the "
                    "larger one." % n, k + 1, "int", {},
@@ -2227,7 +2451,7 @@ def _(d=1):
                     "The larger is %d." % (k + 1)])
 
     def t_table():
-        rs = random.sample(range(2, 15), 3)
+        rs = random.sample(range(2, 11) if d == 0 else (range(2, 15) if d == 1 else range(11, 26)), 3)
         rows = [[str(r * r), str(r)] for r in rs]
         r_i = random.randint(0, 2)
         want = rs[r_i]

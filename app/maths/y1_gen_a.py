@@ -215,6 +215,9 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, b = random.sample(range(1, _by(d, 20, 50, 100)), 2)
+    if d == 2 and random.random() < 0.6:                # hard: same tens, so the ones decide
+        t = random.randint(2, 9) * 10
+        a, b = [t + x for x in random.sample(range(10), 2)]
 
     def t_more():
         return _tb("Which is more, %d or %d?" % (a, b), max(a, b), "int", {}, ["%d is more." % max(a, b)])
@@ -223,25 +226,32 @@ def _(d=1):
         return _tb("Which is less, %d or %d?" % (a, b), min(a, b), "int", {}, ["%d is less." % min(a, b)])
 
     def t_most():
-        vals = random.sample(range(1, 30), 3)
-        kids = random.sample(KIDS, 3)
-        return _wq("%s has %s, %s has %d and %s has %d. Who has the most?" % (kids[0], _pn(vals[0], "sticker"), kids[1], vals[1],
-                                                                                      kids[2], vals[2]),
-                   kids[vals.index(max(vals))], ["%d is the biggest number." % max(vals)], "name")
+        k = _by(d, 3, 3, 4)                             # hard: four children, and sometimes the least
+        vals = random.sample(range(1, _by(d, 11, 30, 100)), k)
+        kids = random.sample(KIDS, k)
+        most = d < 2 or random.random() < 0.5
+        win = max(vals) if most else min(vals)
+        return _wq("%s and %s has %d. Who has the %s?" % (", ".join("%s has %s" % (kids[0], _pn(vals[0], "sticker")) if i == 0 else
+                                                                   "%s has %d" % (kids[i], vals[i]) for i in range(k - 1)),
+                                                         kids[-1], vals[-1], "most" if most else "least"),
+                   kids[vals.index(win)], ["%d is the %s number." % (win, "biggest" if most else "smallest")], "name")
 
     def t_fewer():
-        vals = random.sample(range(1, 20), 2)
+        vals = random.sample(range(1, _by(d, 11, 20, 100)), 2)
         kids = random.sample(KIDS, 2)
         return _wq("%s has %s. %s has %s. Who has fewer?" % (kids[0], _pn(vals[0], "marble"), kids[1], _pn(vals[1], "marble")),
                    kids[vals.index(min(vals))], ["%d is less than %d." % (min(vals), max(vals))], "name")
 
     def t_pictogram():
-        cats = random.sample(["Cats", "Dogs", "Fish", "Birds"], 3)
-        vals = random.sample(range(1, 9), 3)
-        return {"prompt": "Which pet is the most popular?", "component": "pictogram",
+        k = _by(d, 3, 3, 4)
+        cats = random.sample(["Cats", "Dogs", "Fish", "Birds"], k)
+        vals = random.sample(range(1, _by(d, 6, 9, 11)), k)
+        most = d < 2 or random.random() < 0.5
+        win = max(vals) if most else min(vals)
+        return {"prompt": "Which pet is the %s popular?" % ("most" if most else "least"), "component": "pictogram",
                 "spec": {"categories": cats, "values": vals, "key": 1, "symbol": "circle"},
-                "answer": cats[vals.index(max(vals))], "answer_type": "str",
-                "solution": ["%s has the most: %d." % (cats[vals.index(max(vals))], max(vals))]}
+                "answer": cats[vals.index(win)], "answer_type": "str",
+                "solution": ["%s has the %s: %d." % (cats[vals.index(win)], "most" if most else "fewest", win)]}
 
     return _pick_t([t_more, t_less, t_most, t_fewer], [t_pictogram])
 
@@ -360,8 +370,8 @@ def _(d=1):
 @skill("Y1.1.b", "Number bonds and facts within 20", S1)
 def _(d=1):
     d = _d(d)
-    tot = random.randint(_by(d, 11, 12, 15), 20)
-    a = random.randint(1, tot - 1)
+    tot = random.randint(_by(d, 11, 12, 15), _by(d, 15, 20, 20))
+    a = random.randint(10, tot - 1) if d == 0 else random.randint(1, tot - 1)     # easy: teen + ones, no bridging
 
     def t_missing():
         return _tb("%d + ___ = %d" % (a, tot), tot - a, "int", {}, ["%d − %d = %d." % (tot, a, tot - a)])
@@ -370,35 +380,43 @@ def _(d=1):
         return _tb("%d − %d = ___" % (tot, a), tot - a, "int", {}, ["%d + %d = %d." % (a, tot - a, tot)])
 
     def t_related():
-        b = random.randint(1, 9)
-        c = random.randint(1, 9)
+        b = random.randint(_by(d, 1, 1, 3), _by(d, 5, 9, 9))
+        c = random.randint(_by(d, 1, 1, 11 - b), _by(d, 5, 9, 9))  # hard: the fact crosses 10
         return _tb("%d + %d = %d. So what is %d − %d?" % (b, c, b + c, b + c, c), b, "int", {}, ["It undoes the adding."])
 
     def t_double():
-        k = random.randint(1, 10)
+        k = random.randint(_by(d, 1, 1, 6), _by(d, 5, 10, 10))
         return _tb("Double %d is ___" % k, 2 * k, "int", {}, ["%d + %d = %d." % (k, k, 2 * k)])
 
     def t_ten_plus():
         k = random.randint(1, 9)
+        if d == 2:                                      # hard: the missing part
+            return _tb("10 + ___ = %d" % (10 + k), k, "int", {}, ["Ten and %s is %d." % (_pn(k, "one"), 10 + k)])
         return _tb("10 + %d = ___" % k, 10 + k, "int", {}, ["Ten and %s is %d." % (_pn(k, "one"), 10 + k)])
 
     def t_bond20():
-        k = random.randint(1, 19)
+        k = random.randint(_by(d, 11, 1, 1), 19)       # easy: a teen number, so a small jump
+        if d == 2:                                      # hard: the = sign on the left / take away
+            return _tb("20 = %d + ___" % k, 20 - k, "int", {}, ["%d and %d make 20." % (k, 20 - k)]) if random.random() < 0.5 else \
+                _tb("20 − ___ = %d" % k, 20 - k, "int", {}, ["%d and %d make 20." % (k, 20 - k)])
         return _tb("%d + ___ = 20" % k, 20 - k, "int", {}, ["%d and %d make 20." % (k, 20 - k)])
 
     def t_near_double():
-        k = random.randint(2, 9)
+        k = random.randint(_by(d, 2, 2, 5), _by(d, 5, 9, 9))
+        if d == 2 and random.random() < 0.5:            # hard: one less than double
+            return _tb("Double %d is %d. So what is %d + %d?" % (k, 2 * k, k, k - 1), 2 * k - 1, "int", {},
+                       ["%d + %d is one less than double %d: %d." % (k, k - 1, k, 2 * k - 1)])
         return _tb("Double %d is %d. So what is %d + %d?" % (k, 2 * k, k, k + 1), 2 * k + 1, "int", {},
                    ["%d + %d is one more than double %d: %d." % (k, k + 1, k, 2 * k + 1)])
 
     def t_family():
-        b = random.randint(2, 9)
-        c = random.randint(2, 9)
+        b = random.randint(2, _by(d, 5, 9, 9))
+        c = random.randint(_by(d, 2, 2, max(2, 11 - b)), _by(d, 5, 9, 9))
         return _tb("%d + %d = %d. So what is %d − %d?" % (b, c, b + c, b + c, b), c, "int", {},
                    ["Take away the %d you added: %d." % (b, c)])
 
     def t_halve():
-        k = random.randint(1, 10)
+        k = random.randint(_by(d, 1, 1, 6), _by(d, 5, 10, 10))
         return _tb("%d − %d = ___" % (2 * k, k), k, "int", {}, ["Half of %d is %d." % (2 * k, k)])
 
     def t_bar():
@@ -408,6 +426,9 @@ def _(d=1):
 
     def t_teen_sub():
         k = random.randint(1, 9)
+        if d == 2:                                      # hard: the missing number taken away
+            return _tb("1%d − ___ = 10" % k, k, "int", {}, ["Take away the ones: 1%d − %d = 10." % (k, k)]) if random.random() < 0.5 else \
+                _tb("1%d − ___ = %d" % (k, k), 10, "int", {}, ["Take away the ten: 1%d − 10 = %d." % (k, k)])
         return _tb("1%d − %d = ___" % (k, k), 10, "int", {}, ["Take away the ones: 10 is left."]) if random.random() < 0.5 else \
             _tb("1%d − 10 = ___" % k, k, "int", {}, ["Take away the ten: %d is left." % k])
 
@@ -426,7 +447,11 @@ def _(d=1):
                    ["%d + %d = %d." % (a, tot - a, tot)], "yes / no")
 
     def t_dominoes():
-        x, y = random.randint(1, 6), random.randint(1, 6)
+        x, y = random.randint(1, _by(d, 4, 6, 6)), random.randint(1, _by(d, 4, 6, 6))
+        if d == 2:                                      # hard: two dominoes, four numbers
+            z, w = random.randint(1, 6), random.randint(1, 6)
+            return _tb("Two dominoes: one has %d and %d spots, the other has %d and %d. How many spots altogether?" % (x, y, z, w),
+                       x + y + z + w, "int", {}, ["%d + %d + %d + %d = %d." % (x, y, z, w, x + y + z + w)])
         return _tb("A domino has %s on one side and %d on the other. How many spots altogether?" % (_pn(x, "spot"), y), x + y, "int", {},
                    ["%d + %d = %d." % (x, y, x + y)])
 
@@ -966,26 +991,44 @@ def _(d=1):
 @skill("Y1.4.b", "Coins and notes", S4)
 def _(d=1):
     d = _d(d)
+    coins = _by(d, [1, 2, 5, 10], [1, 2, 5, 10, 20, 50], [1, 2, 5, 10, 20, 50])
 
     def t_value():
-        name, v = pick([("1p", 1), ("2p", 2), ("5p", 5), ("10p", 10), ("20p", 20), ("50p", 50)])
+        name, v = pick(_by(d, [("1p", 1), ("2p", 2), ("5p", 5), ("10p", 10)],
+                           [("1p", 1), ("2p", 2), ("5p", 5), ("10p", 10), ("20p", 20), ("50p", 50)],
+                           [("10p", 10), ("20p", 20), ("50p", 50), ("£1", 100)]))      # hard: the £1 coin in pence
         return _tb("How many pence is a %s coin worth?" % name, v, "int", {}, ["%s = %d pence." % (name, v)])
 
     def t_more():
-        a, b = random.sample([1, 2, 5, 10, 20, 50], 2)
+        if d == 2:                                      # hard: three coins, most or least
+            cs = random.sample(coins, 3)
+            most = random.random() < 0.5
+            win = max(cs) if most else min(cs)
+            return _tb("Which coin is worth the %s: %s? Type the number of pence." % ("most" if most else "least",
+                                                                                     ", ".join("%dp" % c for c in cs)),
+                       win, "int", {}, ["%dp is worth the %s." % (win, "most" if most else "least")])
+        a, b = random.sample(coins, 2)
         return _tb("Which coin is worth more, %dp or %dp? Type the number of pence." % (a, b), max(a, b), "int", {},
                    ["%dp is worth more." % max(a, b)])
 
     def t_add():
-        cs = random.sample([1, 2, 5, 10], _by(d, 2, 2, 3))
+        cs = random.sample(_by(d, [1, 2, 5], [1, 2, 5, 10], [1, 2, 5, 10, 20]), _by(d, 2, 2, 3))
         return _tb("%s has these coins: %s. How many pence altogether?" % (_kid(), ", ".join("%dp" % c for c in cs)), sum(cs),
                    "int", {}, ["%s = %dp." % (" + ".join("%d" % c for c in cs), sum(cs))])
 
     def t_notes():
-        return _wq("Is £5 a coin or a note?", "note", ["£5, £10 and £20 are notes."], "coin or note")
+        m, a = pick(_by(d, [("£5", "note"), ("£10", "note"), ("10p", "coin"), ("5p", "coin")],
+                        [("£5", "note")],
+                        [("£1", "coin"), ("£2", "coin"), ("£20", "note"), ("50p", "coin"), ("£10", "note")]))
+        return _wq("Is %s a coin or a note?" % m, a, ["£5, £10 and £20 are notes; pence, £1 and £2 are coins."], "coin or note")
 
     def t_pounds():
-        return _tb("How many 10p coins make £1?", 10, "int", {}, ["£1 = 100p; 10 × 10p = 100p."])
+        c, tot = pick(_by(d, [(1, 5), (1, 10), (2, 10), (5, 10)],
+                          [(10, 100)],
+                          [(20, 100), (50, 100), (5, 50), (2, 20), (10, 50)]))
+        tn = "£1" if tot == 100 else "%dp" % tot
+        return _tb("How many %dp coins make %s?" % (c, tn), tot // c, "int", {},
+                   ["%s%d × %dp = %dp." % ("£1 = 100p; " if tot == 100 else "", tot // c, c, tot)])
 
     return _pick_t([t_value, t_more, t_add, t_notes, t_pounds])
 
@@ -1133,24 +1176,34 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    flat = _by(d, ["triangle", "square", "rectangle"], ["triangle", "square", "rectangle", "pentagon", "hexagon"],
+               ["rectangle", "square", "pentagon", "hexagon"])         # hard: more sides, square or rectangle?
+    edges = {"triangle": 3, "square": 4, "rectangle": 4, "pentagon": 5, "hexagon": 6}
+
     def t_2d():
-        name = pick(["triangle", "square", "rectangle", "pentagon", "hexagon"] if d else ["triangle", "square", "rectangle"])
+        name = pick(flat)
         return {"prompt": "What is this shape called?", "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "name"},
                 "answer": name, "answer_type": "str", "solution": ["It is a %s." % name]}
 
     def t_3d():
-        name = pick(["cube", "cuboid"])
+        name = pick(_by(d, ["cube", "cuboid"], ["cube", "cuboid"], ["cuboid", "pyramid", "cube", "pyramid"]))
         return {"prompt": "What is this 3-D shape called?", "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "name"},
                 "answer": name, "answer_type": "str", "solution": ["It is a %s." % name]}
 
     def t_sides():
-        name, n = pick([("triangle", 3), ("square", 4), ("rectangle", 4)])
+        name, n = pick(_by(d, [("triangle", 3), ("square", 4)], [("triangle", 3), ("square", 4), ("rectangle", 4)],
+                           [("rectangle", 4), ("pentagon", 5), ("hexagon", 6)]))
         return _tb("How many sides does a %s have?" % name, n, "int", {}, ["A %s has %d sides." % (name, n)])
 
     def t_object():
-        q, a = pick([("A ball is the shape of a ...", "sphere"), ("A dice is the shape of a ...", "cube"),
-                     ("A tin of beans is the shape of a ...", "cylinder"), ("A cereal box is the shape of a ...", "cuboid"),
-                     ("An ice cream cone is the shape of a ...", "cone")])
+        q, a = pick(_by(d, [("A ball is the shape of a ...", "sphere"), ("A dice is the shape of a ...", "cube"),
+                            ("A cereal box is the shape of a ...", "cuboid")],
+                        [("A ball is the shape of a ...", "sphere"), ("A dice is the shape of a ...", "cube"),
+                         ("A tin of beans is the shape of a ...", "cylinder"), ("A cereal box is the shape of a ...", "cuboid"),
+                         ("An ice cream cone is the shape of a ...", "cone")],
+                        [("A tin of beans is the shape of a ...", "cylinder"), ("An ice cream cone is the shape of a ...", "cone"),
+                         ("A brick is the shape of a ...", "cuboid"), ("An orange is the shape of a ...", "sphere"),
+                         ("A tent with a square floor and a pointed top is the shape of a ...", "pyramid")]))
         return _wq(q + " (one word)", a, ["It is a %s." % a], "shape name")
 
     def t_circle():
@@ -1161,18 +1214,25 @@ def _(d=1):
                    "pyramid", ["It is a pyramid."], "shape name")
 
     def t_count_sides():
-        name = pick(["triangle", "square", "rectangle", "pentagon", "hexagon"] if d else ["triangle", "square", "rectangle"])
+        name = pick(flat)
         return {"prompt": "Count the sides. How many sides does this shape have?", "component": "shape",
                 "spec": {"kind": "2d", "name": name, "ask": "sides"},
-                "answer": {"triangle": 3, "square": 4, "rectangle": 4, "pentagon": 5, "hexagon": 6}[name], "answer_type": "int",
+                "answer": edges[name], "answer_type": "int",
                 "solution": ["Count each straight side once."]}
 
     def t_corners():
-        name, n = pick([("triangle", 3), ("square", 4), ("rectangle", 4)])
+        name, n = pick(_by(d, [("triangle", 3), ("square", 4)], [("triangle", 3), ("square", 4), ("rectangle", 4)],
+                           [("rectangle", 4), ("pentagon", 5), ("hexagon", 6)]))
         return _tb("How many corners does a %s have?" % name, n, "int", {}, ["A %s has %d corners." % (name, n)])
 
     def t_which():
-        n, name = pick([(3, "triangle"), (4, "square"), (0, "circle")])
+        n, name = pick(_by(d, [(3, "triangle"), (0, "circle")], [(3, "triangle"), (4, "square"), (0, "circle")],
+                           [(4, "square"), (4, "rectangle"), (5, "pentagon"), (6, "hexagon")]))
+        if name == "rectangle":                         # hard: tell a rectangle from a square
+            return _wq("Which shape has 4 square corners, 2 long sides and 2 short sides? (one word)", "rectangle",
+                       ["A rectangle has 2 long sides and 2 short sides."], "shape name")
+        if n > 4:
+            return _wq("Which flat shape has %d straight sides? (one word)" % n, name, ["A %s has %d sides." % (name, n)], "shape name")
         if n == 0:
             return _wq("Which flat shape is perfectly round?", "circle", ["A circle is round."], "shape name")
         if n == 4:
@@ -1180,8 +1240,11 @@ def _(d=1):
         return _wq("Which shape has 3 straight sides?", "triangle", ["Tri means three."], "shape name")
 
     def t_flat():
-        name, a = pick([("cube", "solid"), ("circle", "flat"), ("sphere", "solid"), ("triangle", "flat"), ("cuboid", "solid"),
-                        ("square", "flat"), ("cylinder", "solid"), ("rectangle", "flat")])
+        name, a = pick(_by(d, [("cube", "solid"), ("circle", "flat"), ("sphere", "solid"), ("square", "flat")],
+                           [("cube", "solid"), ("circle", "flat"), ("sphere", "solid"), ("triangle", "flat"), ("cuboid", "solid"),
+                            ("square", "flat"), ("cylinder", "solid"), ("rectangle", "flat")],
+                           [("pyramid", "solid"), ("hexagon", "flat"), ("cylinder", "solid"), ("pentagon", "flat"), ("cone", "solid"),
+                            ("rectangle", "flat"), ("cuboid", "solid")]))
         return _wq("Is a %s a flat shape or a solid shape? (flat or solid)" % name, a,
                    ["Flat shapes are 2-D; solid shapes are 3-D."], "flat / solid")
 
@@ -1190,16 +1253,21 @@ def _(d=1):
                    ["A square is a rectangle with all its sides the same length."], "yes / no")
 
     def t_rolls():
-        name, a = pick([("sphere", "yes"), ("cube", "no"), ("cylinder", "yes"), ("cuboid", "no"), ("pyramid", "no")])
+        name, a = pick(_by(d, [("sphere", "yes"), ("cube", "no")],
+                           [("sphere", "yes"), ("cube", "no"), ("cylinder", "yes"), ("cuboid", "no"), ("pyramid", "no")],
+                           [("cylinder", "yes"), ("cuboid", "no"), ("pyramid", "no"), ("cone", "yes")]))
         return _wq("Can a %s roll? (yes or no)" % name, a, ["Shapes with a curved surface can roll."], "yes / no")
 
     def t_how_many():
-        shapes = [pick(["triangle", "square", "circle", "rectangle"]) for _ in range(6)]
+        shapes = [pick(_by(d, ["triangle", "square", "circle"], ["triangle", "square", "circle", "rectangle"],
+                           ["triangle", "square", "circle", "rectangle", "hexagon"])) for _ in range(_by(d, 4, 6, 8))]
         what = pick(sorted(set(shapes)))
         return _tb("How many %ss are in this list?  %s" % (what, ", ".join(shapes)), shapes.count(what), "int", {},
                    ["Count each %s: %d." % (what, shapes.count(what))])
 
-    return _pick_t([t_sides, t_object, t_circle, t_pyramid, t_corners, t_which, t_flat, t_square_rect, t_rolls, t_how_many],
+    return _pick_t(_by(d, [t_sides, t_object, t_circle, t_corners, t_which, t_flat, t_rolls, t_how_many],
+                       [t_sides, t_object, t_circle, t_pyramid, t_corners, t_which, t_flat, t_square_rect, t_rolls, t_how_many],
+                       [t_sides, t_object, t_pyramid, t_corners, t_which, t_flat, t_square_rect, t_rolls, t_how_many]),
                    [t_2d, t_3d, t_count_sides])
 
 

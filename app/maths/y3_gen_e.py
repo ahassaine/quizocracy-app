@@ -581,43 +581,85 @@ def _x31f(d):
 # ================================================================ 3.2 ======
 def _x32b(d):
     def t_money():
-        a = random.randint(11, 89)
-        b = pick([10 * random.randint(1, 9 - a // 10), random.randint(2, 9)]) if a < 90 else random.randint(2, 9)
+        if d == 0:
+            # easy: tens, or ones that do not cross a ten
+            a = random.choice([n for n in range(11, 60) if n % 10 <= 7])
+            b = pick([10 * random.randint(1, 3), random.randint(2, 9 - a % 10)])
+        elif d == 1:
+            a = random.randint(11, 89)
+            b = pick([10 * random.randint(1, 9 - a // 10), random.randint(2, 9)])
+        else:
+            # stretch: ones that cross a ten, or several tens
+            a = random.randint(31, 89)
+            while a % 10 < 3:
+                a = random.randint(31, 89)
+            b = pick([10 * random.randint(1, 9 - a // 10), random.randint(10 - a % 10, 9)])
+        b = max(2, b)
         x, y = random.sample(["pencil", "rubber", "ruler", "badge", "sticker sheet"], 2)
         return _tb("%s costs %dp and %s costs %dp. How much do they cost together, in pence?" % (_a(x).capitalize(), a, _a(y), b), a + b, "int",
                    {"unit": "p"}, ["%dp + %dp = %dp." % (a, b, a + b)])
 
     def t_next_ten():
-        n = random.randint(11, 98)
+        n = random.randint(11, 98) if d else random.randint(11, 59)
         while n % 10 == 0:
-            n = random.randint(11, 98)
+            n = random.randint(11, 98) if d else random.randint(11, 59)
+        if d == 2 and n < 89:
+            # stretch: past the next ten to the one after
+            to = n + 20 - n % 10
+            return _tb("What must be added to %d to make %d?" % (n, to), to - n, "int", {},
+                       ["%d + %d = %d (the next ten)." % (n, 10 - n % 10, n + 10 - n % 10),
+                        "Then + 10 more: %d + 10 = %d." % (10 - n % 10, to - n)])
         return _tb("What must be added to %d to make the next multiple of 10?" % n, 10 - n % 10, "int", {},
                    ["The next multiple of 10 is %d." % (n + 10 - n % 10), "%d − %d = %d." % (n + 10 - n % 10, n, 10 - n % 10)])
 
     def t_inverse():
         add = pick([10, 20, 30, 40]) if d else random.randint(2, 9)
+        if d == 2:
+            # stretch: a tens step then a ones step to undo
+            ones = random.randint(2, 9)
+            n = random.randint(11, 99 - add - ones)
+            who = pick(NAMES)
+            return _tb("%s adds %d to a number, then adds %d more, and gets %d. What was the number?"
+                       % (who, add, ones, n + add + ones), n, "int", {},
+                       ["Undo the adding: %d − %d = %d." % (n + add + ones, ones, n + add),
+                        "%d − %d = %d." % (n + add, add, n)])
         n = random.randint(11, 99 - add)
         who = pick(NAMES)
         return _tb("%s adds %d to a number and gets %d. What was the number?" % (who, add, n + add), n, "int", {},
                    ["Undo the adding: %d − %d = %d." % (n + add, add, n)])
 
     def t_equal():
-        b = 10 * random.randint(2, 5)
+        b = 10 * random.randint(*_by(d, (2, 3), (2, 5), (3, 6)))
         a = random.randint(11, 99 - b)
         k = 10 * random.randint(1, b // 10 - 1)
+        if d == 2:
+            k += random.randint(1, 9)          # stretch: the balancing number is not a whole ten
         return _tb("Find the missing number:  %d + %d = %d + ___" % (a, b, a + k), b - k, "int", {},
                    ["%d + %d = %d." % (a, b, a + b), "%d − %d = %d." % (a + b, a + k, b - k)])
 
     def t_repeat():
         k = random.randint(2, 4)
-        st = pick([10, 1]) if d == 0 else pick([10, 20])
+        st = pick([10, 1]) if d == 0 else (pick([10, 20]) if d == 1 else pick([20, 30]))
+        if st == 30:
+            k = 2
         n = random.randint(11, 99 - k * st)
         return _tb("Start at %d and add %d, %s. Where do you end?" % (n, st, {2: "twice", 3: "three times", 4: "four times"}[k]),
                    n + k * st, "int", {}, ["%s." % _lst(n + i * st for i in range(k + 1))])
 
     def t_strip():
-        b = pick([10 * random.randint(1, 4), random.randint(3, 9)])
-        tot = random.randint(b + 11, 99)
+        if d == 0:
+            b = pick([10 * random.randint(1, 3), random.randint(2, 5)])
+            tot = random.randint(b + 11, 59)
+            while b < 10 and tot % 10 < b:      # easy: no crossing a ten
+                tot = random.randint(b + 11, 59)
+        elif d == 1:
+            b = pick([10 * random.randint(1, 4), random.randint(3, 9)])
+            tot = random.randint(b + 11, 99)
+        else:
+            b = pick([10 * random.randint(3, 6), random.randint(4, 9)])
+            tot = random.randint(b + 11, 99)
+            while b < 10 and tot % 10 >= b:     # stretch: the ones part crosses a ten
+                tot = random.randint(b + 11, 99)
         return _strip("The strip model shows a whole of %d split into two parts. One part is %d. What is the other part?"
                       % (tot, b), {"mode": "part_whole", "parts": 2, "totalLabel": str(tot), "partLabel": str(b), "unknown": "part"},
                       tot - b, ["%d − %d = %d." % (tot, b, tot - b), "Check: %d + %d = %d." % (tot - b, b, tot)])
@@ -748,25 +790,36 @@ def _x32e(d):
 
 def _x32f(d):
     def t_strip():
-        tot = random.randint(30, 99)
-        b = random.randint(11, tot - 8)
+        tot = random.randint(*_by(d, (20, 50), (30, 99), (60, 99)))
+        b = random.randint(*_by(d, (5, tot - 8), (11, tot - 8), (21, tot - 15)))
         return _strip("Find the missing part. The whole is %d and one part is %d." % (tot, b),
                       {"mode": "part_whole", "parts": 2, "totalLabel": str(tot), "partLabel": str(b), "unknown": "part"},
                       tot - b, ["%d + ___ = %d." % (b, tot), "%d − %d = %d." % (tot, b, tot - b)])
 
     def t_balance():
-        a, b, c = random.randint(11, 40), random.randint(11, 40), random.randint(5, 20)
+        lo, hi = _by(d, (11, 25), (11, 40), (21, 45))
+        clo, chi = _by(d, (5, 10), (5, 20), (11, 30))
+        a, b, c = random.randint(lo, hi), random.randint(lo, hi), random.randint(clo, chi)
         while a + b - c <= 0 or a + b - c == b:
-            c = random.randint(5, 20)
+            c = random.randint(clo, chi)
         x = a + b - c
         return _tb("Find the missing number:  %d + ___ = %d + %d" % (c, a, b), x, "int", {},
                    ["%d + %d = %d." % (a, b, a + b), "%d − %d = %d." % (a + b, c, x)])
 
     def t_think():
-        sub = random.randint(11, 40)
-        res = random.randint(11, 99 - sub)
+        sub = random.randint(*_by(d, (5, 15), (11, 40), (11, 40)))
+        res = random.randint(11, _by(d, 50, 99, 99) - sub)
         who = pick(NAMES)
         op = pick(["subtracts", "adds"])
+        if d == 2:
+            # stretch: two steps to undo
+            add = random.randint(11, 30)
+            n = random.randint(sub + 5, 99 - add)
+            out = n + add - sub
+            return _tb("%s thinks of a number, adds %d, then subtracts %d. The answer is %d. What was the number?"
+                       % (who, add, sub, out), n, "int", {},
+                       ["Undo the steps in reverse order.", "%d + %d = %d." % (out, sub, out + sub),
+                        "%d − %d = %d." % (out + sub, add, n)])
         if op == "adds":
             return _tb("%s thinks of a number and adds %d. The answer is %d. What was the number?" % (who, sub, res + sub), res, "int", {},
                        ["Undo it: %d − %d = %d." % (res + sub, sub, res)])
@@ -776,12 +829,22 @@ def _x32f(d):
     def t_digit():
         a = random.randint(21, 69)
         b = random.randint(11, 29)
+        if d == 0:
+            while a % 10 + b % 10 >= 10:        # easy: no crossing a ten
+                a, b = random.randint(21, 49), random.randint(11, 19)
+        elif d == 2:
+            while a % 10 + b % 10 < 10:         # stretch: the ones cross a ten
+                a, b = random.randint(21, 69), random.randint(11, 29)
         tot = a + b
+        if d == 2 and random.random() < 0.5:
+            # stretch: the missing digit is the tens digit
+            return _tb("A digit is missing:  □%d + %d = %d. What is the missing digit?" % (a % 10, b, tot), a // 10, "int", {},
+                       ["%d − %d = %d." % (tot, b, a), "So the missing digit is %d." % (a // 10)])
         return _tb("A digit is missing:  %d□ + %d = %d. What is the missing digit?" % (a // 10, b, tot), a % 10, "int", {},
                    ["%d − %d = %d." % (tot, b, a), "So the missing digit is %d." % (a % 10)])
 
     def t_table():
-        k = random.randint(11, 30)
+        k = pick([10, 20, 30]) if d == 0 else random.randint(*_by(d, (11, 30), (11, 30), (21, 45)))
         ins = random.sample(range(11, 99 - k), 3)
         miss = random.randrange(3)
         rows = [[i, i + k] for i in ins]
@@ -792,37 +855,64 @@ def _x32f(d):
 
 
 # ================================================================ 3.3 ======
-def _no_carry():
+# The pair builders take the difficulty: easy keeps the numbers small (and, with regrouping, to one column);
+# stretch uses larger numbers and regroups in two columns.
+def _cols(a, b):
+    """Ones and tens digits of a and b: (ao, bo, at, bt)."""
+    return a % 10, b % 10, a // 10 % 10, b // 10 % 10
+
+
+def _no_carry(d=1):
     while True:
-        a, b = random.randint(101, 799), random.randint(101, 199 if random.random() < 0.3 else 899)
-        if all(int(x) + int(y) < 10 for x, y in zip("%03d" % a, "%03d" % b)) and a + b < 1000:
+        if d == 0:
+            a, b = random.randint(101, 499), random.randint(101, 399)
+        else:
+            a, b = random.randint(101, 799), random.randint(101, 199 if random.random() < 0.3 else 899)
+        if all(int(x) + int(y) < 10 for x, y in zip("%03d" % a, "%03d" % b)) and a + b < 1000 and (d < 2 or a + b >= 700):
             return a, b
 
 
-def _carry():
+def _carry(d=1):
     while True:
-        a, b = random.randint(105, 799), random.randint(105, 799)
-        if a + b < 1000 and (a % 10 + b % 10 >= 10 or a // 10 % 10 + b // 10 % 10 >= 10):
+        hi = 499 if d == 0 else 799
+        a, b = random.randint(105, hi), random.randint(105, hi)
+        ao, bo, at, bt = _cols(a, b)
+        if a + b >= 1000:
+            continue
+        if d == 0 and ao + bo >= 10 and at + bt <= 8:         # one carry, ones to tens only
+            return a, b
+        if d == 1 and (ao + bo >= 10 or at + bt >= 10):
+            return a, b
+        if d == 2 and ao + bo >= 10 and at + bt >= 9:         # carries in two columns
             return a, b
 
 
-def _no_exchange():
+def _no_exchange(d=1):
     while True:
-        a, b = random.randint(200, 999), random.randint(101, 899)
-        if a > b and all(int(x) >= int(y) for x, y in zip("%03d" % a, "%03d" % b)):
+        a = random.randint(*((200, 599) if d == 0 else ((200, 999) if d == 1 else (600, 999))))
+        b = random.randint(101, 899 if d else 499)
+        if a > b and all(int(x) >= int(y) for x, y in zip("%03d" % a, "%03d" % b)) and (d < 2 or b >= 200):
             return a, b
 
 
-def _exchange():
+def _exchange(d=1):
     while True:
-        a, b = random.randint(300, 999), random.randint(101, 799)
-        if a > b and (a % 10 < b % 10 or a // 10 % 10 < b // 10 % 10):
+        a = random.randint(*((300, 699) if d == 0 else (300, 999)))
+        b = random.randint(101, 799 if d else a - 50)
+        if a <= b:
+            continue
+        ao, bo, at, bt = _cols(a, b)
+        if d == 0 and ao < bo and at > bt:                     # one exchange, tens to ones only
+            return a, b
+        if d == 1 and (ao < bo or at < bt):
+            return a, b
+        if d == 2 and ao < bo and at <= bt:                    # exchanges in two columns (often through a zero)
             return a, b
 
 
-def _column_set(kind):
+def _column_set(kind, d=1):
     """Framings shared by the four column-method skills; kind is add/carry/sub/exchange."""
-    pair = {"add": _no_carry, "carry": _carry, "sub": _no_exchange, "exchange": _exchange}[kind]
+    pair = lambda: {"add": _no_carry, "carry": _carry, "sub": _no_exchange, "exchange": _exchange}[kind](d)
     add = kind in ("add", "carry")
     op = "+" if add else "−"
 
@@ -871,10 +961,12 @@ def _column_set(kind):
     def t_error():
         who = pick(NAMES)
         if kind == "add":
-            a = random.randint(201, 799)
-            b = random.randint(11, 99)
+            alo, ahi = (201, 499) if d == 0 else ((201, 799) if d == 1 else (401, 899))
+            blo, bhi = (11, 49) if d == 0 else ((11, 99) if d == 1 else (31, 99))
+            a = random.randint(alo, ahi)
+            b = random.randint(blo, bhi)
             while a % 10 + b % 10 >= 10 or a // 10 % 10 + b // 10 >= 10 or a + 10 * b >= 1000:
-                a, b = random.randint(201, 799), random.randint(11, 99)
+                a, b = random.randint(alo, ahi), random.randint(blo, bhi)
             return _tb("%s worked out %d + %d and got %d, by lining up the %d under the hundreds and tens. What is the "
                        "correct answer?" % (who, a, b, a + 10 * b, b), a + b, "int", {},
                        ["Line the ones up under the ones.", "%d + %d = %d." % (a, b, a + b)])
@@ -884,10 +976,12 @@ def _column_set(kind):
             return _tb("%s worked out %d + %d = %d but forgot to carry. What is the correct answer?" % (who, a, b, wrong),
                        a + b, "int", {}, ["Carry each ten ones into the next column.", "%d + %d = %d." % (a, b, a + b)])
         if kind == "sub":
-            a = random.randint(300, 999)
-            b = random.randint(11, 99)
+            alo, ahi = (300, 699) if d == 0 else ((300, 999) if d == 1 else (600, 999))
+            blo, bhi = (11, 49) if d == 0 else ((11, 99) if d == 1 else (31, 99))
+            a = random.randint(alo, ahi)
+            b = random.randint(blo, bhi)
             while a % 10 < b % 10 or a // 10 % 10 < b // 10 or a // 100 <= b // 10 or (a - 10 * b) < 0:
-                a, b = random.randint(300, 999), random.randint(11, 99)
+                a, b = random.randint(alo, ahi), random.randint(blo, bhi)
             return _tb("%s worked out %d − %d and got %d, by lining the %d up under the hundreds and tens. What is the "
                        "correct answer?" % (who, a, b, a - 10 * b, b), a - b, "int", {},
                        ["Line the ones up under the ones.", "%d − %d = %d." % (a, b, a - b)])
@@ -900,7 +994,7 @@ def _column_set(kind):
     def t_three():
         if add:
             while True:
-                xs = [random.randint(101, 399) for _ in range(3)]
+                xs = [random.randint((101, 101, 180)[d], (299, 399, 330)[d]) for _ in range(3)]
                 s = sum(xs)
                 no_c = all(sum(int(("%03d" % x)[i]) for x in xs) < 10 for i in range(3))
                 if s < 1000 and (no_c if kind == "add" else not no_c):
@@ -952,7 +1046,12 @@ def _column_set(kind):
 
 def _x33f(d):
     def pair():
-        return random.randint(120, 600), random.randint(110, 390)
+        # the same number sizes as the original Y3.3.f tiers
+        if d == 0:
+            return random.randint(120, 300), random.randint(100, 200)
+        if d == 1:
+            return random.randint(120, 600), random.randint(110, 390)
+        return random.randint(238, 640), random.randint(147, 350)
 
     def t_which_check():
         a, b = pair()
@@ -979,14 +1078,16 @@ def _x33f(d):
 
     def t_family():
         a, b = pair()
-        k = random.randint(1, 3)
+        k = random.randint(*_by(d, (1, 2), (1, 3), (4, 9)))
         return _tb("You know that %d + %d = %d. Use this to find %d − %d." % (a, b, a + b, a + b, b + k), a - k, "int", {},
                    ["%d − %d = %d." % (a + b, b, a), "Taking away %d more leaves %d less: %d − %d = %d." % (k, k, a, k, a - k)])
 
     def t_sensible():
-        a, b = random.randint(150, 450), random.randint(150, 450)
+        a, b = pair()
         right = random.random() < 0.5
-        claim = a + b if right else a + b + pick([-100, 100])
+        claim = a + b if right else a + b + pick(_by(d, [-100, 100], [-100, 100], [-10, 10, -1, 1]))
+        if claim > 999:
+            claim = a + b - 100
         return _yn("Leo says %d + %d = %d. Check it with the inverse: is Leo right?" % (a, b, claim), right,
                    ["%d − %d = %d." % (claim, b, claim - b), "%s" % ("That gets back to %d, so Leo is right." % a if right
                                                                       else "That is not %d, so Leo is wrong: %d + %d = %d." % (a, a, b, a + b))])
@@ -999,7 +1100,7 @@ def _x33f(d):
         bad = random.randrange(3)
         shown = []
         for i, (a, b) in enumerate(cs):
-            r = a + b + (pick([-10, 10]) if i == bad else 0)
+            r = a + b + (pick([-10, 10] if d < 2 else [-1, 1, -10, 10]) if i == bad else 0)
             shown.append("%s: %d + %d = %d" % ("ABC"[i], a, b, r))
         a, b = cs[bad]
         return _wq("One of these is wrong. Check each one with the inverse.  %s  (type A, B or C)" % "   ".join(shown), "ABC"[bad],
@@ -1018,7 +1119,7 @@ def _x33f(d):
 
     def t_strip():
         a, b = pair()
-        claim = a + b + pick([0, 0, -10, 10, 100])
+        claim = a + b + pick([0, 0, -10, 10, 100] if a + b < 900 else [0, 0, -10, 10, -100])
         return _strip("Ella says %d + %d = %d. The strip checks it: the whole is %d and one part is %d. What is the other part? "
                       "(If it is not %d, Ella made a mistake.)" % (a, b, claim, claim, a, b),
                       {"mode": "part_whole", "parts": 2, "totalLabel": str(claim), "partLabel": str(a), "unknown": "part"},
@@ -1029,28 +1130,38 @@ def _x33f(d):
 
 
 def _x33g(d):
+    def n3(lo, hi):
+        """A number in [lo, hi] for this tier: easy = a round ten in the lower half, stretch = the upper part."""
+        if d == 0:
+            return 10 * random.randint(-(-lo // 10), (lo + (hi - lo) // 2) // 10)
+        if d == 2:
+            return random.randint(lo + (hi - lo) // 3, hi)
+        return random.randint(lo, hi)
+
     def t_more_than():
-        a = random.randint(110, 400)
-        k = random.randint(50, 300)
+        a = n3(110, 400)
+        k = n3(50, 300)
         x, y = pick([("Shelf A", "Shelf B"), ("Class 3A", "Class 3B"), ("The red team", "The blue team")])
         thing = pick(["books", "cans", "points"])
         more = random.random() < 0.5
         b = a + k if more else a - k
         if b <= 0:
             more, b = True, a + k
+        if a + b > 999:                       # keep the total within 1,000 (only "more" can overshoot)
+            more, b = False, a - k
         return _tb("%s has %d %s. %s has %d %s than %s. How many %s are there altogether?"
                    % (x, a, thing, y, k, "more" if more else "fewer", x.lower() if x.startswith("The") else x, thing),
                    a + b, "int", {}, ["%s has %d %s %d = %d." % (y, a, "+" if more else "−", k, b), "%d + %d = %d." % (a, b, a + b)])
 
     def t_stay():
-        boys, girls = random.randint(110, 300), random.randint(110, 300)
-        go = random.randint(60, boys + girls - 50)
+        boys, girls = n3(110, 300), n3(110, 300)
+        go = n3(60, boys + girls - 50)
         return _tb("A school has %d boys and %d girls. %d pupils go on a trip. How many pupils stay at school?" % (boys, girls, go),
                    boys + girls - go, "int", {}, ["%d + %d = %d pupils." % (boys, girls, boys + girls),
                                                   "%d − %d = %d." % (boys + girls, go, boys + girls - go)])
 
     def t_table():
-        a, b, c = random.randint(110, 300), random.randint(110, 300), random.randint(110, 300)
+        a, b, c = n3(110, 300), n3(110, 300), n3(110, 300)
         days = ["Monday", "Tuesday", "Wednesday"]
         miss = random.randrange(3)
         vals = [a, b, c]
@@ -1061,20 +1172,21 @@ def _x33g(d):
                    missing=(miss, 1))
 
     def t_balance():
-        a, b = random.randint(150, 400), random.randint(100, 300)
-        n = random.randint(500, 900)
+        a, b = n3(150, 400), n3(100, 300)
+        n = n3(500, 900)
         x = n - a - b
         while x <= 0:
-            n = random.randint(500, 900)
+            n = n3(500, 900) if d < 2 else random.randint(a + b + 11, 999)
             x = n - a - b
         return _tb("Find the missing number:  %d − ___ = %d + %d" % (n, a, b), x, "int", {},
                    ["%d + %d = %d." % (a, b, a + b), "%d − %d = %d." % (n, a + b, x)])
 
     def t_bars():
         cats = ["Year 3", "Year 4", "Year 5"]
-        vals = [10 * random.randint(10, 40) for _ in cats]
+        lo, hi = _by(d, (10, 25), (10, 40), (20, 45))
+        vals = [10 * random.randint(lo, hi) for _ in cats]
         while vals[0] + vals[1] <= vals[2]:
-            vals = [10 * random.randint(10, 40) for _ in cats]
+            vals = [10 * random.randint(lo, hi) for _ in cats]
         return _bar("The chart shows how many cans each year group collected. How many more cans did Year 3 and Year 4 "
                     "collect together than Year 5?", cats, vals, vals[0] + vals[1] - vals[2],
                     ["%d + %d = %d." % (vals[0], vals[1], vals[0] + vals[1]),
@@ -1311,35 +1423,53 @@ def _x34h(d):
 
 def _x34i(d):
     def t_assoc():
-        a, b, c = pick([(4, 7, 5), (5, 9, 2), (2, 8, 5), (5, 6, 2), (4, 3, 5), (2, 13, 5)])
-        return _tb("Work out %d × %d × %d. Tip: multiply the pair that makes 10 or 20 first." % (a, b, c), a * b * c, "int", {},
+        a, b, c = pick(_by(d, [(2, 3, 5), (5, 4, 2), (2, 7, 5), (5, 3, 2)],
+                           [(4, 7, 5), (5, 9, 2), (2, 8, 5), (5, 6, 2), (4, 3, 5), (2, 13, 5)],
+                           [(5, 14, 2), (2, 16, 5), (4, 9, 5), (5, 12, 4), (2, 17, 5), (4, 11, 5)]))
+        tip = " Tip: multiply the pair that makes 10 or 20 first." if d < 2 else ""
+        return _tb("Work out %d × %d × %d.%s" % (a, b, c, tip), a * b * c, "int", {},
                    ["%d × %d = %d first." % (a, c, a * c), "%d × %d = %d." % (a * c, b, a * b * c)])
 
     def t_commute():
-        a, b = random.randint(2, 12), random.randint(2, 12)
+        hi = _by(d, 6, 12, 12)
+        a, b = random.randint(2, hi), random.randint(2, hi)
+        if d == 2:
+            # stretch: three factors in a new order
+            c = random.randint(2, 5)
+            return _tb("Find the missing number:  %d × %d × %d = %d × %d × ___" % (a, b, c, c, a), b, "int", {},
+                       ["Multiplying in any order gives the same product.", "The missing factor is %d." % b])
         return _tb("Find the missing number:  %d × %d = %d × ___" % (a, b, b), a, "int", {},
                    ["Multiplying in either order gives the same product."])
 
     def t_distribute():
-        a, b = random.randint(3, 8), random.randint(6, 9)
-        c = random.randint(2, b - 2)
+        a = random.randint(*_by(d, (2, 5), (3, 8), (3, 8)))
+        b = random.randint(*_by(d, (6, 7), (6, 9), (12, 16)))
+        c = 10 if d == 2 else random.randint(2, b - 2)
         return _tb("Find the missing number:  %d × %d = %d × %d + %d × ___" % (a, b, a, c, a), b - c, "int", {},
                    ["%d = %d + %d." % (b, c, b - c), "So %d × %d = %d × %d + %d × %d." % (a, b, a, c, a, b - c)])
 
     def t_zero():
-        n = random.randint(11, 99)
+        n = random.randint(2, 12) if d == 0 else random.randint(11, 99)
+        if d == 2:
+            # stretch: the 0 or 1 is the missing factor
+            if random.random() < 0.5:
+                return _tb("Find the missing number:  %d × ___ = 0" % n, 0, "int", {}, ["Only multiplying by 0 gives 0."])
+            return _tb("Find the missing number:  %d × ___ = %d" % (n, n), 1, "int", {},
+                       ["Multiplying by 1 leaves a number the same."])
         if random.random() < 0.5:
             return _tb("Work out %d × 0." % n, 0, "int", {}, ["Any number multiplied by 0 is 0."])
         return _tb("Work out %d × 1." % n, n, "int", {}, ["Multiplying by 1 leaves a number the same."])
 
     def t_div_order():
-        a, b = random.randint(2, 5), random.randint(2, 5)
-        p = a * b * pick([2, 3])
+        hi = _by(d, 3, 5, 5)
+        a, b = random.randint(2, hi), random.randint(2, hi)
+        p = a * b * pick(_by(d, [2], [2, 3], [3, 4]))
         return _tf("%d ÷ %d is the same as %d ÷ %d." % (p, a, a, p), False,
                    ["%d ÷ %d = %d, but %d ÷ %d is less than 1." % (p, a, p // a, a, p), "Division cannot be done in either order."])
 
     def t_groups():
-        g, per = random.randint(2, 6), random.randint(2, 9)
+        g = random.randint(*_by(d, (2, 4), (2, 6), (4, 8)))
+        per = random.randint(*_by(d, (2, 5), (2, 9), (5, 10)))
         return _eg("There are %d groups of %d. %d × %d gives the same total. Type the total." % (g, per, per, g), g, per, g * per,
                    ["%d × %d = %d × %d = %d." % (g, per, per, g, g * per)])
 
@@ -1642,7 +1772,7 @@ def _(d=1):
                    a, "int", {}, ["%d ÷ %d = %d." % (a * k, k, a)])
 
     def t_tall():
-        h = random.randint(2, 9)
+        h = random.randint(*_by(d, (2, 5), (2, 9), (11, 19)))
         return _tb("A plant is %d cm tall. A tree is %d times as tall. How tall is the tree, in cm?" % (h, k), h * k, "int",
                    {"unit": "cm"}, ["%d × %d = %d cm." % (h, k, h * k)])
 
@@ -1651,19 +1781,25 @@ def _(d=1):
                    % (a, a * k), k, "int", {}, ["%d ÷ %d = %d." % (a * k, a, k)])
 
     def t_recipe():
-        e = random.randint(1, 3)
-        f = pick([2, 3, 4])
-        return _tb("A recipe for 2 people uses %s. How many eggs are needed for %d people?" % (_pl(e, "egg"), 2 * f), e * f, "int", {},
-                   ["%d people is %d times as many as 2." % (2 * f, f), "%d × %d = %d eggs." % (e, f, e * f)])
+        e = random.randint(*_by(d, (1, 2), (1, 3), (2, 4)))
+        f = pick(_by(d, [2, 3], [2, 3, 4], [3, 4, 5]))
+        ppl = 3 if d == 2 else 2           # stretch: a recipe for 3, so the scale factor is less obvious
+        return _tb("A recipe for %d people uses %s. How many eggs are needed for %d people?" % (ppl, _pl(e, "egg"), ppl * f), e * f, "int", {},
+                   ["%d people is %d times as many as %d." % (ppl * f, f, ppl), "%d × %d = %d eggs." % (e, f, e * f)])
 
     def t_outfits():
-        h, s = random.randint(2, 4), random.randint(2, 5)
+        h, s = random.randint(*_by(d, (2, 3), (2, 4), (3, 5))), random.randint(*_by(d, (2, 3), (2, 5), (4, 6)))
+        if d == 2 and random.random() < 0.5:
+            # stretch: work backwards from the number of outfits
+            return _tb("%s has %s and some scarves, and can make %d different outfits of one hat and one scarf. How many scarves "
+                       "does %s have?" % (x, _pl(h, "hat"), h * s, x), s, "int", {},
+                       ["Each hat goes with every scarf, so hats × scarves = %d." % (h * s), "%d ÷ %d = %d scarves." % (h * s, h, s)])
         return _tb("%s has %s and %s. How many different outfits of one hat and one scarf can %s make?"
                    % (x, _pl(h, "hat"), _pl(s, "scarf", "scarves"), x), h * s, "int", {},
                    ["Each hat goes with each of the %d scarves." % s, "%d × %d = %d outfits." % (h, s, h * s)])
 
     def t_sandwiches():
-        b, f = random.randint(2, 3), random.randint(3, 6)
+        b, f = random.randint(*_by(d, (2, 2), (2, 3), (3, 4))), random.randint(*_by(d, (3, 4), (3, 6), (5, 8)))
         return _tb("A café has %d kinds of bread and %d fillings. A sandwich uses one bread and one filling. How many different "
                    "sandwiches can be made?" % (b, f), b * f, "int", {}, ["%d × %d = %d." % (b, f, b * f)])
 
@@ -1673,8 +1809,8 @@ def _(d=1):
                    % (s, m, p), s * m * p, "int", {}, ["%d × %d × %d = %d." % (s, m, p, s * m * p)])
 
     def t_table():
-        h, s = 2, random.randint(3, 4)
-        hats = ["red hat", "blue hat"]
+        h, s = (2 if d < 2 else 3), random.randint(3, 3 if d == 0 else 4)
+        hats = ["red hat", "blue hat", "green hat"][:h]
         scarves = ["spotty", "stripy", "plain", "checked"][:s]
         rows = [[hat] + ["✓"] * s for hat in hats]
         return _dt("The table lists every hat and scarf pair (a tick is one outfit). How many outfits are there?",
@@ -1692,18 +1828,18 @@ def _(d=1):
                    g, p, g * p, ["%d × %d = %d." % (g, p, g * p)])
 
     def t_bars():
-        b = random.randint(2, 6)
+        b = random.randint(*_by(d, (2, 5), (2, 6), (5, 12)))
         return _bar("Red got %d times as many votes as Blue. The chart shows Blue's votes. How many votes did Red get?" % k,
                     ["Blue"], [b], b * k, ["Blue got %d." % b, "%d × %d = %d." % (b, k, b * k)])
 
     def t_n_to_m():
         if random.random() < 0.5:
-            c, cost = pick([(2, 10), (3, 20), (4, 25), (5, 30)])
-            n = random.randint(2, 4)
+            c, cost = pick(_by(d, [(2, 10), (5, 10)], [(2, 10), (3, 20), (4, 25), (5, 30)], [(3, 20), (4, 25), (5, 30), (3, 15)]))
+            n = random.randint(*_by(d, (2, 3), (2, 4), (3, 5)))
             return _tb("%d pencils cost %dp. How much do %d pencils cost, in pence?" % (c, cost, c * n), cost * n, "int", {"unit": "p"},
                        ["%d pencils is %d lots of %d." % (c * n, n, c), "%d × %dp = %dp." % (n, cost, cost * n)])
-        c, w = pick([(4, 1), (5, 1), (6, 2), (8, 2)])
-        n = random.randint(2, 5)
+        c, w = pick(_by(d, [(4, 1), (5, 1)], [(4, 1), (5, 1), (6, 2), (8, 2)], [(6, 2), (8, 2), (5, 2), (10, 3)]))
+        n = random.randint(*_by(d, (2, 4), (2, 5), (3, 6)))
         return _tb("On a school trip there %s %d %s for every %d children. How many adults are needed for %d children?"
                    % ("is" if w == 1 else "are", w, "adult" if w == 1 else "adults", c, c * n), w * n, "int", {},
                    ["%d children is %d groups of %d." % (c * n, n, c), "%d × %d = %d adults." % (n, w, w * n)])
@@ -1744,32 +1880,35 @@ def _x36d(d):
 
 def _x36e(d):
     def t_count_on():
-        a = random.randint(1, 5)
-        k = random.randint(2, 10 - a - 1)
+        a = random.randint(*_by(d, (1, 3), (1, 5), (4, 7)))
+        k = random.randint(2, _by(d, 3, 10 - a - 1, 10 - a))
         return _fq("Start at %d/10 and count on %s. Where do you finish?" % (a, _pl(k, "tenth")), Fraction(a + k, 10),
-                   ["%d/10 + %d/10 = %d/10." % (a, k, a + k)], "e.g. 7/10")
+                   ["%d/10 + %d/10 = %d/10." % (a, k, a + k)] + (["10/10 is 1 whole."] if a + k == 10 else []), "e.g. 7/10")
 
     def t_to_whole():
-        a = random.randint(5, 7)
+        a = random.randint(*_by(d, (7, 7), (5, 7), (3, 4)))
         blanks = 10 - (a + 2)
         return _fq("Count on in tenths: %d/10, %d/10, %d/10, %s. What is the last missing number? (a fraction or a whole number)"
                    % (a, a + 1, a + 2, ", ".join(["___"] * blanks)), Fraction(1),
                    ["The count goes %s." % ", ".join("%d/10" % v for v in range(a + 3, 11)), "10/10 is 1 whole."], "e.g. 1")
 
     def t_back_from_one():
-        k = random.randint(2, 6)
+        k = random.randint(*_by(d, (2, 3), (2, 6), (5, 8)))
         return _fq("Count back in tenths from 1: 1, 9/10, 8/10, ... What is the %s number in the count (1 is the 1st)?"
-                   % ["", "", "2nd", "3rd", "4th", "5th", "6th", "7th"][k + 1], Fraction(10 - k, 10),
+                   % ["", "", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][k + 1], Fraction(10 - k, 10),
                    ["Each step takes away 1/10.", "After %s you reach %d/10." % (_pl(k, "step"), 10 - k)], "e.g. 7/10")
 
     def t_missing():
-        st = random.randint(1, 2)
+        st = 1 if d == 0 else (random.randint(1, 2) if d == 1 else 2)
         a = random.randint(1, 3)
         seq = [a + i * st for i in range(4)]
+        if d == 2 and random.random() < 0.5:
+            seq = seq[::-1]                       # stretch: a count backwards
         miss = random.randint(1, 2)
         shown = ["%d/10" % v if i != miss else "___" for i, v in enumerate(seq)]
         return _fq("Find the missing number:  %s" % ", ".join(shown), Fraction(seq[miss], 10),
-                   ["The count goes up by %s." % _pl(st, "tenth"), "The missing number is %d/10." % seq[miss]], "e.g. 5/10")
+                   ["The count goes %s by %s." % ("up" if seq[1] > seq[0] else "down", _pl(st, "tenth")),
+                    "The missing number is %d/10." % seq[miss]], "e.g. 5/10")
 
     def t_tenths_over():
         w, t = 1, random.randint(1, 9)
@@ -1777,14 +1916,25 @@ def _x36e(d):
                    ["1 whole is 10 tenths.", "10 + %d = %d tenths." % (t, 10 + t)])
 
     def t_ruler():
-        v = random.randint(1, 9)
+        v = random.randint(*_by(d, (1, 5), (1, 9), (2, 8)))
+        if d == 2:
+            # stretch: the part that is left
+            return _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
+                          "How many tenths of the strip are LEFT?", "length", v, 10, "cm", 10 - v,
+                          ["The piece is %d cm, which is %d/10 of the strip." % (v, v), "10/10 − %d/10 = %d/10 left." % (v, 10 - v)])
         return _ruler("The strip is 10 cm long, so each centimetre is one tenth of it. The ruler shows a piece cut from the strip. "
                       "How many tenths of the strip is the piece?", "length", v, 10, "cm", v,
                       ["The piece is %d cm." % v, "That is %d/10 of the strip." % v])
 
     def t_bar():
-        a = random.randint(1, 5)
-        k = random.randint(1, 4)
+        if d == 2:
+            # stretch: count back
+            a = random.randint(6, 9)
+            k = random.randint(2, a - 1)
+            return _fbar("Start at %d/10 and count back %s. Shade where you finish." % (a, _pl(k, "tenth")), 10, a - k,
+                         ["%d/10 − %d/10 = %d/10." % (a, k, a - k)])
+        a = random.randint(1, _by(d, 3, 5, 5))
+        k = random.randint(1, _by(d, 2, 4, 4))
         return _fbar("Start at %d/10 and count on %s. Shade where you finish." % (a, _pl(k, "tenth")), 10, a + k,
                      ["%d/10 + %d/10 = %d/10." % (a, k, a + k)])
 
@@ -1963,24 +2113,35 @@ def _x36k(d):
 # ================================================================ 3.7 ======
 def _x37b(d):
     def t_mm():
-        a = random.randint(60, 150)
-        b = random.randint(5, 40)
+        a = random.randint(*_by(d, (60, 99), (60, 150), (101, 200)))
+        b = random.randint(*_by(d, (2, 9), (5, 40), (25, 60)))
         return _tb("A pencil is %d mm long. It is sharpened and loses %d mm. How long is it now, in mm?" % (a, b), a - b, "int",
                    {"unit": "mm"}, ["%d − %d = %d mm." % (a, b, a - b)])
 
     def t_m_cm_add():
-        m1, c1, m2, c2 = random.randint(1, 3), 10 * random.randint(1, 5), random.randint(1, 3), 10 * random.randint(1, 4)
+        m1, m2 = random.randint(1, _by(d, 2, 3, 3)), random.randint(1, _by(d, 2, 3, 3))
+        if d == 2:
+            # stretch: the centimetres make more than a metre
+            c1 = random.randint(45, 85)
+            c2 = random.randint(101 - c1, 95)
+        else:
+            c1, c2 = 10 * random.randint(1, _by(d, 4, 5, 5)), 10 * random.randint(1, _by(d, 4, 4, 4))
         tot = 100 * (m1 + m2) + c1 + c2
         return _tb("Add %d m %d cm and %d m %d cm. Give your answer in cm." % (m1, c1, m2, c2), tot, "int", {"unit": "cm"},
                    ["%d cm + %d cm = %d cm." % (100 * m1 + c1, 100 * m2 + c2, tot)])
 
     def t_to_metre():
-        c = random.randint(11, 89)
+        if d == 2:
+            # stretch: up to 2 metres
+            c = random.randint(111, 189)
+            return _tb("A ribbon is %d cm long. How much more ribbon is needed to make 2 m?" % c, 200 - c, "int", {"unit": "cm"},
+                       ["2 m = 200 cm.", "200 − %d = %d cm." % (c, 200 - c)])
+        c = 10 * random.randint(1, 9) if d == 0 else random.randint(11, 89)
         return _tb("A ribbon is %d cm long. How much more ribbon is needed to make 1 m?" % c, 100 - c, "int", {"unit": "cm"},
                    ["1 m = 100 cm.", "100 − %d = %d cm." % (c, 100 - c)])
 
     def t_mixed_diff():
-        c = random.randint(3, 12)
+        c = random.randint(*_by(d, (3, 6), (3, 12), (8, 15)))
         m = random.randint(10, 10 * c - 5)
         while m == 10 * c:
             m += 3
@@ -1989,7 +2150,7 @@ def _x37b(d):
 
     def t_bars():
         cats = random.sample(NAMES, 3)
-        vals = random.sample(range(60, 190, 10), 3)
+        vals = [10 * v for v in random.sample(range(*_by(d, (2, 10), (6, 19), (11, 30))), 3)]
         i, j = random.sample(range(3), 2)
         if vals[i] < vals[j]:
             i, j = j, i
@@ -1997,7 +2158,7 @@ def _x37b(d):
                     cats, vals, vals[i] - vals[j], ["%d − %d = %d cm." % (vals[i], vals[j], vals[i] - vals[j])])
 
     def t_table():
-        vals = [random.randint(12, 60) for _ in range(3)]
+        vals = [random.randint(*_by(d, (10, 30), (12, 60), (35, 99))) for _ in range(3)]
         return _dt("The table shows three pieces of ribbon. What is their total length, in cm?", ["Ribbon", "Length (cm)"],
                    [["Red", vals[0]], ["Blue", vals[1]], ["Green", vals[2]]], sum(vals),
                    ["%d + %d + %d = %d cm." % (vals[0], vals[1], vals[2], sum(vals))])
@@ -2009,39 +2170,63 @@ def _x37b(d):
 _RN = ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"]
 
 
+def _tm(d, lo, hi):
+    """A number of minutes in [lo, hi] for the tier: easy = a multiple of 10, core = of 5, stretch = to the minute."""
+    step = (10, 5, 1)[d]
+    first = -(-lo // step) * step
+    if first > hi:
+        return lo
+    v = random.randrange(first, hi + 1, step)
+    if d == 2 and v % 5 == 0 and hi > lo:
+        v = v + 1 if v < hi else v - 1           # stretch: off the five-minute marks
+    return v
+
+
 def _x38b(d):
     h = random.randint(1, 12)
 
     def t_roman():
-        m5 = random.randint(1, 11)
+        m5 = pick([3, 6, 9]) if d == 0 else random.randint(1, 11)
+        extra = random.randint(1, 4) if d == 2 else 0
+        where = ("%s past %s" % (_pl(extra, "small mark"), _RN[m5])) if extra else _RN[m5]
         return _time("On a clock with Roman numerals, the hour hand is between %s and %s and the minute hand points to %s. Write the time "
-                     "in digital form (h:mm)." % (_RN[h % 12], _RN[(h + 1) % 12], _RN[m5]), h, 5 * m5,
-                     ["%s is %d, so it is after %d o'clock." % (_RN[h % 12], h, h), "The minute hand on %s means %d minutes past." % (_RN[m5], 5 * m5)])
+                     "in digital form (h:mm)." % (_RN[h % 12], _RN[(h + 1) % 12], where), h, 5 * m5 + extra,
+                     ["%s is %d, so it is after %d o'clock." % (_RN[h % 12], h, h),
+                      "The minute hand on %s means %d minutes past%s." % (_RN[m5], 5 * m5, (", plus %d more" % extra) if extra else "")])
 
     def t_points_to():
-        k = random.randint(1, 11)
+        k = random.randint(1, 6 if d == 0 else 11)
+        if d == 2:
+            # stretch: minutes TO the next hour
+            return _tb("The minute hand points to the %d. How many minutes is it until the next o'clock?" % k, 60 - 5 * k, "int",
+                       {"unit": "minutes"}, ["The %d means %d minutes past." % (k, 5 * k), "60 − %d = %d minutes." % (5 * k, 60 - 5 * k)])
         return _tb("The minute hand points to the %d. How many minutes past the hour is it?" % k, 5 * k, "int", {"unit": "minutes"},
                    ["Each number on the clock is 5 minutes.", "%d × 5 = %d minutes." % (k, 5 * k)])
 
     def t_minutes_to():
-        mm = pick([5, 10, 20, 25])
+        mm = pick([10, 15, 20]) if d == 0 else (pick([5, 10, 20, 25]) if d == 1 else pick([n for n in range(2, 29) if n % 5]))
         nh = h % 12 + 1
         return _time("Write '%d minutes to %d' in digital form (h:mm)." % (mm, nh), h, 60 - mm,
                      ["%d minutes to %d is %d minutes after %d o'clock." % (mm, nh, 60 - mm, h), "= %s." % _hm(h, 60 - mm)])
 
     def t_small_marks():
-        k = random.randint(1, 10)
-        extra = random.randint(1, 4)
+        k = random.randint(1, 6 if d == 0 else 10) + (1 if d == 2 else 0)
+        extra = random.randint(1, 2 if d == 0 else 4)
+        if d == 2:
+            # stretch: the hand is just BEFORE a number
+            return _tb("The minute hand is %s before the %d. How many minutes past the hour is it?" % (_pl(extra, "small mark"), k),
+                       5 * k - extra, "int", {"unit": "minutes"},
+                       ["The %d means %d minutes." % (k, 5 * k), "%d − %d = %d." % (5 * k, extra, 5 * k - extra)])
         return _tb("The minute hand is %s after the %d. How many minutes past the hour is it?" % (_pl(extra, "small mark"), k),
                    5 * k + extra, "int", {"unit": "minutes"}, ["The %d means %d minutes." % (k, 5 * k), "%d + %d = %d." % (5 * k, extra, 5 * k + extra)])
 
     def t_how_many_to():
-        m = random.randint(1, 11) * 5 + (random.randint(1, 4) if d == 2 else 0)
+        m = 15 * random.randint(1, 3) if d == 0 else random.randint(1, 11) * 5 + (random.randint(1, 4) if d == 2 else 0)
         return _tb("The time is %s. How many minutes are there until %d o'clock?" % (_hm(h, m), h % 12 + 1), 60 - m, "int",
                    {"unit": "minutes"}, ["60 − %d = %s." % (m, _pl(60 - m, "minute"))])
 
     def t_to_form():
-        mm = pick([35, 40, 45, 50, 55])
+        mm = pick([45, 50]) if d == 0 else (pick([35, 40, 45, 50, 55]) if d == 1 else pick([n for n in range(31, 59) if n % 5]))
         return _tb("%s is ___ minutes to %d. What is the missing number?" % (_hm(h, mm), h % 12 + 1), 60 - mm, "int", {},
                    ["60 − %d = %d." % (mm, 60 - mm)])
 
@@ -2053,10 +2238,10 @@ def _x38d(d):
 
     def t_compare():
         x, y = random.sample(NAMES, 2)
-        s1, s2 = 5 * random.randint(0, 3), 5 * random.randint(0, 3)
-        l1, l2 = 5 * random.randint(3, 8), 5 * random.randint(3, 8)
+        s1, s2 = _tm(d, 0, 15), _tm(d, 0, 15)
+        l1, l2 = _tm(d, 15, 40), _tm(d, 15, 40)
         while l1 == l2:
-            l2 = 5 * random.randint(3, 8)
+            l2 = _tm(d, 15, 40)
         longer = x if l1 > l2 else y
         return _tb("%s walks from %s to %s. %s walks from %s to %s. How many minutes longer is %s's walk?"
                    % (x, _hm(h, s1), _hm(h, s1 + l1), y, _hm(h, s2), _hm(h, s2 + l2), longer), abs(l1 - l2), "int", {"unit": "minutes"},
@@ -2068,7 +2253,7 @@ def _x38d(d):
         while starts[-1] >= 60:
             starts = [0]
             for _ in range(3):
-                starts.append(starts[-1] + 5 * random.randint(2, 4))
+                starts.append(starts[-1] + _tm(d, 8, 20))
         i = random.randrange(3)
         return _dt("The TV guide shows start times. Each show ends when the next one starts. How many minutes long is %s?" % shows[i],
                    ["Show", "Starts"], [[sh, _hm(h, st)] for sh, st in zip(shows, starts)] + [["Bedtime story", _hm(h, starts[3])]],
@@ -2076,23 +2261,32 @@ def _x38d(d):
                                                "That is %d minutes." % (starts[i + 1] - starts[i])])
 
     def t_end_typed():
-        s = 5 * random.randint(0, 6)
-        l = 5 * random.randint(2, 11 - s // 5)
+        s = _tm(d, 0, 30)
+        l = _tm(d, 10, 55 - s)
         return _time("A cake goes into the oven at %s and needs %d minutes. What time does it come out? (h:mm)" % (_hm(h, s), l), h, s + l,
                      ["%s + %d minutes = %s." % (_hm(h, s), l, _hm(h, s + l))])
 
     def t_quarter():
-        f, mins = pick([("a quarter of an hour", 15), ("half an hour", 30), ("three quarters of an hour", 45)])
+        f, mins = pick(_by(d, [("a quarter of an hour", 15), ("half an hour", 30)],
+                           [("a quarter of an hour", 15), ("half an hour", 30), ("three quarters of an hour", 45)],
+                           [("three quarters of an hour", 45), ("half an hour and 10 minutes", 40),
+                            ("a quarter of an hour and 8 minutes", 23), ("half an hour and a quarter of an hour", 45)]))
         return _tb("How many minutes are there in %s?" % f, mins, "int", {"unit": "minutes"}, ["1 hour = 60 minutes.", "%s = %d minutes." % (f.capitalize(), mins)])
 
     def t_bars():
         cats = ["Mon", "Tue", "Wed", "Thu"]
-        vals = random.sample(range(10, 60, 5), 4)
+        vals = random.sample(range(10, 60, 10 if d == 0 else 5), 4)
         i, j = random.sample(range(4), 2)
         if vals[i] < vals[j]:
             i, j = j, i
+        who = pick(NAMES)
+        if d == 2:
+            # stretch: how far short of a whole hour
+            return _bar("The chart shows how many minutes %s spent reading each day. How many more minutes would %s have needed on %s "
+                        "to read for a whole hour?" % (who, who, cats[j]), cats, vals, 60 - vals[j],
+                        ["%s read for %d minutes on %s." % (who, vals[j], cats[j]), "60 − %d = %d minutes." % (vals[j], 60 - vals[j])])
         return _bar("The chart shows how many minutes %s spent reading each day. How many more minutes on %s than on %s?"
-                    % (pick(NAMES), cats[i], cats[j]), cats, vals, vals[i] - vals[j], ["%d − %d = %d minutes." % (vals[i], vals[j], vals[i] - vals[j])])
+                    % (who, cats[i], cats[j]), cats, vals, vals[i] - vals[j], ["%d − %d = %d minutes." % (vals[i], vals[j], vals[i] - vals[j])])
 
     return [t_compare, t_end_typed, t_quarter, t_tv, t_tv, t_bars, t_bars]
 
@@ -2102,53 +2296,53 @@ def _x38e(d):
 
     def t_timetable():
         stops = random.sample(["Park", "Library", "School", "Market", "Station", "Pool"], 4)
-        t0 = 60 * h + 5 * random.randint(6, 10)
+        t0 = 60 * h + _tm(d, 30, 50)
         times = [t0]
         for _ in range(3):
-            times.append(times[-1] + 5 * random.randint(3, 6))
+            times.append(times[-1] + _tm(d, 15, 30))
         i, j = sorted(random.sample(range(4), 2))
         return _dt("The bus timetable shows when the bus reaches each stop. How many minutes does the bus take from %s to %s?" % (stops[i], stops[j]),
                    ["Stop", "Time"], [[st, _hm(*_split(t))] for st, t in zip(stops, times)], times[j] - times[i],
                    ["%s to %s." % (_hm(*_split(times[i])), _hm(*_split(times[j]))), "That is %d minutes." % (times[j] - times[i])])
 
     def t_compare():
-        a0, b0 = 60 * h + 5 * random.randint(6, 11), 60 * h + 5 * random.randint(4, 11)
-        la, lb = 5 * random.randint(5, 16), 5 * random.randint(5, 16)
+        a0, b0 = 60 * h + _tm(d, 30, 55), 60 * h + _tm(d, 20, 55)
+        la, lb = _tm(d, 25, 80), _tm(d, 25, 80)
         while la == lb:
-            lb = 5 * random.randint(5, 16)
+            lb = _tm(d, 25, 80)
         return _tb("Film A runs from %s to %s. Film B runs from %s to %s. How many minutes longer is the longer film?"
                    % (_hm(*_split(a0)), _hm(*_split(a0 + la)), _hm(*_split(b0)), _hm(*_split(b0 + lb))), abs(la - lb), "int", {"unit": "minutes"},
                    ["Film A: %d minutes. Film B: %d minutes." % (la, lb), "%d − %d = %d." % (max(la, lb), min(la, lb), abs(la - lb))])
 
     def t_end():
-        s = 60 * h + 5 * random.randint(6, 11)
-        l = 5 * random.randint(4, 12)
+        s = 60 * h + _tm(d, 30, 55)
+        l = _tm(d, 20, 60)
         return _time("A football match starts at %s and lasts %d minutes. What time does it end? (h:mm)" % (_hm(*_split(s)), l),
                      *_split(s + l), ["%s + %d minutes = %s." % (_hm(*_split(s)), l, _hm(*_split(s + l)))])
 
     def t_start():
-        e = 60 * (h + 1) + 5 * random.randint(0, 6)
-        l = 5 * random.randint(6, 12)
+        e = 60 * (h + 1) + _tm(d, 0, 30)
+        l = _tm(d, 30, 60)
         return _time("A swim finished at %s. It lasted %d minutes. What time did it start? (h:mm)" % (_hm(*_split(e)), l),
                      *_split(e - l), ["%s − %d minutes = %s." % (_hm(*_split(e)), l, _hm(*_split(e - l)))])
 
     def t_long():
-        s = 60 * h + 5 * random.randint(6, 11)
-        l = 5 * random.randint(14, 22)
+        s = 60 * h + _tm(d, 30, 55)
+        l = _tm(d, 70, 110)
         return _tb("How many minutes are there from %s to %s?" % (_hm(*_split(s)), _hm(*_split(s + l))), l, "int", {"unit": "minutes"},
                    ["Count on to the next o'clock, then on again.", "That is %d minutes." % l])
 
     def t_buses():
-        s = 60 * h + 5 * random.randint(6, 11)
-        gap = pick([15, 20, 25])
+        s = 60 * h + _tm(d, 30, 55)
+        gap = pick(_by(d, [15, 20, 30], [15, 20, 25], [12, 18, 25, 35]))
         k = random.randint(2, 3)
         return _time("A bus leaves at %s and then every %d minutes. What time does the %s bus after it leave? (h:mm)"
                      % (_hm(*_split(s)), gap, ["", "", "2nd", "3rd"][k]), *_split(s + k * gap),
                      ["%s." % ", ".join(_hm(*_split(s + i * gap)) for i in range(k + 1))])
 
     def t_later():
-        s = 60 * h + 5 * random.randint(1, 11)
-        l = 60 + 5 * random.randint(1, 11)
+        s = 60 * h + _tm(d, 5, 55)
+        l = 60 + _tm(d, 5, 55)
         return _time("It is %s. What time will it be in 1 hour and %d minutes? (h:mm)" % (_hm(*_split(s)), l - 60), *_split(s + l),
                      ["1 hour later is %s." % _hm(*_split(s + 60)), "%d minutes more is %s." % (l - 60, _hm(*_split(s + l)))])
 
@@ -2194,39 +2388,43 @@ def _x38j(d):
 def _x39h(d):
     def t_shop():
         items = random.sample([("apple", 20), ("banana", 15), ("orange", 25), ("pear", 30)], 2)
-        a, b = random.randint(1, 3), random.randint(1, 2)
-        while a * items[0][1] + b * items[1][1] >= 100:
-            a, b = random.randint(1, 3), random.randint(1, 2)
+        pay = 200 if d == 2 else 100                      # stretch: more fruit, paid with a £2 coin
+        amax, bmax = _by(d, (2, 1), (3, 2), (4, 3))
+        a, b = random.randint(1, amax), random.randint(1, bmax)
+        while a * items[0][1] + b * items[1][1] >= pay or (d == 2 and a * items[0][1] + b * items[1][1] < 100):
+            a, b = random.randint(1, amax), random.randint(1, bmax)
         cost = a * items[0][1] + b * items[1][1]
-        return _dt("The price list shows a fruit stall. %s buys %d %s and %d %s and pays with a £1 coin. How much change, in pence?"
-                   % (pick(NAMES), a, items[0][0] + ("s" if a > 1 else ""), b, items[1][0] + ("s" if b > 1 else "")),
-                   ["Fruit", "Price"], [[nm, "%dp" % pr] for nm, pr in items], 100 - cost,
-                   ["%d × %dp + %d × %dp = %dp." % (a, items[0][1], b, items[1][1], cost), "100p − %dp = %dp." % (cost, 100 - cost)])
+        return _dt("The price list shows a fruit stall. %s buys %d %s and %d %s and pays with a £%d coin. How much change, in pence?"
+                   % (pick(NAMES), a, items[0][0] + ("s" if a > 1 else ""), b, items[1][0] + ("s" if b > 1 else ""), pay // 100),
+                   ["Fruit", "Price"], [[nm, "%dp" % pr] for nm, pr in items], pay - cost,
+                   ["%d × %dp + %d × %dp = %dp." % (a, items[0][1], b, items[1][1], cost), "%dp − %dp = %dp." % (pay, cost, pay - cost)])
 
     def t_pict():
         cats = ["Cats", "Dogs", "Fish"]
-        key = pick([2, 5])
-        vals = [key * random.randint(2, 6) for _ in cats]
+        key = pick(_by(d, [2], [2, 5], [5, 10]))
+        lo, hi = _by(d, (1, 4), (2, 6), (3, 8))
+        vals = [key * random.randint(lo, hi) for _ in cats]
         while vals[0] + vals[1] <= vals[2]:
-            vals = [key * random.randint(2, 6) for _ in cats]
+            vals = [key * random.randint(lo, hi) for _ in cats]
         return _pict("The pictogram shows pets owned by a class (each symbol stands for %d). How many more cats and dogs together than "
                      "fish are there?" % key, cats, vals, key, "circle", vals[0] + vals[1] - vals[2],
                      ["Cats %d, dogs %d, fish %d." % tuple(vals), "%d + %d − %d = %d." % (vals[0], vals[1], vals[2], vals[0] + vals[1] - vals[2])])
 
     def t_swim():
-        p = pick([50, 60, 75])
-        k = random.randint(2, 3)
-        return _tb("A swim costs %dp. %s swims %d times a week for 2 weeks. How much does that cost, in pence?" % (p, pick(NAMES), k),
-                   2 * k * p, "int", {"unit": "p"}, ["%d × 2 = %d swims." % (k, 2 * k), "%d × %dp = %dp." % (2 * k, p, 2 * k * p)])
+        p = pick(_by(d, [40, 50], [50, 60, 75], [65, 75, 80]))
+        k = random.randint(2, _by(d, 2, 3, 3))
+        w = 3 if d == 2 else 2
+        return _tb("A swim costs %dp. %s swims %d times a week for %d weeks. How much does that cost, in pence?" % (p, pick(NAMES), k, w),
+                   w * k * p, "int", {"unit": "p"}, ["%d × %d = %d swims." % (k, w, w * k), "%d × %dp = %dp." % (w * k, p, w * k * p)])
 
     def t_strip_cut():
-        piece = 2 * random.randint(4, 15)
+        piece = 2 * random.randint(*_by(d, (2, 5), (4, 15), (10, 20)))
         tot = 3 * piece
         return _tb("A strip of card %d cm long is cut into 3 equal pieces. One piece is cut in half. How long is each half, in cm?" % tot,
                    piece // 2, "int", {"unit": "cm"}, ["%d ÷ 3 = %d cm." % (tot, piece), "%d ÷ 2 = %d cm." % (piece, piece // 2)])
 
     def t_quarter_eaten():
-        tot = 12 * random.randint(1, 4)
+        tot = 12 * random.randint(*_by(d, (1, 2), (1, 4), (3, 6)))
         left = tot - tot // 4
         k = pick([x for x in (2, 3) if left % x == 0])
         return _tb("A bag has %d sweets. 1/4 of them are eaten. The rest are shared equally between %d friends. How many does each friend get?"
@@ -2235,13 +2433,14 @@ def _x39h(d):
 
     def t_twice():
         x, y = random.sample(NAMES, 2)
-        a = random.randint(6, 25)
-        return _tb("%s has %d stamps. %s has twice as many. How many stamps do they have altogether?" % (x, a, y), 3 * a, "int", {},
-                   ["%s has %d × 2 = %d." % (y, a, 2 * a), "%d + %d = %d." % (a, 2 * a, 3 * a)])
+        a = random.randint(*_by(d, (3, 10), (6, 25), (12, 30)))
+        k, word = (3, "three times") if d == 2 else (2, "twice")
+        return _tb("%s has %d stamps. %s has %s as many. How many stamps do they have altogether?" % (x, a, y, word), (k + 1) * a, "int", {},
+                   ["%s has %d × %d = %d." % (y, a, k, k * a), "%d + %d = %d." % (a, k * a, (k + 1) * a)])
 
     def t_strip_share():
-        k = random.randint(3, 5)
-        each = random.randint(2, 9)
+        k = random.randint(*_by(d, (2, 3), (3, 5), (4, 6)))
+        each = random.randint(*_by(d, (2, 5), (2, 9), (6, 12)))
         return _strip("%d friends share the cost of a present equally. Each pays £%d. The strip shows the shares. How much does the present cost, in pounds?"
                       % (k, each), {"mode": "equal_parts", "parts": k, "partLabel": "£%d" % each, "totalLabel": "?", "unknown": "total"},
                       k * each, ["%d × £%d = £%d." % (k, each, k * each)])
@@ -2256,18 +2455,21 @@ def _(d=1):
 
     def amount():
         unit = pick([1, 10, 100] if d else [1, 10])
-        return unit * random.randint(1, 9), unit
+        return unit * random.randint(1, 5 if d == 0 else 9), unit
 
-    def start(sub, unit, cross=False):
-        """A 3-digit start whose answer stays 3-digit; cross=True makes the subtraction cross a ten or a hundred."""
+    def start(sub, unit, cross=None):
+        """A 3-digit start whose answer stays 3-digit; cross=True makes the subtraction cross a ten or a hundred
+        (by default only at stretch, and never for hundreds)."""
+        if cross is None:
+            cross = d == 2 and unit != 100
         while True:
-            n = random.randint(sub + 100 if unit < 100 else sub + 1, 999)
+            n = random.randint(sub + 100 if sub < 900 else sub + 1, 999)
             if (sub // unit > n // unit % 10) == cross:
                 return n
 
     def t_bare():
         sub, unit = amount()
-        n = start(sub, unit, cross=(d == 2 and unit != 100))
+        n = start(sub, unit)
         return _tb("Work out %d − %d (mentally)." % (n, sub), n - sub, "int", {},
                    ["Take %s away from the %s." % (_u(sub // unit, {1: "ones", 10: "tens", 100: "hundreds"}[unit]),
                                                  {1: "ones", 10: "tens", 100: "hundreds"}[unit]), "%d − %d = %d." % (n, sub, n - sub)])
@@ -2292,12 +2494,17 @@ def _(d=1):
         unit = pick([10, 100] if d else [10])
         sub = unit * random.randint(1, 4)
         n = unit * random.randint(5, 9) if unit == 100 else 10 * random.randint(15, 95)
+        if d == 2 and unit == 10:                         # stretch: a longer jump back across a hundred
+            sub = 10 * random.randint(3, 8)
+            n = 10 * random.randint(20, 99)
+            while n // 10 % 10 >= sub // 10:
+                n = 10 * random.randint(20, 99)
         return _nl("Start at %d and jump back %d. Mark where you land." % (n, sub), n - sub, unit, 50 if unit == 10 else 100,
                    ["%d − %d = %d." % (n, sub, n - sub)])
 
     def t_io():
         unit = pick([10, 100] if d else [1, 10])
-        sub = unit * random.randint(1, 3)
+        sub = unit * random.randint(*_by(d, (1, 3), (1, 3), (4, 6 if unit == 100 else 9)))
         ins = random.sample(range(sub + 100, 1000), 4)
         miss = random.randrange(4)
         return _io("Subtract %d from each In number. Type the missing Out number." % sub, [[i, i - sub] for i in ins], miss, ins[miss] - sub,
@@ -2319,24 +2526,41 @@ def _(d=1):
     def t_count_back():
         unit = pick([10, 100] if d else [1, 10])
         n = random.randint(4 * unit + 100, 999)
+        if d == 2 and unit == 10:
+            n = 100 * random.randint(2, 9) + random.randint(0, 29)   # stretch: the count crosses a hundred
         return _tb("Count back in %ds: %d, %d, %d, ___ . What comes next?" % (unit, n, n - unit, n - 2 * unit), n - 3 * unit, "int", {},
                    ["Each step takes away %d." % unit, "%d − %d = %d." % (n - 2 * unit, unit, n - 3 * unit)])
 
     def t_compare():
         n = random.randint(320, 999)
-        a, b = pick([(100, 10), (10, 1), (100, 1)])
+        a, b = pick([(10, 1)] if d == 0 else [(100, 10), (10, 1), (100, 1)])
+        if d == 2:
+            # stretch: two different start numbers, so both must be worked out
+            m = n - random.randint(60, 99)
+            lo = min(n - a, m - b)
+            return _tb("Which is smaller, %d − %d or %d − %d? Type the smaller answer." % (n, a, m, b), lo, "int", {},
+                       ["%d − %d = %d and %d − %d = %d." % (n, a, n - a, m, b, m - b), "The smaller answer is %d." % lo])
         return _tb("Which is smaller, %d − %d or %d − %d? Type the smaller answer." % (n, a, n, b), n - a, "int", {},
                    ["%d − %d = %d and %d − %d = %d." % (n, a, n - a, n, b, n - b), "Taking away more leaves less."])
 
     def t_two():
-        n = random.randint(400, 999)
+        n = random.randint(400, 699 if d == 0 else 999)
         h, t = 100 * random.randint(1, n // 100 - 1), 10 * random.randint(1, 9)
+        if d == 0:                                           # easy: no crossing a hundred
+            while n // 10 % 10 == 0:
+                n = random.randint(400, 699)
+            h, t = 100 * random.randint(1, n // 100 - 1), 10 * random.randint(1, n // 10 % 10)
+        elif d == 2:
+            while t <= (n - h) % 100:                        # stretch: the tens cross a hundred
+                n = random.randint(400, 999)
+                h, t = 100 * random.randint(1, n // 100 - 1), 10 * random.randint(1, 9)
         return _tb("Work out %d − %d − %d." % (n, h, t), n - h - t, "int", {},
                    ["%d − %d = %d." % (n, h, n - h), "%d − %d = %d." % (n - h, t, n - h - t)])
 
     def t_error():
-        k = random.randint(1, 5)
-        n = 100 * random.randint(k + 1, 9) + 10 * random.randint(k, 9) + random.randint(0, 9)
+        k = random.randint(1, _by(d, 3, 5, 5))
+        # stretch: the tens digit is smaller than k, so the correct answer crosses a hundred
+        n = 100 * random.randint(k + 1, 9) + 10 * (random.randint(0, k - 1) if d == 2 else random.randint(k, 9)) + random.randint(0, 9)
         sub = 10 * k
         who = pick(NAMES)
         return _tb("%s says %d − %d = %d. %s took away hundreds instead of tens. What is the correct answer?" % (who, n, sub, n - 100 * k, who),
@@ -2357,7 +2581,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     h12 = random.randint(1, 11)
-    m = 5 * random.randint(0, 11) if d < 2 else random.randint(0, 59)
+    m = (15 * random.randint(0, 3), 5 * random.randint(0, 11), random.randint(0, 59))[d]
 
     def t_to_24():
         return _wq("Write %s p.m. as a 24-hour clock time (like 15:30)." % _hm(h12, m), "%d:%02d" % (h12 + 12, m),
@@ -2368,7 +2592,8 @@ def _(d=1):
                    ["Take 12 from the hour: %d − 12 = %d." % (h12 + 12, h12), "It is %s p.m." % _hm(h12, m)], "e.g. 4:05")
 
     def t_am_pm():
-        hh = random.randint(0, 23)
+        # easy: clearly morning or afternoon; stretch: close to midnight or midday
+        hh = pick(_by(d, [7, 8, 9, 10, 14, 15, 16, 17], list(range(24)), [0, 11, 12, 23, 0, 12]))
         word = "a.m." if hh < 12 else "p.m."
         return _wq("Is %02d:%02d in the morning (a.m.) or after midday (p.m.)? Type a.m. or p.m." % (hh, m), "am" if hh < 12 else "pm",
                    ["Times before 12:00 are a.m.; from 12:00 they are p.m.", "%02d:%02d is %s" % (hh, m, word)], "am / pm")
@@ -2380,6 +2605,11 @@ def _(d=1):
                    ["%d:%02d is %s %s" % (hh, m, _hm(hh, m), "a.m." if hh < 12 else "p.m."), "That is the %s." % part], "morning / afternoon / evening")
 
     def t_noon():
+        if d == 2:                                      # stretch: from a morning time across noon
+            a = random.randint(7, 11)
+            b = random.randint(1, 6)
+            return _tb("How many hours are there from %d a.m. to %d p.m.?" % (a, b), 12 - a + b, "int", {"unit": "hours"},
+                       ["%d a.m. to 12 noon is %s." % (a, _pl(12 - a, "hour")), "Then on to %d p.m.: %d + %d = %d hours." % (b, 12 - a, b, 12 - a + b)])
         if random.random() < 0.5:
             return _tb("How many hours are there from 12 noon to %d p.m.?" % h12, h12, "int", {"unit": "hours"},
                        ["Noon is 12 o'clock in the middle of the day.", "Then count on %s." % _pl(h12, "hour")])
@@ -2387,21 +2617,24 @@ def _(d=1):
                    ["Midnight is 12 o'clock at night.", "Then count on %s." % _pl(h12, "hour")])
 
     def t_hours_between():
-        a = random.randint(6, 11)
-        b = random.randint(13, 20)
+        a = random.randint(*_by(d, (8, 10), (6, 11), (6, 11)))
+        b = random.randint(*_by(d, (13, 17), (13, 20), (13, 20)))
+        if d == 2:                                      # stretch: the closing time is in 12-hour p.m. form
+            return _tb("A shop opens at %02d:00 and closes at %d p.m. How many hours is it open?" % (a, b - 12), b - a, "int",
+                       {"unit": "hours"}, ["%d p.m. is %d:00." % (b - 12, b), "%d − %d = %d hours." % (b, a, b - a)])
         return _tb("A shop opens at %02d:00 and closes at %d:00. How many hours is it open?" % (a, b), b - a, "int", {"unit": "hours"},
                    ["%d − %d = %d hours." % (b, a, b - a)])
 
     def t_film_end():
-        s = 60 * (min(h12, 10) + 12) + 5 * random.randint(6, 11)
-        l = 5 * random.randint(4, 10)
+        s = 60 * (min(h12, 10) + 12) + _tm(d, 30, 55)
+        l = _tm(d, 20, _by(d, 50, 50, 90))
         e = s + l
         return _wq("A film starts at %d:%02d and lasts %d minutes. What time does it end? Use the 24-hour clock (like 19:45)." % (s // 60, s % 60, l),
                    "%d:%02d" % (e // 60, e % 60), ["%d:%02d + %d minutes = %d:%02d." % (s // 60, s % 60, l, e // 60, e % 60)], "e.g. 19:45")
 
     def t_across_noon():
-        s = 60 * random.randint(10, 11) + 5 * random.randint(0, 11)
-        e = 60 * random.randint(12, 13) + 5 * random.randint(0, 11)
+        s = 60 * random.randint(_by(d, 11, 10, 10), 11) + _tm(d, 0, 55)
+        e = 60 * random.randint(12, _by(d, 12, 13, 13)) + _tm(d, 0, 55)
         sh, sm = _split(s)
         eh, em = _split(e)
         return _tb("A trip starts at %s a.m. and ends at %s p.m. How many minutes does it last?" % (_hm(sh, sm), _hm(eh, em)), e - s, "int",
@@ -2414,9 +2647,9 @@ def _(d=1):
 
     def t_timetable():
         stops = random.sample(["Leeds", "York", "Hull", "Bath", "Derby"], 3)
-        t0 = 60 * random.randint(13, 18) + 5 * random.randint(0, 6)
-        times = [t0, t0 + 5 * random.randint(5, 9)]
-        times.append(times[-1] + 5 * random.randint(5, 12))
+        t0 = 60 * random.randint(13, 18) + _tm(d, 0, 30)
+        times = [t0, t0 + _tm(d, 25, 45)]
+        times.append(times[-1] + _tm(d, 25, 60))
         i, j = pick([(0, 1), (1, 2), (0, 2)])
         return _dt("The train timetable uses the 24-hour clock. How many minutes does the train take from %s to %s?" % (stops[i], stops[j]),
                    ["Station", "Time"], [[st, "%d:%02d" % (t // 60, t % 60)] for st, t in zip(stops, times)], times[j] - times[i],
@@ -2429,7 +2662,7 @@ def _(d=1):
 
     def t_noon_or_midnight():
         pm = random.random() < 0.5
-        mm = 5 * random.randint(1, 11)
+        mm = _tm(d, 5, 55)
         return _wq("Is 12:%02d %s a few minutes after noon or a few minutes after midnight? (type noon or midnight)" % (mm, "p.m." if pm else "a.m."),
                    "noon" if pm else "midnight", ["12 noon is 12:00 p.m.; midnight is 12:00 a.m.",
                                                   "So 12:%02d %s is just after %s." % (mm, "p.m." if pm else "a.m.", "noon" if pm else "midnight")],
@@ -2445,8 +2678,8 @@ for _key, _n, _b in [
     ("Y3.0.c", 7, _x30c), ("Y3.0.f", 8, _x30f),
     ("Y3.1.a", 7, _x31a), ("Y3.1.c", 6, _x31c), ("Y3.1.d", 6, _x31d), ("Y3.1.e", 6, _x31e), ("Y3.1.f", 7, _x31f),
     ("Y3.2.b", 7, _x32b), ("Y3.2.d", 7, _x32d), ("Y3.2.e", 8, _x32e), ("Y3.2.f", 8, _x32f),
-    ("Y3.3.b", 7, lambda d: _column_set("add")), ("Y3.3.c", 6, lambda d: _column_set("carry")),
-    ("Y3.3.d", 7, lambda d: _column_set("sub")), ("Y3.3.e", 6, lambda d: _column_set("exchange")),
+    ("Y3.3.b", 7, lambda d: _column_set("add", d)), ("Y3.3.c", 6, lambda d: _column_set("carry", d)),
+    ("Y3.3.d", 7, lambda d: _column_set("sub", d)), ("Y3.3.e", 6, lambda d: _column_set("exchange", d)),
     ("Y3.3.f", 6, _x33f), ("Y3.3.g", 6, _x33g),
     ("Y3.4.b", 7, _table_extra([3])), ("Y3.4.c", 7, _table_extra([4])), ("Y3.4.d", 7, _table_extra([8])),
     ("Y3.4.e", 7, _table_extra([2, 5, 10])), ("Y3.4.f", 8, _x34f), ("Y3.4.g", 5, _x34g), ("Y3.4.h", 7, _x34h), ("Y3.4.i", 8, _x34i),

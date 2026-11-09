@@ -180,7 +180,11 @@ _NET_NAMES = ("cube / cuboid / square-based pyramid / triangular prism / "
 @skill("Y6.8.a", "Classify 2-D shapes and polygons", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2])
+    # easy leans on the naming/counting framings, stretch on angle sums,
+    # similarity and Venn reasoning
+    t = _pick_t(_by_d(d, [3, 3, 3, 1, 1, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1],
+                         [2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+                         [1, 1, 1, 3, 3, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3]))
 
     if t == 11:                                       # sort polygons into a Venn diagram
         left, right = pick([("have 4 sides", "have a right angle"),
@@ -230,11 +234,12 @@ def _(d=1):
                                 % (a, b, c, e, a + b + c + e)])
 
     if t == 13:                                       # congruent or similar
-        w = random.randint(2, 6)
-        h = random.randint(2, 6)
+        top = _by_d(d, 5, 6, 9)
+        w = random.randint(2, top)
+        h = random.randint(2, top)
         while h == w:
-            h = random.randint(2, 6)
-        k = pick([1, 2, 3]) if d else pick([1, 2])
+            h = random.randint(2, top)
+        k = pick(_by_d(d, [1, 2], [1, 2, 3], [1, 3, 4]))
         ans = "congruent" if k == 1 else "similar"
         return _num_q("Congruent figures are the same shape and the same size. Similar "
                       "figures are the same shape but not the same size. Rectangle A "
@@ -247,7 +252,7 @@ def _(d=1):
 
     # scale factor between two similar figures
     if t == 14:
-        s = random.randint(2, 7)
+        s = random.randint(2, _by_d(d, 5, 7, 12))
         k = random.randint(2, _by_d(d, 3, 4, 6))
         return _num_q("Two similar triangles have the same shape but different sizes. The "
                       "shortest side of the smaller triangle is %d cm and the shortest "
@@ -267,7 +272,7 @@ def _(d=1):
                              "A polygon with %d sides is %s." % (sd, _a(nm))]}
 
     if t == 1:                                        # visual: count sides/vertices
-        nm, sd = pick(_DRAWN)
+        nm, sd = pick(_by_d(d, _DRAWN[:4], _DRAWN, _DRAWN[3:]))
         ask = pick(["sides", "vertices"])
         return {"prompt": "How many %s does this polygon have?"
                           % ("sides" if ask == "sides" else "vertices (corners)"),
@@ -277,7 +282,8 @@ def _(d=1):
                              "This one has %d." % sd]}
 
     if t == 2:                                        # visual: lines of symmetry
-        nm = pick(list(_SYM_DRAWN.keys()))
+        nm = pick(_by_d(d, ["square", "rectangle", "triangle"], list(_SYM_DRAWN.keys()),
+                        ["rectangle", "pentagon", "hexagon", "heptagon", "octagon"]))
         lines, label = _SYM_DRAWN[nm]
         return {"prompt": "How many lines of symmetry does this shape have?",
                 "component": "shape",
@@ -301,9 +307,10 @@ def _(d=1):
                                 % (sd, sd - 2, (sd - 2) * 180)])
 
     if t == 4:                                        # each interior angle (regular)
-        nm, sd = pick([("equilateral triangle", 3), ("square", 4),
-                       ("regular pentagon", 5), ("regular hexagon", 6),
-                       ("regular octagon", 8), ("regular decagon", 10)])
+        regs = [("equilateral triangle", 3), ("square", 4),
+                ("regular pentagon", 5), ("regular hexagon", 6),
+                ("regular octagon", 8), ("regular decagon", 10)]
+        nm, sd = pick(_by_d(d, regs[:3], regs, regs[2:]))
         each = (sd - 2) * 180 // sd
         return _num_q("Every interior angle of %s is the same size. "
                       "How many degrees is each interior angle?" % _a(nm),
@@ -319,7 +326,7 @@ def _(d=1):
                       solution=["A polygon with %d sides is called %s." % (sd, _a(nm))])
 
     if t == 6:                                        # quadrilateral from properties
-        attrs, quad = pick([
+        quads = [
             ("4 equal sides and 4 right angles", "square"),
             ("4 right angles, with opposite sides equal but not all four equal",
              "rectangle"),
@@ -329,27 +336,31 @@ def _(d=1):
             ("exactly one pair of parallel sides", "trapezium"),
             ("two pairs of equal sides next to each other and no parallel sides",
              "kite"),
-        ])
+        ]
+        attrs, quad = pick(_by_d(d, quads[:3], quads, quads[2:]))
         return _num_q("Which quadrilateral has %s? (type the name)" % attrs,
                       quad, "str", text=True, placeholder=_QUAD_NAMES,
                       solution=["%s has %s." % (_a(quad).capitalize(), attrs)])
 
     if t == 7:                                        # classify a triangle by sides
         kind = pick(["scalene", "isosceles", "equilateral"])
+        hi = _by_d(d, 9, 14, 30)
         if kind == "equilateral":
-            s = random.randint(4, 14)
+            s = random.randint(4, hi)
             sides = (s, s, s)
         elif kind == "isosceles":
-            s = random.randint(6, 14)
+            s = random.randint(6, hi)
             b = random.randint(2, 2 * s - 1)
             while b == s:
                 b = random.randint(2, 2 * s - 1)
             sides = (s, s, b)
         else:
-            a, b, c = sorted(random.sample(range(4, 16), 3))
+            a, b, c = sorted(random.sample(range(4, hi + 2), 3))
             while a + b <= c:
-                a, b, c = sorted(random.sample(range(4, 16), 3))
+                a, b, c = sorted(random.sample(range(4, hi + 2), 3))
             sides = (a, b, c)
+            if d == 2:                                # stretch: the sides arrive out of order
+                sides = tuple(random.sample(sides, 3))
         return _num_q("A triangle has sides of %d cm, %d cm and %d cm. Is it scalene, "
                       "isosceles or equilateral? (type one word)" % sides,
                       kind, "str", text=True,
@@ -360,9 +371,11 @@ def _(d=1):
 
     if t == 8:                                        # regular or irregular
         regular = random.random() < 0.5
-        sd = pick([4, 5, 6, 8])
+        sd = pick(_by_d(d, [4, 5, 6], [4, 5, 6, 8], [5, 6, 8, 10]))
         desc = ("all %d sides equal and all %d angles equal" % (sd, sd)) if regular else \
                ("%d sides, but the sides are not all the same length" % sd)
+        if d == 2 and not regular:                    # stretch: equal sides alone are not enough
+            desc = "all %d sides equal, but its angles are not all equal" % sd
         return _num_q("A polygon has %s. Is this polygon regular or irregular? "
                       "(type one word)" % desc,
                       "regular" if regular else "irregular", "str", text=True,
@@ -372,7 +385,7 @@ def _(d=1):
                                 "This one is %s." % ("regular" if regular else "irregular")])
 
     if t == 9:                                        # sorting / comparison
-        chosen = random.sample(_POLY, 4)
+        chosen = random.sample(_POLY, _by_d(d, 3, 4, 6))
         cut = pick([4, 5, 6])
         cnt = sum(1 for _, sd in chosen if sd > cut)
         return _num_q("Look at these polygons: %s. How many of them have MORE than %d "
@@ -383,15 +396,18 @@ def _(d=1):
                                 "%d of them have more than %d sides." % (cnt, cut)])
 
     # always / sometimes / never reasoning
-    stmt, ans = pick([
+    asn = [
+        ("A rhombus has four equal sides", "always"),
+        ("A triangle has a pair of parallel sides", "never"),
+        ("A regular polygon has equal angles", "always"),
         ("Every square is a rectangle", "always"),
         ("Every rectangle is a square", "sometimes"),
-        ("A rhombus has four equal sides", "always"),
         ("A trapezium has two pairs of parallel sides", "never"),
         ("A parallelogram has right angles", "sometimes"),
-        ("A regular polygon has equal angles", "always"),
-        ("A triangle has a pair of parallel sides", "never"),
-    ])
+        ("A quadrilateral with four equal sides is a square", "sometimes"),
+        ("A hexagon has interior angles that add up to 720°", "always"),
+    ]
+    stmt, ans = pick(_by_d(d, asn[:4], asn[:7], asn[3:]))
     return _num_q("“%s.” Is this always, sometimes or never true? "
                   "(type one word)" % stmt,
                   ans, "str", text=True, placeholder="always / sometimes / never",
@@ -403,7 +419,10 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     r = _q4r(d)
-    t = _pick_t([1, 1, 1, 1, 2, 2, 1, 1, 1, 1])
+    # the vocabulary facts are fixed, so stretch leans on the coordinate framings
+    t = _pick_t(_by_d(d, [2, 2, 2, 2, 1, 1, 2, 1, 2, 1],
+                         [1, 1, 1, 1, 2, 2, 1, 1, 1, 1],
+                         [1, 1, 1, 1, 3, 3, 3, 4, 2, 1]))
 
     if t == 0:                                        # vocabulary
         desc, ans = pick([
@@ -437,14 +456,17 @@ def _(d=1):
                       solution=["Lines that %s are %s." % (desc, ans)])
 
     if t == 3:                                        # real life
-        case, ans = pick([("the two long rails of a ladder", "parallel"),
-                          ("the two strokes of the letter L", "perpendicular"),
-                          ("the two edges of a straight road", "parallel"),
-                          ("the corner of a picture frame", "perpendicular"),
-                          ("railway tracks", "parallel"),
-                          ("a flagpole and the flat ground", "perpendicular"),
-                          ("the lines on lined writing paper", "parallel"),
-                          ("the hands of a clock at 3 o'clock", "perpendicular")])
+        cases = [("the two long rails of a ladder", "parallel"),
+                 ("the two strokes of the letter L", "perpendicular"),
+                 ("railway tracks", "parallel"),
+                 ("the corner of a picture frame", "perpendicular"),
+                 ("the two edges of a straight road", "parallel"),
+                 ("a flagpole and the flat ground", "perpendicular"),
+                 ("the lines on lined writing paper", "parallel"),
+                 ("the hands of a clock at 3 o'clock", "perpendicular"),
+                 ("the top and bottom edges of a door", "parallel"),
+                 ("a wall and the floor it stands on", "perpendicular")]
+        case, ans = pick(_by_d(d, cases[:4], cases[:8], cases[4:]))
         return _num_q("Are %s parallel or perpendicular? (type one word)" % case,
                       ans, "str", text=True, placeholder="parallel / perpendicular",
                       solution=["%s are %s." % (case.capitalize(), ans)])
@@ -511,6 +533,17 @@ def _(d=1):
         else:
             x2, y2 = x, (y + k if y + k <= r else y - k)
         ans = "horizontal" if y2 == y else "vertical"
+        if d == 2 and random.random() < 0.4:          # stretch: a sloping segment is neither
+            x2 = x + k if x + k <= r else x - k
+            y2 = y + k if y + k <= r else y - k
+            return _num_q("A line segment joins %s to %s. Is the segment horizontal, "
+                          "vertical or neither? (type one word)"
+                          % (_coord(x, y), _coord(x2, y2)),
+                          "neither", "str", text=True,
+                          placeholder="horizontal / vertical / neither",
+                          solution=["Both the x- and the y-coordinates change, so the "
+                                    "segment slopes.",
+                                    "It is neither horizontal nor vertical."])
         return _num_q("A line segment joins %s to %s. Is the segment horizontal or "
                       "vertical? (type one word)" % (_coord(x, y), _coord(x2, y2)),
                       ans, "str", text=True, placeholder="horizontal / vertical",
@@ -523,6 +556,29 @@ def _(d=1):
         same = random.random() < 0.5
         y1, y2 = random.sample(range(-r, r + 1), 2)
         x1 = _nz(-r + 1, r - 1)
+        if d == 2:                                    # stretch: diagonal segments
+            a = random.randint(-r, r - 2)
+            b = random.randint(-r, r - 2)
+            k = random.randint(2, r - 1)
+            k = min(k, r - a, r - b)
+            P, Q = (a, b), (a + k, b + k)
+            if same:
+                dy = pick([v for v in (-3, -2, -1, 1, 2, 3) if -r <= b + v and b + v + k <= r])
+                R2, S2 = (a, b + dy), (a + k, b + dy + k)
+                ans, why = "parallel", ["Both segments go %d right and %d up: the same "
+                                        "direction, so they never meet." % (k, k)]
+            else:
+                R2, S2 = (a, b + k), (a + k, b)
+                ans, why = "perpendicular", ["One goes up to the right and the other down "
+                                             "to the right at the same steepness.",
+                                             "They cross at a right angle."]
+            return _num_q("One line segment joins %s to %s. Another joins %s to %s. "
+                          "Are the two segments parallel or perpendicular? "
+                          "(type one word)"
+                          % (_coord(*P), _coord(*Q), _coord(*R2), _coord(*S2)),
+                          ans, "str", text=True,
+                          placeholder="parallel / perpendicular",
+                          solution=why + ["They are %s." % ans])
         if same:
             return _num_q("One line segment joins %s to %s. Another joins %s to %s. "
                           "Are the two segments parallel or perpendicular? "
@@ -544,9 +600,10 @@ def _(d=1):
                                 "They cross at a right angle, so they are perpendicular."])
 
     if t == 8:                                        # pairs inside a shape
-        nm, par, per = pick([("square", 2, 4), ("rectangle", 2, 4),
-                             ("regular hexagon", 3, 0), ("regular octagon", 4, 0),
-                             ("parallelogram", 2, 0), ("regular decagon", 5, 0)])
+        shapes = [("square", 2, 4), ("rectangle", 2, 4), ("regular hexagon", 3, 0),
+                  ("regular octagon", 4, 0), ("parallelogram", 2, 0),
+                  ("regular decagon", 5, 0)]
+        nm, par, per = pick(_by_d(d, shapes[:3], shapes, shapes[2:]))
         ask_par = per == 0 or random.random() < 0.6
         if ask_par:
             return _num_q("How many pairs of parallel sides does %s have?" % _a(nm),
@@ -704,10 +761,15 @@ def _(d=1):
 @skill("Y6.8.d", "3-D shapes, faces, edges, vertices and nets", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2])
+    t = _pick_t(_by_d(d, [2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 2, 2, 2, 2],
+                         [2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+                         [1, 2, 2, 2, 1, 2, 3, 1, 2, 2, 1, 2, 2, 2]))
+    # easy keeps to the cube and cuboid; stretch to pyramids, prisms and curved solids
+    drawn = _by_d(d, _SOLIDS_DRAWN[:2], _SOLIDS_DRAWN, _SOLIDS_DRAWN[2:])
+    flat_all = [s for s in _SOLIDS_ALL if s[0] not in ("cylinder", "cone", "sphere")]
 
     if t == 10:                                       # identify three-dimensional figures
-        nm, f, e, v = pick(_SOLIDS_DRAWN)
+        nm, f, e, v = pick(drawn)
         return {"prompt": "Identify this three-dimensional figure. What is its name? "
                           "(type the name)",
                 "component": "shape", "spec": {"kind": "3d", "name": nm, "ask": "name"},
@@ -717,7 +779,7 @@ def _(d=1):
                              "That three-dimensional figure is %s." % _a(nm)]}
 
     if t == 11:                                       # which figure is being described?
-        desc, nm = pick([
+        descs = [
             ("6 square faces, 12 edges and 8 vertices", "cube"),
             ("6 rectangular faces that are not all squares", "cuboid"),
             ("5 faces, 8 edges, 5 vertices and a square base", "square-based pyramid"),
@@ -728,7 +790,8 @@ def _(d=1):
             ("4 triangular faces, 6 edges and 4 vertices",
              "triangular-based pyramid"),
             ("no flat faces, no edges and no vertices", "sphere"),
-        ])
+        ]
+        desc, nm = pick(_by_d(d, descs[:2] + descs[4:6] + descs[7:], descs, descs[2:]))
         return _num_q("Which three-dimensional figure is being described? The figure has "
                       "%s. (type the name)" % desc,
                       nm, "str", text=True,
@@ -757,7 +820,7 @@ def _(d=1):
                              "%s has %s." % (_a(nm).capitalize(), _pl(flat, "flat face"))]}
 
     if t == 13:                                       # viewed from different perspectives
-        desc, view, ans = pick([
+        views = [
             ("A cube rests on a table", "from directly above (the plan view)", "square"),
             ("A cube rests on a table", "from the front", "square"),
             ("A cylinder stands upright on its circular base",
@@ -777,7 +840,8 @@ def _(d=1):
              "facing the front", "from the front", "triangle"),
             ("A triangular prism rests on a rectangular face with its triangular ends "
              "facing the front", "from directly above (the plan view)", "rectangle"),
-        ])
+        ]
+        desc, view, ans = pick(_by_d(d, views[:4], views, views[3:]))
         return _num_q("Three-dimensional figures look different when they are viewed from "
                       "different perspectives. %s. Viewed %s, what 2-D shape is seen? "
                       "(type the name)" % (desc, view),
@@ -796,7 +860,7 @@ def _(d=1):
                              "The net folds into %s." % _a(nm)]}
 
     if t == 1:                                        # net -> count faces
-        key, nm, faces = pick(_NETS)
+        key, nm, faces = pick(_by_d(d, _NETS[:2], _NETS, _NETS[2:]))
         return {"prompt": "This net folds into a 3-D shape. How many faces will the "
                           "finished solid have?",
                 "component": "net", "spec": {"solid": key},
@@ -805,7 +869,7 @@ def _(d=1):
                              "%s has %d faces." % (_a(nm).capitalize(), faces)]}
 
     if t == 2:                                        # net -> edges or vertices
-        key, nm, faces = pick(_NETS[:4])
+        key, nm, faces = pick(_by_d(d, _NETS[:2], _NETS[:4], _NETS[2:4]))
         f, e, v = [s for s in _SOLIDS_DRAWN if s[0] == nm][0][1:]
         ask = pick(["edges", "vertices"])
         return {"prompt": "This net folds into a 3-D shape. How many %s will the "
@@ -817,7 +881,7 @@ def _(d=1):
                                                 e if ask == "edges" else v, ask)]}
 
     if t == 3:                                        # solid drawing -> count
-        nm, f, e, v = pick(_SOLIDS_DRAWN)
+        nm, f, e, v = pick(drawn)
         ask = pick(["faces", "edges", "vertices"])
         ans = {"faces": f, "edges": e, "vertices": v}[ask]
         return {"prompt": "How many %s does this solid have?" % ask,
@@ -828,7 +892,7 @@ def _(d=1):
                              "%s has %d %s." % (_a(nm).capitalize(), ans, ask)]}
 
     if t == 4:                                        # solid drawing -> name
-        nm, f, e, v = pick(_SOLIDS_DRAWN)
+        nm, f, e, v = pick(drawn)
         return {"prompt": "What is the name of this 3-D shape? (type the name)",
                 "component": "shape", "spec": {"kind": "3d", "name": nm, "ask": "name"},
                 "answer": nm, "answer_type": "str",
@@ -836,7 +900,7 @@ def _(d=1):
                              "It is %s." % _a(nm)]}
 
     if t == 5:                                        # named recall
-        nm, f, e, v = pick(_SOLIDS_ALL if d else _SOLIDS_DRAWN)
+        nm, f, e, v = pick(_by_d(d, _SOLIDS_DRAWN, _SOLIDS_ALL, _SOLIDS_ALL[2:]))
         ask = pick(["faces", "edges", "vertices"])
         ans = {"faces": f, "edges": e, "vertices": v}[ask]
         extra = (" (count the curved surface as a face)"
@@ -847,8 +911,7 @@ def _(d=1):
                                                    {"faces": "face", "edges": "edge", "vertices": "vertex"}[ask] if ans == 1 else ask)])
 
     if t == 6:                                        # Euler's rule
-        nm, f, e, v = pick([s for s in _SOLIDS_ALL if s[0] not in
-                            ("cylinder", "cone", "sphere")])
+        nm, f, e, v = pick(_by_d(d, flat_all[:2], flat_all, flat_all[2:]))
         missing = pick(["faces", "edges", "vertices"])
         if missing == "faces":
             return _num_q("For solids with flat faces, faces + vertices − edges = 2. "
@@ -872,7 +935,7 @@ def _(d=1):
                                 "%d + %d − 2 = %d edges." % (f, v, e)])
 
     if t == 7:                                        # description -> name
-        desc, nm = pick([
+        descs = [
             ("6 square faces, all the same size", "cube"),
             ("6 rectangular faces that are not all squares", "cuboid"),
             ("a square base and 4 triangular faces meeting at a point",
@@ -881,7 +944,8 @@ def _(d=1):
             ("2 flat circular faces and 1 curved surface", "cylinder"),
             ("1 flat circular face, 1 curved surface and 1 vertex", "cone"),
             ("4 triangular faces", "triangular-based pyramid"),
-        ])
+        ]
+        desc, nm = pick(_by_d(d, descs[:2] + descs[4:5], descs, descs[2:]))
         return _num_q("A 3-D shape has %s. What is it called? (type the name)" % desc,
                       nm, "str", text=True,
                       placeholder="cube / cuboid / square-based pyramid / "
@@ -889,7 +953,8 @@ def _(d=1):
                       solution=["A solid with %s is %s." % (desc, _a(nm))])
 
     if t == 8:                                        # combined count
-        (n1, f1, e1, v1), (n2, f2, e2, v2) = random.sample(_SOLIDS_DRAWN, 2)
+        (n1, f1, e1, v1), (n2, f2, e2, v2) = random.sample(
+            _by_d(d, _SOLIDS_DRAWN, _SOLIDS_DRAWN, flat_all[2:]), 2)
         ask, a1, a2 = pick([("faces", f1, f2), ("edges", e1, e2),
                             ("vertices", v1, v2)])
         return _num_q("%s and %s are placed side by side. How many %s do the two solids "
@@ -913,10 +978,15 @@ def _(d=1):
 @skill("Y6.8.e", "Measure and classify angles", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([3, 3, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1])
+    t = _pick_t(_by_d(d, [3, 3, 2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1],
+                         [3, 3, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1],
+                         [3, 2, 2, 2, 2, 1, 1, 1, 2, 2, 1, 2, 2]))
 
     if t == 10:                                       # estimate without a protractor
-        deg = random.choice([20, 30, 40, 50, 60, 70, 80, 100, 110, 120, 130, 140, 150, 160])
+        deg = random.choice(_by_d(d, [30, 45, 60, 90, 120, 135, 150],
+                                  [20, 30, 40, 50, 60, 70, 80, 100, 110, 120, 130, 140,
+                                   150, 160],
+                                  [25, 35, 55, 65, 75, 105, 115, 125, 145, 155, 165]))
         return {"prompt": "Estimate the size of this angle in degrees, without a protractor. "
                           "(Your estimate must be within 10° of the real size.)",
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True},
@@ -925,7 +995,11 @@ def _(d=1):
                              "The angle is %d°." % deg]}
 
     if t == 11:                                       # fractions of a turn
-        num, den = pick([(1, 3), (2, 3), (1, 6), (1, 8), (3, 8), (5, 6), (1, 12), (5, 12), (1, 5), (2, 5)])
+        num, den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (1, 3), (2, 3)],
+                              [(1, 3), (2, 3), (1, 6), (1, 8), (3, 8), (5, 6), (1, 12), (5, 12),
+                               (1, 5), (2, 5)],
+                              [(5, 6), (3, 8), (5, 8), (7, 12), (5, 12), (11, 12), (3, 5),
+                               (4, 5), (7, 10), (7, 9)]))
         return _num_q("A full turn is 360°. How many degrees is %d/%d of a turn?" % (num, den), 360 * num // den, "int",
                       unit="degrees", solution=["360 ÷ %d = %d." % (den, 360 // den),
                                                 "%d × %d = %d°." % (num, 360 // den, 360 * num // den)])
@@ -933,7 +1007,7 @@ def _(d=1):
     if t == 12:                                       # compass turns
         dirs = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
         s0 = random.randrange(8)
-        k = random.randint(1, 7)
+        k = pick(_by_d(d, [2, 4, 6], [1, 2, 3, 4, 5, 6, 7], [3, 5, 7, 9, 11]))
         cw = random.random() < 0.5
         end = dirs[(s0 + (k if cw else -k)) % 8]
         return _num_q("You face %s and turn %d° %s. Which direction do you face now?"
@@ -976,7 +1050,9 @@ def _(d=1):
                              "This angle is %d°, so it is %s." % (deg, kind)]}
 
     if t == 2:                                        # measure, then classify
-        deg = random.choice([35, 55, 75, 100, 125, 145, 160])
+        deg = random.choice(_by_d(d, [30, 50, 70, 100, 120, 140],
+                                  [35, 55, 75, 100, 125, 145, 160],
+                                  [17, 38, 63, 87, 108, 132, 156, 173]))
         return {"prompt": "Measure this angle with the protractor and write its size in "
                           "degrees.",
                 "component": "angle",
@@ -1010,7 +1086,9 @@ def _(d=1):
                                 "%d° is %s." % (deg, kind)])
 
     if t == 4:                                        # reflex partner
-        deg = random.choice([20, 35, 50, 65, 80, 100, 115, 130, 150, 170])
+        deg = random.choice(_by_d(d, [30, 45, 60, 90, 120, 150],
+                                  [20, 35, 50, 65, 80, 100, 115, 130, 150, 170],
+                                  [17, 38, 64, 83, 107, 126, 149, 173]))
         return _num_q("An angle of %d° is drawn. Angles all the way round a point add up "
                       "to 360°. How many degrees is the reflex angle on the other side "
                       "of the two rays?" % deg,
@@ -1019,7 +1097,10 @@ def _(d=1):
                                 "360 − %d = %d°." % (deg, 360 - deg)])
 
     if t == 5:                                        # smallest / largest
-        angs = random.sample([15, 40, 65, 88, 92, 118, 140, 175, 205, 250, 300], 4)
+        angs = random.sample(_by_d(d, [15, 40, 65, 92, 118, 140, 175],
+                                   [15, 40, 65, 88, 92, 118, 140, 175, 205, 250, 300],
+                                   [88, 92, 118, 129, 175, 179, 181, 205, 250, 299, 301]),
+                             _by_d(d, 3, 4, 5))
         want_big = random.random() < 0.5
         return _num_q("Four angles measure %s. Write the size of the %s angle."
                       % (", ".join("%d°" % a for a in angs),
@@ -1031,10 +1112,14 @@ def _(d=1):
                                                     max(angs) if want_big else min(angs))])
 
     if t == 6:                                        # how many acute in a list
-        angs = random.sample([12, 28, 45, 63, 81, 90, 104, 132, 168, 195, 240, 310], 5)
+        angs = random.sample(_by_d(d, [12, 28, 45, 63, 104, 132, 168],
+                                   [12, 28, 45, 63, 81, 90, 104, 132, 168, 195, 240, 310],
+                                   [12, 45, 81, 89, 90, 91, 132, 168, 179, 195, 240, 310]),
+                             _by_d(d, 4, 5, 6))
         cnt = sum(1 for a in angs if a < 90)
-        return _num_q("Five angles measure %s. How many of them are acute?"
-                      % ", ".join("%d°" % a for a in angs),
+        return _num_q("%s angles measure %s. How many of them are acute?"
+                      % (["Four", "Five", "Six"][len(angs) - 4],
+                         ", ".join("%d°" % a for a in angs)),
                       cnt, "int", unit="angles",
                       solution=["An acute angle is less than 90°.",
                                 "%s %s under 90°, so the answer is %d."
@@ -1042,7 +1127,8 @@ def _(d=1):
                                    "are" if cnt != 1 else "is", cnt)])
 
     if t == 7:                                        # turn
-        deg = pick([45, 90, 135, 180, 225, 270, 315, 360])
+        deg = pick(_by_d(d, [90, 180, 270, 360], [45, 90, 135, 180, 225, 270, 315, 360],
+                         [45, 135, 225, 315]))
         return {"prompt": "The arrow shows a turn. How many degrees is the turn?",
                 "component": "angle", "spec": {"mode": "turn", "degrees": deg},
                 "answer": deg, "answer_type": "int",
@@ -1050,14 +1136,17 @@ def _(d=1):
                              "This turn is %d°." % deg]}
 
     if t == 8:                                        # difference between two angles
-        a, b = random.sample([25, 40, 55, 70, 85, 95, 110, 130, 150, 165, 200, 250], 2)
+        a, b = random.sample(_by_d(d, [20, 30, 40, 50, 60, 70, 80, 90, 120, 150],
+                                   [25, 40, 55, 70, 85, 95, 110, 130, 150, 165, 200, 250],
+                                   [27, 48, 63, 86, 97, 114, 138, 159, 207, 263, 318]), 2)
         return _num_q("One angle measures %d° and another measures %d°. How many degrees "
                       "BIGGER is the larger angle?" % (a, b),
                       abs(a - b), "int", unit="degrees",
                       solution=["%d − %d = %d°." % (max(a, b), min(a, b), abs(a - b))])
 
     # clock hands angle
-    mins = pick([5, 10, 15, 20, 25, 30, 40, 45, 50])
+    mins = pick(_by_d(d, [5, 10, 15, 30, 45], [5, 10, 15, 20, 25, 30, 40, 45, 50],
+                      [7, 12, 23, 35, 48, 55]))
     return _num_q("The minute hand of a clock goes all the way round in 60 minutes. "
                   "How many degrees does the minute hand turn in %d minutes?" % mins,
                   6 * mins, "int", unit="degrees",
@@ -3272,11 +3361,15 @@ _UNIT_WORD = {"km": "kilometres", "m": "metres", "cm": "centimetres",
 @skill("Y6.9.a", "Convert metric units", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 4, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3])
+    # easy leans on single conversions and reading scales; stretch on comparing,
+    # ordering and multi-step problems
+    t = _pick_t(_by_d(d, [3, 3, 4, 1, 2, 2, 2, 1, 2, 1, 3, 3, 2, 2, 2, 1],
+                         [2, 2, 4, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3],
+                         [2, 2, 2, 3, 2, 2, 2, 3, 2, 3, 1, 2, 1, 1, 4, 2]))
     big, small, k = pick(_METRIC if d else _METRIC[:5])
 
     if t == 12:                                       # choose the appropriate metric unit
-        item, opts, ans = pick([
+        items = [
             ("the mass of an apple", "grams / kilograms / tonnes", "grams"),
             ("the mass of a lorry", "grams / kilograms / tonnes", "tonnes"),
             ("the mass of a Year 6 pupil", "grams / kilograms / tonnes", "kilograms"),
@@ -3292,7 +3385,10 @@ def _(d=1):
             ("the water held by a bath", "millilitres / litres", "litres"),
             ("the length of a football pitch",
              "millimetres / centimetres / metres / kilometres", "metres"),
-        ])
+            ("the mass of a paperclip", "grams / kilograms / tonnes", "grams"),
+            ("the water in a fish tank", "millilitres / litres", "litres"),
+        ]
+        item, opts, ans = pick(_by_d(d, items[:6], items[:10], items[3:]))
         return _num_q("Choose the appropriate metric unit of measure for %s. (type one "
                       "word: %s)" % (item, opts),
                       ans, "str", text=True, placeholder=opts,
@@ -3300,7 +3396,7 @@ def _(d=1):
                                 "The appropriate metric unit is %s." % ans])
 
     if t == 13:                                       # more reasonable temperature
-        thing, good, bad = pick([
+        temps = [
             ("a cup of hot tea", 70, 7),
             ("a snowy winter morning", -3, 30),
             ("the water in a swimming pool", 27, 72),
@@ -3309,7 +3405,11 @@ def _(d=1):
             ("a warm summer day in the UK", 25, 65),
             ("the inside of a freezer", -18, 18),
             ("a comfortable classroom", 20, 45),
-        ])
+            ("a cold winter night in Scotland", -5, 15),
+            ("a hot bath", 40, 80),
+        ]
+        thing, good, bad = pick(_by_d(d, temps[:2] + temps[4:5] + temps[5:6], temps[:8],
+                                      temps[1:4] + temps[6:]))
         first = random.random() < 0.5
         a, b = (good, bad) if first else (bad, good)
         return _num_q("Choose the more reasonable temperature for %s: %d °C or %d °C? "
@@ -3381,7 +3481,7 @@ def _(d=1):
                           solution=["The smaller the unit, the more precise the "
                                     "measurement.",
                                     "The most precise of these units is %s." % ans])
-        whole = random.randint(3, 19)
+        whole = random.randint(_by_d(d, 3, 3, 12), _by_d(d, 12, 19, 29))
         one_dp = round(whole + pick([1, 2, 3, 4, 6, 7, 8, 9]) / 10.0, 1)
         two_dp = round(one_dp + pick([1, 2, 3, 4, 5, 6, 7, 8, 9]) / 100.0, 2)
         return _num_q("Three pupils measure the same pencil and record %d cm, %s cm and "
@@ -3395,8 +3495,8 @@ def _(d=1):
                                 "centimetre." % _f(two_dp)])
 
     if t == 10:                                       # ruler: read cm, answer in mm
-        mx = pick([10, 15, 20])
-        v = random.randint(1, mx)
+        mx = pick(_by_d(d, [10], [10, 15, 20], [15, 20]))
+        v = random.randint(_by_d(d, 1, 1, 6), mx)
         return {"prompt": "Read the ruler. How long is the line, in millimetres?",
                 "component": "ruler",
                 "spec": {"mode": "length", "value": v, "max": mx, "unit": "cm"},
@@ -3405,8 +3505,9 @@ def _(d=1):
                              "1 cm = 10 mm, so %d × 10 = %d mm." % (v, v * 10)]}
 
     if t == 11:                                       # scale / jug: answer in the big unit
+        step = _by_d(d, 100, 50, 50)
         if random.random() < 0.5:
-            v = random.randrange(50, 1000, 50)
+            v = random.randrange(step, 1000, step)
             return {"prompt": "Read the scale. What is the mass, in kilograms? "
                               "Give your answer as a decimal.",
                     "component": "ruler",
@@ -3414,7 +3515,7 @@ def _(d=1):
                     "answer": v / 1000.0, "answer_type": "num", "tolerance": 0.0005,
                     "solution": ["The pointer is at %d g." % v,
                                  "%d ÷ 1000 = %s kg." % (v, _f(v / 1000.0))]}
-        v = random.randrange(50, 1000, 50)
+        v = random.randrange(step, 1000, step)
         return {"prompt": "Read the jug. How many litres of liquid does it hold? "
                           "Give your answer as a decimal.",
                 "component": "ruler",
@@ -3440,7 +3541,9 @@ def _(d=1):
 
     if t == 1:                                        # big -> small
         whole = random.randint(1, _by_d(d, 9, 20, 60))
-        frac = pick([0, 0.5, 0.25, 0.75, 0.1, 0.2, 0.125, 0.375, 0.05])
+        frac = pick(_by_d(d, [0, 0.5, 0.25, 0.75],
+                          [0, 0.5, 0.25, 0.75, 0.1, 0.2, 0.125, 0.375, 0.05],
+                          [0.125, 0.375, 0.05, 0.35, 0.65, 0.875, 0.04]))
         v = whole + frac
         small_v = v * k
         if abs(small_v - round(small_v)) > 1e-9:
@@ -3453,10 +3556,11 @@ def _(d=1):
                                                       small)])
 
     if t == 2:                                        # conversion table with a gap
-        big2, small2, k2 = pick(_METRIC[:5])
-        vals = sorted(random.sample(range(1, 20), 4))
+        big2, small2, k2 = pick(_METRIC if d == 2 else _METRIC[:5])
+        vals = sorted(random.sample(range(1, _by_d(d, 10, 20, 40)), 4))
         headers = [_UNIT_WORD[big2].capitalize(), _UNIT_WORD[small2].capitalize()]
-        rows = [[_f(v / 2.0), str(int(v * k2 / 2))] for v in vals]
+        half = _by_d(d, 1.0, 2.0, 4.0 if k2 >= 100 else 2.0)   # easy: whole units; stretch: quarters
+        rows = [[_f(v / half), str(int(v * k2 / half))] for v in vals]
         i = random.randrange(4)
         j = random.randrange(2)
         ans = rows[i][j]
@@ -3473,9 +3577,13 @@ def _(d=1):
 
     if t == 3:                                        # compare two measures
         v1 = _small_val()
-        v2 = round(random.uniform(0.5, 15.0), 3)
+        dp = _by_d(d, 1, 3, 3)
+        v2 = round(random.uniform(0.5, 15.0), dp)
+        if d == 2:                                    # stretch: the two are close
+            v2 = round(v1 / float(k) + pick([-1, 1]) * random.randint(1, 9) / 100.0, 3)
+            v2 = abs(v2) or 0.01
         while abs(v1 - v2 * k) < 1e-9:
-            v2 = round(random.uniform(0.5, 15.0), 3)
+            v2 = round(random.uniform(0.5, 15.0), dp)
         bigger = "A" if v1 > v2 * k else "B"
         return _num_q("Measurement A is %d %s. Measurement B is %s %s. Which is larger? "
                       "(type A or B)" % (v1, small, _f(v2), big),
@@ -3486,8 +3594,11 @@ def _(d=1):
                                 % (_f(max(v1, v2 * k)), small, bigger)])
 
     if t == 4:                                        # add two mixed measures
-        a = random.randint(1, 9)
-        b = random.randint(1, k - 1) if k <= 100 else random.randint(1, 999)
+        a = random.randint(1, _by_d(d, 5, 9, 25))
+        if d == 0:
+            b = (k // 10) * random.randint(1, 9)
+        else:
+            b = random.randint(1, k - 1) if k <= 100 else random.randint(1, 999)
         total = a * k + b
         return _num_q("Add %d %s and %d %s. Write the total in %s." % (a, big, b, small,
                                                                        _UNIT_WORD[small]),
@@ -3497,8 +3608,9 @@ def _(d=1):
 
     if t == 5:                                        # word problem: total mass
         who = pick(NAMES)
-        n = random.randint(3, 8)
-        each = random.randint(150, 950)
+        n = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 5, 8, 15))
+        each = _by_d(d, 100 * random.randint(1, 9), random.randint(150, 950),
+                     random.randint(150, 1950))
         total = n * each
         return _num_q("%s buys %d bags of flour. Each bag weighs %d g. What is the total "
                       "mass, in kilograms?" % (who, n, each),
@@ -3507,8 +3619,10 @@ def _(d=1):
                                 "%d ÷ 1000 = %s kg." % (total, _f(total / 1000.0))])
 
     if t == 6:                                        # remaining after using some
-        cap = pick([1, 2, 3, 5])
+        cap = pick(_by_d(d, [1, 2], [1, 2, 3, 5], [3, 5, 10]))
         used = random.randint(100, cap * 1000 - 100)
+        if d == 0:
+            used = 100 * random.randint(1, cap * 10 - 1)
         left = cap * 1000 - used
         return _num_q("A bottle holds %d litre%s of water. %d ml is poured out. "
                       "How many millilitres are left?"
@@ -3518,9 +3632,11 @@ def _(d=1):
                                 "%d − %d = %d ml." % (cap * 1000, used, left)])
 
     if t == 7:                                        # order three measures
-        v = [random.randint(1, 9000) for _ in range(3)]
+        lo, top = _by_d(d, (100, 9000), (1, 9000), (1, 9999))
+        mul = _by_d(d, 100, 1, 1)
+        v = [mul * random.randint(lo // mul or 1, top // mul) for _ in range(3)]
         while len(set(v)) < 3:
-            v = [random.randint(1, 9000) for _ in range(3)]
+            v = [mul * random.randint(lo // mul or 1, top // mul) for _ in range(3)]
         return _num_q("Three lengths are %d m, %s km and %d cm. Write the LONGEST of the "
                       "three in metres." % (v[0], _f(v[1] / 1000.0), v[2]),
                       max(v[0], v[1], v[2] / 100.0), "num", unit="m", tolerance=0.005,
@@ -3530,7 +3646,8 @@ def _(d=1):
                                 % _f(max(v[0], v[1], v[2] / 100.0))])
 
     if t == 8:                                        # scale up 3 dp
-        v = random.randint(1, 999)
+        v = _by_d(d, 100 * random.randint(1, 9), random.randint(1, 999),
+                  random.randint(1001, 9999))
         return _num_q("A parcel weighs %d g. What is its mass in kilograms? "
                       "Give your answer as a decimal." % v,
                       v / 1000.0, "num", unit="kg", tolerance=0.0005,
@@ -3539,8 +3656,9 @@ def _(d=1):
 
     # multi-step: distance in km
     who = pick(NAMES)
-    legs = random.randint(3, 5)
-    each = random.randint(150, 900)
+    legs = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 4, 5, 12))
+    each = _by_d(d, 100 * random.randint(2, 5), random.randint(150, 900),
+                 random.randint(150, 900))
     total = legs * each
     return _num_q("%s runs %d laps of a track. Each lap is %d m. What is the total "
                   "distance, in kilometres?" % (who, legs, each),
@@ -3564,10 +3682,12 @@ _IMPERIAL = [
 @skill("Y6.9.b", "Miles, kilometres and imperial equivalences", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 6, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3])
+    t = _pick_t(_by_d(d, [3, 3, 6, 2, 1, 1, 2, 1, 1, 1, 3, 2, 2, 2, 2],
+                         [2, 2, 6, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3],
+                         [2, 2, 4, 1, 2, 3, 1, 3, 2, 2, 1, 3, 3, 3, 3]))
 
     if t == 10:                                       # appropriate imperial unit
-        item, opts, ans = pick([
+        items = [
             ("the width of a book", "inches / feet / yards / miles", "inches"),
             ("the height of a room", "inches / feet / yards / miles", "feet"),
             ("the distance from London to Manchester",
@@ -3578,7 +3698,8 @@ def _(d=1):
             ("the weight of an adult", "ounces / pounds / stone", "stone"),
             ("the milk in a small carton", "pints / gallons", "pints"),
             ("the petrol in a car's tank", "pints / gallons", "gallons"),
-        ])
+        ]
+        item, opts, ans = pick(_by_d(d, items[:3] + items[7:], items, items[3:7]))
         return _num_q("Choose the appropriate imperial unit of measure for %s. (type one "
                       "word: %s)" % (item, opts),
                       ans, "str", text=True, placeholder=opts,
@@ -3667,9 +3788,10 @@ def _(d=1):
 
     if t == 2:                                        # conversion table
         rows = []
-        base = random.randint(1, 5)
+        base = random.randint(*_by_d(d, (1, 3), (1, 5), (4, 15)))
+        gap = _by_d(d, 1, 1, pick([2, 3]))            # stretch: the rows skip
         for i in range(4):
-            m = 5 * (base + i)
+            m = 5 * (base + gap * i)
             rows.append([str(m), str(m // 5 * 8)])
         i = random.randrange(4)
         j = random.randrange(2)
@@ -3708,7 +3830,7 @@ def _(d=1):
 
     if t == 5:                                        # inverse
         sing, plur, unit, factor, fact, approx = pick(_IMPERIAL)
-        n = random.randint(2, 12)
+        n = random.randint(2, _by_d(d, 6, 12, 25))
         val = n * factor
         return _num_q("%s. %s many %s are there in %s %s?"
                       % (fact, "About how" if approx else "How", plur, _f(val), unit),
@@ -3718,7 +3840,7 @@ def _(d=1):
 
     if t == 6:                                        # road sign word problem
         who = pick(NAMES)
-        km = 8 * random.randint(2, 12)
+        km = 8 * random.randint(2, _by_d(d, 6, 12, 30))
         return _num_q("A road sign says the next town is %d km away. Using 8 km ≈ 5 "
                       "miles, about how many miles away is the town?" % km,
                       km // 8 * 5, "int", unit="miles",
@@ -3726,8 +3848,11 @@ def _(d=1):
                                 "%d × 5 = %d miles." % (km // 8, km // 8 * 5)])
 
     if t == 7:                                        # compare
-        miles = 5 * random.randint(2, 12)
-        km = random.randint(10, 120)
+        miles = 5 * random.randint(2, _by_d(d, 6, 12, 30))
+        if d == 2:                                    # stretch: the two journeys are close
+            km = miles // 5 * 8 + pick([-3, -2, -1, 1, 2, 3])
+        else:
+            km = random.randint(10, _by_d(d, 60, 120, 120))
         while km == miles // 5 * 8:
             km = random.randint(10, 120)
         ans = "A" if miles // 5 * 8 > km else "B"
@@ -3740,8 +3865,8 @@ def _(d=1):
                                 % (miles // 5 * 8, km, ans)])
 
     if t == 8:                                        # weight in stone and pounds
-        st = random.randint(4, 14)
-        lb = random.randint(0, 13)
+        st = random.randint(*_by_d(d, (2, 6), (4, 14), (8, 20)))
+        lb = random.randint(_by_d(d, 0, 0, 5), 13)
         return _num_q("1 stone = 14 pounds. How many pounds is %d stone %s?"
                       % (st, _pl(lb, "pound")),
                       st * 14 + lb, "int", unit="pounds",
@@ -3749,7 +3874,7 @@ def _(d=1):
                                 "%d + %d = %d pounds." % (st * 14, lb, st * 14 + lb)])
 
     # gallons -> litres via pints
-    gal = random.randint(1, 6)
+    gal = random.randint(*_by_d(d, (1, 3), (1, 6), (4, 12)))
     pints = gal * 8
     ml = pints * 568
     return _num_q("1 gallon = 8 pints and 1 pint is about 568 ml. About how many "
@@ -3776,7 +3901,12 @@ _CITIES = [("New York", -5), ("Los Angeles", -8), ("Rio de Janeiro", -4),
 @skill("Y6.9.c", "Time problems and 24-hour clock", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 3, 3, 4])
+    t = _pick_t(_by_d(d, [2, 2, 2, 1, 1, 4, 1, 1, 2, 1, 3, 3, 3],
+                         [2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 3, 3, 4],
+                         [2, 1, 1, 2, 2, 3, 2, 3, 1, 2, 2, 2, 4]))
+    # minutes past the hour: easy keeps to quarter hours, stretch uses any minute
+    st = _by_d(d, 15, 5, 1)
+    cst = _by_d(d, 15, 5, 5)                          # the clock face keeps 5-minute marks
 
     if t == 12:                                       # find start and end times (words)
         who = pick(NAMES)
@@ -3787,7 +3917,7 @@ def _(d=1):
                              ("art workshop", "the studio")])
         mins = random.randint(_by_d(d, 20, 35, 45), _by_d(d, 75, 140, 220))
         h1 = random.randint(8, 18)
-        m1 = random.randrange(0, 60, 5)
+        m1 = random.randrange(0, 60, st)
         start = h1 * 60 + m1
         end = start + mins
         if random.random() < 0.5:
@@ -3812,7 +3942,7 @@ def _(d=1):
 
     if t == 10:                                       # clock: set a 24-hour time
         h24 = random.randint(13, 23)
-        m = random.randrange(0, 60, 5)
+        m = random.randrange(0, 60, cst)
         return {"prompt": "A timetable shows %s. Set the clock to show that time."
                           % _hm24(h24, m),
                 "component": "clock", "spec": {"mode": "set"},
@@ -3824,8 +3954,9 @@ def _(d=1):
 
     if t == 11:                                       # clock: set the finish time
         h = random.randint(1, 11)
-        m = random.randrange(0, 60, 5)
-        mins = random.randint(10, 55)
+        m = random.randrange(0, 60, cst)
+        mins = _by_d(d, 15 * random.randint(1, 3), random.randint(10, 55),
+                     5 * random.randint(7, 23))
         end = h * 60 + m + mins
         eh, em = (end // 60), end % 60
         if eh > 12:
@@ -3840,7 +3971,7 @@ def _(d=1):
 
     if t == 0:                                        # journey length in minutes
         h1 = random.randint(6, 18)
-        m1 = random.randrange(0, 60, 5)
+        m1 = random.randrange(0, 60, st)
         mins = random.randint(_by_d(d, 20, 40, 70), _by_d(d, 90, 180, 300))
         start = h1 * 60 + m1
         end = start + mins
@@ -3855,7 +3986,7 @@ def _(d=1):
 
     if t == 1:                                        # 12h -> 24h
         h = random.randint(1, 11)
-        m = random.randrange(0, 60, 5)
+        m = random.randrange(0, 60, st)
         pm = random.random() < 0.5
         h24 = h + 12 if pm else h
         return _num_q("Write %s %s as a 24-hour clock time, in the form %s."
@@ -3869,7 +4000,7 @@ def _(d=1):
 
     if t == 2:                                        # 24h -> 12h
         h24 = random.randint(13, 23)
-        m = random.randrange(0, 60, 5)
+        m = random.randrange(0, 60, st)
         return _num_q("A timetable shows %s. Write that time on a 12-hour clock, in the "
                       "form 2:30 (the pm is understood)." % _hm24(h24, m),
                       _hm(h24 - 12, m), "time",
@@ -3879,7 +4010,7 @@ def _(d=1):
 
     if t == 3:                                        # finish time
         h1 = random.randint(7, 20)
-        m1 = random.randrange(0, 60, 5)
+        m1 = random.randrange(0, 60, st)
         mins = random.randint(_by_d(d, 15, 35, 55), _by_d(d, 80, 150, 260))
         end = h1 * 60 + m1 + mins
         return _num_q("A film starts at %s and lasts %d minutes. At what time does it "
@@ -3895,7 +4026,7 @@ def _(d=1):
 
     if t == 4:                                        # start time (inverse)
         h2 = random.randint(9, 22)
-        m2 = random.randrange(0, 60, 5)
+        m2 = random.randrange(0, 60, st)
         mins = random.randint(20, _by_d(d, 60, 120, 200))
         start = h2 * 60 + m2 - mins
         while start < 0:
@@ -3914,8 +4045,10 @@ def _(d=1):
         stops = random.sample(["Ashford", "Bewley", "Carlton", "Denham", "Eastgate",
                                "Fairholme"], 4)
         h = random.randint(6, 18)
-        m = random.randrange(0, 60, 5)
-        gaps = [random.randint(8, 35) for _ in range(3)]
+        m = random.randrange(0, 60, st)
+        gaps = [random.randint(*_by_d(d, (5, 20), (8, 35), (17, 58))) for _ in range(3)]
+        if d == 0:
+            gaps = [5 * (g // 5) for g in gaps]
         times = [h * 60 + m]
         for g in gaps:
             times.append(times[-1] + g)
@@ -3932,8 +4065,9 @@ def _(d=1):
                              "The gap is %d minutes." % gaps[i]]}
 
     if t == 6:                                        # time zone
-        city, off = pick(_CITIES)
-        h = random.randint(6, 20)
+        city, off = pick(_by_d(d, [c for c in _CITIES if 1 <= abs(c[1]) <= 5], _CITIES,
+                               [c for c in _CITIES if abs(c[1]) >= 4]))
+        h = random.randint(*_by_d(d, (8, 16), (6, 20), (1, 23)))
         m = random.randrange(0, 60, 15)
         local = (h + off) % 24
         return _num_q("When it is %s in London, %s is %d hour%s %s. What is the time in "
@@ -3949,7 +4083,8 @@ def _(d=1):
         city, off = pick(_CITIES)
         dep_h = random.randint(6, 14)
         dep_m = random.randrange(0, 60, 15)
-        flight = random.randint(3, 12) * 60 + random.randrange(0, 60, 15)
+        flight = (random.randint(*_by_d(d, (2, 6), (3, 12), (7, 14))) * 60
+                  + random.randrange(0, 60, _by_d(d, 30, 15, 5)))
         arrive_uk = dep_h * 60 + dep_m + flight
         local = (arrive_uk + off * 60) % (24 * 60)
         return _num_q("A plane leaves London at %s and flies for %d hours and %d minutes. "
@@ -3968,20 +4103,28 @@ def _(d=1):
                                    _hm24(local // 60, local % 60))])
 
     if t == 8:                                        # days / hours / minutes
-        val, frm, to, factor = pick([(random.randint(2, 9), "days", "hours", 24),
-                                     (random.randint(2, 9), "hours", "minutes", 60),
-                                     (random.randint(2, 9), "minutes", "seconds", 60),
-                                     (random.randint(2, 8), "weeks", "days", 7),
-                                     (random.randint(2, 6), "years", "months", 12)])
+        hi = _by_d(d, 5, 9, 20)
+        opts = [(random.randint(2, hi), "days", "hours", 24),
+                (random.randint(2, hi), "hours", "minutes", 60),
+                (random.randint(2, hi), "minutes", "seconds", 60),
+                (random.randint(2, hi - 1), "weeks", "days", 7),
+                (random.randint(2, hi - 3), "years", "months", 12)]
+        if d == 2:                                    # stretch: two steps of conversion
+            opts += [(random.randint(2, 6), "days", "minutes", 1440),
+                     (random.randint(2, 5), "hours", "seconds", 3600)]
+        val, frm, to, factor = pick(opts)
         return _num_q("How many %s are there in %d %s?" % (to, val, frm),
                       val * factor, "int", unit=to,
-                      solution=["1 %s = %d %s." % (frm[:-1], factor, to),
+                      solution=["1 %s = %s %s." % (frm[:-1], "{:,}".format(factor)
+                                                   if factor < 1000 else
+                                                   {1440: "24 × 60 = 1,440",
+                                                    3600: "60 × 60 = 3,600"}[factor], to),
                                 "%d × %d = %d %s." % (val, factor, val * factor, to)])
 
     # total time across several activities
     who = pick(NAMES)
-    n = random.randint(3, 5)
-    mins = [random.randint(15, 75) for _ in range(n)]
+    n = random.randint(*_by_d(d, (2, 3), (3, 5), (4, 6)))
+    mins = [random.randint(*_by_d(d, (10, 45), (15, 75), (25, 95))) for _ in range(n)]
     total = sum(mins)
     return _num_q("%s does %d activities lasting %s minutes. What is the total time, in "
                   "hours and minutes? Write only the number of MINUTES left over after "
@@ -4000,7 +4143,9 @@ _SHOP = [("pencil", 45), ("notebook", 185), ("ruler", 65), ("rubber", 35),
 @skill("Y6.9.d", "Money problems", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 6, 1, 1, 1, 2, 1, 1, 1, 1])
+    t = _pick_t(_by_d(d, [3, 6, 1, 1, 2, 2, 1, 1, 1, 2],
+                         [2, 6, 1, 1, 1, 2, 1, 1, 1, 1],
+                         [2, 4, 3, 3, 2, 2, 3, 2, 2, 1]))
     who = pick(NAMES)
 
     if t == 0:                                        # change from a note
@@ -4019,7 +4164,8 @@ def _(d=1):
                                                    money(note - total))])
 
     if t == 1:                                        # total of a shopping list (table)
-        items = random.sample(_SHOP, _by_d(d, 3, 4, 5))
+        items = random.sample(_SHOP if d else [x for x in _SHOP if x[1] <= 200],
+                              _by_d(d, 3, 4, 5))
         qty = [random.randint(1, 4) for _ in items]
         rows = [[nm, money(pr), str(q), money(pr * q)]
                 for (nm, pr), q in zip(items, qty)]
@@ -4037,10 +4183,10 @@ def _(d=1):
                              "The total is %s." % money(total)]}
 
     if t == 2:                                        # best value
-        n1 = pick([3, 4, 5, 6])
-        unit = pick([25, 30, 40, 45, 50])
+        n1 = pick(_by_d(d, [2, 3, 4], [3, 4, 5, 6], [5, 6, 8]))
+        unit = pick(_by_d(d, [20, 25, 30, 50], [25, 30, 40, 45, 50], [35, 45, 55, 65, 85]))
         p1 = n1 * unit
-        n2 = n1 * 2
+        n2 = n1 * _by_d(d, 2, 2, 3)
         p2 = n2 * (unit - pick([1, 2, 3, 5]))       # whole pence per pen in both packs
         cheaper = "B"
         return _num_q("A pack of %d pens costs %s. A pack of %d of the same pens costs "
@@ -4057,8 +4203,10 @@ def _(d=1):
                                 % _f(round(p1 / n1 - p2 / n2, 2))])
 
     if t == 3:                                        # percentage discount
-        price = pick([1200, 1500, 2000, 2400, 3000, 3600, 4500, 5000])
-        pct = pick([10, 20, 25, 50])
+        price = pick(_by_d(d, [1000, 2000, 3000, 4000, 5000, 6000],
+                           [1200, 1500, 2000, 2400, 3000, 3600, 4500, 5000],
+                           [1800, 2400, 3600, 4800, 6400, 7200, 8600]))
+        pct = pick(_by_d(d, [10, 50], [10, 20, 25, 50], [5, 15, 30, 35, 40, 75]))
         off = price * pct // 100
         return _num_q("A coat costs %s. In a sale the price is reduced by %d%%. "
                       "What is the sale price? Answer in pounds."
@@ -4069,8 +4217,9 @@ def _(d=1):
                                                    money(price - off))])
 
     if t == 4:                                        # sharing a cost
-        n = pick([3, 4, 5, 6, 8])
-        each = random.randint(120, 950)
+        n = pick(_by_d(d, [2, 4, 5, 10], [3, 4, 5, 6, 8], [6, 7, 8, 9, 12]))
+        each = _by_d(d, 50 * random.randint(2, 19), random.randint(120, 950),
+                     random.randint(450, 2450))
         total = n * each
         return _num_q("%d friends share the cost of a present that costs %s equally. "
                       "How much does each friend pay? Answer in pounds."
@@ -4079,8 +4228,11 @@ def _(d=1):
                       solution=["%s ÷ %d = %s." % (money(total), n, money(each))])
 
     if t == 5:                                        # unit price / how many affordable
-        item, price = pick(_SHOP)
-        budget = pick([b for b in (500, 1000, 1500, 2000, 3000) if b >= 2 * price])
+        item, price = pick(_by_d(d, [x for x in _SHOP if x[1] <= 200], _SHOP,
+                                 [x for x in _SHOP if x[1] >= 65]))
+        budget = pick([b for b in _by_d(d, (500, 1000, 2000), (500, 1000, 1500, 2000, 3000),
+                                        (1250, 2000, 3500, 4750, 5000))
+                       if b >= 2 * price])
         n = budget // price
         return _num_q("%s has %s to spend. One %s costs %s. What is the greatest number "
                       "of %ss %s can buy?" % (who, money(budget), item, money(price),
@@ -4094,8 +4246,8 @@ def _(d=1):
 
     if t == 6:                                        # two items and change
         (i1, p1), (i2, p2) = random.sample(_SHOP, 2)
-        a = random.randint(1, 3)
-        b = random.randint(1, 3)
+        a = random.randint(1, _by_d(d, 2, 3, 5))
+        b = random.randint(_by_d(d, 1, 1, 2), _by_d(d, 2, 3, 5))
         total = a * p1 + b * p2
         paid = pick([p for p in (1000, 2000, 5000) if p > total] or [10000])
         return _num_q("%s buys %d %s%s at %s each and %d %s%s at %s each, paying with "
@@ -4111,8 +4263,10 @@ def _(d=1):
                                    money(paid - total))])
 
     if t == 7:                                        # profit
-        cost = random.randint(50, 400)
-        sell = cost + random.randint(20, 200)
+        cost = _by_d(d, 10 * random.randint(5, 30), random.randint(50, 400),
+                     random.randint(150, 900))
+        sell = cost + _by_d(d, 10 * random.randint(2, 15), random.randint(20, 200),
+                            random.randint(35, 350))
         n = random.randint(5, _by_d(d, 12, 25, 60))
         return _num_q("A stall buys badges for %s each and sells them for %s each. "
                       "%d badges are sold. What is the total profit? Answer in pounds."
@@ -4124,9 +4278,10 @@ def _(d=1):
                                                    money(n * (sell - cost)))])
 
     if t == 8:                                        # currency-free multi-step
-        weekly = pick([250, 300, 350, 400, 500])
-        weeks = random.randint(4, 12)
-        spend = random.randint(200, weekly * weeks // 2)
+        weekly = pick(_by_d(d, [100, 200, 500], [250, 300, 350, 400, 500],
+                            [175, 225, 350, 425, 650]))
+        weeks = random.randint(*_by_d(d, (2, 6), (4, 12), (8, 26)))
+        spend = random.randint(_by_d(d, 50, 200, 200), weekly * weeks // 2)
         left = weekly * weeks - spend
         return _num_q("%s saves %s each week for %d weeks, then spends %s. "
                       "How much money is left? Answer in pounds."
@@ -4138,7 +4293,8 @@ def _(d=1):
                                                    money(left))])
 
     # pounds and pence conversion
-    p = random.randint(105, 9995)
+    p = _by_d(d, 5 * random.randint(21, 199), random.randint(105, 9995),
+              random.randint(1005, 99995))
     if random.random() < 0.5:
         return _num_q("Write %s in pence." % money(p), p, "int", unit="p",
                       solution=["£1 = 100p.",
@@ -4164,7 +4320,8 @@ def _chart_data(d, n=4):
     title, pool, unit = pick(_CHART_TOPICS)
     cats = pool[:n]
     lo, hi = _by_d(d, (4, 20), (6, 40), (8, 90))
-    vals = _distinct(n, lo, hi)
+    # hard bars run past 50, too many single units to read off the scale, so they are even (read in 2s)
+    vals = [2 * v for v in _distinct(n, lo // 2, hi // 2)] if hi > 50 else _distinct(n, lo, hi)
     return title, cats, vals, unit
 
 
@@ -5023,7 +5180,8 @@ def _(d=1):
 
     if t == 5:                                        # from a bar chart
         cats = ["Red", "Blue", "Green", "Yellow", "Purple"]
-        vals = _distinct(5, 3, _by_d(d, 20, 40, 80))
+        top = _by_d(d, 20, 40, 80)
+        vals = [2 * v for v in _distinct(5, 2, top // 2)] if top > 50 else _distinct(5, 3, top)   # read in 2s past 50
         ask = pick(["range", "median"])
         ans = (max(vals) - min(vals)) if ask == "range" else sorted(vals)[2]
         return {"prompt": "Use the bar chart. What is the %s of the five values?" % ask,
@@ -5090,7 +5248,9 @@ def _(d=1):
 @skill("Y6.9.j", "Simple probability as a fraction", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3, 3, 3])
+    t = _pick_t(_by_d(d, [3, 2, 1, 2, 2, 1, 1, 2, 1, 1, 4, 3, 2, 2],
+                         [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3, 3, 3],
+                         [1, 2, 2, 1, 1, 2, 3, 1, 2, 2, 3, 3, 3, 3]))
     colours = ["red", "blue", "green", "yellow"]
 
     def _frac(a, b):
@@ -5098,7 +5258,7 @@ def _(d=1):
         return "%d/%d" % (f.numerator, f.denominator)
 
     if t in (12, 13):                                 # collected data: probability/prediction
-        T = pick([20, 25, 40, 50])
+        T = pick(_by_d(d, [10, 20], [20, 25, 40, 50], [40, 50, 80]))
         c1 = random.randint(2, T - 6)
         c2 = random.randint(2, T - c1 - 3)
         c3 = T - c1 - c2
@@ -5118,7 +5278,7 @@ def _(d=1):
                     "solution": ["%s was drawn %d times out of %d."
                                  % (cs[k], counts[k], T),
                                  "The probability is %s." % _frac(counts[k], T)]}
-        mult = pick([2, 3, 4, 5])
+        mult = pick(_by_d(d, [2, 3], [2, 3, 4, 5], [4, 5, 6, 10]))
         return {"prompt": "A counter was taken from a bag and put back %d times. The "
                           "table shows the collected data. Use the data to make a "
                           "prediction: if the same experiment is repeated %d times, about "
@@ -5192,8 +5352,8 @@ def _(d=1):
                                 "The probability is %s." % _frac(ns[k], tot)])
 
     if t == 2:                                        # NOT the event
-        n1 = random.randint(2, 12)
-        n2 = random.randint(2, 12)
+        n1 = random.randint(2, _by_d(d, 6, 12, 20))
+        n2 = random.randint(2, _by_d(d, 6, 12, 20))
         c1, c2 = random.sample(colours, 2)
         tot = n1 + n2
         return _num_q("A bag holds %d %s counters and %d %s counters. One counter is "
@@ -5204,11 +5364,15 @@ def _(d=1):
                                 "The probability is %s." % _frac(n2, tot)])
 
     if t == 3:                                        # dice
-        tgt, desc = pick([([1], "a 1"), ([6], "a 6"), ([2, 4, 6], "an even number"),
-                          ([1, 3, 5], "an odd number"),
-                          ([4, 5, 6], "a number greater than 3"),
-                          ([1, 2, 3], "a number less than 4"),
-                          ([2, 3, 5], "a prime number")])
+        rolls = [([1], "a 1"), ([6], "a 6"), ([2, 4, 6], "an even number"),
+                 ([1, 3, 5], "an odd number"),
+                 ([4, 5, 6], "a number greater than 3"),
+                 ([1, 2, 3], "a number less than 4"),
+                 ([2, 3, 5], "a prime number"),
+                 ([3, 6], "a multiple of 3"),
+                 ([1, 2, 3, 6], "a factor of 6"),
+                 ([1, 4], "a square number")]
+        tgt, desc = pick(_by_d(d, rolls[:4], rolls[:7], rolls[4:]))
         return _num_q("A fair six-sided dice numbered 1 to 6 is rolled once. What is the "
                       "probability of rolling %s? Write your answer as a fraction." % desc,
                       _frac(len(tgt), 6), "frac",
@@ -5217,7 +5381,7 @@ def _(d=1):
                                 "%d out of 6 is %s." % (len(tgt), _frac(len(tgt), 6))])
 
     if t == 4:                                        # spinner
-        n = pick([4, 5, 6, 8, 10])
+        n = pick(_by_d(d, [2, 4, 5], [4, 5, 6, 8, 10], [8, 9, 10, 12, 15]))
         k = random.randint(1, n - 1)
         return _num_q("A fair spinner has %d equal sections. %d of the sections are "
                       "shaded. What is the probability that the spinner lands on a shaded "
@@ -5228,8 +5392,8 @@ def _(d=1):
                                 "The probability is %s." % _frac(k, n)])
 
     if t == 5:                                        # numbered cards
-        n = pick([10, 12, 15, 20])
-        multiple = pick([2, 3, 5])
+        n = pick(_by_d(d, [10, 20], [10, 12, 15, 20], [15, 24, 30, 36]))
+        multiple = pick(_by_d(d, [2, 5], [2, 3, 5], [3, 4, 6]))
         cnt = n // multiple
         return _num_q("Cards numbered 1 to %d are shuffled and one is picked at random. "
                       "What is the probability that the number on the card is a multiple "
@@ -5242,9 +5406,12 @@ def _(d=1):
                                 "The probability is %s." % _frac(cnt, n)])
 
     if t == 6:                                        # how many counters (inverse)
-        tot = pick([12, 15, 18, 20, 24, 30])
-        f = pick([Fraction(1, 2), Fraction(1, 3), Fraction(1, 4), Fraction(2, 3),
-                  Fraction(3, 5), Fraction(1, 6)])
+        tot = pick(_by_d(d, [10, 12, 20], [12, 15, 18, 20, 24, 30], [24, 30, 36, 40, 60]))
+        f = pick(_by_d(d, [Fraction(1, 2), Fraction(1, 4), Fraction(1, 10)],
+                       [Fraction(1, 2), Fraction(1, 3), Fraction(1, 4), Fraction(2, 3),
+                        Fraction(3, 5), Fraction(1, 6)],
+                       [Fraction(2, 3), Fraction(3, 4), Fraction(3, 5), Fraction(5, 6),
+                        Fraction(5, 12), Fraction(7, 10)]))
         while (tot * f.numerator) % f.denominator:
             tot = pick([12, 24, 30, 60])
         k = tot * f.numerator // f.denominator
@@ -5257,7 +5424,7 @@ def _(d=1):
                                                        tot, k)])
 
     if t == 7:                                        # certain / impossible / even chance
-        case, ans = pick([
+        cases = [
             ("picking a red counter from a bag that holds only red counters", "certain"),
             ("picking a blue counter from a bag that holds only red counters",
              "impossible"),
@@ -5267,7 +5434,11 @@ def _(d=1):
              "certain"),
             ("rolling an even number on a fair six-sided dice numbered 1 to 6",
              "even chance"),
-        ])
+            ("picking an odd number from cards numbered 1 to 10", "even chance"),
+            ("picking a number less than 11 from cards numbered 1 to 10", "certain"),
+            ("rolling a total of 13 with two fair six-sided dice", "impossible"),
+        ]
+        case, ans = pick(_by_d(d, cases[:3], cases[:6], cases[3:]))
         return _num_q("How likely is %s? (type certain, impossible or even chance)" % case,
                       ans, "str", text=True,
                       placeholder="certain / impossible / even chance",
@@ -5275,7 +5446,7 @@ def _(d=1):
                                 "It is %s." % ans])
 
     if t == 8:                                        # probability as a percentage
-        n = pick([10, 20, 25, 50])
+        n = pick(_by_d(d, [10, 100], [10, 20, 25, 50], [20, 25, 40, 50, 200]))
         k = random.randint(1, n - 1)
         while (100 * k) % n:
             k = random.randint(1, n - 1)
@@ -5287,8 +5458,10 @@ def _(d=1):
                                 "As a percentage that is %d%%." % (100 * k // n)])
 
     # expected number of successes
-    n = pick([2, 3, 4, 5, 6])
-    trials = pick([12, 18, 24, 30, 60])
+    n = pick(_by_d(d, [2, 3, 4], [2, 3, 4, 5, 6], [5, 6, 8, 10]))
+    trials = pick(_by_d(d, [12, 24], [12, 18, 24, 30, 60], [60, 120, 240, 300]))
+    if trials % n:                                    # keep the expected number whole
+        trials = n * (trials // n + 1)
     return _num_q("A fair spinner has %d equal sections, numbered 1 to %d. The spinner is "
                   "spun %d times. About how many times would you expect it to land on "
                   "section 1?" % (n, n, trials),
@@ -5303,11 +5476,17 @@ _SPEND = ["Food", "Travel", "Clubs", "Books", "Games", "Savings", "Presents"]
 @skill("Y6.9.k", "Financial literacy: records and budgets", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3])
+    t = _pick_t(_by_d(d, [3, 2, 2, 2, 1, 1, 2, 1, 1, 1, 2, 2],
+                         [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3],
+                         [2, 3, 1, 1, 2, 3, 1, 2, 3, 2, 1, 2]))
     who = pick(NAMES)
+    # easy keeps to whole pounds or 50p steps; stretch uses any amount in pence
+    def amt(lo, hi):
+        return _by_d(d, 50 * random.randint(max(1, lo // 50), hi // 50),
+                     random.randint(lo, hi), random.randint(lo, 2 * hi))
 
     if t == 10:                                       # advantages and disadvantages
-        kind, feature, ans = pick([
+        feats = [
             ("an advantage", "no bank account is needed to pay this way", "cash"),
             ("a disadvantage", "if it is lost or stolen it usually cannot be replaced",
              "cash"),
@@ -5329,7 +5508,8 @@ def _(d=1):
             ("a disadvantage",
              "the money has to be built up first, so the purchase must wait",
              "savings account"),
-        ])
+        ]
+        kind, feature, ans = pick(_by_d(d, feats[0::2], feats, feats[1::2] + feats[4:5]))
         return _num_q("Identify the payment method. Which payment method has %s: “%s”? "
                       "(type cash, debit card, credit card or savings account)"
                       % (kind, feature),
@@ -5339,10 +5519,11 @@ def _(d=1):
                                 "That is %s of using %s." % (kind, ans)])
 
     if t == 11:                                       # evaluate payment methods
-        price = pick([4500, 6000, 8500, 12000, 20000])
+        price = pick(_by_d(d, [4000, 6000, 10000], [4500, 6000, 8500, 12000, 20000],
+                           [4599, 6249, 8575, 11999, 19950]))
         enough = random.random() < 0.5
-        bal = price + pick([500, 1500, 3000]) if enough else price - pick([500, 1500,
-                                                                          3000])
+        gaps = _by_d(d, [1000, 2000, 3000], [500, 1500, 3000], [1, 25, 99, 150])
+        bal = price + pick(gaps) if enough else price - pick(gaps)
         if bal < 0:
             bal = price + 500
             enough = True
@@ -5362,7 +5543,7 @@ def _(d=1):
 
     if t == 0:                                        # budget table: total spending
         cats = random.sample(_SPEND, _by_d(d, 3, 4, 5))
-        amounts = [random.randint(150, 1800) for _ in cats]
+        amounts = [amt(150, 1800) for _ in cats]
         rows = [[c, money(a)] for c, a in zip(cats, amounts)]
         return {"prompt": "This is a monthly spending record. What is the total spent? "
                           "Answer in pounds.",
@@ -5377,7 +5558,7 @@ def _(d=1):
 
     if t == 1:                                        # budget table: money left
         cats = random.sample(_SPEND, _by_d(d, 3, 4, 5))
-        amounts = [random.randint(150, 1200) for _ in cats]
+        amounts = [amt(150, 1200) for _ in cats]
         spent = sum(amounts)
         income = ((spent + random.randint(200, 2500)) // 100 + 1) * 100
         rows = [[c, money(a)] for c, a in zip(cats, amounts)]
@@ -5394,7 +5575,8 @@ def _(d=1):
                                                 money(income - spent))]}
 
     if t == 2:                                        # savings over months
-        each = pick([500, 750, 1000, 1250, 1500, 2000])
+        each = pick(_by_d(d, [500, 1000, 2000], [500, 750, 1000, 1250, 1500, 2000],
+                          [750, 1250, 1575, 2250, 3425]))
         months = random.randint(3, _by_d(d, 6, 12, 24))
         return _num_q("%s saves %s every month for %d months. How much is saved "
                       "altogether? Answer in pounds." % (who, money(each), months),
@@ -5403,8 +5585,9 @@ def _(d=1):
                                                    money(each * months))])
 
     if t == 3:                                        # how long to save for a target
-        each = pick([500, 800, 1000, 1500, 2000, 2500])
-        months = random.randint(3, 15)
+        each = pick(_by_d(d, [500, 1000, 2000], [500, 800, 1000, 1500, 2000, 2500],
+                          [750, 1250, 1750, 2250, 3500]))
+        months = random.randint(*_by_d(d, (2, 8), (3, 15), (9, 24)))
         target = each * months
         return _num_q("%s wants to buy a bike costing %s and saves %s each month. "
                       "How many months will it take to save enough?"
@@ -5414,8 +5597,9 @@ def _(d=1):
                                 "It takes %d months." % months])
 
     if t == 4:                                        # percentage of income saved
-        income = pick([80000, 100000, 120000, 150000, 200000])
-        pct = pick([5, 10, 15, 20, 25])
+        income = pick(_by_d(d, [100000, 200000], [80000, 100000, 120000, 150000, 200000],
+                            [85000, 124000, 168000, 236000]))
+        pct = pick(_by_d(d, [10, 50], [5, 10, 15, 20, 25], [12, 15, 35, 40]))
         saved = income * pct // 100
         return _num_q("A monthly income is %s. %d%% of it is put into savings. "
                       "How much is saved each month? Answer in pounds."
@@ -5425,9 +5609,10 @@ def _(d=1):
                                 "That is %s saved each month." % money(saved)])
 
     if t == 5:                                        # running balance
-        start = pick([2000, 3000, 5000, 10000])
-        ins = [random.randint(200, 1500) for _ in range(2)]
-        outs = [random.randint(200, 1200) for _ in range(2)]
+        start = pick(_by_d(d, [2000, 5000], [2000, 3000, 5000, 10000],
+                           [1250, 3575, 8040, 12995]))
+        ins = [amt(200, 1500) for _ in range(2)]
+        outs = [amt(200, 1200) for _ in range(2)]
         bal = start + sum(ins) - sum(outs)
         rows = ([["Starting balance", money(start), ""]] +
                 [["Money in", money(v), ""] for v in ins] +
@@ -5446,7 +5631,8 @@ def _(d=1):
                                                      money(sum(outs)), money(bal))]}
 
     if t == 6:                                        # weekly budget per day
-        weekly = pick([700, 1400, 2100, 2800, 3500])
+        weekly = pick(_by_d(d, [700, 1400, 2100], [700, 1400, 2100, 2800, 3500],
+                            [2450, 3150, 4550, 5950, 8750]))
         return _num_q("%s has a budget of %s for a whole week and plans to spend the same "
                       "amount each day. How much can %s spend each day? Answer in pounds."
                       % (who, money(weekly), who),
@@ -5454,8 +5640,11 @@ def _(d=1):
                       solution=["%s ÷ 7 = %s." % (money(weekly), money(weekly // 7))])
 
     if t == 7:                                        # over or under budget
-        budget = pick([5000, 7500, 10000, 15000])
-        spent = budget + pick([-2500, -1200, -300, 450, 1600, 3000])
+        budget = pick(_by_d(d, [5000, 10000], [5000, 7500, 10000, 15000],
+                            [7500, 12500, 15000, 24000]))
+        spent = budget + pick(_by_d(d, [-2000, -1000, 500, 1500],
+                                    [-2500, -1200, -300, 450, 1600, 3000],
+                                    [-2735, -1185, -45, 65, 1625, 3290]))
         over = spent > budget
         return _num_q("A budget for a school trip is %s. The trip actually costs %s. "
                       "By how much is the trip over or under budget? Answer in pounds."
@@ -5469,8 +5658,9 @@ def _(d=1):
                                    money(abs(spent - budget)))])
 
     if t == 8:                                        # simple interest style
-        saved = pick([10000, 20000, 25000, 50000])
-        pct = pick([2, 4, 5, 10])
+        saved = pick(_by_d(d, [10000, 20000, 50000], [10000, 20000, 25000, 50000],
+                           [12000, 35000, 64000, 85000]))
+        pct = pick(_by_d(d, [10, 50], [2, 4, 5, 10], [3, 4, 6, 15]))
         interest = saved * pct // 100
         return _num_q("%s puts %s into a savings account that adds %d%% at the end of the "
                       "year. How much is in the account after one year? Answer in pounds."
@@ -5482,9 +5672,9 @@ def _(d=1):
                                                    money(saved + interest))])
 
     # income minus a list of bills, per week
-    weeks = pick([4, 5])
-    weekly_in = pick([4000, 5000, 6000])
-    bills = [random.randint(500, 2500) for _ in range(3)]
+    weeks = pick(_by_d(d, [2, 4], [4, 5], [5, 6, 8]))
+    weekly_in = pick(_by_d(d, [4000, 5000], [4000, 5000, 6000], [4250, 5675, 6340]))
+    bills = [amt(500, 2500) for _ in range(_by_d(d, 2, 3, 4))]
     left = weekly_in * weeks - sum(bills)
     while left < 0:
         bills = [random.randint(300, 1200) for _ in range(3)]
@@ -5505,15 +5695,17 @@ def _(d=1):
 @skill("Y6.9.l", "Mixed multi-step reasoning", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3])
+    t = _pick_t(_by_d(d, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3],
+                         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3],
+                         [2, 2, 1, 2, 2, 2, 2, 2, 1, 1, 2, 1, 2, 2]))
     who = pick(NAMES)
 
     if t == 11:                                       # number line: negative temperatures
-        lo = pick([-20, -15, -10])
-        hi = pick([10, 15, 20])
+        lo = pick(_by_d(d, [-10], [-20, -15, -10], [-20, -15]))
+        hi = pick(_by_d(d, [10], [10, 15, 20], [15, 20]))
         step = 1 if hi - lo <= 30 else 2
-        start = random.randint(lo + 2, -1)
-        rise = random.randint(3, hi - start)
+        start = random.randint(_by_d(d, -5, lo + 2, lo + 2), _by_d(d, -1, -1, -6))
+        rise = random.randint(_by_d(d, 2, 3, 8), _by_d(d, -start + 4, hi - start, hi - start))
         return {"prompt": "The temperature is %d °C and then rises by %d °C. Mark the new "
                           "temperature on the number line." % (start, rise),
                 "component": "number_line",
@@ -5562,8 +5754,9 @@ def _(d=1):
                                                       3 * (vals[i] + vals[j]))]}
 
     if t == 0:                                        # percentage then subtraction
-        total = pick([200, 250, 300, 400, 500, 600])
-        pct = pick([10, 20, 25, 40, 60, 75])
+        total = pick(_by_d(d, [100, 200, 300, 400], [200, 250, 300, 400, 500, 600],
+                           [240, 360, 480, 640, 760]))
+        pct = pick(_by_d(d, [10, 25, 50], [10, 20, 25, 40, 60, 75], [15, 35, 45, 65, 85]))
         part = total * pct // 100
         return _num_q("A school has %d pupils. %d%% of them walk to school. "
                       "How many pupils do NOT walk to school?" % (total, pct),
@@ -5572,7 +5765,9 @@ def _(d=1):
                                 "%d − %d = %d pupils." % (total, part, total - part)])
 
     if t == 1:                                        # ratio sharing
-        parts = pick([[2, 3], [3, 5], [1, 4], [2, 7], [3, 4]])
+        parts = pick(_by_d(d, [[1, 2], [1, 3], [1, 4], [2, 3]],
+                           [[2, 3], [3, 5], [1, 4], [2, 7], [3, 4]],
+                           [[3, 5], [2, 7], [4, 5], [5, 7], [3, 8]]))
         unit = random.randint(3, _by_d(d, 8, 15, 30))
         total = sum(parts) * unit
         want = random.randrange(2)
@@ -5587,9 +5782,9 @@ def _(d=1):
                                                           parts[want] * unit)])
 
     if t == 2:                                        # area then cost
-        w = random.randint(4, 12)
-        h = random.randint(4, 12)
-        cost = pick([5, 6, 8, 12])
+        w = random.randint(*_by_d(d, (3, 6), (4, 12), (8, 16)))
+        h = random.randint(*_by_d(d, (3, 6), (4, 12), (8, 16)))
+        cost = pick(_by_d(d, [2, 5, 10], [5, 6, 8, 12], [9, 12, 15, 18]))
         return _num_q("A rectangular room measures %d m by %d m. Flooring costs £%d per "
                       "square metre and fitting costs a flat £%d. What is the total "
                       "cost, in pounds?" % (w, h, cost, 50),
@@ -5601,10 +5796,19 @@ def _(d=1):
                                                           w * h * cost + 50)])
 
     if t == 3:                                        # BIDMAS
-        a = random.randint(2, 12)
-        b = random.randint(2, 12)
-        c = random.randint(2, 12)
+        a = random.randint(2, _by_d(d, 10, 12, 50))
+        b = random.randint(2, _by_d(d, 5, 12, 12))
+        c = random.randint(2, _by_d(d, 5, 12, 12))
         e = random.randint(2, 9)
+        if d == 2:                                    # stretch: two products to work out first
+            f, g = random.randint(2, 9), random.randint(2, 6)
+            return _num_q("Work out %d + %d × %d − %d × %d." % (a, b, c, f, g),
+                          a + b * c - f * g, "int",
+                          solution=["Do both multiplications before adding and subtracting.",
+                                    "%d × %d = %d and %d × %d = %d."
+                                    % (b, c, b * c, f, g, f * g),
+                                    "%d + %d − %d = %d." % (a, b * c, f * g,
+                                                            a + b * c - f * g)])
         return _num_q("Work out %d + %d × %d − %d." % (a, b, c, e),
                       a + b * c - e, "int",
                       solution=["Multiplication comes before addition and subtraction.",
@@ -5612,13 +5816,20 @@ def _(d=1):
                                 "%d + %d − %d = %d." % (a, b * c, e, a + b * c - e)])
 
     if t == 4:                                        # fraction of an amount, two steps
-        total = pick([120, 180, 240, 300, 360, 480])
-        f1 = pick([Fraction(1, 3), Fraction(1, 4), Fraction(2, 5), Fraction(1, 6),
-                   Fraction(3, 8)])
+        total = pick(_by_d(d, [40, 60, 80, 100, 120], [120, 180, 240, 300, 360, 480],
+                           [360, 480, 600, 720, 840]))
+        f1 = pick(_by_d(d, [Fraction(1, 2), Fraction(1, 4), Fraction(1, 5)],
+                        [Fraction(1, 3), Fraction(1, 4), Fraction(2, 5), Fraction(1, 6),
+                         Fraction(3, 8)],
+                        [Fraction(3, 8), Fraction(5, 12), Fraction(3, 5), Fraction(5, 6),
+                         Fraction(7, 10)]))
         while (total * f1.numerator) % f1.denominator:
             total = pick([120, 240, 360, 480])
         used = total * f1.numerator // f1.denominator
         left = total - used
+        if left % 2:                                  # keep "half of what is left" whole
+            total *= 2
+            used, left = used * 2, left * 2
         half = left // 2
         return _num_q("A tank holds %d litres of water. %d/%d of the water is used, then "
                       "half of what is left is used. How many litres are left in the tank?"
@@ -5631,9 +5842,11 @@ def _(d=1):
                                 % (left, half, left - half)])
 
     if t == 5:                                        # rate problem
-        n = random.randint(3, 9)
-        each = random.randint(4, 15)
+        n = random.randint(*_by_d(d, (2, 5), (3, 9), (4, 12)))
+        each = random.randint(*_by_d(d, (2, 10), (4, 15), (12, 35)))
         want = n * random.randint(2, 5)
+        if d == 2:                                    # stretch: not a whole multiple of n
+            want = random.choice([w for w in range(n + 1, 4 * n) if w % n])
         return _num_q("%d identical machines make %d toys in an hour. At the same rate, "
                       "how many toys would %d machines make in an hour?"
                       % (n, n * each, want),
@@ -5643,8 +5856,8 @@ def _(d=1):
                                 "%d × %d = %d toys." % (want, each, want * each)])
 
     if t == 6:                                        # perimeter + algebra flavour
-        s = random.randint(3, 15)
-        extra = random.randint(2, 10)
+        s = random.randint(*_by_d(d, (2, 8), (3, 15), (12, 45)))
+        extra = random.randint(*_by_d(d, (1, 5), (2, 10), (7, 30)))
         p = 2 * (s + s + extra)
         return _num_q("A rectangle is %d cm longer than it is wide, and its perimeter is "
                       "%d cm. How wide is the rectangle, in cm?" % (extra, p),
@@ -5654,9 +5867,10 @@ def _(d=1):
                                 % (p // 2, extra, p // 2 - extra, p // 2 - extra, s)])
 
     if t == 7:                                        # mean + missing value in context
-        n = pick([4, 5, 6])
-        mean = random.randint(8, 30)
-        vals = [mean + random.randint(-4, 4) for _ in range(n - 1)]
+        n = pick(_by_d(d, [3, 4], [4, 5, 6], [6, 7, 8]))
+        mean = random.randint(*_by_d(d, (5, 12), (8, 30), (25, 80)))
+        sp = _by_d(d, 3, 4, 9)
+        vals = [mean + random.randint(-sp, sp) for _ in range(n - 1)]
         last = n * mean - sum(vals)
         while last < 1:
             vals = [mean + random.randint(-4, 4) for _ in range(n - 1)]
@@ -5671,9 +5885,12 @@ def _(d=1):
                                 "%d − %d = %d." % (n * mean, sum(vals), last)])
 
     if t == 8:                                        # scale / proportion with money
-        n1 = pick([3, 4, 5, 6])
-        price = random.randint(60, 400)
+        n1 = pick(_by_d(d, [2, 4, 5], [3, 4, 5, 6], [6, 7, 8, 9]))
+        price = _by_d(d, 10 * random.randint(5, 30), random.randint(60, 400),
+                      random.randint(115, 895))
         n2 = n1 * random.randint(2, 5)
+        if d == 2:                                    # stretch: find one, then a non-multiple
+            n2 = random.choice([w for w in range(n1 + 1, 5 * n1) if w % n1])
         return _num_q("%d identical pens cost %s. At the same price each, how much do "
                       "%d pens cost? Answer in pounds."
                       % (n1, money(n1 * price), n2),
@@ -5683,8 +5900,8 @@ def _(d=1):
                                 "%d × %s = %s." % (n2, money(price), money(n2 * price))])
 
     if t == 9:                                        # negative numbers in context
-        start = random.randint(-12, -1)
-        rise = random.randint(3, 25)
+        start = random.randint(_by_d(d, -6, -12, -25), -1)
+        rise = random.randint(_by_d(d, 2, 3, 6), _by_d(d, 12, 25, 40))
         return _num_q("At midnight the temperature is %d °C. By midday it has risen by "
                       "%d °C. What is the temperature at midday, in °C?" % (start, rise),
                       start + rise, "int", unit="°C",
@@ -5692,9 +5909,11 @@ def _(d=1):
                                 "%d + %d = %d °C." % (start, rise, start + rise)])
 
     # volume + capacity + time, three steps
-    L, W, H = pick([10, 20, 25, 30]), pick([10, 20, 25]), pick([10, 20, 30, 40])
+    L, W, H = (pick(_by_d(d, [10, 20], [10, 20, 25, 30], [25, 30, 40, 50])),
+               pick(_by_d(d, [10, 20], [10, 20, 25], [20, 25, 40])),
+               pick(_by_d(d, [10, 20], [10, 20, 30, 40], [30, 40, 50, 60])))
     litres = L * W * H / 1000.0
-    rate = pick([2, 4, 5, 10])
+    rate = pick(_by_d(d, [1, 2], [2, 4, 5, 10], [3, 4, 5, 6, 8]))
     mins = litres / rate
     ans_t, instr_t, tol_t = _dec_ask(mins)
     return _num_q("A tank measures %d cm by %d cm by %d cm. 1000 cm³ of water is 1 litre. "

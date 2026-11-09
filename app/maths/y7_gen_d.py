@@ -452,27 +452,58 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _ang(lo, hi):
+        """easy: a multiple of 10 in [lo, hi]; otherwise any whole degree."""
+        return random.randint(-(-lo // 10), hi // 10) * 10 if d == 0 else random.randint(lo, hi)
+
     def t_line():
-        a = random.randint(15, 165)
+        if d == 2:      # two angles on a line with a given difference
+            diff = random.randint(5, 60) * 2
+            big = (180 + diff) // 2
+            return _tb("Two angles lie on a straight line. One is %d° bigger than the other. How big is the larger angle?" % diff,
+                       big, "int", {"unit": "°"}, ["They add to 180 and differ by %d." % diff, "(180 + %d) ÷ 2 = %d." % (diff, big)])
+        a = _ang(15, 165)
         return _tb("Two angles on a straight line: one is %d°. Find the other." % a, 180 - a, "int", {"unit": "°"},
                    ["180 − %d = %d." % (a, 180 - a)])
 
     def t_point():
-        parts = [random.randint(40, 110) for _ in range(_by(d, 2, 3, 3))]
+        parts = [_ang(40, _by(d, 110, 110, 80)) for _ in range(_by(d, 2, 3, 4))]
         return _tb("Angles of %s and one more angle meet at a point. Find the missing angle." % ", ".join("%d°" % p for p in parts),
                    360 - sum(parts), "int", {"unit": "°"}, ["360 − %d = %d." % (sum(parts), 360 - sum(parts))])
 
     def t_vertical():
-        a = random.randint(20, 160)
+        a = _ang(20, 160)
+        if d == 2:      # the other three angles at the crossing
+            return _tb("Two straight lines cross. One of the four angles is %d°. What do the other three angles add up to?" % a,
+                       360 - a, "int", {"unit": "°"}, ["All four angles make a full turn: 360 − %d = %d." % (a, 360 - a)])
         return _tb("Two straight lines cross. One angle is %d°. What is the angle vertically opposite it?" % a, a, "int",
                    {"unit": "°"}, ["Vertically opposite angles are equal."])
 
     def t_adjacent():
-        a = random.randint(20, 160)
+        if d == 2:      # one angle a multiple of its neighbour
+            k = pick([2, 3, 4, 5, 8, 9])
+            s = 180 // (k + 1)
+            return _tb("Two straight lines cross. One angle is %d times the angle next to it. How big is the smaller angle?" % k,
+                       s, "int", {"unit": "°"}, ["Neighbours add to 180: %dx = 180." % (k + 1), "x = %d." % s])
+        a = _ang(20, 160)
         return _tb("Two straight lines cross. One angle is %d°. What is the angle next to it (on the same straight line)?" % a,
                    180 - a, "int", {"unit": "°"}, ["180 − %d = %d." % (a, 180 - a)])
 
     def t_algebra():
+        if d == 0:      # x, x and a known angle
+            x = random.randint(3, 8) * 10
+            rest = 180 - 2 * x
+            return _tb("Angles of x°, x° and %d° lie on a straight line. Find x." % rest, x, "int", {"unit": "°"},
+                       ["2x + %d = 180." % rest, "x = %d." % x])
+        if d == 2:      # two bracketed expressions
+            x = random.randint(10, 35)
+            p, q = random.randint(2, 4), random.randint(1, 3)
+            c = random.randint(5, 30)
+            e = 180 - (p + q) * x - c
+            if e <= 0:
+                return t_line()
+            return _tb("Angles of (%dx + %d)° and (%sx + %d)° lie on a straight line. Find x." % (p, c, "" if q == 1 else q, e), x, "int",
+                       {"unit": "°"}, ["%dx + %d = 180." % (p + q, c + e), "x = %d." % x])
         x = random.randint(10, 40)
         k = random.randint(2, 4)
         rest = 180 - (k + 1) * x
@@ -482,17 +513,42 @@ def _(d=1):
                    ["%dx + %d = 180." % (k + 1, rest), "x = %d." % x])
 
     def t_pic():
+        if d == 2:      # the shown angle plus two equal ones make the line
+            deg = random.randint(11, 79) * 2
+            return {"prompt": "The angle shown is %d°. Two equal angles sit with it on a straight line. How big is each one?" % deg,
+                    "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": (180 - deg) // 2,
+                    "answer_type": "int", "solution": ["180 − %d = %d." % (deg, 180 - deg), "%d ÷ 2 = %d." % (180 - deg, (180 - deg) // 2)]}
         deg = random.randint(3, 15) * 10
         return {"prompt": "The angle shown is %d°. Another angle sits with it on a straight line. How big is it?" % deg,
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 180 - deg,
                 "answer_type": "int", "solution": ["180 − %d = %d." % (deg, 180 - deg)]}
 
     def t_equal_point():
-        n = pick([3, 4, 5, 6, 8, 9, 10, 12])
+        if d == 2:      # equal angles plus one known angle
+            n = pick([3, 4, 5, 6])
+            each = random.randint(160 // n, 340 // n)
+            a = 360 - n * each
+            return _tb("%d equal angles and an angle of %d° meet at a point. How big is each equal angle?" % (n, a), each, "int",
+                       {"unit": "°"}, ["360 − %d = %d." % (a, 360 - a), "%d ÷ %d = %d." % (360 - a, n, each)])
+        n = pick(_by(d, [2, 3, 4, 6, 10], [3, 4, 5, 6, 8, 9, 10, 12], None))
         return _tb("%d equal angles meet at a point. How big is each one?" % n, 360 // n, "int", {"unit": "°"},
                    ["360 ÷ %d = %d." % (n, 360 // n)])
 
     def t_point_algebra():
+        if d == 0:      # x, x and a known angle at a point
+            x = random.randint(5, 15) * 10
+            c = 360 - 2 * x
+            return _tb("Angles of x°, x° and %d° meet at a point. What is x?" % c, x, "int", {"unit": "°"},
+                       ["2x + %d = 360." % c, "x = %d." % x])
+        if d == 2:      # expressions with constants
+            for _ in range(50):
+                a, b, c = random.randint(1, 4), random.randint(1, 4), random.randint(2, 5)
+                x, p = random.randint(15, 60), random.randint(5, 40)
+                q = (a + b + c) * x + p - 360
+                if 0 < q < c * x:
+                    return _tb("Angles of (%sx + %d)°, %sx° and (%dx − %d)° meet at a point. What is x?"
+                               % ("" if a == 1 else a, p, "" if b == 1 else b, c, q), x, "int", {"unit": "°"},
+                               ["%dx + %d − %d = 360." % (a + b + c, p, q), "%dx = %d, so x = %d." % (a + b + c, 360 - p + q, x)])
         x = pick([20, 24, 30, 36, 40, 45, 60])
         k = 360 // x
         a = random.randint(1, k - 3)
@@ -504,25 +560,49 @@ def _(d=1):
 
     def t_vert_algebra():
         x = random.randint(5, 30)
-        k = random.randint(2, 4)
         c = random.randint(5, 40)
-        return _tb("Two straight lines cross. Vertically opposite angles are (%dx + %d)° and %d°. What is x?" % (k, c, k * x + c), x,
-                   "int", {"unit": "°"}, ["They are equal: %dx + %d = %d." % (k, c, k * x + c), "x = %d." % x])
+        if d == 2:      # x on both sides
+            k, m = random.randint(3, 6), random.randint(1, 2)
+            e = (k - m) * x + c
+            if k * x + c >= 180:
+                k, m, e = 3, 1, 2 * x + c
+            return _tb("Two straight lines cross. Vertically opposite angles are (%dx + %d)° and (%sx + %d)°. What is x?"
+                       % (k, c, "" if m == 1 else m, e), x, "int", {"unit": "°"},
+                       ["They are equal: %dx + %d = %sx + %d." % (k, c, "" if m == 1 else m, e),
+                        "%dx = %d, so x = %d." % (k - m, e - c, x)])
+        k = _by(d, 1, random.randint(2, 4), 1)
+        return _tb("Two straight lines cross. Vertically opposite angles are (%sx + %d)° and %d°. What is x?"
+                   % ("" if k == 1 else k, c, k * x + c), x,
+                   "int", {"unit": "°"}, ["They are equal: %sx + %d = %d." % ("" if k == 1 else k, c, k * x + c), "x = %d." % x])
 
     def t_three_line():
-        a, b = random.randint(20, 80), random.randint(20, 70)
+        if d == 2:      # four angles on a line
+            a, b, c = random.randint(20, 50), random.randint(20, 50), random.randint(20, 50)
+            return _tb("Four angles lie on a straight line. Three of them are %d°, %d° and %d°. Find the fourth." % (a, b, c),
+                       180 - a - b - c, "int", {"unit": "°"}, ["180 − %d − %d − %d = %d." % (a, b, c, 180 - a - b - c)])
+        a, b = _ang(20, 80), _ang(20, 70)
         return _tb("Three angles lie on a straight line. Two of them are %d° and %d°. Find the third." % (a, b), 180 - a - b, "int",
                    {"unit": "°"}, ["180 − %d − %d = %d." % (a, b, 180 - a - b)])
 
     def t_reflex_pic():
+        if d == 2:      # the shown angle plus two equal ones make a full turn
+            deg = random.randint(20, 80) * 2
+            return {"prompt": "The angle shown is %d°. Two equal angles complete the full turn with it. How big is each one?" % deg,
+                    "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": (360 - deg) // 2,
+                    "answer_type": "int", "solution": ["360 − %d = %d." % (deg, 360 - deg), "%d ÷ 2 = %d." % (360 - deg, (360 - deg) // 2)]}
         deg = random.randint(4, 16) * 10
         return {"prompt": "The angle shown is %d°. What is the reflex angle that makes a full turn with it?" % deg,
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 360 - deg,
                 "answer_type": "int", "solution": ["360 − %d = %d." % (deg, 360 - deg)]}
 
     def t_check_line():
-        a = random.randint(30, 150)
-        b = 180 - a + pick([0, 0, 5, -10])
+        if d == 2:      # three angles, sometimes just off
+            a, b = random.randint(30, 80), random.randint(30, 70)
+            c = 180 - a - b + pick([0, 0, 2, -3])
+            return _wq("Three angles of %d°, %d° and %d° sit next to each other. Do they make a straight line? (yes or no)" % (a, b, c),
+                       "yes" if a + b + c == 180 else "no", ["%d + %d + %d = %d." % (a, b, c, a + b + c)], "yes / no")
+        a = _ang(30, 150)
+        b = 180 - a + pick(_by(d, [0, 0, 10, -10], [0, 0, 5, -10], None))
         return _wq("Two angles of %d° and %d° sit next to each other. Do they make a straight line? (yes or no)" % (a, b),
                    "yes" if a + b == 180 else "no", ["%d + %d = %d." % (a, b, a + b)], "yes / no")
 

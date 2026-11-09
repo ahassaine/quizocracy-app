@@ -121,37 +121,43 @@ def _(d=1):
     d = _d(d)
 
     def t_m3_to_cm3():
-        k = random.randint(1, 5)
+        k = random.randint(*_by(d, (1, 3), (1, 5), (4, 12)))
         return _tb("How many cm³ are in %d m³? (1 m = 100 cm)" % k, k * 1_000_000, "int", {"unit": "cm³"},
                    ["1 m³ = 100 × 100 × 100 = 1,000,000 cm³.", "%d × 1,000,000 = %s." % (k, _c(k * 1_000_000))])
 
     def t_cm3_to_mm3():
-        k = random.randint(1, 9)
+        k = random.randint(*_by(d, (1, 5), (1, 9), (12, 75)))
         return _tb("How many mm³ are in %d cm³? (1 cm = 10 mm)" % k, k * 1000, "int", {"unit": "mm³"},
                    ["1 cm³ = 10 × 10 × 10 = 1,000 mm³.", "%d × 1,000 = %s." % (k, _c(k * 1000))])
 
     def t_room():
-        l, w, h = random.randint(3, 8), random.randint(2, 6), random.randint(2, 3)
+        l, w, h = (random.randint(3, _by(d, 5, 8, 15)), random.randint(2, _by(d, 4, 6, 12)),
+                   random.randint(2, _by(d, 2, 3, 4)))
         return _tb("A room is %d m long, %d m wide and %d m high. What is its volume, in m³?" % (l, w, h), l * w * h,
                    "int", {"unit": "m³"}, ["%d × %d × %d = %d." % (l, w, h, l * w * h)])
 
     def t_unit():
-        what, ans = pick([("a matchbox", "cm³"), ("a swimming pool", "m³"), ("a grain of rice", "mm³"),
-                          ("a lake", "km³"), ("a shoebox", "cm³"), ("a shipping container", "m³")])
+        items = [("a matchbox", "cm³"), ("a swimming pool", "m³"), ("a shoebox", "cm³"),
+                 ("a shipping container", "m³"), ("a grain of rice", "mm³"), ("a lake", "km³"),
+                 ("a grain of sand", "mm³"), ("a mug of tea", "cm³"), ("a cloud", "km³")]
+        what, ans = pick(_by(d, items[:4], items[:6], items[4:]))
         letter = "ABCD"[["mm³", "cm³", "m³", "km³"].index(ans)]
         return _wq("Which unit is most sensible for the volume of %s?  A: mm³   B: cm³   C: m³   D: km³   "
                    "Type the letter." % what, letter,
                    ["%s: choose the unit that gives a sensible-sized number." % ans], "A, B, C or D")
 
     def t_compare():
-        k = random.randint(1, 3)
-        a = pick([x for x in range(2, 50) if x != 10 * k]) * 100_000
+        k = random.randint(1, _by(d, 2, 3, 5))
+        # stretch: B is written close to A, so the place value has to be read carefully
+        a = pick([x for x in _by(d, range(2, 50), range(2, 50), range(10 * k - 4, 10 * k + 5))
+                  if x != 10 * k]) * 100_000
         return _wq("Which is larger?  A: %d m³   B: %s cm³   Type A or B." % (k, _c(a)),
                    "A" if k * 1_000_000 > a else "B", ["%d m³ = %s cm³." % (k, _c(k * 1_000_000))], "A or B")
 
     def t_cubes_fit():
-        e = pick([2, 5, 10])
-        L, W, H = e * random.randint(2, 6), e * random.randint(2, 5), e * random.randint(1, 4)
+        e = pick(_by(d, [2, 10], [2, 5, 10], [3, 4, 5, 6]))
+        L, W, H = (e * random.randint(2, _by(d, 4, 6, 8)), e * random.randint(2, _by(d, 3, 5, 6)),
+                   e * random.randint(1, _by(d, 2, 4, 5)))
         return _tb("How many %d cm cubes fit exactly into a box %d cm × %d cm × %d cm?" % (e, L, W, H),
                    (L // e) * (W // e) * (H // e), "int", {"unit": "cubes"},
                    ["%d × %d × %d = %d." % (L // e, W // e, H // e, (L // e) * (W // e) * (H // e))])
@@ -162,7 +168,8 @@ def _(d=1):
                    "int", {"unit": "cm³"}, ["Volume = length × width × height.", "%d × %d × %d = %d cm³." % (l, w, h, l * w * h)])
 
     def t_missing_edge():
-        l, w, h = random.randint(2, 10), random.randint(2, 8), random.randint(2, 9)
+        l, w, h = (random.randint(2, _by(d, 5, 10, 15)), random.randint(2, _by(d, 5, 8, 12)),
+                   random.randint(2, _by(d, 5, 9, 14)))
         return _tb("A cuboid has a volume of %d cm³. It is %d cm long and %d cm wide. How high is it, in cm?" % (l * w * h, l, w),
                    h, "int", {"unit": "cm"}, ["%d × %d = %d cm² for the base." % (l, w, l * w),
                                              "%d ÷ %d = %d cm." % (l * w * h, l * w, h)])
@@ -177,7 +184,9 @@ def _(d=1):
 
     def t_litres():
         while True:
-            l, w, h = pick([10, 20, 25, 40, 50]), pick([10, 20, 40, 50]), pick([10, 20, 30, 50])
+            l, w, h = (pick(_by(d, [10, 20, 50], [10, 20, 25, 40, 50], [25, 40, 50, 60, 80])),
+                       pick(_by(d, [10, 20], [10, 20, 40, 50], [20, 25, 40, 50])),
+                       pick(_by(d, [10, 20], [10, 20, 30, 50], [30, 35, 45, 50])))
             if (l * w * h) % 1000 == 0:
                 break
         v = l * w * h
@@ -186,20 +195,23 @@ def _(d=1):
                    ["%d × %d × %d = %s cm³." % (l, w, h, _c(v)), "%s ÷ 1,000 = %s." % (_c(v), _pl(v // 1000, "litre"))])
 
     def t_cm3_to_m3():
-        k = random.randint(2, 9)
+        k = random.randint(*_by(d, (2, 5), (2, 9), (10, 40)))
         return _tb("How many m³ is %s cm³?" % _c(k * 1_000_000), k, "int", {"unit": "m³"},
                    ["1 m³ = 1,000,000 cm³.", "%s ÷ 1,000,000 = %d." % (_c(k * 1_000_000), k)])
 
     def t_estimate():
-        a, b, c = random.randint(3, 9), random.randint(2, 8), random.randint(2, 6)
-        da, db = pick(["0.1", "0.2", "-0.1", "-0.2"]), pick(["0.1", "-0.1", "0.2"])
+        a, b, c = (random.randint(3, _by(d, 6, 9, 15)), random.randint(2, _by(d, 5, 8, 12)),
+                   random.randint(2, _by(d, 4, 6, 9)))
+        da = pick(_by(d, ["0.1", "-0.1"], ["0.1", "0.2", "-0.1", "-0.2"], ["0.3", "0.4", "-0.3", "-0.4"]))
+        db = pick(_by(d, ["0.1", "-0.1"], ["0.1", "-0.1", "0.2"], ["0.4", "-0.4", "-0.3"]))
         sa, sb = Decimal(a) + Decimal(da), Decimal(b) + Decimal(db)
         return _tb("Estimate the volume of a box %s cm × %s cm × %d cm by rounding each length to the nearest whole number."
                    % (_ds(sa), _ds(sb), c), a * b * c, "int", {"unit": "cm³"},
                    ["%s rounds to %d and %s rounds to %d." % (_ds(sa), a, _ds(sb), b), "%d × %d × %d = %d cm³." % (a, b, c, a * b * c)])
 
     def t_cubes_pic():
-        l, w, h = random.randint(2, 4), random.randint(2, 4), random.randint(1, 3)
+        l, w, h = (random.randint(2, _by(d, 3, 4, 7)), random.randint(2, _by(d, 3, 4, 6)),
+                   random.randint(_by(d, 1, 1, 2), _by(d, 2, 3, 5)))
         return _tb("A cuboid is built from 1 cm cubes. It is %d cubes long, %d cubes wide and %d %s high. What is its volume, "
                    "in cm³?" % (l, w, h, "cube" if h == 1 else "cubes"), l * w * h, "int", {"unit": "cm³"},
                    ["Each layer has %d × %d = %d cubes." % (l, w, l * w), "%d × %d = %d cm³." % (l * w, h, l * w * h)])

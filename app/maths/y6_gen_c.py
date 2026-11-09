@@ -509,10 +509,11 @@ def _(d=1):
                              "The difference is %s − %s = %s." % (_txt(max(r, v)), _txt(min(r, v)), _txt(abs(r - v)))])
 
     if t == 13:                      # estimate a product by rounding
-        whole = random.randint(2, 9)
-        a = _D(random.randint(11, 99)) / 10
+        whole = random.randint(_by_d(d, 2, 2, 11), _by_d(d, 5, 9, 25))
+        top = _by_d(d, 49, 99, 199)
+        a = _D(random.randint(11, top)) / 10
         while _D(a * 10) % 10 in (0, 5):
-            a = _D(random.randint(11, 99)) / 10
+            a = _D(random.randint(11, top)) / 10
         ra = _rnd(a, 0)
         return _iq("Estimate %s × %d by first rounding %s to the nearest whole number." % (_txt(a), whole, _txt(a)),
                    int(ra) * whole, solution=["%s rounds to %s." % (_txt(a), _txt(ra)),
@@ -537,8 +538,8 @@ def _(d=1):
                              "%s rounds to %s." % (_txt(v), format(_rnd(v, 2), "f"))])
 
     if t == 3:                       # exactly halfway
-        places = pick([0, 1, 2])
-        w = random.randint(1, 30)
+        places = pick(_by_d(d, [0, 1], [0, 1, 2], [1, 2]))
+        w = random.randint(1, _by_d(d, 9, 30, 300))
         if places == 0:
             v = _D(w) + _D("0.5")
         elif places == 1:
@@ -557,19 +558,25 @@ def _(d=1):
 
     if t == 4:                       # measures word problem
         who = pick(NAMES)
-        v = _mk(3, 1200, 9800)
-        while _dp(v) < 2:
-            v = _mk(3, 1200, 9800)
-        return _nq("%s measures a plank as %s metres long. Rounded to one "
-                   "decimal place, how long is the plank in metres?"
-                   % (who, _txt(v)), _rnd(v, 1), unit="m",
-                   solution=["The hundredths digit decides which tenth is nearest.",
-                             "%s m rounds to %s m." % (_txt(v), format(_rnd(v, 1), "f"))])
+        dp, places = _by_d(d, (2, 1), (3, 1), (3, 2))
+        lo, hi = _by_d(d, (120, 980), (1200, 9800), (1200, 9800))
+        v = _mk(dp, lo, hi)
+        while _dp(v) < places + 1:
+            v = _mk(dp, lo, hi)
+        return _nq("%s measures a plank as %s metres long. Rounded to %s "
+                   "decimal place%s, how long is the plank in metres?"
+                   % (who, _txt(v), ["", "one", "two"][places], "s" if places == 2 else ""),
+                   _rnd(v, places), unit="m",
+                   solution=["The %s digit decides which %s is nearest." % (["", "hundredths", "thousandths"][places],
+                                                                       ["", "tenth", "hundredth"][places]),
+                             "%s m rounds to %s m." % (_txt(v), format(_rnd(v, places), "f"))])
 
     if t == 5:                       # round then place on a number line
-        v = _mk(2, 101, 899)
-        while _dp(v) < 2:
-            v = _mk(2, 101, 899)
+        dp = _by_d(d, 2, 2, 3)
+        lo, hi = _by_d(d, (101, 499), (101, 899), (1001, 8999))
+        v = _mk(dp, lo, hi)
+        while _dp(v) < dp:
+            v = _mk(dp, lo, hi)
         r = _rnd(v, 1)
         lo = _D(int(v))
         return _lineq("Round %s to one decimal place, then place your answer "
@@ -579,30 +586,36 @@ def _(d=1):
                        "%s rounds to %s." % (_txt(v), format(r, "f"))])
 
     if t == 6:                       # inverse: largest / smallest
-        target = _mk(1, 11, 89)
+        # stretch: a three-place number rounding to two places
+        tp = 2 if d == 2 else 1
+        target = _mk(tp, *_by_d(d, (11, 49), (11, 89), (101, 999)))
+        half, top = (_D("0.005"), _D("0.004")) if tp == 2 else (_D("0.05"), _D("0.04"))
+        n_have = "three" if tp == 2 else "two"
+        n_to = "two decimal places" if tp == 2 else "one decimal place"
         largest = random.random() < 0.5
         if largest:
-            ans = target + _D("0.04")
-            return _nq("A number with two decimal places rounds to %s when it "
-                       "is rounded to one decimal place. What is the largest "
-                       "such number?" % _txt(target), ans,
+            ans = target + top
+            return _nq("A number with %s decimal places rounds to %s when it "
+                       "is rounded to %s. What is the largest "
+                       "such number?" % (n_have, _txt(target), n_to), ans,
                        solution=["Anything from %s up to %s rounds to %s."
-                                 % (_txt(target - _D("0.05")), _txt(ans),
+                                 % (_txt(target - half), _txt(ans),
                                     _txt(target)),
-                                 "The largest with two decimal places is %s."
-                                 % _txt(ans)])
-        ans = target - _D("0.05")
-        return _nq("A number with two decimal places rounds to %s when it is "
-                   "rounded to one decimal place. What is the smallest such "
-                   "number?" % _txt(target), ans,
+                                 "The largest with %s decimal places is %s."
+                                 % (n_have, _txt(ans))])
+        ans = target - half
+        return _nq("A number with %s decimal places rounds to %s when it is "
+                   "rounded to %s. What is the smallest such "
+                   "number?" % (n_have, _txt(target), n_to), ans,
                    solution=["%s is exactly halfway and a half rounds up to %s."
                              % (_txt(ans), _txt(target)),
                              "So the smallest such number is %s." % _txt(ans)])
 
     if t == 7:                       # which of two rounds to the target
-        w = random.randint(2, 20)
-        a = _D(w) - _D(random.randint(1, 49)) / 100
-        b = _D(w) - _D(random.randint(51, 99)) / 100
+        w = random.randint(2, _by_d(d, 9, 20, 99))
+        k = _by_d(d, 10, 100, 1000)        # tenths, hundredths, thousandths
+        a = _D(w) - _D(random.randint(1, k // 2 - 1)) / k
+        b = _D(w) - _D(random.randint(k // 2 + 1, k - 1)) / k
         first, second = (a, b) if random.random() < 0.5 else (b, a)
         return _nq("Which of these rounds to %d when rounded to the nearest "
                    "whole number: %s or %s? Write that number."
@@ -613,33 +626,37 @@ def _(d=1):
 
     if t == 8:                       # table of measurements
         who = _names(3)
+        dp, places = _by_d(d, (2, 1), (3, 1), (3, 2))
+        lo, hi = _by_d(d, (105, 195), (1050, 1950), (1050, 1950))
         vals = []
         while len(vals) < 3:
-            v3 = _mk(3, 1050, 1950)
-            if _dp(v3) >= 2:
+            v3 = _mk(dp, lo, hi)
+            if _dp(v3) >= places + 1:
                 vals.append(v3)
         i = random.randrange(3)
+        pw = ["", "one decimal place", "two decimal places"][places]
         rows = [[who[k], _txt(vals[k]) + " s"] for k in range(3)]
         return _tableq("The table shows three reaction times. Round %s's time to "
-                       "one decimal place. Write the answer in seconds."
-                       % who[i], ["Name", "Reaction time"], rows,
-                       _fl(_rnd(vals[i], 1)), "num",
+                       "%s. Write the answer in seconds."
+                       % (who[i], pw), ["Name", "Reaction time"], rows,
+                       _fl(_rnd(vals[i], places)), "num",
                        ["%s took %s s." % (who[i], _txt(vals[i])),
-                        "Rounded to one decimal place that is %s s."
-                        % _txt(_rnd(vals[i], 1))], tolerance=1e-6)
+                        "Rounded to %s that is %s s."
+                        % (pw, _txt(_rnd(vals[i], places)))], tolerance=1e-6)
 
     if t == 9:                       # money to the nearest penny / pound
-        if random.random() < 0.5:
-            v = _mk(3, 1005, 9995)
+        if random.random() < _by_d(d, 0.2, 0.5, 0.7):
+            lo, hi = _by_d(d, (1005, 4995), (1005, 9995), (10005, 99995))
+            v = _mk(3, lo, hi)
             while _dp(v) < 3:        # the third place must be there to round
-                v = _mk(3, 1005, 9995)
+                v = _mk(3, lo, hi)
             return _nq("A price works out at £%s. Rounded to the nearest penny, "
                        "how much is that in pounds?" % _txt(v), _rnd(v, 2),
                        unit="£",
                        solution=["The thousandths digit decides the nearest penny.",
                                  "£%s rounds to £%s."
                                  % (_txt(v), format(_rnd(v, 2), "f"))])
-        p = random.randint(150, 4990)
+        p = random.randint(*_by_d(d, (150, 990), (150, 4990), (5050, 49990)))
         return _iq("A jacket costs %s. Rounded to the nearest pound, how much "
                    "is that?" % _lb(p), _rnd(_D(p) / 100, 0), unit="£",
                    solution=["There are %d pence on top of the pounds." % (p % 100),
@@ -647,14 +664,16 @@ def _(d=1):
                              % (_lb(p), _txt(_rnd(_D(p) / 100, 0)))])
 
     # how many of these round to a given whole number
-    w = random.randint(2, 20)
+    w = random.randint(2, _by_d(d, 9, 20, 99))
+    sc = _by_d(d, 10, 100, 1000)    # offsets in tenths / hundredths / thousandths
     vals = []
     n_hit = random.randint(1, 3)
     for k in range(4):
         if k < n_hit:
-            vals.append(_D(w) + _D(random.randint(-49, 49)) / 100)
+            vals.append(_D(w) + _D(random.randint(-(sc // 2 - 1), sc // 2 - 1)) / sc)
         else:
-            vals.append(_D(w) + _D(random.choice([1, -1]) * random.randint(55, 145)) / 100)
+            vals.append(_D(w) + _D(random.choice([1, -1]) * random.randint(sc * 55 // 100 + (d == 0),
+                                                                           sc * 145 // 100)) / sc)
     random.shuffle(vals)
     hits = len([v for v in vals if _rnd(v, 0) == w])
     return _iq("How many of these numbers round to %d when rounded to the "
@@ -885,8 +904,9 @@ def _(d=1):
     if t == 4:                       # money and change
         who = pick(NAMES)
         item = pick(_SHOP)
-        cost = random.randint(120, 1850)
-        paid = random.choice([500, 1000, 2000])
+        # easy: whole tens of pence from a £5 note; stretch: up to £48.50 from £10-£50
+        cost = random.randint(*_by_d(d, (12, 48), (120, 1850), (1205, 4850))) * _by_d(d, 10, 1, 1)
+        paid = random.choice(_by_d(d, [500], [500, 1000, 2000], [1000, 2000, 5000]))
         while paid <= cost:
             paid = random.choice([1000, 2000, 5000])
         change = paid - cost
@@ -900,9 +920,9 @@ def _(d=1):
                              "The change is %s." % _lb(change)])
 
     if t == 5:                       # three decimals added
-        a = _mk(1, 11, 89)
-        b = _mk(2, 105, 899)
-        c = _mk(3, 1005, 8995)
+        a = _mk(1, *_by_d(d, (11, 49), (11, 89), (101, 899)))
+        b = _mk(_by_d(d, 1, 2, 2), *_by_d(d, (11, 49), (105, 899), (1005, 8999)))
+        c = _mk(_by_d(d, 2, 3, 3), *_by_d(d, (105, 499), (1005, 8995), (1005, 8995)))
         return _nq("Work out %s + %s + %s." % (_txt(a), _txt(b), _txt(c)),
                    a + b + c,
                    solution=["Add the first two: %s + %s = %s."
@@ -911,8 +931,8 @@ def _(d=1):
                              % (_txt(a + b), _txt(c), _txt(a + b + c))])
 
     if t == 6:                       # place the total on a number line
-        a = _mk(2, 105, 380)
-        b = _mk(1, 11, 45)
+        a = _mk(_by_d(d, 1, 2, 2), *_by_d(d, (11, 38), (105, 380), (1005, 3800)))
+        b = _mk(1, *_by_d(d, (1, 9), (11, 45), (11, 95)))
         total = a + b
         lo = _D(int(total))
         return _lineq("Work out %s + %s, then place the total on the number "
@@ -925,7 +945,8 @@ def _(d=1):
     if t == 7:                       # receipt table
         who = pick(NAMES)
         items = random.sample(_FOOD, 3)
-        prices = [random.randint(40, 195) for _ in range(3)]
+        lo, hi, step = _by_d(d, (4, 19, 10), (40, 195, 1), (105, 995, 1))
+        prices = [random.randint(lo, hi) * step for _ in range(3)]
         rows = [[items[k].capitalize(), _lb(prices[k])] for k in range(3)]
         total = sum(prices)
         return _tableq("The table shows what %s bought. What is the total cost, "
@@ -937,23 +958,25 @@ def _(d=1):
 
     if t == 8:                       # difference between two measures
         p, q = _two_names()
-        a = _mk(2, 125, 185)
-        b = _mk(3, 1250, 1850)
+        # easy: both to the centimetre; stretch: tenths against thousandths
+        pa, pb = _by_d(d, (2, 2), (2, 3), (1, 3))
+        a = _mk(pa, 125 * 10 ** (pa - 2) if pa >= 2 else 13, 185 * 10 ** (pa - 2) if pa >= 2 else 18)
+        b = _mk(pb, 125 * 10 ** (pb - 2), 185 * 10 ** (pb - 2))
         while a == b:
-            b = _mk(3, 1250, 1850)
+            b = _mk(pb, 125 * 10 ** (pb - 2), 185 * 10 ** (pb - 2))
         return _nq("%s is %s m tall and %s is %s m tall. What is the difference "
                    "in their heights, in metres?"
                    % (p, _txt(a), q, _txt(b)), abs(a - b), unit="m",
-                   solution=["Write both heights with three decimal places.",
+                   solution=["Write both heights with %s decimal places." % ["", "", "two", "three"][max(pa, pb)],
                              "%s − %s = %s m."
                              % (_txt(max(a, b)), _txt(min(a, b)),
                                 _txt(abs(a - b)))])
 
     if t == 9:                       # capacity word problem, two steps
         who = pick(NAMES)
-        a = _mk(2, 105, 285)
+        a = _mk(_by_d(d, 1, 2, 3), *_by_d(d, (11, 28), (105, 285), (1005, 2850)))
         b = _mk(1, 5, 18)
-        c = _mk(2, 30, 95)
+        c = _mk(_by_d(d, 1, 2, 2), *_by_d(d, (3, 9), (30, 95), (30, 95)))
         left = a + b - c
         return _nq("A jug holds %s litres of juice. %s pours in %s litres more, "
                    "then pours out %s litres. How much juice is left in the "
@@ -1002,7 +1025,12 @@ def _(d=1):
 
     # missing entry in a distance table
     who = _names(3)
-    legs = [_mk(random.choice([1, 2]), 12, 480) for _ in range(3)]
+    def _leg():
+        p = random.choice(_by_d(d, [1], [1, 2], [2, 3]))
+        f = 10 ** (p - 1) if d == 2 else 1      # stretch: 1.2-48 km to 2 or 3 places
+        return _mk(p, 12 * f, _by_d(d, 250, 480, 480) * f)
+
+    legs = [_leg() for _ in range(3)]
     total = sum(legs, _D(0))
     k = random.randrange(3)
     rows = [[who[i] , _txt(legs[i])] for i in range(3)]
@@ -1243,7 +1271,8 @@ def _(d=1):
     if t == 1:                       # cost of several items
         who = pick(NAMES)
         item = pick(_SHOP)
-        p = random.randint(45, 395)
+        lo, hi, st = _by_d(d, (5, 19, 10), (45, 395, 1), (105, 995, 1))   # easy: whole 10p
+        p = random.randint(lo, hi) * st
         n = random.randint(*_by_d(d, (2, 5), (3, 9), (4, 15)))
         return _nq("%s buys %d %s at %s each. What is the total cost, in "
                    "pounds?" % (who, n, _plural(item), _lb(p)),
@@ -1281,9 +1310,10 @@ def _(d=1):
 
     if t == 5:                       # price list table
         items = random.sample(_FOOD, 3)
-        prices = [random.randint(40, 165) for _ in range(3)]
+        lo, hi, st = _by_d(d, (4, 16, 10), (40, 165, 1), (105, 495, 1))
+        prices = [random.randint(lo, hi) * st for _ in range(3)]
         i = random.randrange(3)
-        n = random.randint(3, 9)
+        n = random.randint(*_by_d(d, (2, 5), (3, 9), (6, 15)))
         rows = [[items[k].capitalize(), _lb(prices[k])] for k in range(3)]
         return _tableq("Use the price list. What is the cost of %d %s, in "
                        "pounds?" % (n, _plural(items[i])),
@@ -1294,10 +1324,11 @@ def _(d=1):
                        tolerance=1e-6)
 
     if t == 6:                       # two-step
-        a = _mk(1, 11, 49)
-        b = _mk(1, 11, 49)
-        m = random.randint(2, 6)
-        n = random.randint(2, 6)
+        dp, lo, hi = _by_d(d, (1, 11, 29), (1, 11, 49), (2, 105, 495))
+        a = _mk(dp, lo, hi)
+        b = _mk(dp, lo, hi)
+        m = random.randint(2, _by_d(d, 4, 6, 9))
+        n = random.randint(2, _by_d(d, 4, 6, 9))
         return _nq("Work out %s × %d + %s × %d."
                    % (_txt(a), m, _txt(b), n), a * m + b * n,
                    solution=["%s × %d = %s and %s × %d = %s."
@@ -1314,12 +1345,14 @@ def _(d=1):
                              % (_txt(a * n), _txt(a * n * 2))])
 
     if t == 8:                       # compare two products
-        a = _mk(1, 15, 49)
-        b = _mk(1, 15, 49)
-        m = random.randint(3, 8)
-        n = random.randint(3, 8)
+        dp, lo, hi = _by_d(d, (1, 11, 29), (1, 15, 49), (2, 105, 499))
+        mlo, mhi = _by_d(d, (2, 5), (3, 8), (4, 12))
+        a = _mk(dp, lo, hi)
+        b = _mk(dp, lo, hi)
+        m = random.randint(mlo, mhi)
+        n = random.randint(mlo, mhi)
         while a * m == b * n:
-            n = random.randint(3, 8)
+            n = random.randint(mlo, mhi)
         return _nq("Which is greater, %s × %d or %s × %d? Write the greater "
                    "value." % (_txt(a), m, _txt(b), n), max(a * m, b * n),
                    solution=["%s × %d = %s and %s × %d = %s."
@@ -1329,16 +1362,18 @@ def _(d=1):
 
     if t == 10:                      # estimate the product of a two-digit
         #                              whole number and a decimal
-        a = _mk(2, 105, 995)
+        adp, alo, ahi = _by_d(d, (1, 11, 95), (2, 105, 995), (2, 105, 995))
+        nlo, nhi = _by_d(d, (11, 49), (11, 89), (31, 99))
+        a = _mk(adp, alo, ahi)
         for _try in range(40):
             if a - int(a) != _D("0.5"):
                 break
-            a = _mk(2, 105, 995)
-        n = random.randint(11, 89)
+            a = _mk(adp, alo, ahi)
+        n = random.randint(nlo, nhi)
         for _try in range(40):
             if n % 10 != 5:
                 break
-            n = random.randint(11, 89)
+            n = random.randint(nlo, nhi)
         ra = int(_rnd(a, 0))
         rn = int(_rnd(_D(n) / 10, 0)) * 10
         return _iq("Estimate the product %s × %d by rounding %s to the nearest "
@@ -1350,8 +1385,8 @@ def _(d=1):
                              % (ra, rn, "{:,}".format(ra * rn))])
 
     # place the product on a number line
-    a = _mk(2, 105, 240)
-    n = random.randint(2, 4)
+    a = _mk(_by_d(d, 1, 2, 2), *_by_d(d, (11, 24), (105, 240), (205, 495)))
+    n = random.randint(*_by_d(d, (2, 3), (2, 4), (3, 6)))
     prod = a * n
     lo = _D(int(prod))
     return _lineq("Work out %s × %d, then place your answer on the number line."
@@ -1387,15 +1422,15 @@ def _(d=1):
                              % (_txt(a), _pl(_dp(a), "decimal place"), 10 ** _dp(a), n * k, 10 ** _dp(a), _txt(a * k))])
 
     if t == 1:                       # hundredths × whole number
-        a = _D(random.randint(1, 9)) / 100
+        a = _D(random.randint(*_by_d(d, (1, 9), (1, 9), (11, 99)))) / 100
         k = _k()
         return _nq("Work out %s × %d." % (_txt(a), k), a * k,
                    solution=["%s × %d = %s." % (_pl(int(a * 100), "hundredth"), k, _pl(int(a * 100) * k, "hundredth")),
                              "That is %s." % _txt(a * k)])
 
     if t == 2:                       # hundredths square model
-        a = _D(random.randint(1, 9)) / 100
-        k = random.randint(2, min(9, 100 // int(a * 100)))
+        a = _D(random.randint(*_by_d(d, (1, 5), (1, 9), (11, 24)))) / 100
+        k = random.randint(2, min(_by_d(d, 5, 9, 9), 100 // int(a * 100)))
         c = int(a * k * 100)
         return _gridshade("The square is one whole split into 100 equal parts. "
                           "Shade it to show %s × %d." % (_txt(a), k),
@@ -1448,14 +1483,17 @@ def _(d=1):
 
     if t == 8:                       # a chain with two whole numbers
         a = _one()
-        k, m = random.randint(2, 5), random.randint(2, 5)
+        top = _by_d(d, 3, 5, 9)
+        k, m = random.randint(2, top), random.randint(2, top)
         return _nq("Work out %s × %d × %d." % (_txt(a), k, m), a * k * m,
                    solution=["%s × %d = %s." % (_txt(a), k, _txt(a * k)),
                              "%s × %d = %s." % (_txt(a * k), m, _txt(a * k * m))])
 
     if t == 10:                      # estimate first
-        whole = random.randint(1, 9)
+        whole = random.randint(1, _by_d(d, 5, 9, 9))
         a = _D("%d.%d" % (whole, pick([1, 2, 3, 4, 6, 7, 8, 9])))     # never a 5, so no tie
+        if d == 2:                   # stretch: a second decimal place to look past
+            a += _D(random.randint(1, 9)) / 100
         k = _k()
         ra = int(_rnd(a, 0))
         return _iq("Estimate %s × %d by rounding %s to the nearest whole number." % (_txt(a), k, _txt(a)), ra * k,
@@ -1468,8 +1506,9 @@ def _(d=1):
                    unit="kg", solution=["%s × %d = %s kg." % (_txt(a), k, _txt(a * k))])
 
     if t == 12:                      # money: price × quantity
-        p = _D(random.randint(15, 99)) / 100
-        k = random.randint(3, 9)
+        lo, hi, st = _by_d(d, (3, 19, 5), (15, 99, 1), (105, 495, 1))   # easy: whole 5p
+        p = _D(random.randint(lo, hi) * st) / 100
+        k = random.randint(3, _by_d(d, 5, 9, 12))
         item = pick(["pen", "apple", "stamp", "notebook", "rubber"])
         return _nq("One %s costs £%s. How much do %d of them cost, in pounds?" % (item, "%.2f" % p, k), p * k, unit="£",
                    solution=["%d × %dp = %dp." % (k, int(p * 100), int(p * 100) * k),
@@ -1485,8 +1524,8 @@ def _(d=1):
                                     % (n, k, n * k, _txt(a), _pl(_dp(a), "decimal place"), _txt(a), k, _txt(a * k))])
 
     # read the shaded square as a product
-    a = _D(random.randint(1, 9)) / 100
-    k = random.randint(2, min(9, 100 // int(a * 100)))
+    a = _D(random.randint(*_by_d(d, (1, 5), (1, 9), (11, 24)))) / 100
+    k = random.randint(2, min(_by_d(d, 5, 9, 9), 100 // int(a * 100)))
     c = int(a * k * 100)
     return _gridread("The shaded part of this hundredths square shows the "
                      "answer to %s × %d. Write that answer as a decimal."
@@ -1518,8 +1557,9 @@ def _(d=1):
 
     if t == 1:                       # money shared
         who = pick(NAMES)
-        n = random.randint(3, 8)
-        each = random.randint(65, 480)
+        n = random.randint(*_by_d(d, (2, 5), (3, 8), (4, 12)))
+        lo, hi, st = _by_d(d, (7, 48, 10), (65, 480, 1), (105, 995, 1))   # easy: whole 10p each
+        each = random.randint(lo, hi) * st
         total = each * n
         return _nq("%s shares %s equally between %d friends. How much does "
                    "each friend get, in pounds?" % (who, _lb(total), n),
@@ -1535,12 +1575,13 @@ def _(d=1):
                              "Each piece is %s m long." % _txt(q)])
 
     if t == 3:                       # inexact -> round the quotient
-        n = random.randint(3, 9)
-        a = _mk(1, 25, 480)
-        while _dp(a) == 0:           # keep a genuine decimal dividend
-            a = _mk(1, 25, 480)
+        n = random.randint(3, _by_d(d, 6, 9, 12))
+        dp, lo, hi = _by_d(d, (1, 25, 240), (1, 25, 480), (2, 250, 4800))
+        a = _mk(dp, lo, hi)
+        while _dp(a) == 0 or _D(a) % n == 0:     # a genuine decimal that does not divide exactly
+            a = _mk(dp, lo, hi)
         exact = _D(a) / n
-        places = pick([1, 2])
+        places = pick(_by_d(d, [1], [1, 2], [2]))
         r = _rnd(exact, places)
         return _nq("Work out %s ÷ %d. Give your answer to %s."
                    % (_txt(a), n, "one decimal place" if places == 1
@@ -1574,11 +1615,12 @@ def _(d=1):
     if t == 6:                       # bill split table
         who = _names(3)
         items = random.sample(_FOOD, 3)
-        prices = [random.randint(45, 185) for _ in range(3)]
+        lo, hi, st = _by_d(d, (4, 18, 10), (45, 185, 1), (105, 995, 1))
+        prices = [random.randint(lo, hi) * st for _ in range(3)]
         total = sum(prices)
         n = 3
         while total % n:
-            prices[0] += 1
+            prices[0] += st
             total = sum(prices)
         rows = [[items[k].capitalize(), _lb(prices[k])] for k in range(3)]
         return _tableq("%s, %s and %s share the cost of everything in the table "
@@ -1590,12 +1632,13 @@ def _(d=1):
                        tolerance=1e-6)
 
     if t == 7:                       # two-step: add then divide
-        a = _mk(1, 15, 95)
-        b = _mk(1, 15, 95)
-        n = pick([2, 4, 5])
+        dp, lo, hi = _by_d(d, (1, 11, 45), (1, 15, 95), (2, 105, 995))
+        a = _mk(dp, lo, hi)
+        b = _mk(dp, lo, hi)
+        n = pick(_by_d(d, [2], [2, 4, 5], [4, 5, 8]))
         tot = a + b
         while (tot * 100) % n:
-            b = _mk(1, 15, 95)
+            b = _mk(dp, lo, hi)
             tot = a + b
         return _nq("Work out (%s + %s) ÷ %d." % (_txt(a), _txt(b), n),
                    _D(tot) / n,
@@ -1603,8 +1646,9 @@ def _(d=1):
                              "%s ÷ %d = %s." % (_txt(tot), n, _txt(_D(tot) / n))])
 
     if t == 8:                       # mean of decimals
-        n = pick([4, 5])
-        vals = [_mk(1, 15, 95) for _ in range(n)]
+        n = pick(_by_d(d, [2, 4], [4, 5], [5, 6]))
+        dp, lo, hi = _by_d(d, (1, 11, 45), (1, 15, 95), (2, 105, 995))
+        vals = [_mk(dp, lo, hi) for _ in range(n)]
         tot = sum(vals, _D(0))
         mean = _D(tot) / n
         if _dp(mean) > 2:
@@ -1622,8 +1666,8 @@ def _(d=1):
 
     if t == 10:                      # divide decimals using area models:
         #                              complete the equation
-        n = pick([2, 4, 5])
-        q_h = random.randint(1, 100 // n)
+        n = pick(_by_d(d, [2], [2, 4, 5], [3, 4, 6]))
+        q_h = random.randint(1, _by_d(d, 10, 100 // n, 100 // n))
         shaded = q_h * n
         return _gridread("This area model is one whole split into 100 equal "
                          "squares, and %s of it is shaded. Use the area model "
@@ -1638,8 +1682,8 @@ def _(d=1):
 
     if t == 11:                      # divide decimals using area models: shade
         #                              the answer
-        n = pick([2, 4, 5])
-        q_h = random.randint(1, 100 // n)
+        n = pick(_by_d(d, [2], [2, 4, 5], [3, 4, 6]))
+        q_h = random.randint(1, _by_d(d, 10, 100 // n, 100 // n))
         shaded = q_h * n
         return _gridshade("This area model is one whole split into 100 equal "
                           "squares. Work out %s ÷ %d, then shade the area model "
@@ -1651,10 +1695,11 @@ def _(d=1):
                            % (shaded, n, q_h, _pl(q_h, "square"), _txt(_D(q_h) / 100))])
 
     # cost per item to the nearest penny
-    n = random.randint(3, 9)
-    total = random.randint(250, 3500)
+    n = random.randint(3, _by_d(d, 5, 9, 12))
+    lo, hi = _by_d(d, (100, 900), (250, 3500), (1000, 9999))
+    total = random.randint(lo, hi)
     while total % n == 0:
-        total = random.randint(250, 3500)
+        total = random.randint(lo, hi)
     each = int(_rnd(_D(total) / n, 0))
     item = pick(_SHOP)
     return _iq("A pack of %d %s costs %s. To the nearest penny, how much does "
@@ -1876,12 +1921,14 @@ def _(d=1):
                                               "%s is greater than %s." % (_txt(max(val, other)), _txt(min(val, other)))])
 
     if t == 11:                      # smallest of three, mixed forms
-        pairs = random.sample(_CORE_TERM, 2)
+        fpool = _by_d(d, _EASY_TERM, _CORE_TERM, _TERM)
+        lo, hi, sc = _by_d(d, (1, 9, 10), (5, 95, 100), (5, 95, 100))   # easy: the decimal is in tenths
+        pairs = random.sample(fpool, 2)
         vals = [_fdec(a, b) for a, b in pairs]
-        extra = _rnd(_D(random.randint(5, 95)) / 100, 2)
+        extra = _rnd(_D(random.randint(lo, hi)) / sc, 2)
         while extra in vals or vals[0] == vals[1]:
-            extra = _rnd(_D(random.randint(5, 95)) / 100, 2)
-            pairs = random.sample(_CORE_TERM, 2)
+            extra = _rnd(_D(random.randint(lo, hi)) / sc, 2)
+            pairs = random.sample(fpool, 2)
             vals = [_fdec(a, b) for a, b in pairs]
         shown = ["%d/%d" % pairs[0], "%d/%d" % pairs[1], _txt(extra)]
         random.shuffle(shown)
@@ -1891,14 +1938,19 @@ def _(d=1):
                              "The smallest is %s." % _txt(min(allv))])
 
     if t == 12:                      # measures
-        f_num, f_den = pick([(1, 4), (3, 4), (1, 8), (3, 8), (5, 8), (7, 8), (2, 5), (3, 20), (7, 20)])
+        f_num, f_den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (2, 5), (1, 10), (7, 10)],
+                                  [(1, 4), (3, 4), (1, 8), (3, 8), (5, 8), (7, 8), (2, 5), (3, 20), (7, 20)],
+                                  [(1, 8), (3, 8), (5, 8), (7, 8), (3, 40), (7, 40), (9, 40), (3, 125), (7, 200)]))
         unit = pick(["kilometre", "kilogram", "litre"])
         return _nq("Write %d/%d of a %s as a decimal number of %ss." % (f_num, f_den, unit, unit), _fdec(f_num, f_den),
                    solution=["%d ÷ %d = %s." % (f_num, f_den, _txt(_fdec(f_num, f_den))),
                              "So it is %s %ss." % (_txt(_fdec(f_num, f_den)), unit)])
 
     if t == 13:                      # thousandths
-        m = random.choice([x for x in range(1, 1000) if x % 10])
+        # easy: three non-zero digits; stretch: under 100, so zeros must hold the places
+        m = random.choice(_by_d(d, [x for x in range(111, 1000) if "0" not in str(x)],
+                                [x for x in range(1, 1000) if x % 10],
+                                [x for x in range(1, 100) if x % 10]))
         return _nq("Write %d/1000 as a decimal." % m, _D(m) / 1000,
                    solution=["Thousandths have three decimal places.", "%d/1000 = %s." % (m, _txt(_D(m) / 1000))])
 
@@ -1927,9 +1979,13 @@ def _(d=1):
                              "%d ÷ %d = %s." % (num, den, _txt(val))])
 
     if t == 3:                       # place on a number line
-        f_num, f_den = pick([(1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5),
-                             (1, 8), (3, 8), (5, 8), (7, 8), (1, 10), (3, 10),
-                             (7, 10), (9, 10), (1, 20), (7, 20), (9, 20)])
+        f_num, f_den = pick(_by_d(d, [(1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5),
+                                      (1, 10), (3, 10), (7, 10), (9, 10)],
+                                  [(1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5),
+                                   (1, 8), (3, 8), (5, 8), (7, 8), (1, 10), (3, 10),
+                                   (7, 10), (9, 10), (1, 20), (7, 20), (9, 20)],
+                                  [(1, 8), (3, 8), (5, 8), (7, 8), (1, 20), (3, 20), (7, 20),
+                                   (9, 20), (11, 20), (13, 20), (17, 20), (19, 20)]))
         v = _fdec(f_num, f_den)
         step = _D(1) / _D(f_den)
         return _lineq("Place %d/%d on the number line." % (f_num, f_den), v,
@@ -1939,9 +1995,13 @@ def _(d=1):
                        "Count %s along from 0." % _pl(f_num, "step")])
 
     if t == 4:                       # hundredths square
-        f_num, f_den = pick([(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5),
-                             (4, 5), (1, 20), (3, 20), (7, 20), (9, 20),
-                             (1, 25), (3, 25), (7, 25), (1, 50), (7, 50)])
+        f_num, f_den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5),
+                                      (4, 5), (1, 10), (3, 10), (7, 10), (9, 10)],
+                                  [(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5),
+                                   (4, 5), (1, 20), (3, 20), (7, 20), (9, 20),
+                                   (1, 25), (3, 25), (7, 25), (1, 50), (7, 50)],
+                                  [(11, 20), (13, 20), (17, 20), (19, 20), (9, 25), (11, 25),
+                                   (13, 25), (17, 25), (9, 50), (13, 50), (21, 50), (37, 50)]))
         c = int(_fdec(f_num, f_den) * 100)
         return _gridshade("The square is one whole split into 100 equal parts. "
                           "Shade it to show %d/%d." % (f_num, f_den), c,
@@ -1976,7 +2036,7 @@ def _(d=1):
                        missing=(i, 1), tolerance=1e-6)
 
     if t == 8:                       # fraction bar
-        f_den = pick([4, 5, 8, 10])
+        f_den = pick(_by_d(d, [2, 4, 5, 10], [4, 5, 8, 10], [8, 20]))
         f_num = random.randint(1, f_den - 1)
         v = _fdec(f_num, f_den)
         return _barshade("The bar has %d equal parts. Shade it to show %s."
@@ -2058,8 +2118,11 @@ def _(d=1):
                              % (fr.numerator, fr.denominator)])
 
     if t == 4:                       # hundredths square -> lowest terms
-        c = random.choice([4, 5, 8, 10, 12, 15, 16, 20, 24, 25, 30, 35, 36, 40,
-                           45, 48, 50, 55, 60, 64, 65, 70, 75, 80, 85, 90, 95])
+        c = random.choice(_by_d(d, [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90],
+                                [4, 5, 8, 10, 12, 15, 16, 20, 24, 25, 30, 35, 36, 40,
+                                 45, 48, 50, 55, 60, 64, 65, 70, 75, 80, 85, 90, 95],
+                                [4, 8, 12, 16, 28, 32, 36, 44, 48, 52, 56, 64, 68, 72,
+                                 76, 84, 88, 92, 96, 15, 35, 45, 55, 65, 85, 95]))
         fr = Fraction(c, 100)
         ask_num = random.random() < 0.5
         return _gridread("The hundredths square has %d of its 100 small squares "
@@ -2098,8 +2161,11 @@ def _(d=1):
                                                 fr.numerator + fr.denominator)])
 
     if t == 7:                       # table with a missing cell
-        cs = random.sample([5, 15, 20, 25, 35, 40, 45, 55, 60, 65, 75, 80, 85,
-                            90, 95, 12, 24, 36, 44, 48, 52, 64, 72, 88], 4)
+        cs = random.sample(_by_d(d, [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90],
+                                 [5, 15, 20, 25, 35, 40, 45, 55, 60, 65, 75, 80, 85,
+                                  90, 95, 12, 24, 36, 44, 48, 52, 64, 72, 88],
+                                 [8, 16, 28, 32, 44, 56, 68, 76, 84, 92, 96, 35, 45,
+                                  55, 65, 85, 95, 12, 36, 48, 64, 72, 88]), 4)
         rows = [[_txt(_D(c) / 100),
                  "%d/%d" % (Fraction(c, 100).numerator,
                             Fraction(c, 100).denominator)] for c in cs]
@@ -2116,8 +2182,11 @@ def _(d=1):
                        missing=(i, 1))
 
     if t == 8:                       # three-place decimal
-        m = random.choice([125, 375, 625, 875, 250, 750, 200, 400, 600, 800,
-                           25, 75, 150, 350, 450, 550, 650, 850, 950])
+        m = random.choice(_by_d(d, [250, 750, 200, 400, 600, 800, 500, 100, 300, 700, 900],
+                                [125, 375, 625, 875, 250, 750, 200, 400, 600, 800,
+                                 25, 75, 150, 350, 450, 550, 650, 850, 950],
+                                [125, 375, 625, 875, 25, 75, 35, 45, 55, 65, 64, 96,
+                                 104, 136, 175, 225, 275, 325]))
         fr = Fraction(m, 1000)
         v = _D(m) / 1000
         ask_num = random.random() < 0.5
@@ -2140,7 +2209,9 @@ def _(d=1):
                              % (int(v * 10 ** _dp(v)) // fr.numerator, fr.numerator, fr.denominator)])
 
     if t == 11:                      # context, lowest terms
-        c = random.choice([5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 20, 40, 60, 80, 12, 24, 36, 48, 64, 72, 88])
+        c = random.choice(_by_d(d, [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90],
+                                [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 20, 40, 60, 80, 12, 24, 36, 48, 64, 72, 88],
+                                [8, 16, 28, 32, 44, 56, 68, 76, 84, 92, 96, 35, 45, 55, 65, 85, 95, 12, 36, 64]))
         fr = Fraction(c, 100)
         what = pick(["A water tank is %s full.", "A phone battery is %s charged.", "%s of a field is planted with wheat."])
         return _sq((what % _txt(_D(c) / 100)) + " Write that amount as a fraction in its lowest terms.",
@@ -2148,15 +2219,17 @@ def _(d=1):
                    solution=["%s = %d/100." % (_txt(_D(c) / 100), c), "%d/100 = %d/%d." % (c, fr.numerator, fr.denominator)])
 
     if t == 12:                      # thousandths to eighths
-        m = random.choice([125, 375, 625, 875])
+        # easy: quarters and halves; stretch: fortieths and two-hundredths too
+        m = random.choice(_by_d(d, [250, 500, 750], [125, 375, 625, 875],
+                                [125, 375, 625, 875, 175, 225, 275, 325, 35, 45]))
         fr = Fraction(m, 1000)
         return _sq("Write %s as a fraction in its lowest terms." % _txt(_D(m) / 1000), "%d/%d" % (fr.numerator, fr.denominator),
                    placeholder="e.g. 1/8",
                    solution=["%s = %d/1000." % (_txt(_D(m) / 1000), m),
-                             "Divide top and bottom by 125: %d/%d." % (fr.numerator, fr.denominator)])
+                             "Divide top and bottom by %d: %d/%d." % (m // fr.numerator, fr.numerator, fr.denominator)])
 
     # fraction bar: shade a decimal, then the lowest-terms denominator
-    parts = pick([4, 5, 8, 10])
+    parts = pick(_by_d(d, [2, 4, 5, 10], [4, 5, 8, 10], [8, 20]))
     n = random.randint(1, parts - 1)
     v = _fdec(n, parts)
     return _barshade("The bar has %d equal parts. Shade it to show %s."
@@ -2212,14 +2285,22 @@ def _(d=1):
                              % (fr.numerator, fr.denominator)])
 
     if t == 4:                       # shade the percentage square
-        p = pick([5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90])
+        p = pick(_by_d(d, [10, 20, 30, 40, 50, 60, 70, 80, 90],
+                       [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90],
+                       [4, 5, 12, 14, 15, 35, 45, 55, 65, 85, 95]))
         return _gridshade("The square is one whole split into 100 equal parts. "
                           "Shade it to show %d%%." % p, p,
                           ["Per cent means out of 100.",
                            "Shade %d of the 100 small squares." % p])
 
     if t == 5:                       # read the percentage square
-        c = random.randint(1, 99)
+        # easy: whole tenths; stretch: often under 10, where 0.0_ trips pupils up
+        if d == 0:
+            c = random.randrange(10, 100, 10)
+        elif d == 1:
+            c = random.randint(1, 99)
+        else:
+            c = random.choice([random.randint(1, 9), random.randint(11, 99)])
         if random.random() < 0.5:
             return _gridread("The square is one whole split into 100 equal "
                              "parts, with %d shaded. What percentage is "
@@ -2265,12 +2346,17 @@ def _(d=1):
                              "%s = %d%%." % (dec, pct)])
 
     if t == 8:                       # pie chart
-        p = pick([10, 20, 25, 40, 50, 60, 75, 80])
+        p = pick(_by_d(d, [25, 50, 75], [10, 20, 25, 40, 50, 60, 75, 80], [15, 20, 30, 35, 40, 45]))
         a, b = random.sample(["Football", "Netball", "Cricket", "Hockey"], 2)
+        slices = [[a, p], [b, 100 - p]]
+        if d == 2:                   # stretch: three sectors to judge between
+            c3 = pick([s for s in ["Football", "Netball", "Cricket", "Hockey"] if s not in (a, b)])
+            q = pick([10, 15, 25, 30])
+            slices = [[a, p], [b, q], [c3, 100 - p - q]]
         return _pieq("The pie chart shows how a class voted for a sport. What "
                      "percentage of the class voted for %s? Give the number "
                      "only." % a,
-                     [[a, p], [b, 100 - p]], p, "int",
+                     slices, p, "int",
                      ["The %s sector is %d out of every 100." % (a, p),
                       "That is %d%%." % p], highlight=0)
 
@@ -2334,7 +2420,7 @@ def _(d=1):
                              "%s × 100 = %s%%." % (_txt(v), _txt(p))])
 
     if t == 4:                       # scale up to a denominator of 100
-        den = pick([2, 4, 5, 10, 20, 25, 50])
+        den = pick(_by_d(d, [2, 4, 5, 10], [2, 4, 5, 10, 20, 25, 50], [20, 25, 50]))
         num = random.randint(1, den - 1)
         k = 100 // den
         p = num * k
@@ -2346,7 +2432,13 @@ def _(d=1):
                              "%d/100 = %d%%." % (p, p)])
 
     if t == 5:                       # decimal with three places -> percentage
-        m = random.randint(5, 995)
+        # easy: two places only; stretch: thousandths under 0.1 or a decimal above 1
+        if d == 0:
+            m = random.randrange(10, 1000, 10)
+        elif d == 1:
+            m = random.randint(5, 995)
+        else:
+            m = random.choice([random.randint(1, 99), random.randint(1005, 1995)])
         v = _D(m) / 1000
         p = v * 100
         return _nq("Write %s as a percentage. Give the number only." % _txt(v),
@@ -2383,7 +2475,14 @@ def _(d=1):
                        missing=(i, col), tolerance=1e-6)
 
     if t == 7:                       # shade the percentage square
-        p = random.randint(1, 99)
+        if d == 2:                   # stretch: the amount is given as a fraction
+            p = pick([x for x in range(1, 100) if 4 < Fraction(x, 100).denominator < 100])
+            fr = Fraction(p, 100)
+            return _gridshade("The square is one whole split into 100 equal parts. "
+                              "Shade it to show %d/%d." % (fr.numerator, fr.denominator), p,
+                              ["%d/%d = %d/100 = %d%%." % (fr.numerator, fr.denominator, p, p),
+                               "Shade %d of the 100 small squares." % p])
+        p = random.randrange(10, 100, 10) if d == 0 else random.randint(1, 99)
         return _gridshade("The square is one whole split into 100 equal parts. "
                           "Shade it to show %d%%." % p, p,
                           ["%d%% means %d out of 100." % (p, p),
@@ -2391,7 +2490,12 @@ def _(d=1):
 
     if t == 8:                       # word problem across the forms
         who = pick(NAMES)
-        p = random.randrange(5, 100, 5)
+        if d == 0:
+            p = random.randrange(10, 100, 10)
+        elif d == 1:
+            p = random.randrange(5, 100, 5)
+        else:                        # stretch: single-digit percentages hide a zero
+            p = random.choice([random.randint(1, 9), random.randint(11, 99)])
         return _nq("In a survey, %d%% of the pupils in a school walk to school. "
                    "Write %d%% as a decimal." % (p, p), _D(p) / 100,
                    solution=["%d%% = %d/100." % (p, p),
@@ -2413,9 +2517,11 @@ def _(d=1):
 
     if t == 11:                      # largest of three forms, as a percentage
         while True:
-            p1 = random.randrange(10, 95, 5)
-            num, den = pick([(1, 4), (3, 4), (2, 5), (3, 5), (1, 8), (3, 8), (7, 20), (9, 20), (1, 2)])
-            dv = _D(random.randint(5, 95)) / 100
+            p1 = random.randrange(*_by_d(d, (10, 95, 10), (10, 95, 5), (11, 95, 1)))
+            num, den = pick(_by_d(d, [(1, 4), (3, 4), (1, 2), (2, 5), (3, 5)],
+                                  [(1, 4), (3, 4), (2, 5), (3, 5), (1, 8), (3, 8), (7, 20), (9, 20), (1, 2)],
+                                  [(1, 8), (3, 8), (5, 8), (7, 20), (9, 20), (13, 20), (11, 25), (17, 50)]))
+            dv = _D(random.randint(*_by_d(d, (1, 9), (5, 95), (5, 95)))) / _by_d(d, 10, 100, 100)
             vals = {"%d%%" % p1: _D(p1) / 100, "%d/%d" % (num, den): _D(num) / _D(den), _txt(dv): dv}
             if len(set(vals.values())) == 3:
                 break
@@ -2429,14 +2535,18 @@ def _(d=1):
                              "The largest is %s%%." % _txt(big * 100)])
 
     if t == 12:                      # percentage -> fraction in lowest terms
-        p = random.choice([x for x in range(2, 100) if Fraction(x, 100).denominator != 100])
+        # easy: multiples of 5; stretch: twenty-fifths and fiftieths
+        p = random.choice([x for x in range(2, 100) if Fraction(x, 100).denominator
+                           in _by_d(d, (2, 4, 5, 10, 20), (2, 4, 5, 10, 20, 25, 50), (25, 50))])
         fr = Fraction(p, 100)
         return _sq("Write %d%% as a fraction in its lowest terms." % p, "%d/%d" % (fr.numerator, fr.denominator),
                    placeholder="e.g. 3/20",
                    solution=["%d%% = %d/100." % (p, p), "That cancels down to %d/%d." % (fr.numerator, fr.denominator)])
 
     if t == 13:                      # the rest, as a percentage
-        num, den = pick([(1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5), (3, 10), (7, 10), (7, 20), (11, 25), (1, 2)])
+        num, den = pick(_by_d(d, [(1, 4), (3, 4), (1, 2), (1, 5), (2, 5), (3, 10), (7, 10)],
+                              [(1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5), (3, 10), (7, 10), (7, 20), (11, 25), (1, 2)],
+                              [(7, 20), (13, 20), (17, 20), (9, 25), (11, 25), (19, 25), (17, 50), (23, 50)]))
         p = num * 100 // den
         what = pick(["have a pet", "walk to school", "play an instrument"])
         return _iq("%d/%d of the children in a school %s. What percentage of the children do not? Give the number only."
@@ -2444,7 +2554,12 @@ def _(d=1):
                    solution=["%d/%d = %d%%." % (num, den, p), "100%% − %d%% = %d%%." % (p, 100 - p)])
 
     # place a percentage on a 0-1 number line
-    p = random.randrange(1, 100)
+    if d == 0:
+        p = random.randrange(10, 100, 10)
+    elif d == 1:
+        p = random.randrange(1, 100)
+    else:
+        p = pick([x for x in range(1, 100) if x % 5])
     return _lineq("Place %d%% on this number line, which runs from 0 to 1."
                   % p, _D(p) / 100, 0, 1, _D("0.01"), _D("0.1"),
                   ["%d%% = %s as a decimal." % (p, _txt(_D(p) / 100)),
@@ -2463,7 +2578,7 @@ def _(d=1):
         while len(out) < k and tries < 400:
             tries += 1
             if hundredths:
-                m = random.randrange(10, 1000, 10)
+                m = random.randrange(100, 1000, 100) if d == 0 else random.randrange(10, 1000, 10)
             elif d == 2:
                 m = random.choice([random.randrange(50, 1000, 25),
                                    random.randrange(50, 1000, 10)])
@@ -2594,11 +2709,13 @@ def _(d=1):
                              "%d of them are greater than 0.5." % n_more])
 
     if t == 9:                       # equal or not
-        m = random.randrange(50, 1000, 50)
+        # easy: tenths and halves of tenths; stretch: eighths and fortieths, a near miss of 0.025
+        m = random.randrange(*_by_d(d, (100, 1000, 100), (50, 1000, 50), (25, 1000, 25)))
         v = _D(m) / 1000
         fr = Fraction(m, 1000)
         same = random.random() < 0.5
-        shown = _txt(v) if same else _txt(v + _D("0.05"))
+        off = _D(_by_d(d, "0.1", "0.05", "0.025"))
+        shown = _txt(v) if same else _txt(v + off if v + off < 1 else v - off)
         return _sq("Are %d/%d and %s equal? Type yes or no."
                    % (fr.numerator, fr.denominator, shown),
                    "yes" if same else "no", placeholder="yes / no",
@@ -2608,12 +2725,13 @@ def _(d=1):
 
     # bar chart of percentages (the four percentages make a whole survey)
     cats = random.sample(["Football", "Netball", "Cricket", "Hockey", "Tennis"], 4)
+    units = _by_d(d, 10, 20, 25)     # bars in steps of 10%, 5% or 4%
     while True:
-        cuts = sorted(random.sample(range(1, 20), 3))
-        parts = [cuts[0], cuts[1] - cuts[0], cuts[2] - cuts[1], 20 - cuts[2]]
+        cuts = sorted(random.sample(range(1, units), 3))
+        parts = [cuts[0], cuts[1] - cuts[0], cuts[2] - cuts[1], units - cuts[2]]
         if min(parts) >= 1:
             break
-    pcts = [x * 5 for x in parts]
+    pcts = [x * (100 // units) for x in parts]
     i = random.randrange(4)
     frac_form = Fraction(pcts[i], 100)
     return _barq("The bar chart shows the percentage of pupils choosing each "
@@ -2657,8 +2775,8 @@ def _(d=1):
                              % (p, _txt(_D(amount) / 100), "{:,}".format(ans))])
 
     if t == 1:                       # percentage of money
-        p = pick([5, 10, 15, 20, 25, 40, 50, 60, 75])
-        pounds = random.randint(2, 90) * (100 // _gcd(p, 100)) // 5 * 5
+        p = pick(_by_d(d, [10, 25, 50], [5, 10, 15, 20, 25, 40, 50, 60, 75], [5, 15, 35, 45, 60, 65, 75, 85]))
+        pounds = random.randint(2, _by_d(d, 20, 90, 200)) * (100 // _gcd(p, 100)) // 5 * 5
         if pounds < 5:
             pounds = 20
         pence = pounds * 100
@@ -2683,8 +2801,8 @@ def _(d=1):
                              % (p, "{:,}".format(amount), "{:,}".format(ans))])
 
     if t == 3:                       # discount: price after a reduction
-        p = pick([10, 20, 25, 50, 15, 30, 40])
-        pence = random.randint(4, 60) * 500
+        p = pick(_by_d(d, [10, 20, 25, 50], [10, 20, 25, 50, 15, 30, 40], [15, 30, 35, 45, 60, 65]))
+        pence = random.randint(*_by_d(d, (4, 20), (4, 60), (20, 120))) * 500
         while (pence * p) % 100:
             pence += 500
         cut = pence * p // 100
@@ -2696,15 +2814,17 @@ def _(d=1):
                              % (_lb(pence), _lb(cut), _lb(pence - cut))])
 
     if t == 4:                       # percentage square model
-        p = random.choice([5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 75,
-                           80, 90])
+        p = random.choice(_by_d(d, [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90],
+                                [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 75,
+                                 80, 90],
+                                [4, 8, 12, 18, 24, 33, 37, 46, 58, 64, 71, 83, 96]))
         return _gridshade("The whole square stands for 100%%. "
                           "Shade it to show %d%%." % p, p,
                           ["The square has 100 equal small squares.",
                            "Shade %d of them to show %d%%." % (p, p)])
 
     if t == 5:                       # strip model: 10% of a total
-        total = random.randint(2, 60) * 10
+        total = random.randint(*_by_d(d, (2, 20), (2, 60), (12, 99))) * _by_d(d, 10, 10, 100)
         return _stripq("The strip model shows %s split into 10 equal parts. "
                        "What is 10%% of %s?"
                        % ("{:,}".format(total), "{:,}".format(total)),
@@ -2715,11 +2835,12 @@ def _(d=1):
                         % ("{:,}".format(total), "{:,}".format(total // 10))])
 
     if t == 6:                       # table of percentages of amounts
-        p = pick([5, 10, 20, 25, 50])
+        p = pick(_by_d(d, [10, 50], [5, 10, 20, 25, 50], [5, 15, 30, 40, 75]))
         step = 100 // _gcd(p, 100)
-        amounts = [random.randint(2, 40) * step for _ in range(4)]
+        top = _by_d(d, 20, 40, 80)
+        amounts = [random.randint(2, top) * step for _ in range(4)]
         while len(set(amounts)) < 4:
-            amounts = [random.randint(2, 40) * step for _ in range(4)]
+            amounts = [random.randint(2, top) * step for _ in range(4)]
         rows = [["{:,}".format(a), "{:,}".format(a * p // 100)] for a in amounts]
         i = random.randrange(4)
         rows[i][1] = "?"
@@ -2733,8 +2854,8 @@ def _(d=1):
                        missing=(i, 1))
 
     if t == 7:                       # build from 10% and 5%
-        p = pick([15, 35, 45, 55, 65, 85, 95])
-        amount = random.randint(2, 40) * 20
+        p = pick(_by_d(d, [15, 55], [15, 35, 45, 55, 65, 85, 95], [35, 45, 65, 85, 95]))
+        amount = random.randint(*_by_d(d, (2, 20), (2, 40), (10, 99))) * 20
         ans = amount * p // 100
         return _iq("Work out %d%% of %s by first finding 10%% and 5%%."
                    % (p, "{:,}".format(amount)), ans,
@@ -2802,8 +2923,8 @@ def _(d=1):
                              % (p, "{:,}".format(amount), "{:,}".format(ans))])
 
     # pie chart: percentage of a known total
-    p = pick([10, 20, 25, 40, 50, 60, 75, 80])
-    total = random.randint(2, 12) * 20
+    p = pick(_by_d(d, [25, 50, 75], [10, 20, 25, 40, 50, 60, 75, 80], [15, 30, 35, 45, 65, 70]))
+    total = random.randint(2, _by_d(d, 6, 12, 30)) * 20
     a = pick(["Walk", "Cycle", "Bus", "Car"])
     return _pieq("%d pupils were asked how they travel to school. The pie chart "
                  "shows that %d%% chose '%s'. How many pupils chose '%s'?"
@@ -2820,15 +2941,18 @@ def _(d=1):
     t = _pick_t([1, 1, 1, 1, 1, 3, 3, 1, 1, 3, 1, 1, 1, 1])
 
     if t == 10:                      # percentage of an amount of money
-        p = pick([5, 10, 15, 20, 25, 30, 35, 40, 45, 60, 75, 80, 90])
+        p = pick(_by_d(d, [10, 20, 25, 50], [5, 10, 15, 20, 25, 30, 35, 40, 45, 60, 75, 80, 90],
+                       [15, 35, 45, 55, 65, 85, 95]))
         amt = random.randint(2, _by_d(d, 10, 30, 80)) * 20
         return _iq("Find %d%% of £%d." % (p, amt), amt * p // 100, unit="£",
                    solution=["10%% of £%d is £%s." % (amt, _txt(_D(amt) / 10)),
                              "%d%% of £%d = £%d." % (p, amt, amt * p // 100)])
 
     if t == 11:                      # which percentage of an amount is larger
-        p1, p2 = random.sample([10, 20, 25, 30, 40, 50, 60, 75], 2)
-        a1, a2 = random.randint(2, 20) * 20, random.randint(2, 20) * 20
+        p1, p2 = random.sample(_by_d(d, [10, 20, 25, 50], [10, 20, 25, 30, 40, 50, 60, 75],
+                                     [15, 30, 35, 45, 60, 65, 75, 85]), 2)
+        top = _by_d(d, 10, 20, 50)
+        a1, a2 = random.randint(2, top) * 20, random.randint(2, top) * 20
         v1, v2 = a1 * p1 // 100, a2 * p2 // 100
         while v1 == v2:
             a2 += 20
@@ -2839,9 +2963,13 @@ def _(d=1):
 
     if t == 12:                      # compare two test scores
         who1, who2 = _two_names()
+        scores = _by_d(d, [(7, 10), (9, 10), (3, 10), (6, 10), (8, 10), (4, 10), (1, 2)],
+                       [(18, 25), (17, 20), (36, 50), (7, 10), (13, 20), (21, 25), (42, 50), (9, 10), (16, 25)],
+                       [(19, 25), (17, 20), (37, 50), (13, 20), (23, 25), (43, 50), (14, 25), (28, 40),
+                        (39, 60), (57, 75)])
         while True:
-            m1, t1 = pick([(18, 25), (17, 20), (36, 50), (7, 10), (13, 20), (21, 25), (42, 50), (9, 10), (16, 25)])
-            m2, t2 = pick([(18, 25), (17, 20), (36, 50), (7, 10), (13, 20), (21, 25), (42, 50), (9, 10), (16, 25)])
+            m1, t1 = pick(scores)
+            m2, t2 = pick(scores)
             if m1 * 100 // t1 != m2 * 100 // t2:
                 break
         p1, p2 = m1 * 100 // t1, m2 * 100 // t2
@@ -2851,15 +2979,15 @@ def _(d=1):
                              "The higher score is %d%%." % max(p1, p2)])
 
     if t == 13:                      # two steps: how many are NOT
-        tot = random.randint(2, 9) * 100
-        p = pick([4, 5, 6, 8, 12, 15, 20, 35])
+        tot = random.randint(2, _by_d(d, 5, 9, 20)) * 100
+        p = pick(_by_d(d, [5, 10, 20, 25, 50], [4, 5, 6, 8, 12, 15, 20, 35], [3, 4, 6, 7, 8, 12, 15, 35, 45]))
         return _iq("A box holds %d apples and %d%% of them are bruised. How many apples are not bruised?" % (tot, p),
                    tot - tot * p // 100, unit="apples",
                    solution=["%d%% of %d = %d bruised." % (p, tot, tot * p // 100),
                              "%d − %d = %d are not bruised." % (tot, tot * p // 100, tot - tot * p // 100)])
 
     if t == 0:                       # what percentage is x of y
-        den = pick([10, 20, 25, 40, 50, 200])
+        den = pick(_by_d(d, [10, 20, 50], [10, 20, 25, 40, 50, 200], [25, 40, 80, 200, 250]))
         total = den
         num = random.randint(1, den - 1)
         while (num * 100) % den:
@@ -2872,8 +3000,8 @@ def _(d=1):
                              "As a percentage that is %d%%." % p])
 
     if t == 1:                       # find the whole from a percentage
-        p = pick([5, 10, 20, 25, 40, 50, 60, 75, 80])
-        whole = random.randint(2, 40) * (100 // _gcd(p, 100))
+        p = pick(_by_d(d, [10, 25, 50], [5, 10, 20, 25, 40, 50, 60, 75, 80], [5, 15, 30, 35, 45, 60, 75, 80]))
+        whole = random.randint(2, _by_d(d, 20, 40, 60)) * (100 // _gcd(p, 100))
         part = whole * p // 100
         return _iq("%d%% of a number is %s. What is the number?"
                    % (p, "{:,}".format(part)), whole,
@@ -2884,7 +3012,7 @@ def _(d=1):
                              % (_txt(_D(part) / p), "{:,}".format(whole))])
 
     if t == 2:                       # percentage of a measure (NC: "such as 15% of 360")
-        p = pick([5, 15, 35, 45, 65, 85])
+        p = pick(_by_d(d, [5, 15], [5, 15, 35, 45, 65, 85], [35, 45, 55, 65, 85, 95]))
         unit, word = pick([("m", "metres"), ("kg", "kilograms"), ("ml", "millilitres"), ("g", "grams")])
         amt = random.randint(1, _by_d(d, 10, 30, 90)) * 20
         return _iq("Find %d%% of %s %s." % (p, "{:,}".format(amt), word), amt * p // 100, unit=unit,
@@ -2893,8 +3021,8 @@ def _(d=1):
                              "%d%% of %s = %s %s." % (p, "{:,}".format(amt), "{:,}".format(amt * p // 100), unit)])
 
     if t == 3:                       # sale price after a percentage off
-        p = pick([10, 20, 25, 30, 40, 50])
-        a = random.randint(2, 30) * 10
+        p = pick(_by_d(d, [10, 25, 50], [10, 20, 25, 30, 40, 50], [15, 30, 35, 45, 60, 65]))
+        a = random.randint(2, _by_d(d, 10, 30, 60)) * 10
         while (a * p) % 100:
             a += 10
         off = a * p // 100
@@ -2904,13 +3032,14 @@ def _(d=1):
                    solution=["%d%% of £%d = £%d." % (p, a, off), "£%d − £%d = £%d." % (a, off, a - off)])
 
     if t == 4:                       # difference between two percentages
-        p1 = pick([10, 20, 25, 50])
-        p2 = pick([x for x in [10, 20, 25, 50, 40, 75] if x != p1])
-        a1 = random.randint(2, 30) * (100 // _gcd(p1, 100))
-        a2 = random.randint(2, 30) * (100 // _gcd(p2, 100))
+        p1 = pick(_by_d(d, [10, 50], [10, 20, 25, 50], [15, 25, 35, 40]))
+        p2 = pick([x for x in _by_d(d, [10, 25, 50], [10, 20, 25, 50, 40, 75], [5, 20, 30, 45, 60, 75]) if x != p1])
+        top = _by_d(d, 15, 30, 50)
+        a1 = random.randint(2, top) * (100 // _gcd(p1, 100))
+        a2 = random.randint(2, top) * (100 // _gcd(p2, 100))
         r1, r2 = a1 * p1 // 100, a2 * p2 // 100
         while r1 == r2:
-            a2 = random.randint(2, 30) * (100 // _gcd(p2, 100))
+            a2 = random.randint(2, top) * (100 // _gcd(p2, 100))
             r2 = a2 * p2 // 100
         return _iq("Work out the difference between %d%% of %s and %d%% of %s."
                    % (p1, "{:,}".format(a1), p2, "{:,}".format(a2)),
@@ -2922,7 +3051,7 @@ def _(d=1):
 
     if t == 5:                       # results table
         who = _names(4)
-        totals = [pick([20, 25, 40, 50]) for _ in range(4)]
+        totals = [pick(_by_d(d, [10, 20, 50], [20, 25, 40, 50], [25, 40, 80, 200])) for _ in range(4)]
         marks = []
         pcts = []
         for tot in totals:
@@ -2942,8 +3071,8 @@ def _(d=1):
                         % (marks[i], totals[i], pcts[i])])
 
     if t == 6:                       # pie chart with a total
-        total = random.randint(3, 15) * 20
-        p = pick([10, 15, 20, 25, 30, 40, 50, 60])
+        total = random.randint(3, _by_d(d, 8, 15, 30)) * 20
+        p = pick(_by_d(d, [10, 20, 25, 50], [10, 15, 20, 25, 30, 40, 50, 60], [15, 35, 45, 55, 65, 85]))
         labels = ["Red", "Blue", "Green", "Yellow"]
         a, b = random.sample(labels, 2)
         n = total * p // 100
@@ -2958,9 +3087,10 @@ def _(d=1):
                      highlight=0)
 
     if t == 7:                       # find another percentage of the same number
-        p1 = pick([10, 20, 25, 30, 40])
-        p2 = pick([x for x in [15, 45, 60, 75, 80, 90] if x != p1])
-        whole = random.randint(2, 30) * 20
+        p1 = pick(_by_d(d, [10, 50], [10, 20, 25, 30, 40], [15, 30, 35, 40]))
+        p2 = pick([x for x in _by_d(d, [20, 30, 40, 60, 90], [15, 45, 60, 75, 80, 90], [5, 45, 60, 75, 85, 90])
+                   if x != p1])
+        whole = random.randint(2, _by_d(d, 15, 30, 50)) * 20
         while (whole * p1) % 100 or (whole * p2) % 100:
             whole += 20
         part = whole * p1 // 100
@@ -2974,10 +3104,12 @@ def _(d=1):
                                 "{:,}".format(whole * p2 // 100))])
 
     if t == 8:                       # compare a fraction of an amount with a percentage of it
-        amt = random.randint(2, 12) * 20
+        amt = random.randint(2, _by_d(d, 6, 12, 30)) * 20
         while True:
-            num, den = pick([(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5), (3, 10), (7, 10)])
-            p = pick([15, 30, 35, 45, 55, 65, 70, 85])
+            num, den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (1, 10), (3, 10)],
+                                  [(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (4, 5), (3, 10), (7, 10)],
+                                  [(3, 5), (4, 5), (2, 5), (7, 10), (3, 4), (7, 20), (9, 20), (13, 20)]))
+            p = pick(_by_d(d, [10, 20, 30, 40, 60], [15, 30, 35, 45, 55, 65, 70, 85], [15, 35, 45, 55, 65, 85, 95]))
             if num * 100 != p * den:
                 break
         f, q = amt * num // den, amt * p // 100
@@ -2987,9 +3119,10 @@ def _(d=1):
 
     # bar chart: percentage of a whole (the four bars total 200 pupils)
     cats = random.sample(["Maths", "Science", "History", "Art", "Music"], 4)
+    units = _by_d(d, 10, 20, 25)     # 100, 200 or 250 pupils in all
     while True:
-        cuts = sorted(random.sample(range(1, 20), 3))
-        parts = [cuts[0], cuts[1] - cuts[0], cuts[2] - cuts[1], 20 - cuts[2]]
+        cuts = sorted(random.sample(range(1, units), 3))
+        parts = [cuts[0], cuts[1] - cuts[0], cuts[2] - cuts[1], units - cuts[2]]
         if min(parts) >= 1:
             break
     vals = [x * 10 for x in parts]

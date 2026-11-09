@@ -65,11 +65,29 @@ def _(d=1):
     d = _d(d)
 
     def t_month():
+        if d == 2:                                      # stretch: find the month first
+            i = random.choice([k for k in range(12) if "February" not in (MONTHS[k][0], MONTHS[(k + 1) % 12][0])])
+            m, days = MONTHS[(i + 1) % 12]
+            return _tb("How many days are there in the month that comes straight after %s?" % MONTHS[i][0], days, "int",
+                       {"unit": "days"}, ["The month after %s is %s." % (MONTHS[i][0], m),
+                                          "30 days has September, April, June and November; all the rest have 31, except February."])
         m, days = pick([x for x in MONTHS if x[0] != "February"])
         return _tb("How many days are there in %s?" % m, days, "int", {"unit": "days"},
                    ["30 days has September, April, June and November; all the rest have 31, except February."])
 
     def t_feb():
+        if d == 0:
+            leap = random.random() < 0.5
+            return _tb("How many days are there in February in %s?" % ("a leap year" if leap else "a year that is not a leap year"),
+                       29 if leap else 28, "int", {"unit": "days"},
+                       ["February has 28 days, or 29 in a leap year."])
+        if d == 2:                                      # stretch: leap years come every 4 years
+            y = pick([2029, 2030, 2031, 2032, 2036])
+            return _tb("2024 was a leap year, and leap years come every 4 years. How many days are there in February %d?" % y,
+                       29 if y % 4 == 0 else 28, "int", {"unit": "days"},
+                       ["The leap years are 2024, 2028, 2032, 2036, ...",
+                        "%d %s a leap year, so February has %d days." % (y, "is" if y % 4 == 0 else "is not",
+                                                                       29 if y % 4 == 0 else 28)])
         y = pick([2024, 2025, 2026, 2027, 2028])
         return _tb("How many days are there in February %d?" % y, 29 if y % 4 == 0 else 28, "int", {"unit": "days"},
                    ["%d %s a leap year." % (y, "is" if y % 4 == 0 else "is not"),
@@ -77,26 +95,43 @@ def _(d=1):
 
     def t_year():
         leap = random.random() < 0.5
+        if d == 2:                                      # stretch: two years, one of them a leap year
+            return _tb("How many days are there in 2 years when one of them is a leap year?", 731, "int", {"unit": "days"},
+                       ["365 + 366 = 731."])
         return _tb("How many days are there in a %s?" % ("leap year" if leap else "year that is not a leap year"),
                    366 if leap else 365, "int", {"unit": "days"},
                    ["A normal year has 365 days; a leap year has one more."])
 
     def t_seconds():
         k = random.randint(1, 5) if d else 1
+        if d == 2:                                      # stretch: a half minute as well
+            k = random.randint(1, 4)
+            return _tb("How many seconds are there in %d and a half minutes?" % k, 60 * k + 30, "int",
+                       {"unit": "seconds"}, ["%d × 60 = %d, and half a minute is 30 seconds." % (k, 60 * k),
+                                             "%d + 30 = %d." % (60 * k, 60 * k + 30)])
         return _tb("How many seconds are there in %d minute%s?" % (k, "" if k == 1 else "s"), 60 * k, "int",
                    {"unit": "seconds"}, ["1 minute = 60 seconds, so %d × 60 = %d." % (k, 60 * k)])
 
     def t_thirty():
+        if d == 2:
+            return _tb("How many months of the year have exactly 31 days?", 7, "int", {"unit": "months"},
+                       ["January, March, May, July, August, October and December."])
         return _tb("How many months of the year have exactly 30 days?", 4, "int", {"unit": "months"},
                    ["April, June, September and November."])
 
     def t_two_months():
-        a, b = random.sample([x for x in MONTHS if x[0] != "February"], 2)
-        return _tb("How many days are there in %s and %s altogether?" % (a[0], b[0]), a[1] + b[1], "int",
-                   {"unit": "days"}, ["%d + %d = %d." % (a[1], b[1], a[1] + b[1])])
+        ms = random.sample([x for x in MONTHS if x[0] != "February"], 3 if d == 2 else 2)
+        names = ", ".join(m[0] for m in ms[:-1]) + " and " + ms[-1][0]
+        tot = sum(m[1] for m in ms)
+        return _tb("How many days are there in %s altogether?" % names, tot, "int",
+                   {"unit": "days"}, ["%s = %d." % (" + ".join(str(m[1]) for m in ms), tot)])
 
     def t_weeks():
-        k = random.randint(2, 5)
+        k = random.randint(2, _by(d, 3, 5, 5))
+        if d == 2:                                      # stretch: weeks and days
+            j = random.randint(1, 6)
+            return _tb("How many days are there in %d weeks and %d day%s?" % (k, j, "" if j == 1 else "s"), 7 * k + j, "int",
+                       {"unit": "days"}, ["%d × 7 = %d." % (k, 7 * k), "%d + %d = %d." % (7 * k, j, 7 * k + j)])
         return _tb("How many days are there in %d weeks?" % k, 7 * k, "int", {"unit": "days"},
                    ["1 week = 7 days, so %d × 7 = %d." % (k, 7 * k)])
 

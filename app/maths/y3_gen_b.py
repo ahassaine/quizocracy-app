@@ -678,7 +678,7 @@ def _(d=1):
                       "%d − %d = %d." % (tot, a, b)])
 
     def io_rule():
-        step = random.randint(11, 40)
+        step = pick([10, 20, 30]) if d == 0 else random.randint(*((11, 40) if d == 1 else (21, 45)))
         if random.random() < 0.5:
             rows = _io_rows(step + 5, 100, -step)
             why = "Every Out number is %d less than its In number." % step
@@ -691,8 +691,8 @@ def _(d=1):
                     placeholder="the number")
 
     def which_sign():
-        x = random.randint(24, 80)
-        y = random.randint(5, min(20, x - 4))
+        x = random.randint(*((14, 40) if d == 0 else ((24, 80) if d == 1 else (41, 80))))
+        y = random.randint(*((3, 9) if d == 0 else ((5, min(20, x - 4)) if d == 1 else (16, 35))))
         if random.random() < 0.5:
             return _wordq("Which sign makes this number sentence true, + or −?  "
                           "%d ___ %d = %d.  Type plus or minus." % (x, y, x + y),
@@ -1068,6 +1068,8 @@ def _(d=1):
 
     def find_error():
         wrong = tot + pick([-100, -10, 10, 100, -1, 1])
+        if wrong > 999:                       # keep the wrong total within 1,000
+            wrong = tot - 100
         return _numq("%s says %d + %d = %d. Check with the inverse and type the "
                      "correct answer." % (pick(NAMES), a, b, wrong), tot,
                      ["%d − %d = %d, not %d, so the answer was wrong."
@@ -1134,7 +1136,8 @@ def _(d=1):
 
     def chart():
         cats = ["Year 3", "Year 4", "Year 5"]
-        vals = [random.randint(60, 190) for _ in cats]
+        vals = [random.randint(*((6, 19) if d == 0 else ((60, 190) if d == 1 else (120, 390)))) * (10 if d == 0 else 1)
+                for _ in cats]
         return _barq("The chart shows how many stickers each year group collected. "
                      "How many did Year 3 and Year 4 collect altogether?",
                      cats, vals, vals[0] + vals[1],
@@ -1568,7 +1571,7 @@ def _(d=1):
                       % (b, a, a * b)])
 
     def comm_array():
-        a = random.randint(2, 6); b = random.randint(3, 9)
+        a = random.randint(2, (4, 6, 8)[d]); b = random.randint(3, (6, 9, 10)[d])
         return _arrayq("Show that %d × %d = %d × %d: build an array of %d rows of "
                        "%d and type the total." % (a, b, b, a, b, a), b, a,
                        ["Turning the array does not change the total.",
@@ -1603,7 +1606,7 @@ def _(d=1):
                       "%d + %d = %d." % (a // 10 * 10 * b, (a % 10) * b, a * b)])
 
     def scaling():
-        a = random.randint(2, 9); b = random.randint(2, 6)
+        a = random.randint(2, 9); b = random.randint(2, 6 if d < 2 else 10)
         return _numq("%d × %d = %d. What is %d × %d?"
                      % (a, b, a * b, a, b * 2), a * b * 2,
                      ["Doubling one factor doubles the product: %d × 2 = %d."

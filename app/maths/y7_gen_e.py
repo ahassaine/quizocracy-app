@@ -47,25 +47,47 @@ def _(d=1):
                    "int", {}, ["%d − %d = %d." % (hi, len(A | B), hi - len(A | B))])
 
     def t_venn_table():
-        a_only, both, b_only, none = random.randint(3, 15), random.randint(1, 10), random.randint(3, 15), random.randint(0, 9)
+        top = _by(d, 9, 15, 40)
+        a_only, both, b_only, none = (random.randint(_by(d, 2, 3, 8), top), random.randint(1, _by(d, 6, 10, 25)),
+                                      random.randint(_by(d, 2, 3, 8), top), random.randint(0, _by(d, 5, 9, 20)))
         clubs = pick([("Football", "Music"), ("Swimming", "Art"), ("Chess", "Drama")])
         rows = [["%s only" % clubs[0], a_only], ["Both", both], ["%s only" % clubs[1], b_only], ["Neither", none]]
-        q = pick(["total", "club1", "club2"])
-        ans = {"total": a_only + both + b_only + none, "club1": a_only + both, "club2": b_only + both}[q]
+        tot = a_only + both + b_only + none
+        if d == 2 and random.random() < 0.5:      # stretch: one region missing, found from the total
+            k = random.randrange(4)
+            ans = rows[k][1]
+            return _dt("The table gives the numbers in each region of a Venn diagram. There are %d pupils altogether. "
+                       "What is the missing number?" % tot, ["Region", "Pupils"], rows, ans,
+                       ["%d − %d = %d." % (tot, tot - ans, ans)], missing=[k, 1])
+        q = pick(_by(d, ["total", "club1", "club2"], ["total", "club1", "club2"], ["club1", "club2", "one", "not1"]))
+        ans = {"total": tot, "club1": a_only + both, "club2": b_only + both, "one": a_only + b_only,
+               "not1": b_only + none}[q]
         text = {"total": "How many pupils are there altogether?", "club1": "How many pupils go to %s?" % clubs[0],
-                "club2": "How many pupils go to %s?" % clubs[1]}[q]
+                "club2": "How many pupils go to %s?" % clubs[1],
+                "one": "How many pupils go to exactly one of the two clubs?",
+                "not1": "How many pupils do NOT go to %s?" % clubs[0]}[q]
         return _dt("The table gives the numbers in each region of a Venn diagram. %s" % text, ["Region", "Pupils"], rows, ans,
                    ["Add the regions that count."])
 
     def t_complement():
-        return _complement()
+        return _complement(d)
 
     return _pick_t([t_both, t_either, t_neither, t_complement], [t_venn_table])
 
 
-def _complement():
-    tot = random.randint(20, 35)
-    k = random.randint(5, tot - 3)
+def _complement(d=1):
+    if d == 2:      # stretch: two overlapping sets, find those in neither
+        tot = random.randint(25, 40)
+        both = random.randint(2, 8)
+        k, m = both + random.randint(3, 10), both + random.randint(3, 10)
+        if k + m - both > tot:
+            tot = k + m - both + random.randint(0, 5)
+        return _tb("In a class of %d pupils, %d have a pet, %d have a brother or sister, and %d have both. "
+                   "How many have neither?" % (tot, k, m, both), tot - (k + m - both), "int", {},
+                   ["Pet or sibling: %d + %d − %d = %d." % (k, m, both, k + m - both),
+                    "%d − %d = %d." % (tot, k + m - both, tot - (k + m - both))])
+    tot = random.randint(_by(d, 10, 20, 20), _by(d, 20, 35, 35))
+    k = random.randint(_by(d, 2, 5, 5), tot - 3)
     return _tb("In a class of %d pupils, %d have a pet. How many do NOT have a pet?" % (tot, k), tot - k, "int", {},
                ["%d − %d = %d." % (tot, k, tot - k)])
 
@@ -228,32 +250,51 @@ def _(d=1):
                    pf[k], "int", {}, ["%d = %s." % (n, " × ".join(map(str, pf)))])
 
     def t_hcf():
-        g = random.randint(2, 12)
-        a, b = g * random.randint(2, 9), g * random.randint(2, 9)
-        g = _gcd(a, b)
-        return _tb("Find the HCF of %d and %d." % (a, b), g, "int", {}, ["The highest common factor is %d." % g])
+        # easy: small common factor, small multiples; hard: larger numbers, sometimes three of them
+        g = random.randint(2, _by(d, 6, 12, 24))
+        nums = [g * random.randint(2, _by(d, 5, 9, 12)) for _ in range(3 if d == 2 and random.random() < 0.4 else 2)]
+        if len(set(nums)) == 1:
+            nums[-1] += g
+        g = nums[0]
+        for x in nums[1:]:
+            g = _gcd(g, x)
+        return _tb("Find the HCF of %s and %d." % (", ".join(map(str, nums[:-1])), nums[-1]), g, "int", {},
+                   ["The highest common factor is %d." % g])
 
     def t_lcm():
-        a, b = random.randint(3, 15), random.randint(3, 15)
-        if a == b:
-            b += 1
-        return _tb("Find the LCM of %d and %d." % (a, b), a * b // _gcd(a, b), "int", {},
-                   ["The lowest common multiple is %d." % (a * b // _gcd(a, b))])
+        if d == 2 and random.random() < 0.4:      # hard: three numbers, kept to friendly ones
+            nums = random.sample([2, 3, 4, 5, 6, 8, 9, 10, 12], 3)
+        else:
+            nums = [random.randint(_by(d, 2, 3, 6), _by(d, 6, 15, 24)) for _ in range(2)]
+            if nums[0] == nums[1]:
+                nums[1] += 1
+        m = nums[0]
+        for x in nums[1:]:
+            m = m * x // _gcd(m, x)
+        return _tb("Find the LCM of %s and %d." % (", ".join(map(str, nums[:-1])), nums[-1]), m, "int", {},
+                   ["The lowest common multiple is %d." % m])
 
     def t_prime():
-        n = random.randint(20, 120)
+        n = random.randint(_by(d, 2, 20, 100), _by(d, 30, 120, 250))
+        if d == 2 and (n % 2 == 0 or n % 5 == 0):     # hard: no give-away last digit
+            n = n // 10 * 10 + pick([1, 3, 7, 9])
         p = len(_pf(n)) == 1
         return _wq("Is %d prime? (yes or no)" % n, "yes" if p else "no",
                    ["%d = %s." % (n, " × ".join(map(str, _pf(n))))], "yes / no")
 
     def t_product_index():
-        n = pick([12, 18, 24, 36, 40, 48, 72, 80, 100])
+        if d == 2 and random.random() < 0.5:          # hard: the power of 3
+            n = pick([54, 108, 162, 216, 270, 324, 405])
+            pf = _pf(n)
+            return _tb("%d = 2^a × 3^b × other primes. What is b (the power of 3)?" % n, pf.count(3), "int", {},
+                       ["%d = %s." % (n, " × ".join(map(str, pf)))])
+        n = pick(_by(d, [4, 8, 12, 16, 20, 24], [12, 18, 24, 36, 40, 48, 72, 80, 100], [96, 144, 160, 192, 240, 288, 352, 400]))
         pf = _pf(n)
         return _tb("%d = 2^a × other primes. What is a (the power of 2)?" % n, pf.count(2), "int", {},
                    ["%d = %s." % (n, " × ".join(map(str, pf)))])
 
     def t_word():
-        a, b = random.sample([6, 8, 9, 10, 12, 15], 2)
+        a, b = random.sample(_by(d, [2, 3, 4, 5, 6, 10], [6, 8, 9, 10, 12, 15], [12, 14, 15, 16, 18, 20, 24]), 2)
         return _tb("Two lighthouses flash every %d and %d seconds. They flash together now. After how many seconds will they "
                    "next flash together?" % (a, b), a * b // _gcd(a, b), "int", {"unit": "seconds"},
                    ["LCM of %d and %d = %d." % (a, b, a * b // _gcd(a, b))])

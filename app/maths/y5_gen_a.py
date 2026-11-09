@@ -297,8 +297,8 @@ def _(d=1):
                                          "%d + %d = %d." % (-a, b, b - a)])
 
     def t_coldest():
-        temps = random.sample(range(-15, 12), 4)
-        towns = random.sample(["Leeds", "York", "Perth", "Dover", "Bath", "Hull"], 4)
+        temps = random.sample(range(_by(d, -9, -15, -25), _by(d, 10, 12, 15)), _by(d, 4, 4, 5))
+        towns = random.sample(["Leeds", "York", "Perth", "Dover", "Bath", "Hull"], len(temps))
         rows = [[t, "%d °C" % v] for t, v in zip(towns, temps)]
         k = temps.index(min(temps))
         return _dt("The table shows night temperatures. Which town was the coldest? Type its "
@@ -314,22 +314,43 @@ def _(d=1):
 
     def t_lift():
         f = -random.randint(1, 3)
-        up = random.randint(2, 9)
+        up = random.randint(2, _by(d, 5, 9, 9))
+        if d == 2:                                        # down to a deeper basement first, then up
+            f = -random.randint(1, 2)
+            dn = random.randint(1, 5 + f)
+            return _tb("In a building, floor 0 is the ground floor and the basements are floors −1 to "
+                       "−5. A lift starts on floor %d, goes down %d floors, then up %d floors. Which "
+                       "floor does it reach?" % (f, dn, up), f - dn + up, "int", {},
+                       ["%d − %d = %d." % (f, dn, f - dn), "%d + %d = %d." % (f - dn, up, f - dn + up)])
         return _tb("In a building, floor 0 is the ground floor and the basements are floors −1, "
                    "−2 and −3. A lift starts on floor %d and goes up %d floors. Which floor does it "
                    "reach?" % (f, up), f + up, "int", {}, ["%d + %d = %d." % (f, up, f + up)])
 
     def t_graph():
         hours = ["2 am", "4 am", "6 am", "8 am", "10 am"]
-        vals = sorted(random.sample(range(-8, 7), 5))
+        vals = sorted(random.sample(range(_by(d, -5, -8, -12), _by(d, 6, 7, 8)), 5))
         k = random.randrange(5)
+        if d == 2 and vals[0] < 0 < vals[-1]:              # a rise across zero, read off two points
+            i = random.randint(0, 1)
+            j = random.randint(3, 4)
+            return _lg("Overnight temperature. Use the graph. By how many degrees did the temperature "
+                       "rise from %s to %s?" % (hours[i], hours[j]), list(zip(hours, vals)),
+                       vals[j] - vals[i], ["At %s it was %d °C and at %s it was %d °C." % (hours[i], vals[i], hours[j], vals[j]),
+                                           "%d − %d = %d degrees." % (vals[j], vals[i], vals[j] - vals[i])],
+                       "°C", "Time")
         return _lg("Overnight temperature. Use the graph. What was the temperature at %s, in °C?"
                    % hours[k], list(zip(hours, vals)), vals[k],
                    ["Read across from the point at %s: %d °C." % (hours[k], vals[k])], "°C", "Time")
 
     def t_line():
-        a = random.randint(-9, -1)
-        r = random.randint(3, 12)
+        a = random.randint(_by(d, -5, -9, -9), -1)
+        r = random.randint(_by(d, 2, 3, 6), _by(d, 8, 12, 14))
+        if d == 2:                                        # rises, then falls back below zero
+            f = random.randint(2, a + r + 9)
+            return _nl("The temperature is %d °C. It rises by %d degrees and then falls by %d degrees. "
+                       "Mark the final temperature on the line." % (a, r, f), a + r - f, 1, 5,
+                       ["%d + %d = %d." % (a, r, a + r), "%d − %d = %d." % (a + r, f, a + r - f)],
+                       lo=-10, hi=15)
         return _nl("The temperature is %d °C and rises by %d degrees. Mark the new temperature on "
                    "the line." % (a, r), a + r, 1, 5, ["%d + %d = %d." % (a, r, a + r)],
                    lo=-10, hi=15)
@@ -371,17 +392,17 @@ def _(d=1):
                                               "%d ÷ %d = %d." % (b - a, st, (b - a) // st)])
 
     def t_line():
-        a = random.randint(-8, -2)
-        k = random.randint(3, 6)
-        st = pick([1, 2, 3])
+        a = random.randint(_by(d, -5, -8, -10), -2)
+        st = pick(_by(d, [1, 2], [1, 2, 3], [3, 4, 5]))
+        k = random.randint(3, min(6, (15 - a) // st))
         ans = a + k * st
         return _nl("Start at %d and make %d jumps of %d to the right. Mark where you land."
                    % (a, k, st), ans, 1, 5, ["%d + %d = %d." % (a, k * st, ans)], lo=-10, hi=15)
 
     def t_line_back():
-        a = random.randint(2, 6)
-        k = random.randint(3, 5)
-        st = pick([2, 3])
+        a = random.randint(2, _by(d, 5, 6, 9))
+        st = pick(_by(d, [1, 2], [2, 3], [3, 4, 5]))
+        k = random.randint(3, min(5, (a + 15) // st))
         ans = a - k * st
         return _nl("Start at %d and make %d jumps of %d to the left. Mark where you land."
                    % (a, k, st), ans, 1, 5, ["%d − %d = %d." % (a, k * st, ans)], lo=-15, hi=10)
@@ -458,14 +479,20 @@ def _(d=1):
                    "e.g. MCMXC")
 
     def t_age():
-        y2 = random.randint(1950, 2015)
+        y2 = random.randint(_by(d, 1990, 1950, 1066), 2015)
         now = 2026
+        if d == 2:                                        # two carved years, both to decode
+            y1 = random.randint(1000, y2 - 20)
+            return _tb("A church has two stones: one says %s and the other says %s. How many years "
+                       "apart were they carved?" % (_rom(y1), _rom(y2)), y2 - y1, "int",
+                       {"unit": "years"}, ["%s = %d and %s = %d." % (_rom(y1), y1, _rom(y2), y2),
+                                           "%d − %d = %d." % (y2, y1, y2 - y1)])
         return _tb("A film's credits end with the year %s. How many years before %d was that?"
                    % (_rom(y2), now), now - y2, "int", {"unit": "years"},
                    ["%s = %d." % (_rom(y2), y2), "%d − %d = %d." % (now, y2, now - y2)])
 
     def t_order():
-        ys = random.sample(range(1000, 2030), 3)
+        ys = random.sample(range(_by(d, 1900, 1000, 1000), 2030), _by(d, 3, 3, 4))
         k = pick([0, 1])
         target = sorted(ys)[0] if k == 0 else sorted(ys)[-1]
         return _tb("Which of these years is the %s? %s. Write it as a number."
@@ -473,7 +500,7 @@ def _(d=1):
                    "int", {}, ["The years are %s." % ", ".join(map(str, ys))])
 
     def t_century():
-        y2 = random.randint(1101, 1999)
+        y2 = random.randint(_by(d, 1801, 1101, 1001), 1999)
         return _tb("The year %s: what are its first two digits when written as a number?"
                    % _rom(y2), y2 // 100, "int", {}, ["%s = %d." % (_rom(y2), y2)])
 
@@ -503,31 +530,53 @@ def _(d=1):
                     "The number is %s." % _c(small)])
 
     def t_clues():
+        nd = _by(d, 5, 6, 6)
         th = random.randint(1, 9)
-        rest = [random.randint(0, 9) for _ in range(4)]
+        rest = [random.randint(0, 9) for _ in range(nd - 2)]
         n = int(str(th) + "".join(map(str, rest)) + str(random.randint(0, 9)))
         s = str(n)
-        return _tb("I am a 6-digit number. My hundred thousands digit is %s, my ten thousands digit "
-                   "is %s, my thousands digit is %s, my hundreds digit is %s, my tens digit is %s "
-                   "and my ones digit is %s. What number am I?" % tuple(s), n, "int", {},
-                   ["Write the digits in order: %s." % _c(n)])
+        names = [w for _, w in PLACES][6 - nd:]
+        clues = ["my %s digit is %s" % (w, c) for w, c in zip(names, s)]
+        if d == 2:                                        # clues out of order
+            random.shuffle(clues)
+        return _tb("I am a %d-digit number. %s and %s. What number am I?"
+                   % (nd, ", ".join(clues[:-1]).capitalize(), clues[-1]), n, "int", {},
+                   ["Write the digits in place order: %s." % _c(n)])
 
     def t_between():
-        lo = random.randint(10, 90) * 10000
-        hi = lo + 10000
-        return _tb("How many multiples of 1,000 are there strictly between %s and %s?"
-                   % (_c(lo), _c(hi)), 9, "int", {},
-                   ["%s, %s, ..., %s: that is 9." % (_c(lo + 1000), _c(lo + 2000), _c(hi - 1000))])
+        if d == 0:
+            lo = random.randint(10, 99) * 1000
+            hi, p = lo + 1000, 100
+        elif d == 1:
+            lo = random.randint(10, 90) * 10000
+            hi, p = lo + 10000, 1000
+        else:                                             # a longer stretch to count
+            lo = random.randint(100, 900) * 1000
+            hi, p = lo + random.randint(12, 40) * 1000, 1000
+        k = (hi - lo) // p - 1
+        return _tb("How many multiples of %s are there strictly between %s and %s?"
+                   % (_c(p), _c(lo), _c(hi)), k, "int", {},
+                   ["%s, %s, ..., %s: that is %d." % (_c(lo + p), _c(lo + 2 * p), _c(hi - p), k)])
 
     def t_round_trip():
-        n = random.randint(100000, 999999)
-        p = pick([1000, 10000])
+        n = random.randint(_by(d, 10000, 100000, 100000), _by(d, 99999, 999999, 999999))
+        p = pick(_by(d, [100, 1000], [1000, 10000], [1000, 10000, 100000]))
         return _tb("Replace the last %d digits of %s with zeros. What number do you get?"
                    % (len(str(p)) - 1, _c(n)), (n // p) * p, "int", {},
                    ["%s with the last digits as zeros is %s." % (_c(n), _c((n // p) * p))])
 
     def t_digit_sum():
-        n = random.randint(100000, 999999)
+        n = random.randint(_by(d, 10000, 100000, 100000), _by(d, 99999, 999999, 999999))
+        if d == 2:                                        # work backwards from the digit sum
+            t = random.randint(12, 40)
+            ds, left = [], t
+            for _ in range(6):
+                ds.append(min(9, left))
+                left -= ds[-1]
+            big = int("".join(map(str, ds)))
+            return _tb("What is the LARGEST 6-digit number whose digits add up to %d?" % t, big, "int", {},
+                       ["Make the leftmost digits as big as possible: %s." % " + ".join(map(str, ds)),
+                        "The number is %s." % _c(big)])
         return _tb("What is the sum of the digits of %s?" % _c(n), sum(map(int, str(n))), "int", {},
                    ["%s = %d." % (" + ".join(str(n)), sum(map(int, str(n))))])
 
@@ -552,60 +601,76 @@ def _(d=1):
                     "Keep the smallest odd digit for the ones place: %s." % _c(best)])
 
     def t_closest():
-        ds = random.sample(range(0, 10), 5)
-        target = random.randint(3, 7) * 10000
+        nd = _by(d, 4, 5, 6)
+        ds = random.sample(range(0, 10), nd)
+        target = random.randint(3, 7) * 10 ** (nd - 1)
         nums = sorted({int("".join(map(str, p))) for p in permutations(ds) if p[0]},
                       key=lambda v: (abs(v - target), v))
         if abs(nums[0] - target) == abs(nums[1] - target):
             return t_largest()
-        return _tb("Use each of these digit cards once to make the 5-digit number that is CLOSEST to %s: %s"
-                   % (_c(target), ", ".join(map(str, ds))), nums[0], "int", {},
-                   ["Start with the digit nearest to %d in the ten thousands place, then make the rest as "
-                    "close as you can." % (target // 10000), "The closest is %s." % _c(nums[0])])
+        return _tb("Use each of these digit cards once to make the %d-digit number that is CLOSEST to %s: %s"
+                   % (nd, _c(target), ", ".join(map(str, ds))), nums[0], "int", {},
+                   ["Start with the digit nearest to %d in the %s place, then make the rest as "
+                    "close as you can." % (target // 10 ** (nd - 1), PLACES[6 - nd][1]),
+                    "The closest is %s." % _c(nums[0])])
 
     def t_swap():
-        n = random.randint(100000, 999999)
+        lo, hi = _by(d, 10000, 100000, 100000), _by(d, 99999, 999999, 999999)
+        n = random.randint(lo, hi)
         s = list(str(n))
-        i, j = pick([(2, 3), (1, 4), (3, 5), (0, 1)])
+        i, j = pick(_by(d, [(3, 4), (2, 3), (0, 1)], [(2, 3), (1, 4), (3, 5), (0, 1)],
+                        [(2, 3), (1, 4), (3, 5), (0, 1), (0, 5)]))
         while s[i] == s[j] or (i == 0 and s[j] == "0"):
-            n = random.randint(100000, 999999)
+            n = random.randint(lo, hi)
             s = list(str(n))
-        names = ["hundred thousands", "ten thousands", "thousands", "hundreds", "tens", "ones"]
+        names = [w for _, w in PLACES][6 - len(s):]
         t = s[:]
         t[i], t[j] = t[j], t[i]
         m = int("".join(t))
+        if d == 2:                                        # and how much did that change it?
+            return _tb("Swap the %s digit and the %s digit of %s. By how much does the number change?"
+                       % (names[i], names[j], _c(n)), abs(m - n), "int", {},
+                       ["Swapped: %s." % _c(m), "%s − %s = %s." % (_c(max(m, n)), _c(min(m, n)), _c(abs(m - n)))])
         return _tb("Swap the %s digit and the %s digit of %s. What is the new number?"
                    % (names[i], names[j], _c(n)), m, "int", {},
                    ["The %s digit is %s and the %s digit is %s." % (names[i], s[i], names[j], s[j]),
                     "Swapped: %s." % _c(m)])
 
     def t_odd_partition():
-        th = random.randint(12, 99)
-        te = random.randint(12, 99)
+        th = random.randint(_by(d, 2, 12, 12), _by(d, 9, 99, 99))
+        te = random.randint(_by(d, 2, 12, 12), _by(d, 9, 99, 99))
         o = random.randint(1, 9)
+        if d == 2:                                        # hundreds that regroup into thousands too
+            h = random.randint(12, 99)
+            n = th * 1000 + h * 100 + te * 10 + o
+            return _tb("Which number is made from %d thousands, %d hundreds, %d tens and %s?"
+                       % (th, h, te, _pl(o, "one")), n, "int", {},
+                       ["%d thousands = %s; %d hundreds = %s; %d tens = %d."
+                        % (th, _c(th * 1000), h, _c(h * 100), te, te * 10),
+                        "%s + %s + %d + %d = %s." % (_c(th * 1000), _c(h * 100), te * 10, o, _c(n))])
         n = th * 1000 + te * 10 + o
         return _tb("Which number is made from %d thousands, %d tens and %s?" % (th, te, _pl(o, "one")), n, "int", {},
                    ["%d thousands = %s; %d tens = %d." % (th, _c(th * 1000), te, te * 10),
                     "%s + %d + %d = %s." % (_c(th * 1000), te * 10, o, _c(n))])
 
     def t_same_digit():
-        n = random.randint(100000, 999999)
+        n = random.randint(_by(d, 10000, 100000, 100000), 999999 if d else 99999)
         s = str(n)
         reps = [c for c in set(s) if s.count(c) == 2 and c != "0"]
         if not reps:
             return t_clues()
         c = pick(reps)
         i, j = [k for k, x in enumerate(s) if x == c]
-        vi, vj = int(c) * 10 ** (5 - i), int(c) * 10 ** (5 - j)
+        vi, vj = int(c) * 10 ** (len(s) - 1 - i), int(c) * 10 ** (len(s) - 1 - j)
         return _tb("The digit %s appears twice in %s. What is the difference between the values of the two %ss?"
                    % (c, _c(n), c), vi - vj, "int", {},
                    ["One is worth %s and the other %s." % (_c(vi), _c(vj)), "%s − %s = %s." % (_c(vi), _c(vj), _c(vi - vj))])
 
     def t_chart():
-        n = _six(max(d, 1))
-        heads = ["HTh", "TTh", "Th", "H", "T", "O"]
-        return _dt("The place value chart shows a number (HTh = hundred thousands, TTh = ten thousands, and so "
-                   "on). What number is it?", heads, [list(str(n))], n,
+        n = _six(d)
+        heads = ["HTh", "TTh", "Th", "H", "T", "O"][6 - len(str(n)):]
+        key = "HTh = hundred thousands, TTh = ten thousands" if len(heads) == 6 else "TTh = ten thousands, Th = thousands"
+        return _dt("The place value chart shows a number (%s, and so on). What number is it?" % key, heads, [list(str(n))], n,
                    ["Read the digits in order: %s." % _c(n)])
 
     return _pick_t([t_largest, t_smallest, t_clues, t_between, t_round_trip, t_digit_sum, t_largest_even,

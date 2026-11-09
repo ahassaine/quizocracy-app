@@ -473,7 +473,12 @@ def _(d=1):
                       solution=["One tenth more than %d/10 is %d/10." % (n, n + 1)])
 
     if t == 1:                                          # count back
-        n = random.randint(2, 9)
+        if d == 2:                                      # stretch: back in steps of 2 tenths
+            n = random.randint(6, 10)
+            return _num_q("Count back in twos of tenths: %d/10, %d/10, ___ . Write the next fraction." % (n, n - 2),
+                          "%d/10" % (n - 4), "frac", text=True, placeholder="e.g. 4/10",
+                          solution=["Each step takes away 2/10.", "%d/10 − 2/10 = %d/10." % (n - 2, n - 4)])
+        n = random.randint(2, _by_d(d, 5, 9, 9))
         return _num_q("Count back in tenths: %d/10, ___ . Write the next fraction." % n,
                       "%d/10" % (n - 1), "frac", text=True, placeholder="e.g. 4/10",
                       solution=["One tenth less than %d/10 is %d/10." % (n, n - 1)])
@@ -499,7 +504,11 @@ def _(d=1):
                                 "%d/10 + %d/10 = %d/10." % (seq[-1], stepn, seq[-1] + stepn)])
 
     if t == 4:                                          # tenths to make a whole
-        n = random.randint(1, 9)
+        n = random.randint(_by_d(d, 5, 1, 1), 9)
+        if d == 2:                                      # stretch: up to 2 wholes
+            return _num_q("How many more tenths are needed to make %d/10 up to 2 wholes?" % n,
+                          20 - n, "int", unit="tenths",
+                          solution=["2 wholes = 20/10.", "20 − %d = %s." % (n, _pl(20 - n, "tenth"))])
         return _num_q("How many more tenths are needed to make %d/10 up to 1 whole?" % n,
                       10 - n, "int", unit="tenths",
                       solution=["1 whole = 10/10.", "10 − %d = %s." % (n, _pl(10 - n, "tenth"))])
@@ -520,7 +529,14 @@ def _(d=1):
                              % (_pl(n, "tenth"), "%.1f" % (n / 10.0), _pl(n, "step"))]}
 
     # visual: shade tenths
-    n = random.randint(1, 9)
+    if d == 2:                                          # stretch: shade a count on
+        n = random.randint(3, 9)
+        a = random.randint(1, n - 2)
+        return {"prompt": "The bar is one whole split into tenths. Shade %d/10 more than %d/10." % (n - a, a),
+                "component": "fraction_bar", "spec": {"parts": 10, "mode": "shade"},
+                "answer": "%d/10" % n, "answer_type": "frac",
+                "solution": ["%d/10 + %d/10 = %d/10." % (a, n - a, n), "Shade %d of the 10 equal parts." % n]}
+    n = random.randint(1, _by_d(d, 5, 9, 9))
     return {"prompt": "The bar is one whole split into tenths. Shade %s." % _pl(n, "tenth"),
             "component": "fraction_bar", "spec": {"parts": 10, "mode": "shade"},
             "answer": "%d/10" % n, "answer_type": "frac",
@@ -1012,6 +1028,11 @@ def _(d=1):
     m = random.randint(1, _by_d(d, 2, 3, 5))
     cm = random.randint(10, 90)
     used = random.randint(20, 90)
+    if d == 0:                                          # easy: no exchange from the metres
+        cm = random.randint(30, 90)
+        used = 10 * random.randint(1, cm // 10)
+    elif d == 2 and cm < 85:                            # stretch: cut more than the spare cm
+        used = random.randint(cm + 5, 90)
     total = m * 100 + cm
     return _num_q("A plank is %d m %d cm long. %d cm is sawn off. "
                   "How long is the plank now, in cm?" % (m, cm, used),
@@ -1036,7 +1057,7 @@ def _(d=1):
 
     if t == 1:                                          # kg + g -> g
         kg = random.randint(1, _by_d(d, 2, 4, 9))
-        g = random.choice([100, 200, 250, 500, 750])
+        g = random.choice(_by_d(d, [100, 200, 500], [100, 200, 250, 500, 750], [5, 45, 80, 75, 305, 650]))
         return _num_q("How many grams are there in %d kg %d g?" % (kg, g),
                       kg * 1000 + g, "int", unit="g",
                       solution=["1 kg = 1000 g, so %d kg = %d g." % (kg, kg * 1000),
@@ -1054,9 +1075,11 @@ def _(d=1):
                              "%d + %d = %d g." % (v, add, v + add)]}
 
     if t == 3:                                          # comparison
-        a = random.randrange(100, 1000, 50)
-        b_kg = random.randint(1, 3)
+        a = random.randrange(*_by_d(d, (100, 1000, 100), (100, 1000, 50), (1050, 3000, 50)))
+        b_kg = random.randint(1, _by_d(d, 1, 3, 3))
         b = b_kg * 1000
+        while a == b:
+            a += 50
         return _num_q("Which is heavier: %d g or %d kg? Write the heavier mass in grams."
                       % (a, b_kg),
                       max(a, b), "int", unit="g",
@@ -1072,8 +1095,10 @@ def _(d=1):
                                 % (thing, unit_name)])
 
     if t == 6:                    # NEW: compare and convert metric units of mass
-        kg = random.randint(1, 4)
-        g = random.randrange(500, 4500, 100)
+        kg = random.randint(1, _by_d(d, 2, 4, 4))
+        g = random.randrange(500, _by_d(d, 2500, 4500, 4500), _by_d(d, 500, 100, 100))
+        if d == 2:                                      # stretch: the two masses are close
+            g = kg * 1000 + pick([-1, 1]) * random.randrange(50, 300, 50)
         while g == kg * 1000:
             g = random.randrange(500, 4500, 100)
         return _num_q("Compare these metric units of mass. Which is heavier: %d kg or "
@@ -1088,6 +1113,12 @@ def _(d=1):
         kg = random.randint(1, 3)
         g = random.randrange(100, 900, 50)
         poured = random.randrange(50, 600, 50)
+        if d == 0:                                      # easy: hundreds, no exchange
+            g = random.randrange(300, 900, 100)
+            poured = random.randrange(100, g + 1, 100)
+        elif d == 2:                                    # stretch: pour more than the spare grams
+            g = random.randrange(100, 500, 50)
+            poured = random.randrange(g + 50, 900, 50)
         total = kg * 1000 + g
         return _num_q("%s has a jug of water with a mass of %d kg %d g. %s pours out water "
                       "with a mass of %d g. What is the mass of the jug of water now, "
@@ -1099,7 +1130,7 @@ def _(d=1):
     # word problem
     who = pick(NAMES)
     bags = random.randint(2, _by_d(d, 3, 5, 8))
-    per = random.choice([250, 500, 200])
+    per = random.choice(_by_d(d, [100, 200, 500], [250, 500, 200], [250, 125, 350, 450]))
     return _num_q("%s buys %d bags of rice weighing %d g each. "
                   "What is the total mass, in grams?" % (who, bags, per),
                   bags * per, "int", unit="g",
@@ -1110,7 +1141,7 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     t = _pick_t([2, 1, 2, 2, 1, 2, 1, 1])
-    stepml = _by_d(d, 100, 50, 50)
+    stepml = _by_d(d, 100, 50, 25)
 
     if t == 0:                                          # jug reading (visual)
         v = random.randrange(stepml, 1000 + 1, stepml)
@@ -1122,7 +1153,7 @@ def _(d=1):
 
     if t == 1:                                          # l + ml -> ml
         l = random.randint(1, _by_d(d, 2, 4, 9))
-        ml = random.choice([100, 250, 500, 750])
+        ml = random.choice(_by_d(d, [100, 200, 500], [100, 250, 500, 750], [5, 50, 75, 305, 650]))
         return _num_q("How many millilitres are there in %d l %d ml?" % (l, ml),
                       l * 1000 + ml, "int", unit="ml",
                       solution=["1 l = 1000 ml, so %d l = %d ml." % (l, l * 1000),
@@ -1168,8 +1199,10 @@ def _(d=1):
                                 % (thing, unit_name)])
 
     if t == 7:                    # NEW: compare and convert metric units of volume
-        l = random.randint(1, 4)
-        ml = random.randrange(500, 4500, 100)
+        l = random.randint(1, _by_d(d, 2, 4, 4))
+        ml = random.randrange(500, _by_d(d, 2500, 4500, 4500), _by_d(d, 500, 100, 100))
+        if d == 2:                                      # stretch: the two volumes are close
+            ml = l * 1000 + pick([-1, 1]) * random.randrange(50, 300, 50)
         while ml == l * 1000:
             ml = random.randrange(500, 4500, 100)
         return _num_q("Compare these metric units of volume. Which holds more: %d l or "
@@ -1182,7 +1215,7 @@ def _(d=1):
     # word problem
     who = pick(NAMES)
     cups = random.randint(2, _by_d(d, 3, 6, 9))
-    per = random.choice([150, 200, 250])
+    per = random.choice(_by_d(d, [100, 200], [150, 200, 250], [150, 250, 125, 350]))
     return _num_q("%s pours %d cups of squash, each holding %d ml. "
                   "How much squash is that altogether, in ml?" % (who, cups, per),
                   cups * per, "int", unit="ml",
@@ -1678,15 +1711,24 @@ def _(d=1):
     t = _pick_t([1, 1, 1, 2, 2])
 
     if t == 0:                                          # quarter/half past -> digital
-        m = pick(_by_d(d, [15, 30], [15, 30], [15, 30]))
-        phrase = {15: "quarter past", 30: "half past"}[m]
+        m = pick(_by_d(d, [30], [15, 30], [5, 10, 20, 25]))
+        # stretch: the minutes are given in words ("twenty-five past 7")
+        phrase = {15: "quarter past", 30: "half past", 5: "five past", 10: "ten past", 20: "twenty past",
+                  25: "twenty-five past"}[m]
         return _num_q("Write '%s %d' in digital form (h:mm)." % (phrase, h),
                       _hm(h, m), "time", text=True, placeholder="e.g. 3:15",
-                      solution=["Quarter past means 15 minutes; half past means 30 minutes.",
+                      solution=["Quarter past means 15 minutes; half past means 30 minutes." if m in (15, 30)
+                                else "'%s' means %d minutes past the hour." % (phrase.capitalize(), m),
                                 "%s %d is %s." % (phrase, h, _hm(h, m))])
 
     if t == 1:                                          # quarter to -> digital
         nh = 1 if h == 12 else h + 1
+        if d == 2:                                      # stretch: any number of minutes to
+            mm = pick([5, 10, 20, 25])
+            return _num_q("Write '%d minutes to %d' in digital form (h:mm)." % (mm, nh),
+                          _hm(h, 60 - mm), "time", text=True, placeholder="e.g. 3:45",
+                          solution=["%d minutes to %d is %d minutes before %d o'clock." % (mm, nh, mm, nh),
+                                    "That is %s." % _hm(h, 60 - mm)])
         return _num_q("Write 'quarter to %d' in digital form (h:mm)." % nh,
                       _hm(h, 45), "time", text=True, placeholder="e.g. 3:45",
                       solution=["Quarter to %d is 15 minutes before %d o'clock." % (nh, nh),
@@ -2110,6 +2152,14 @@ def _(d=1):
     name, f, e, v = pick(pool)
     t = _pick_t([2, 2, 2, 2, 1, 1, 1, 1, 1, 1])
 
+    if t == 0 and d == 2:                               # stretch: which faces are triangles?
+        tri = {"square-based pyramid": 4, "triangular prism": 2}.get(name, 0)
+        return {"prompt": "How many of the faces of this solid are triangles?",
+                "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "faces"},
+                "answer": tri, "answer_type": "int",
+                "solution": ["%s has %d faces." % (_a(name).capitalize(), f),
+                             "%d of them %s triangles." % (tri, "is" if tri == 1 else "are")]}
+
     if t == 0:                                          # faces (visual)
         return {"prompt": "How many faces does this solid have?",
                 "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "faces"},
@@ -2117,12 +2167,25 @@ def _(d=1):
                 "solution": ["Count the flat surfaces of the %s." % name,
                              "%s has %d faces." % (_a(name).capitalize(), f)]}
 
+    if t == 1 and d == 2:                               # stretch: compare edges and vertices
+        return {"prompt": "How many more edges than vertices does this solid have?",
+                "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "edges"},
+                "answer": e - v, "answer_type": "int",
+                "solution": ["%s has %d edges and %d vertices." % (_a(name).capitalize(), e, v),
+                             "%d − %d = %d." % (e, v, e - v)]}
+
     if t == 1:                                          # edges (visual)
         return {"prompt": "How many edges does this solid have?",
                 "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "edges"},
                 "answer": e, "answer_type": "int",
                 "solution": ["An edge is where two faces meet.",
                              "%s has %d edges." % (_a(name).capitalize(), e)]}
+
+    if t == 2 and d == 2:                               # stretch: two of the solid
+        return {"prompt": "Two of these solids sit apart on a table. How many vertices (corners) do they have altogether?",
+                "component": "shape", "spec": {"kind": "3d", "name": name, "ask": "vertices"},
+                "answer": 2 * v, "answer_type": "int",
+                "solution": ["One %s has %d vertices." % (name, v), "2 × %d = %d." % (v, 2 * v)]}
 
     if t == 2:                                          # vertices (visual)
         return {"prompt": "How many vertices (corners) does this solid have?",
@@ -2139,27 +2202,39 @@ def _(d=1):
                              "It is a %s." % name]}
 
     if t == 5:                    # NEW: select the three-dimensional shape
+        # stretch: tell them apart by edges or vertices rather than faces
+        k, what = (1, "faces") if d < 2 else pick([(2, "edges"), (3, "vertices")])
         a, b = random.sample(_SOLIDS, 2)
-        while a[1] == b[1]:
+        while a[k] == b[k]:
             a, b = random.sample(_SOLIDS, 2)
         want = pick([a, b])
         first, second = (a, b) if random.random() < 0.5 else (b, a)
-        return _num_q("Select the three-dimensional shape with %d faces: %s or %s? "
-                      "(type the name of the solid)" % (want[1], first[0], second[0]),
+        return _num_q("Select the three-dimensional shape with %d %s: %s or %s? "
+                      "(type the name of the solid)" % (want[k], what, first[0], second[0]),
                       want[0], "str", text=True, placeholder="solid name",
-                      solution=["%s has %d faces and %s has %d."
-                                % (_a(a[0]).capitalize(), a[1], _a(b[0]), b[1]),
-                                "The solid with %d faces is %s." % (want[1], _a(want[0]))])
+                      solution=["%s has %d %s and %s has %d."
+                                % (_a(a[0]).capitalize(), a[k], what, _a(b[0]), b[k]),
+                                "The solid with %d %s is %s." % (want[k], what, _a(want[0]))])
 
     if t == 6:                    # NEW: identify shapes traced from solids
-        solid, face, traced = pick([
+        solid, face, traced = pick(_by_d(d, [
+            ("cube", "one face", "square"),
+            ("cylinder", "one flat end", "circle"),
+            ("cone", "the flat end", "circle"),
+        ], [
             ("cube", "one face", "square"),
             ("cuboid", "the flat base", "rectangle"),
             ("square-based pyramid", "the base", "square"),
             ("triangular prism", "one end face", "triangle"),
             ("cylinder", "one flat end", "circle"),
             ("cone", "the flat end", "circle"),
-        ])
+        ], [
+            ("triangular prism", "one end face", "triangle"),
+            ("triangular prism", "one of its long side faces", "rectangle"),
+            ("square-based pyramid", "one sloping face", "triangle"),
+            ("square-based pyramid", "the base", "square"),
+            ("cuboid", "the flat base", "rectangle"),
+        ]))
         return _num_q("A pencil is drawn around %s of a %s to trace it onto paper. "
                       "Which two-dimensional shape is traced? (type the shape)"
                       % (face, solid),
@@ -2169,7 +2244,7 @@ def _(d=1):
                                 "So the traced shape is %s." % _a(traced)])
 
     if t == 7:                    # NEW: sort three-dimensional shapes
-        chosen = random.sample(_SOLIDS, 3)
+        chosen = random.sample(_SOLIDS, _by_d(d, 2, 3, 4))
         cnt = sum(1 for s in chosen if s[1] == 6)
         return _num_q("Sort these three-dimensional shapes into two groups: solids with 6 "
                       "faces and solids without 6 faces. Solids: %s. How many of them have "
@@ -2179,12 +2254,19 @@ def _(d=1):
                                 "%d of the solids have 6 faces." % cnt])
 
     if t == 8:                    # NEW: 3-D shapes in the real world I (name the solid)
-        thing, solid = pick([
+        thing, solid = pick(_by_d(d, [
+            ("a dice", "cube"), ("a cereal box", "cuboid"), ("a tin of beans", "cylinder"),
+            ("a football", "sphere"),
+        ], [
             ("a dice", "cube"), ("a cereal box", "cuboid"), ("a tin of beans", "cylinder"),
             ("a party hat", "cone"), ("a football", "sphere"),
             ("a tent with triangular ends", "triangular prism"),
             ("an Egyptian pyramid", "square-based pyramid"),
-        ])
+        ], [
+            ("a party hat", "cone"), ("a tent with triangular ends", "triangular prism"),
+            ("an Egyptian pyramid", "square-based pyramid"), ("a chocolate box with triangular ends", "triangular prism"),
+            ("an ice-cream cone", "cone"), ("a toilet-roll tube", "cylinder"),
+        ]))
         return _num_q("In the real world, %s is shaped like which three-dimensional solid? "
                       "(type the name of the solid)" % thing,
                       solid, "str", text=True, placeholder="solid name",
@@ -2197,7 +2279,7 @@ def _(d=1):
             ("a tent with triangular ends", "triangular prism", 5, 9, 6),
             ("an Egyptian pyramid", "square-based pyramid", 5, 8, 5),
         ])
-        ask = pick(["faces", "edges", "vertices"])
+        ask = pick(_by_d(d, ["faces"], ["faces", "edges", "vertices"], ["edges", "vertices"]))
         val = {"faces": ff, "edges": ee, "vertices": vv}[ask]
         return _num_q("In the real world, %s is shaped like a %s. How many %s does it have?"
                       % (thing, solid, ask),
@@ -2223,17 +2305,31 @@ def _(d=1):
     t = _pick_t([1, 2, 1, 2, 1])
 
     if t == 0:                                          # right angles in a turn
-        turns, ra = pick([("a quarter", 1), ("a half", 2), ("a three-quarter", 3),
-                          ("a full", 4)])
-        return _num_q("How many right angles are there in %s turn?" % turns,
+        turns, ra = pick(_by_d(d, [("a quarter turn", 1), ("a half turn", 2), ("a full turn", 4)],
+                               [("a quarter turn", 1), ("a half turn", 2), ("a three-quarter turn", 3),
+                                ("a full turn", 4)],
+                               # stretch: more than one whole turn
+                               [("a three-quarter turn", 3), ("one and a half turns", 6),
+                                ("two full turns", 8), ("a full turn and a quarter turn", 5)]))
+        return _num_q("How many right angles are there in %s?" % turns,
                       ra, "int", unit="right angles",
                       solution=["A full turn is 4 right angles.",
-                                "%s turn = %s." % (turns.capitalize(), _pl(ra, "right angle"))])
+                                "%s = %s." % (turns.capitalize(), _pl(ra, "right angle"))])
 
     if t == 1:                                          # clock turn (visual)
         h = random.randint(1, 12)
         quarters = pick(_by_d(d, [1, 2], [1, 2, 3], [1, 2, 3]))
         mins = 15 * quarters
+        if d == 2:                                      # stretch: start part-way through the hour
+            m0 = pick([15, 30, 45])
+            nh, nm = (h + (m0 + mins) // 60 - 1) % 12 + 1, (m0 + mins) % 60
+            return {"prompt": "The clock shows %s. The minute hand makes %s turn "
+                              "clockwise. Set the clock to the new time."
+                              % (_hm(h, m0), {1: "a quarter", 2: "a half", 3: "a three-quarter"}[quarters]),
+                    "component": "clock", "spec": {"mode": "set"},
+                    "answer": _hm(nh, nm), "answer_type": "time",
+                    "solution": ["A quarter turn of the minute hand is 15 minutes.",
+                                 "%s + %d minutes = %s." % (_hm(h, m0), mins, _hm(nh, nm))]}
         return {"prompt": "The clock shows %d o'clock. The minute hand makes %s turn "
                           "clockwise. Set the clock to the new time."
                           % (h, {1: "a quarter", 2: "a half", 3: "a three-quarter"}[quarters]),
@@ -2246,8 +2342,16 @@ def _(d=1):
     if t == 2:                                          # compass turns (real life)
         dirs = ["North", "East", "South", "West"]
         i = random.randrange(4)
-        j = (i + random.randint(1, 3)) % 4
+        j = (i + random.randint(1, _by_d(d, 2, 3, 3))) % 4
         ra = (j - i) % 4
+        if d == 2:                                      # stretch: an anticlockwise turn
+            ra = (i - j) % 4
+            return _num_q("You face %s and turn anticlockwise to face %s. "
+                          "How many right angles have you turned?" % (dirs[i], dirs[j]),
+                          ra, "int", unit="right angles",
+                          solution=["Anticlockwise goes North, West, South, East.",
+                                    "%s to %s anticlockwise is %s."
+                                    % (dirs[i], dirs[j], _pl(ra, "right angle"))])
         return _num_q("You face %s and turn clockwise to face %s. "
                       "How many right angles have you turned?" % (dirs[i], dirs[j]),
                       ra, "int", unit="right angles",
@@ -2257,6 +2361,15 @@ def _(d=1):
 
     if t == 3:                                          # right angles in a shape (visual)
         name = pick(["square", "rectangle"])
+        if d == 2:                                      # stretch: several of the shape
+            k = random.randint(2, 4)
+            return {"prompt": "Every corner of this shape is a right angle. "
+                              "How many right angles are there altogether in %d of these shapes?" % k,
+                    "component": "shape",
+                    "spec": {"kind": "2d", "name": name, "ask": "vertices", "marks": "right_angle"},
+                    "answer": 4 * k, "answer_type": "int",
+                    "solution": ["%s has 4 corners and each one is a right angle." % _a(name).capitalize(),
+                                 "%d × 4 = %d right angles." % (k, 4 * k)]}
         return {"prompt": "Every corner of this shape is a right angle. "
                           "How many right angles does it have?",
                 "component": "shape",
@@ -2265,7 +2378,13 @@ def _(d=1):
                 "solution": ["%s has 4 corners and each one is a right angle." % _a(name).capitalize()]}
 
     # missing number
-    ra = random.randint(1, 4)
+    if d == 2:                                          # stretch: right angles to half turns
+        ra = 2 * random.randint(1, 4)
+        return _num_q("A turn is made of %s. How many half turns is that?" % _pl(ra, "right angle"),
+                      ra // 2, "int", unit="half turns",
+                      solution=["A half turn is 2 right angles.",
+                                "%d ÷ 2 = %s." % (ra, _pl(ra // 2, "half turn"))])
+    ra = random.randint(1, _by_d(d, 2, 4, 4))
     return _num_q("A turn is made of %s. How many quarter turns is that?"
                   % _pl(ra, "right angle"),
                   ra, "int", unit="quarter turns",
@@ -3025,7 +3144,7 @@ def _(d=1):
                                 "That is %s." % money(cost - have)])
 
     if t == 3:                                          # weekly saving (multi-step)
-        per = pick([50, 100, 150, 200])
+        per = pick(_by_d(d, [50, 100, 200], [50, 100, 150, 200], [75, 120, 150, 250]))
         weeks = random.randint(3, _by_d(d, 4, 6, 9))
         who = pick(NAMES)
         return _num_q("%s saves %s every week for %d weeks. "
@@ -3037,10 +3156,10 @@ def _(d=1):
 
     if t == 5:                    # NEW: reading financial records
         who = pick(NAMES)
-        rows = [("Monday", "pocket money in", pick([100, 150, 200, 250])),
-                ("Tuesday", "comic out", pick([75, 90, 120])),
-                ("Thursday", "sweets out", pick([45, 60, 80])),
-                ("Saturday", "job money in", pick([50, 100, 150]))]
+        rows = [("Monday", "pocket money in", pick(_by_d(d, [100, 200], [100, 150, 200, 250], [175, 225, 260]))),
+                ("Tuesday", "comic out", pick(_by_d(d, [50, 100], [75, 90, 120], [95, 135, 165]))),
+                ("Thursday", "sweets out", pick(_by_d(d, [20, 40], [45, 60, 80], [38, 57, 85]))),
+                ("Saturday", "job money in", pick(_by_d(d, [50, 100], [50, 100, 150], [85, 125, 140])))]
         rec = "; ".join("%s — %s %s" % (dy, what, money(amt)) for dy, what, amt in rows)
         out = sum(a for _, w, a in rows if w.endswith("out"))
         inn = sum(a for _, w, a in rows if w.endswith("in"))
@@ -3054,9 +3173,9 @@ def _(d=1):
 
     if t == 6:                    # NEW: keeping financial records
         who = pick(NAMES)
-        start = pick([200, 300, 500, 750, 1000])
-        got = pick([50, 100, 150, 200])
-        spent = pick([40, 60, 85, 120, 175])
+        start = pick(_by_d(d, [200, 300, 500], [200, 300, 500, 750, 1000], [345, 650, 875, 1250]))
+        got = pick(_by_d(d, [50, 100, 200], [50, 100, 150, 200], [85, 145, 260]))
+        spent = pick(_by_d(d, [20, 50, 100], [40, 60, 85, 120, 175], [95, 168, 235, 305]))
         return _num_q("%s is keeping a financial record. The record starts with a balance "
                       "of %s. %s then records %s money in and %s money out. What balance "
                       "should be written at the end of the record, in pence?"
@@ -3113,7 +3232,7 @@ def _(d=1):
                              "%d × %d = %d seeds." % (rows, cols, rows * cols)]}
 
     if t == 2:                                          # add then divide (shares exactly)
-        groups = pick([2, 3, 4, 5])
+        groups = pick(_by_d(d, [2, 3], [2, 3, 4, 5], [3, 4, 5, 6]))
         each = random.randint(2, _by_d(d, 4, 8, 12))
         total = groups * each
         a = random.randint(1, total - 1)

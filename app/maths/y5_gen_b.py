@@ -974,13 +974,14 @@ def _(d=1):
         return _wq("Is %d a prime number? (yes or no)" % n, "yes" if p else "no", [why], "yes / no")
 
     def t_list_small():
-        return _tb("Write all the prime numbers less than 20, separated by commas.",
-                   "2, 3, 5, 7, 11, 13, 17, 19", "set", {"text": True, "placeholder": "e.g. 2, 3, 5"},
-                   ["A prime has exactly two factors."])
+        hi = _by(d, 10, 20, 30)
+        return _tb("Write all the prime numbers less than %d, separated by commas." % hi,
+                   ", ".join(str(p) for p in PRIMES if p < hi), "set",
+                   {"text": True, "placeholder": "e.g. 2, 3, 5"}, ["A prime has exactly two factors."])
 
     def t_between():
-        lo = random.randint(1, 8) * 10
-        hi = lo + 10
+        lo = random.randint(_by(d, 1, 1, 4), _by(d, 3, 8, 8)) * 10
+        hi = lo + _by(d, 10, 10, 20)
         ps = [p for p in PRIMES if lo < p < hi]
         if not ps:
             return t_is()
@@ -997,13 +998,13 @@ def _(d=1):
                    ["%d = %d × %d." % (c, _factors(c)[1], c // _factors(c)[1])])
 
     def t_count():
-        hi = pick([20, 30, 40, 50])
+        hi = pick(_by(d, [10, 20], [20, 30, 40, 50], [50, 60, 70]))
         return _tb("How many prime numbers are there less than %d?" % hi,
                    len([p for p in PRIMES if p < hi]), "int", {},
                    ["%s." % ", ".join(str(p) for p in PRIMES if p < hi)])
 
     def t_next():
-        p = pick(PRIMES[:-1])
+        p = pick(_by(d, [q for q in PRIMES if q < 30], PRIMES[:-1], [q for q in PRIMES[:-1] if q > 30]))
         nxt = PRIMES[PRIMES.index(p) + 1]
         return _tb("What is the next prime number after %d?" % p, nxt, "int", {},
                    ["Check %s." % ", ".join(str(x) for x in range(p + 1, nxt + 1))])
@@ -1013,18 +1014,23 @@ def _(d=1):
                    ["Every other even number has 2 as a factor."])
 
     def t_smallest_factor():
-        n = random.choice([x for x in range(15, _by(d, 50, 100, 100)) if x not in PRIMES and x % 2])
+        n = random.choice([x for x in range(_by(d, 9, 15, 45), _by(d, 50, 100, 100))
+                           if x not in PRIMES and x % 2 and (d < 2 or x % 3)])
         return _tb("%d is not prime. What is its smallest factor other than 1?" % n, _factors(n)[1], "int", {},
                    ["%d = %d × %d." % (n, _factors(n)[1], n // _factors(n)[1])])
 
     def t_largest_below():
-        n = random.randint(20, 100)
+        n = random.randint(_by(d, 8, 20, 50), _by(d, 30, 100, 100))
         p = max(q for q in PRIMES if q < n)
         return _tb("What is the largest prime number less than %d?" % n, p, "int", {},
                    ["Check downwards from %d: %d is prime." % (n - 1, p)])
 
     def t_two_primes():
-        p, q = random.sample([x for x in PRIMES if x < 40], 2)
+        if d == 2:                                        # three primes, a wider range
+            ts = random.sample([x for x in PRIMES if x < 60], 3)
+            return _tb("%d, %d and %d are all prime. What is their sum?" % tuple(ts), sum(ts), "int", {},
+                       ["%d + %d + %d = %d." % (ts[0], ts[1], ts[2], sum(ts))])
+        p, q = random.sample([x for x in PRIMES if x < _by(d, 20, 40, 40)], 2)
         return _tb("%d and %d are both prime. What is their sum?" % (p, q), p + q, "int", {},
                    ["%d + %d = %d." % (p, q, p + q)])
 
@@ -1048,7 +1054,7 @@ def _(d=1):
                    ["A prime has exactly two factors.", "Prime: %s." % (", ".join(map(str, ps)) or "none")])
 
     def t_sum_sentence():
-        n = pick([x for x in range(10, 60, 2)])
+        n = pick([x for x in range(_by(d, 6, 10, 40), _by(d, 22, 60, 100), 2)])
         ways = [(p, n - p) for p in PRIMES if p <= n - p and (n - p) in PRIMES]
         if not ways:
             return t_is()
@@ -1159,7 +1165,7 @@ def _(d=1):
                    ["%d × %d = %d." % (k, k, k * k)])
 
     def t_is():
-        n = random.randint(10, 150)
+        n = random.randint(_by(d, 2, 10, 50), _by(d, 50, 150, 225))
         sq = int(n ** 0.5) ** 2 == n
         return _wq("Is %d a square number? (yes or no)" % n, "yes" if sq else "no",
                    ["%d² = %d and %d² = %d." % (int(n ** 0.5), int(n ** 0.5) ** 2, int(n ** 0.5) + 1,
@@ -1171,14 +1177,14 @@ def _(d=1):
                      ["%d × %d = %d." % (k, k, k * k)]) if k <= 12 else t_eval()
 
     def t_between():
-        a = random.randint(10, 80)
-        b = a + random.randint(30, 60)
-        sqs = [i * i for i in range(1, 16) if a < i * i < b]
+        a = random.randint(_by(d, 1, 10, 50), _by(d, 30, 80, 150))
+        b = a + random.randint(_by(d, 20, 30, 40), _by(d, 40, 60, 80))
+        sqs = [i * i for i in range(1, 20) if a < i * i < b]
         return _tb("How many square numbers are there between %d and %d? (Do not count %d or %d themselves.)" % (a, b, a, b), len(sqs), "int", {},
                    ["%s." % (", ".join(map(str, sqs)) or "None")])
 
     def t_sum():
-        a, b = random.sample(range(2, 10), 2)
+        a, b = random.sample(range(_by(d, 2, 2, 6), _by(d, 6, 10, 13)), 2)
         return _tb("Work out %d² + %d²." % (a, b), a * a + b * b, "int", {},
                    ["%d + %d = %d." % (a * a, b * b, a * a + b * b)])
 
@@ -1191,7 +1197,7 @@ def _(d=1):
                    ["%d − %d = %d." % ((k + 1) ** 2, k * k, (k + 1) ** 2 - k * k)])
 
     def t_largest_below():
-        n = random.randint(20, 200)
+        n = random.randint(_by(d, 10, 20, 100), _by(d, 50, 200, 225))
         r = int(n ** 0.5)
         if r * r == n:
             n += 1
@@ -1203,7 +1209,7 @@ def _(d=1):
                    % k, k * k, "int", {"unit": "tiles"}, ["%d² = %d × %d = %d." % (k, k, k, k * k)])
 
     def t_table():
-        ks = random.sample(range(2, 13), 4)
+        ks = random.sample(range(_by(d, 1, 2, 6), _by(d, 8, 13, 16)), 4)
         rows = [[x, x * x] for x in ks]
         i = random.randrange(4)
         return _io("Each Out number is the In number squared. What goes in the empty cell?", rows, i, ks[i] ** 2,
@@ -1241,13 +1247,14 @@ def _(d=1):
                    ["%d × %d × %d = %d." % (k, k, k, k ** 3)])
 
     def t_is():
-        n = pick([8, 27, 64, 125, 216, 9, 16, 36, 100, 81, 1000, 50])
+        n = pick(_by(d, [8, 27, 64, 125, 9, 16, 10, 100], [8, 27, 64, 125, 216, 9, 16, 36, 100, 81, 1000, 50],
+                     [216, 343, 512, 729, 1000, 100, 400, 900, 200, 81, 144, 500]))
         c = round(n ** (1 / 3)) ** 3 == n
         return _wq("Is %d a cube number? (yes or no)" % n, "yes" if c else "no",
                    ["%d³ = %d." % (round(n ** (1 / 3)), round(n ** (1 / 3)) ** 3)], "yes / no")
 
     def t_compare():
-        a, b = random.randint(2, 6), random.randint(3, 12)
+        a, b = random.randint(2, _by(d, 4, 6, 8)), random.randint(_by(d, 3, 3, 5), _by(d, 8, 12, 20))
         x, y = a ** 3, b ** 2
         if x == y:
             return t_eval()
@@ -1255,6 +1262,9 @@ def _(d=1):
                    ["%d³ = %d and %d² = %d." % (a, x, b, y)])
 
     def t_both():
+        if d == 2:
+            return _tb("64 is both a square number and a cube number. Which number between 100 and 1,000 is "
+                       "also both a square number and a cube number?", 729, "int", {}, ["729 = 27² = 9³."])
         return _tb("Which number below 100, other than 1, is both a square number and a cube number?",
                    64, "int", {}, ["64 = 8² = 4³."])
 
@@ -1263,12 +1273,12 @@ def _(d=1):
                    ["%d − %d = %d." % ((k + 1) ** 3, k ** 3, (k + 1) ** 3 - k ** 3)])
 
     def t_sum():
-        a, b = random.sample(range(1, 6), 2)
+        a, b = random.sample(range(_by(d, 1, 1, 3), _by(d, 4, 6, 8)), 2)
         return _tb("Work out %d³ + %d³." % (a, b), a ** 3 + b ** 3, "int", {},
                    ["%d + %d = %d." % (a ** 3, b ** 3, a ** 3 + b ** 3)])
 
     def t_smallest_above():
-        n = random.randint(10, 900)
+        n = random.randint(_by(d, 10, 10, 100), _by(d, 100, 900, 999))
         r = 1
         while r ** 3 <= n:
             r += 1
@@ -1276,7 +1286,7 @@ def _(d=1):
                    ["%d³ = %d and %d³ = %d." % (r - 1, (r - 1) ** 3, r, r ** 3)])
 
     def t_table():
-        ks = random.sample(range(1, 11), 4)
+        ks = random.sample(range(_by(d, 1, 1, 3), _by(d, 6, 11, 11)), 4)
         rows = [[x, x ** 3] for x in ks]
         i = random.randrange(4)
         return _io("Each Out number is the In number cubed. What goes in the empty cell?", rows, i, ks[i] ** 3,

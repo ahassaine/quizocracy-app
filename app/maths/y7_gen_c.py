@@ -40,11 +40,17 @@ def _(d=1):
                    ["%s × 100 = %s%%." % (_fs(f), _ds(f * 100))])
 
     def t_p_to_d():
-        p = Decimal(random.randint(1, 250)) / pick([1, 1, 10])
+        # easy: whole-number percentages under 100; medium: up to 250, some with tenths; hard: hundredths and tiny ones
+        if d == 0:
+            p = Decimal(random.randint(1, 99))
+        elif d == 2:
+            p = Decimal(random.randint(1, 2500)) / pick([10, 100])
+        else:
+            p = Decimal(random.randint(1, 250)) / pick([1, 1, 10])
         return _tb("Write %s%% as a decimal." % _ds(p), _ds(p / 100), "num", {}, ["÷ 100: %s." % _ds(p / 100)])
 
     def t_table():
-        fs = random.sample(TERM[:12], 3)
+        fs = random.sample(TERM[: _by(d, 7, 12, len(TERM))], 3)
         rows = [[_fs(x), _ds(x), "%s%%" % _ds(x * 100)] for x in fs]
         r, c = random.randrange(3), pick([1, 2])
         ans = _ds(fs[r]) if c == 1 else _ds(fs[r] * 100)
@@ -52,55 +58,93 @@ def _(d=1):
                    rows, ans, ["%s = %s = %s%%." % (_fs(fs[r]), _ds(fs[r]), _ds(fs[r] * 100))], missing=[r, c], atype="num")
 
     def t_eighths():
-        k = pick([1, 3, 5, 7])
-        return _tb("Write %d/8 as a decimal." % k, _ds(Fraction(k, 8)), "num", {},
-                   ["1/8 = 0.125, so %d/8 = %s." % (k, _ds(Fraction(k, 8)))])
+        # easy: quarters and fifths; medium: eighths; hard: sixteenths
+        den, k = _by(d, pick([(4, pick([1, 3])), (5, random.randint(1, 4))]), (8, pick([1, 3, 5, 7])),
+                     (16, pick([1, 3, 5, 7, 9, 11, 13, 15])))
+        unit = {4: "1/4 = 0.25", 5: "1/5 = 0.2", 8: "1/8 = 0.125", 16: "1/16 = 0.0625"}[den]
+        return _tb("Write %d/%d as a decimal." % (k, den), _ds(Fraction(k, den)), "num", {},
+                   ["%s, so %d/%d = %s." % (unit, k, den, _ds(Fraction(k, den)))])
 
     def t_p_to_f():
-        p = pick([5, 12, 15, 35, 45, 64, 72, 85, 2, 8, 24, 55])
-        return _wq("Write %d%% as a fraction in its simplest form." % p, _fs(Fraction(p, 100)),
-                   ["%d/100 = %s." % (p, _fs(Fraction(p, 100)))])
+        p = Decimal(pick(_by(d, [10, 20, 25, 30, 40, 50, 60, 75, 80, 90],
+                             [5, 12, 15, 35, 45, 64, 72, 85, 2, 8, 24, 55],
+                             ["12.5", "37.5", "62.5", "87.5", "2.5", "17.5", "0.5", "7.5"])))
+        f = Fraction(str(p)) / 100
+        return _wq("Write %s%% as a fraction in its simplest form." % _ds(p), _fs(f),
+                   ["%s/100 = %s." % (_ds(p), _fs(f))] if p == int(p) else
+                   ["%s%% = %s/1000 = %s." % (_ds(p), _ds(p * 10), _fs(f))])
 
     def t_d_to_p():
-        x = Decimal(random.randint(1, 1999)) / pick([100, 1000])
+        if d == 0:
+            x = Decimal(random.randint(1, 99)) / 100
+        elif d == 2:
+            x = Decimal(random.randint(1, 2999)) / pick([1000, 10000])
+        else:
+            x = Decimal(random.randint(1, 1999)) / pick([100, 1000])
         return _tb("Write %s as a percentage. Give the number only." % _ds(x), _ds(x * 100), "num", {},
                    ["× 100: %s%%." % _ds(x * 100)])
 
     def t_grid():
-        k = random.randint(3, 97)
+        if d == 2:      # not a 100-grid: the pupil has to scale up
+            parts, rows, cols = pick([(20, 4, 5), (25, 5, 5), (50, 5, 10)])
+            k = random.randint(1, parts - 1)
+            pct = k * 100 // parts
+            return _area("What percentage of the grid is shaded? Give the number only.",
+                         {"mode": "fraction_read", "parts": parts, "shaded": k, "rows": rows, "cols": cols}, pct,
+                         ["%d out of %d squares = %d out of 100: %d%%." % (k, parts, pct, pct)])
+        k = random.randint(1, 9) * 10 if d == 0 else random.randint(3, 97)
         return _area("What percentage of the grid is shaded? Give the number only.",
                      {"mode": "fraction_read", "parts": 100, "shaded": k, "rows": 10, "cols": 10}, k,
                      ["%d of the 100 squares: %d%%." % (k, k)])
 
     def t_mixed_number():
-        w = random.randint(1, 5)
-        f = pick([Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5), Fraction(3, 8), Fraction(7, 20)])
+        w = random.randint(1, _by(d, 5, 5, 12))
+        f = pick(_by(d, [Fraction(1, 2), Fraction(1, 4), Fraction(3, 4)],
+                     [Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(2, 5), Fraction(3, 8), Fraction(7, 20)],
+                     [Fraction(5, 8), Fraction(7, 8), Fraction(9, 25), Fraction(3, 40), Fraction(7, 20), Fraction(3, 16)]))
         return _wq("Write %s as a mixed number in its simplest form." % _ds(w + f), _mixed(w + f),
                    ["%s = %d + %s = %s." % (_ds(w + f), w, _ds(f), _mixed(w + f))], "e.g. 2 3/4")
 
     def t_f_to_p_hard():
-        f = pick([Fraction(3, 8), Fraction(1, 8), Fraction(7, 40), Fraction(9, 16), Fraction(5, 16), Fraction(11, 25)])
+        f = pick(_by(d, [Fraction(1, 4), Fraction(3, 4), Fraction(1, 5), Fraction(3, 10), Fraction(7, 10), Fraction(3, 20)],
+                     [Fraction(3, 8), Fraction(1, 8), Fraction(7, 40), Fraction(9, 16), Fraction(5, 16), Fraction(11, 25)],
+                     [Fraction(3, 16), Fraction(13, 40), Fraction(1, 32), Fraction(7, 80), Fraction(19, 16), Fraction(11, 8)]))
         return _tb("Write %s as a percentage. Give the number only." % _fs(f), _ds(f * 100), "num", {},
                    ["%s = %s = %s%%." % (_fs(f), _ds(f), _ds(f * 100))])
 
     def t_error():
-        p = pick([3, 5, 7, 4, 9, 6])
-        return _tb("%s says %d%% = 0.%d. What is %d%% as a decimal?" % (_who(), p, p, p), _ds(Fraction(p, 100)), "num", {},
-                   ["%d ÷ 100 = %s." % (p, _ds(Fraction(p, 100)))])
+        if d == 0:      # a tens percentage written as hundredths
+            p = pick([10, 20, 30, 40, 50, 60, 70, 80, 90])
+            claim = "0.0%d" % (p // 10)
+        elif d == 2:    # over 100% or under 1%
+            p = Decimal(pick(["125", "150", "240", "0.5", "0.8", "2.5"]))
+            claim = "0." + _ds(p).replace(".", "") if p > 1 and p == int(p) else _ds(p / 10)
+        else:
+            p = pick([3, 5, 7, 4, 9, 6])
+            claim = "0.%d" % p
+        return _tb("%s says %s%% = %s. What is %s%% as a decimal?" % (_who(), _ds(p), claim, _ds(p)), _ds(Decimal(p) / 100),
+                   "num", {}, ["%s ÷ 100 = %s." % (_ds(p), _ds(Decimal(p) / 100))])
 
     def t_p_to_mixed():
-        p = pick([125, 150, 175, 220, 240, 260, 305, 450])
+        p = pick(_by(d, [125, 150, 175, 250, 350, 450], [125, 150, 175, 220, 240, 260, 305, 450],
+                     [135, 145, 216, 308, 365, 412, 515, 290]))
         return _wq("Write %d%% as a mixed number in its simplest form." % p, _mixed(Fraction(p, 100)),
                    ["%d%% = %d/100 = %s." % (p, p, _mixed(Fraction(p, 100)))], "e.g. 1 3/4")
 
     def t_thousandths():
-        n = pick([5, 15, 25, 45, 75, 125, 375, 8, 64])
-        return _wq("Write 0.%03d as a fraction in its simplest form." % n, _fs(Fraction(n, 1000)),
-                   ["%d/1000 = %s." % (n, _fs(Fraction(n, 1000)))])
+        # easy: two decimal places; medium: three; hard: four
+        places = _by(d, 2, 3, 4)
+        n = pick(_by(d, [25, 50, 75, 20, 40, 60, 80, 5], [5, 15, 25, 45, 75, 125, 375, 8, 64],
+                     [125, 625, 375, 3125, 1875, 8, 45, 2]))
+        den = 10 ** places
+        return _wq("Write 0.%0*d as a fraction in its simplest form." % (places, n), _fs(Fraction(n, den)),
+                   ["%d/%d = %s." % (n, den, _fs(Fraction(n, den)))])
 
     def t_same():
-        f = pick(TERM[:15])
-        shown = f if random.random() < 0.5 else f + pick([Fraction(1, 100), Fraction(1, 20), Fraction(1, 10)])
+        f = pick(TERM[: _by(d, 7, 15, len(TERM))])
+        off = pick(_by(d, [Fraction(1, 10), Fraction(1, 5)], [Fraction(1, 100), Fraction(1, 20), Fraction(1, 10)],
+                       [Fraction(1, 100), Fraction(1, 200), Fraction(1, 1000)]))
+        shown = f if random.random() < 0.5 else f + off
         return _wq("Is %s equal to %s%%? (yes or no)" % (_fs(f), _ds(shown * 100)), "yes" if shown == f else "no",
                    ["%s = %s%%." % (_fs(f), _ds(f * 100))], "yes / no")
 
@@ -442,77 +486,99 @@ def _(d=1):
     d = _d(d)
 
     def t_long_mult():
-        a, b = random.randint(100, 999), random.randint(12, 99)
-        return _tb("Work out %d × %d." % (a, b), a * b, "int", {}, ["Use long multiplication: %s." % _c(a * b)])
+        # easy: 3-digit × 1-digit; medium: 3-digit × 2-digit; hard: 4-digit × 2-digit
+        a, b = random.randint(_by(d, 100, 100, 1000), _by(d, 999, 999, 9999)), random.randint(_by(d, 2, 12, 12), _by(d, 9, 99, 99))
+        return _tb("Work out %s × %d." % (_c(a), b), a * b, "int", {},
+                   ["Use %s multiplication: %s." % ("short" if b < 10 else "long", _c(a * b))])
 
     def t_dec_mult():
-        a = Decimal(random.randint(11, 999)) / 10
-        b = random.randint(2, 9) if d < 2 else Decimal(random.randint(2, 9)) / 10
+        a = Decimal(random.randint(11, _by(d, 99, 999, 999))) / 10
+        b = random.randint(2, _by(d, 5, 9, 9)) if d < 2 else Decimal(random.randint(2, 9)) / 10
         return _tb("Work out %s × %s." % (_ds(a), _ds(b)), _ds(a * b), "num", {}, ["= %s." % _ds(a * b)])
 
     def t_long_div():
-        q, k = random.randint(21, 299), random.randint(12, 35)
-        return _tb("Work out %s ÷ %d." % (_c(q * k), k), q, "int", {}, ["Use long or short division: %d." % q])
+        # easy: short division by a single digit; hard: 3-digit answers, divisors to 49
+        q, k = random.randint(_by(d, 11, 21, 101), _by(d, 99, 299, 999)), random.randint(_by(d, 2, 12, 13), _by(d, 9, 35, 49))
+        return _tb("Work out %s ÷ %d." % (_c(q * k), k), q, "int", {},
+                   ["Use %s division: %d." % ("short" if k < 10 else "long or short", q)])
 
     def t_dec_div():
-        q = Decimal(random.randint(11, 999)) / 100
-        k = random.randint(2, 9)
+        q = Decimal(random.randint(_by(d, 11, 11, 101), _by(d, 99, 999, 9999))) / _by(d, 10, 100, 1000)
+        k = random.randint(2, _by(d, 5, 9, 12))
         return _tb("Work out %s ÷ %d." % (_ds(q * k), k), _ds(q), "num", {}, ["= %s." % _ds(q)])
 
     def t_dec_by_dec():
-        q, k = random.randint(2, 90), Decimal(pick(["0.2", "0.5", "0.4", "0.25", "0.1"]))
+        q = random.randint(2, _by(d, 20, 90, 90))
+        k = Decimal(pick(_by(d, ["0.1", "0.5", "0.2"], ["0.2", "0.5", "0.4", "0.25", "0.1"], ["0.25", "0.04", "0.05", "0.15", "0.4"])))
         return _tb("Work out %s ÷ %s." % (_ds(q * k), _ds(k)), q, "int", {},
-                   ["Multiply both by %d to remove the decimal." % (100 if k == Decimal("0.25") else 10)])
+                   ["Multiply both by %d to remove the decimal." % 10 ** -k.as_tuple().exponent])
 
     def t_related():
         a, b = random.randint(12, 99), random.randint(12, 99)
-        return _tb("Given %d × %d = %s, work out %s × %s." % (a, b, _c(a * b), _ds(Decimal(a) / 10), _ds(Decimal(b) / 10)),
-                   _ds(Decimal(a * b) / 100), "num", {}, ["Both numbers are ÷ 10, so the answer is ÷ 100."])
+        # easy: one factor ÷ 10; medium: both ÷ 10; hard: ÷ 100 and ÷ 10
+        da, db = _by(d, (10, 1), (10, 10), (100, 10))
+        return _tb("Given %d × %d = %s, work out %s × %s." % (a, b, _c(a * b), _ds(Decimal(a) / da), _ds(Decimal(b) / db)),
+                   _ds(Decimal(a * b) / (da * db)), "num", {},
+                   [("One number is ÷ 10, so the answer is ÷ 10." if da * db == 10 else
+                     "Both numbers are ÷ 10, so the answer is ÷ 100." if da * db == 100 else
+                     "The numbers are ÷ 100 and ÷ 10, so the answer is ÷ 1000.")])
 
     def t_area():
-        a = Decimal(random.randint(11, 99)) / 10
-        b = random.randint(2, 12)
-        return _tb("A rectangle is %s m by %d m. What is its area, in m²?" % (_ds(a), b), _ds(a * b), "num",
-                   {"unit": "m²"}, ["%s × %d = %s." % (_ds(a), b, _ds(a * b))])
+        a = Decimal(random.randint(11, _by(d, 49, 99, 999))) / _by(d, 10, 10, 100)
+        b = random.randint(2, _by(d, 5, 12, 12)) if d < 2 else Decimal(random.randint(11, 99)) / 10
+        return _tb("A rectangle is %s m by %s m. What is its area, in m²?" % (_ds(a), _ds(b)), _ds(a * b), "num",
+                   {"unit": "m²"}, ["%s × %s = %s." % (_ds(a), _ds(b), _ds(a * b))])
 
     def t_unit_cost():
-        n = random.randint(3, 9)
-        each = Decimal(random.randint(25, 199)) / 100
+        n = random.randint(_by(d, 2, 3, 6), _by(d, 5, 9, 15))
+        each = Decimal(random.randint(*_by(d, (5, 40), (25, 199), (25, 999))) * _by(d, 5, 1, 1)) / 100
         return _tb("%d pens cost £%s. How much does one pen cost, in pounds?" % (n, format(each * n, ".2f")), _ds(each), "num",
                    {"unit": "£"}, ["£%s ÷ %d = £%s." % (format(each * n, ".2f"), n, format(each, ".2f"))])
 
     def t_dd():
-        a, b = Decimal(random.randint(1, 9)) / 10, Decimal(random.randint(1, 9)) / 10
-        if random.random() < 0.5:
-            b = Decimal(random.randint(11, 39)) / 10
+        # easy: tenths × a whole number; medium: tenths × tenths; hard: hundredths × tenths
+        a = Decimal(random.randint(*_by(d, (1, 9), (1, 9), (11, 99)))) / _by(d, 10, 10, 100)
+        if d == 0:
+            b = Decimal(random.randint(2, 9))
+        else:
+            b = Decimal(random.randint(1, 9)) / 10
+            if random.random() < 0.5:
+                b = Decimal(random.randint(11, 39)) / 10
+        pa, pb = -a.as_tuple().exponent, -b.as_tuple().exponent
+        ia, ib = int(a * 10 ** pa), int(b * 10 ** pb)
         return _tb("Work out %s × %s." % (_ds(a), _ds(b)), _ds(a * b), "num", {},
-                   ["%d × %d = %d, and there are %d decimal places in total." % (int(a * 10), int(b * 10), int(a * b * 100), 2)])
+                   ["%d × %d = %d, and there %s %d decimal place%s in total." % (ia, ib, ia * ib, "is" if pa + pb == 1 else "are",
+                                                                              pa + pb, "" if pa + pb == 1 else "s")])
 
     def t_exchange():
-        rate = pick([Decimal("1.15"), Decimal("1.18"), Decimal("1.25"), Decimal("1.3"), Decimal("1.12")])
+        rate = pick(_by(d, [Decimal("1.5"), Decimal("1.2"), Decimal("1.25")],
+                        [Decimal("1.15"), Decimal("1.18"), Decimal("1.25"), Decimal("1.3"), Decimal("1.12")],
+                        [Decimal("1.17"), Decimal("1.28"), Decimal("1.36"), Decimal("1.14"), Decimal("1.22")]))
         cur = pick(["euros", "dollars"])
-        x = random.randint(2, 40) * 5
+        x = random.randint(1, 10) * 10 if d == 0 else (random.randint(13, 250) if d == 2 else random.randint(2, 40) * 5)
         return _tb("£1 = %s %s. How many %s do you get for £%d?" % (_ds(rate), cur, cur, x), _ds(rate * x), "num", {"unit": cur},
                    ["%d × %s = %s." % (x, _ds(rate), _ds(rate * x))])
 
     def t_glasses():
-        g = pick([Decimal("0.2"), Decimal("0.25"), Decimal("0.3"), Decimal("0.4")])
-        n = random.randint(4, 20)
+        g = pick(_by(d, [Decimal("0.5"), Decimal("0.25")], [Decimal("0.2"), Decimal("0.25"), Decimal("0.3"), Decimal("0.4")],
+                     [Decimal("0.15"), Decimal("0.35"), Decimal("0.125"), Decimal("0.45")]))
+        n = random.randint(_by(d, 2, 4, 6), _by(d, 10, 20, 30))
         return _tb("How many %s litre glasses can be filled from %s litre%s of juice?" % (_ds(g), _ds(g * n), "" if g * n == 1 else "s"), n,
                    "int",
                    {"unit": "glasses"}, ["%s ÷ %s = %d." % (_ds(g * n), _ds(g), n)])
 
     def t_map():
-        s = pick([Decimal("2.5"), Decimal("1.5"), Decimal("0.5"), 2, 5])
-        cm = Decimal(random.randint(12, 98)) / 10
+        s = pick(_by(d, [2, 5, 10], [Decimal("2.5"), Decimal("1.5"), Decimal("0.5"), 2, 5],
+                     [Decimal("1.25"), Decimal("0.75"), Decimal("2.4"), Decimal("3.5")]))
+        cm = Decimal(random.randint(_by(d, 2, 12, 12), _by(d, 15, 98, 98))) / _by(d, 1, 10, 10)
         return _tb("On a map, 1 cm stands for %s km. Two towns are %s cm apart on the map. How far apart are they really, in km?"
                    % (_ds(s), _ds(cm)), _ds(cm * s), "num", {"unit": "km"}, ["%s × %s = %s." % (_ds(cm), _ds(s), _ds(cm * s))])
 
     def t_div_decimal_answer():
-        a = random.randint(2, 9)
-        q = Decimal(random.randint(11, 999)) / 10
+        a = random.randint(2, _by(d, 5, 9, 12))
+        q = Decimal(random.randint(*_by(d, (11, 99), (11, 999), (101, 9999)))) / _by(d, 10, 10, 100)
         if (q * a) % 1 == 0:
-            q += Decimal("0.1")
+            q += _by(d, Decimal("0.1"), Decimal("0.1"), Decimal("0.01"))
         return _tb("Share £%s equally between %d people. How much does each get, in pounds?" % (format(q * a, ".2f"), a), _ds(q),
                    "num", {"unit": "£"}, ["£%s ÷ %d = £%s." % (format(q * a, ".2f"), a, format(q, ".2f"))])
 

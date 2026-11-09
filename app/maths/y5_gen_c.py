@@ -16,7 +16,7 @@ S5 = "5.5 Fractions"
 @skill("Y5.4.a", "Multiply mentally using known facts", S4)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(2, 9), random.randint(2, 12)
+    a, b = random.randint(_by(d, 2, 2, 3), _by(d, 5, 9, 9)), random.randint(_by(d, 2, 2, 3), _by(d, 6, 12, 12))
 
     def t_tens():
         k = pick([10, 100, 1000][: _by(d, 2, 3, 3)])
@@ -40,48 +40,50 @@ def _(d=1):
 
     def t_near():
         m = random.randint(3, 9)
-        n = pick([19, 29, 39, 49, 99, 199])
+        n = pick(_by(d, [19, 29, 39], [19, 29, 39, 49, 99, 199], [49, 99, 199, 299, 499]))
         return _tb("Work out %d × %d. Hint: work out %d × %d and subtract %d." % (n, m, n + 1, m, m),
                    n * m, "int", {}, ["%d × %d = %d." % (n + 1, m, (n + 1) * m),
                                       "%d − %d = %d." % ((n + 1) * m, m, n * m)])
 
     def t_by5():
-        n = random.randint(12, 98) * 2
-        return _tb("Work out %d × 5. Hint: × 10 then halve." % n, n * 5, "int", {},
-                   ["%d × 10 = %d; half of that is %d." % (n, n * 10, n * 5)])
+        n = random.randint(*_by(d, (6, 24), (12, 98), (50, 499))) * 2
+        return _tb("Work out %s × 5. Hint: × 10 then halve." % _c(n), n * 5, "int", {},
+                   ["%s × 10 = %s; half of that is %s." % (_c(n), _c(n * 10), _c(n * 5))])
 
     def t_three():
-        x, y, z = random.randint(2, 9), pick([5, 25, 20]), random.randint(2, 8)
+        x, y, z = random.randint(2, 9), pick(_by(d, [5, 10], [5, 25, 20], [25, 50, 20])), random.randint(2, _by(d, 4, 8, 8))
         return _tb("Work out %d × %d × %d. Choose an easy order." % (x, y, z), x * y * z, "int", {},
                    ["Multiply in any order: %d." % (x * y * z)])
 
     def t_fact_family():
         p = a * b
-        return _tb("%d × %d = %d. Use this to work out %d × %d." % (a, b, p, a * 30, b), a * 30 * b,
-                   "int", {}, ["%d × %d is 30 times %d × %d." % (a * 30, b, a, b),
-                               "%d × 30 = %d." % (p, p * 30)])
+        f = _by(d, 10, 30, pick([40, 60, 70, 80]))
+        g = 10 if d == 2 else 1                           # stretch: both numbers scaled
+        return _tb("%d × %d = %d. Use this to work out %d × %d." % (a, b, p, a * f, b * g), a * f * b * g,
+                   "int", {}, ["%d × %d is %s times %d × %d." % (a * f, b * g, _c(f * g), a, b),
+                               "%d × %s = %s." % (p, _c(f * g), _c(p * f * g))])
 
     def t_by25():
-        n = random.randint(3, 40) * 4
+        n = random.randint(*_by(d, (1, 10), (3, 40), (30, 250))) * 4
         return _tb("Work out %d × 25. Hint: × 100 then divide by 4." % n, n * 25, "int", {},
                    ["%d × 100 = %s; ÷ 4 = %s." % (n, _c(n * 100), _c(n * 25))])
 
     def t_missing():
-        k = pick([10, 100])
+        k = pick(_by(d, [1, 10], [10, 100], [100, 1000]))
         return _tb("___ × %d = %s. What is the missing number?" % (b * 10, _c(a * b * 10 * k)), a * k, "int", {},
                    ["%d × %d = %d, so the missing number is %s." % (a, b, a * b, _c(a * k))])
 
     def t_compare():
-        x1, y1 = random.randint(2, 9) * 10, random.randint(2, 9) * 10
-        x2, y2 = random.randint(2, 9) * 10, random.randint(2, 9) * 100
+        x1, y1 = random.randint(2, 9) * _by(d, 1, 10, 100), random.randint(2, 9) * 10
+        x2, y2 = random.randint(2, 9) * 10, random.randint(2, 9) * _by(d, 10, 100, 100)
         if x1 * y1 == x2 * y2:
-            y2 += 100
-        return _tb("Which is larger, %d × %d or %d × %s? Type its value." % (x1, y1, x2, _c(y2)), max(x1 * y1, x2 * y2),
-                   "int", {}, ["%d × %d = %s; %d × %s = %s." % (x1, y1, _c(x1 * y1), x2, _c(y2), _c(x2 * y2))])
+            y2 += _by(d, 10, 100, 100)
+        return _tb("Which is larger, %s × %d or %d × %s? Type its value." % (_c(x1), y1, x2, _c(y2)), max(x1 * y1, x2 * y2),
+                   "int", {}, ["%s × %d = %s; %d × %s = %s." % (_c(x1), y1, _c(x1 * y1), x2, _c(y2), _c(x2 * y2))])
 
     def t_grid():
-        xs = random.sample([20, 30, 40, 50, 60, 70, 80, 90], 2)
-        ys = random.sample([3, 4, 6, 7, 8, 9], 2)
+        xs = random.sample(_by(d, [20, 30, 40, 50], [20, 30, 40, 50, 60, 70, 80, 90], [60, 70, 80, 90, 300, 400, 600, 700]), 2)
+        ys = random.sample(_by(d, [2, 3, 4, 5], [3, 4, 6, 7, 8, 9], [6, 7, 8, 9]), 2)
         rows = [[_c(x), _c(x * ys[0]), _c(x * ys[1])] for x in xs]
         r, c = random.randrange(2), random.randint(1, 2)
         return _dt("Complete the multiplication grid. What belongs in the empty cell?",
@@ -89,9 +91,9 @@ def _(d=1):
                    ["%d × %d = %s." % (xs[r], ys[c - 1], _c(xs[r] * ys[c - 1]))], missing=[r, c])
 
     def t_double_double():
-        n = random.randint(12, 60)
+        n = random.randint(*_by(d, (6, 25), (12, 60), (45, 250)))
         return _tb("Work out %d × 8 by doubling three times." % n, n * 8, "int", {},
-                   ["%d → %d → %d → %d." % (n, 2 * n, 4 * n, 8 * n)])
+                   ["%d → %s → %s → %s." % (n, _c(2 * n), _c(4 * n), _c(8 * n))])
 
     return _pick_t([t_tens, t_double, t_partition, t_near, t_by5, t_three, t_fact_family, t_by25, t_missing,
                     t_compare, t_double_double], [t_grid])
@@ -409,7 +411,7 @@ def _(d=1):
 @skill("Y5.4.g", "Multiply and divide whole numbers by 10, 100 and 1000", S4)
 def _(d=1):
     d = _d(d)
-    k = pick([10, 100, 1000])
+    k = pick(_by(d, [10, 100], [10, 100, 1000], [100, 1000]))
     n = random.randint(_by(d, 2, 10, 100), _by(d, 99, 999, 9999))
 
     def t_mult():
@@ -429,12 +431,15 @@ def _(d=1):
 
     def t_units():
         unit, big, f = pick([("cm", "m", 100), ("mm", "cm", 10), ("m", "km", 1000), ("g", "kg", 1000)])
-        x = random.randint(2, 90)
+        x = random.randint(2, _by(d, 20, 90, 999))
+        if d == 2 and pick([0, 1]):                       # the other way: divide back to the big unit
+            return _tb("How many %s are %s %s?" % (big, _c(x * f), unit), x, "int", {"unit": big},
+                       ["1 %s = %d %s, so ÷ %d." % (big, f, unit, f)])
         return _tb("How many %s are in %d %s?" % (unit, x, big), x * f, "int", {"unit": unit},
                    ["1 %s = %d %s, so × %d." % (big, f, unit, f)])
 
     def t_table():
-        nums = random.sample(range(2, 500), 3)
+        nums = random.sample(range(_by(d, 2, 2, 50), _by(d, 50, 500, 5000)), 3)
         rows = [[x, x * k] for x in nums]
         i = random.randrange(3)
         return _io("Every Out number is the In number × %s. What goes in the empty cell?" % _c(k), rows,
@@ -457,7 +462,7 @@ def _(d=1):
                                                                  _ds(n * k))])
 
     def t_div():
-        m = Decimal(random.randint(1, 999))
+        m = Decimal(random.randint(1, _by(d, 99, 999, 9999)))
         return _tb("Work out %s ÷ %s." % (_ds(m), _c(k)), _ds(m / k), "num", {},
                    ["Digits move %d place%s to the right: %s." % (len(str(k)) - 1, "" if k == 10 else "s",
                                                                   _ds(m / k))])
@@ -467,13 +472,13 @@ def _(d=1):
                    "int", {}, ["The digits moved %d place%s." % (len(str(k)) - 1, "" if k == 10 else "s")])
 
     def t_money():
-        p = Decimal(random.randint(101, 999)) / 100
-        q = pick([10, 100])
+        p = Decimal(random.randint(*_by(d, (10, 99), (101, 999), (101, 9999)))) / _by(d, 10, 100, 100)
+        q = pick(_by(d, [10], [10, 100], [100, 1000]))
         return _tb("One pen costs £%s. How much do %d pens cost, in pounds?" % (format(p, ".2f"), q),
                    _ds(p * q), "num", {"unit": "£"}, ["£%s × %d = £%s." % (format(p, ".2f"), q, format(p * q, ",.2f"))])
 
     def t_measure():
-        x = Decimal(random.randint(11, 999)) / 10
+        x = Decimal(random.randint(11, _by(d, 99, 999, 9999))) / 10
         unit, big, f = pick([("m", "km", 1000), ("cm", "m", 100), ("kg", "g", 1000)])
         if unit == "kg":
             return _tb("Convert %s kg to grams." % _ds(x), _ds(x * 1000), "num", {"unit": "g"},
@@ -482,7 +487,7 @@ def _(d=1):
                    ["÷ %d: %s %s." % (f, _ds(x / f), big)])
 
     def t_table():
-        nums = [Decimal(random.randint(1, 999)) / 10 for _ in range(3)]
+        nums = [Decimal(random.randint(1, _by(d, 99, 999, 9999))) / _by(d, 10, 10, 100) for _ in range(3)]
         rows = [[_ds(x), _ds(x * 10), _ds(x * 100), _ds(x * 1000)] for x in nums]
         r, c = random.randrange(3), random.randint(1, 3)
         ans = nums[r] * [10, 100, 1000][c - 1]
@@ -492,20 +497,20 @@ def _(d=1):
                    missing=[r, c], atype="num")
 
     def t_missing_div():
-        m = Decimal(random.randint(1, 999))
+        m = Decimal(random.randint(1, _by(d, 99, 999, 9999)))
         return _tb("%s ÷ ___ = %s. Is the missing number 10, 100 or 1000?" % (_ds(m), _ds(m / k)), k, "int", {},
                    ["The digits moved %d place%s to the right." % (len(str(k)) - 1, "" if k == 10 else "s")])
 
     def t_money_share():
-        p = Decimal(random.randint(101, 9999)) / 100
-        q = pick([10, 100])
+        p = Decimal(random.randint(101, _by(d, 999, 9999, 9999))) / 100
+        q = pick(_by(d, [10], [10, 100], [100, 1000]))
         tot = p * q
         return _tb("£%s is shared equally between %d people. How much does each get, in pounds?" % (format(tot, ",.2f"), q),
                    _ds(p), "num", {"unit": "£"}, ["£%s ÷ %d = £%s." % (format(tot, ",.2f"), q, format(p, ".2f"))])
 
     def t_compare():
-        x, y = Decimal(random.randint(11, 99)) / 100, Decimal(random.randint(11, 99)) / 10
-        kx, ky = pick([(100, 10), (1000, 100), (10, 10)])
+        x, y = Decimal(random.randint(11, 99)) / _by(d, 10, 100, 1000), Decimal(random.randint(11, 99)) / _by(d, 1, 10, 100)
+        kx, ky = pick(_by(d, [(10, 10), (100, 10)], [(100, 10), (1000, 100), (10, 10)], [(1000, 100), (1000, 10), (100, 100)]))
         if x * kx == y * ky:
             y += Decimal("0.1")
         return _tb("Which is larger, %s × %s or %s × %s? Type its value." % (_ds(x), _c(kx), _ds(y), _c(ky)),
@@ -513,14 +518,19 @@ def _(d=1):
                    ["%s × %s = %s; %s × %s = %s." % (_ds(x), _c(kx), _ds(x * kx), _ds(y), _c(ky), _ds(y * ky))])
 
     def t_place():
-        x = Decimal(random.randint(1, 99)) / 100
+        if d == 2:                                        # divide back down onto the line
+            x = random.randint(11, 99) * 10
+            return _nld("Work out %d ÷ 100 and mark the answer on the number line." % x, Decimal(x) / 100, 0, 10,
+                        Decimal("0.1"), 1, ["%d ÷ 100 = %s." % (x, _ds(Decimal(x) / 100))])
+        x = Decimal(random.randint(1, _by(d, 9, 99, 99))) / _by(d, 10, 100, 100)
         return _nld("Work out %s × 10 and mark the answer on the number line." % _ds(x), x * 10, 0, 10, Decimal("0.1"), 1,
                     ["%s × 10 = %s." % (_ds(x), _ds(x * 10))])
 
     def t_chain():
-        x = Decimal(random.randint(1, 999)) / 10
-        return _tb("Start with %s. Multiply by 100, then divide by 10. What do you get?" % _ds(x), _ds(x * 10), "num", {},
-                   ["%s × 100 = %s." % (_ds(x), _ds(x * 100)), "%s ÷ 10 = %s." % (_ds(x * 100), _ds(x * 10))])
+        x = Decimal(random.randint(1, _by(d, 99, 999, 9999))) / _by(d, 1, 10, 100)
+        up, dn = _by(d, (100, 10), (100, 10), (1000, 100))
+        return _tb("Start with %s. Multiply by %s, then divide by %d. What do you get?" % (_ds(x), _c(up), dn), _ds(x * 10),
+                   "num", {}, ["%s × %s = %s." % (_ds(x), _c(up), _ds(x * up)), "%s ÷ %d = %s." % (_ds(x * up), dn, _ds(x * 10))])
 
     return _pick_t([t_mult, t_div, t_missing, t_money, t_measure, t_missing_div, t_money_share, t_compare, t_chain],
                    [t_table, t_place])

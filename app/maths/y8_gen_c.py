@@ -842,8 +842,8 @@ def _(d=1):
                      ["%d ÷ %d = %d km/h." % (dist, h_tot, s)], unit="km/h")
 
     def table_speed():
-        s = random.randint(20, 60)
-        hours = sorted(random.sample(range(1, 8), 4))
+        s = _by_d(d, random.randint(2, 6) * 10, random.randint(20, 60), random.randint(45, 95))
+        hours = sorted(random.sample(range(1, _by_d(d, 6, 8, 12)), 4))
         i = random.randrange(4)
         rows = [[str(hh), "" if j == i else str(s * hh)]
                 for j, hh in enumerate(hours)]
@@ -946,9 +946,17 @@ def _(d=1):
                       "%d × %d = %dp." % (want, each, want * each)], unit="p")
 
     def proportion_table():
-        each = random.randint(3, 12)
-        counts = sorted(random.sample(range(2, 12), 4))
+        each = random.randint(*_by_d(d, (2, 5), (3, 12), (12, 25)))
+        counts = sorted(random.sample(range(2, _by_d(d, 11, 12, 20)), 4))
         i = random.randrange(4)
+        if d == 2 and random.random() < 0.5:          # stretch: the missing value is an x
+            rows = [["" if j == i else str(c), str(c * each)]
+                    for j, c in enumerate(counts)]
+            return _dtq("The two quantities in this table are in direct proportion. "
+                        "What is the missing value?", ["x", "y"], rows, counts[i],
+                        ["y is always %d times x." % each,
+                         "%d ÷ %d = %d." % (counts[i] * each, each, counts[i])],
+                        missing=(i, 0), caption="Direct proportion")
         rows = [[str(c), "" if j == i else str(c * each)]
                 for j, c in enumerate(counts)]
         return _dtq("The two quantities in this table are in direct proportion. "
@@ -1110,8 +1118,8 @@ def _(d=1):
                      ["y = %d × %d = %d." % (k, x, k * x)])
 
     def graph_point_line():
-        k = pick([1, 2, 3])
-        xmax = pick([6, 8])
+        k = pick(_by_d(d, [1, 2], [1, 2, 3], [3, 4, 5]))
+        xmax = pick(_by_d(d, [6], [6, 8], [8, 10]))
         ymax = k * xmax
         x = random.randint(1, xmax - 1)
         lbl = "y = x" if k == 1 else "y = %dx" % k
@@ -1142,8 +1150,8 @@ def _(d=1):
                      placeholder="a number")
 
     def equation_from_table():
-        k = random.randint(2, 9)
-        xs = [2, 4, 6]
+        k = random.randint(*_by_d(d, (2, 5), (2, 9), (6, 15)))
+        xs = _by_d(d, [1, 2, 3], [2, 4, 6], sorted(random.sample(range(3, 13), 3)))
         rows = [[str(x), str(k * x)] for x in xs]
         return _dtq("This table shows a proportional relationship. It can be "
                     "written as y = kx. What is k?", ["x", "y"], rows, k,
@@ -1356,8 +1364,8 @@ def _(d=1):
                      unit="cm")
 
     def scale_table():
-        rep = pick([2, 5, 10, 20])
-        drawn = sorted(random.sample(range(1, 14), 4))
+        rep = pick(_by_d(d, [2, 5, 10], [2, 5, 10, 20], [25, 50, 200, 250]))
+        drawn = sorted(random.sample(range(_by_d(d, 1, 1, 3), _by_d(d, 11, 14, 25)), 4))
         i = random.randrange(4)
         rows = [[str(c), "" if j == i else str(c * rep)]
                 for j, c in enumerate(drawn)]
@@ -1485,9 +1493,14 @@ def _(d=1):
 
     def conversion_table():
         # equivalent fraction / decimal / percentage table with one blank
-        triples = [(1, 2, "0.5", 50), (1, 4, "0.25", 25), (3, 4, "0.75", 75),
-                   (1, 5, "0.2", 20), (2, 5, "0.4", 40), (3, 5, "0.6", 60),
-                   (1, 10, "0.1", 10), (7, 10, "0.7", 70), (1, 20, "0.05", 5)]
+        triples = _by_d(d, [(1, 2, "0.5", 50), (1, 4, "0.25", 25), (3, 4, "0.75", 75),
+                            (1, 10, "0.1", 10), (3, 10, "0.3", 30), (9, 10, "0.9", 90)],
+                        [(1, 2, "0.5", 50), (1, 4, "0.25", 25), (3, 4, "0.75", 75),
+                         (1, 5, "0.2", 20), (2, 5, "0.4", 40), (3, 5, "0.6", 60),
+                         (1, 10, "0.1", 10), (7, 10, "0.7", 70), (1, 20, "0.05", 5)],
+                        [(1, 20, "0.05", 5), (3, 20, "0.15", 15), (7, 20, "0.35", 35),
+                         (1, 25, "0.04", 4), (3, 25, "0.12", 12), (9, 50, "0.18", 18),
+                         (11, 20, "0.55", 55), (1, 50, "0.02", 2)])
         chosen = random.sample(triples, 3)
         col = 1  # always blank the decimal column (unambiguous typed value)
         rows = []
@@ -1746,7 +1759,7 @@ def _(d=1):
                      ["%d ÷ %d × 100 = %d%%." % (part, whole, pct)], unit="%")
 
     def table_pct():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_by_d(d, [10, 25, 50], [10, 20, 25, 50], [15, 35, 12, 45, 8]))
         g = _hcf(pct, 100)
         whole = (100 // g) * random.randint(2, 8)
         part = whole * pct // 100
@@ -1834,7 +1847,7 @@ def _(d=1):
                       "%d + %d = %d." % (start, start * pct // 100, ans)])
 
     def sale_price():
-        pct = pick([10, 20, 25, 50, 30])
+        pct = pick(_by_d(d, [10, 50, 25], [10, 20, 25, 50, 30], [15, 35, 45, 12, 65]))
         g = _hcf(pct, 100)
         price = (100 // g) * random.randint(2, 15)
         ans = price - price * pct // 100
@@ -1856,7 +1869,7 @@ def _(d=1):
                      unit="%")
 
     def table_change():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_by_d(d, [10, 50], [10, 20, 25, 50], [15, 35, 12, 5, 45]))
         g = _hcf(pct, 100)
         rows_in = sorted(random.sample(range(2, 12), 3))
         base_unit = 100 // g
@@ -2017,8 +2030,8 @@ def _(d=1):
     d = _t(d)
 
     def what_pct_change():
-        base = random.randint(1, 10) * 20
-        pct = pick([10, 20, 25, 50])
+        base = random.randint(1, _by_d(d, 5, 10, 25)) * 20
+        pct = pick(_by_d(d, [10, 50, 25], [10, 20, 25, 50], [15, 35, 45, 5, 65]))
         rise = base * pct // 100
         newv = base + rise
         return _numq("A price rises from %s to %s. What is the percentage "
@@ -2378,10 +2391,10 @@ def _(d=1):
     d = _t(d)
 
     def simple_interest():
-        rate = pick([2, 5, 10, 4, 3])
-        years = random.randint(2, 6)
+        rate = pick(_by_d(d, [5, 10], [2, 5, 10, 4, 3], [3, 6, 7, 8, 12]))
+        years = random.randint(*_by_d(d, (2, 3), (2, 6), (4, 9)))
         g = _hcf(rate, 100)
-        principal = (100 // g) * random.randint(5, 30)
+        principal = (100 // g) * random.randint(5, _by_d(d, 20, 30, 60))
         interest = principal * rate * years // 100
         return _numq("%s is invested at %d%% simple interest per year. How much "
                      "interest is earned after %d years, in pounds?"
@@ -2394,10 +2407,10 @@ def _(d=1):
                          _pounds(interest))], unit="£")
 
     def simple_interest_total():
-        rate = pick([2, 5, 10, 4])
-        years = random.randint(2, 5)
+        rate = pick(_by_d(d, [5, 10], [2, 5, 10, 4], [3, 6, 7, 8, 12]))
+        years = random.randint(*_by_d(d, (2, 3), (2, 5), (4, 9)))
         g = _hcf(rate, 100)
-        principal = (100 // g) * random.randint(5, 25)
+        principal = (100 // g) * random.randint(5, _by_d(d, 20, 25, 60))
         interest = principal * rate * years // 100
         total = principal + interest
         return _numq("%s is put in an account paying %d%% simple interest per "
@@ -2490,8 +2503,8 @@ def _(d=1):
     d = _t(d)
 
     def two_step_pct():
-        pct1 = pick([10, 20, 25, 50])
-        pct2 = pick([10, 20, 25, 50])
+        pct1 = pick(_by_d(d, [10, 50], [10, 20, 25, 50], [15, 35, 45, 30, 60]))
+        pct2 = pick(_by_d(d, [10, 50], [10, 20, 25, 50], [15, 35, 45, 30, 60]))
         while True:
             base = 100 * random.randint(2, 8)
             after1 = base * pct1 // 100
