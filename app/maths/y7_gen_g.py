@@ -208,29 +208,35 @@ def _(d=1):
 @skill("Y7.4.h", "Ratio, fractions and direct proportion", S4)
 def _(d=1):
     d = _d(d)
-    a, b = _coprime(1, 9)
+    a, b = _coprime(1, _by(d, 5, 9, 12))
 
     def t_fraction_of():
         return _fq("Red and blue beads are in the ratio %d : %d. What fraction of the beads are red?" % (a, b), Fraction(a, a + b),
                    ["%d + %d = %d parts; red is %d of them." % (a, b, a + b, a)])
 
     def t_frac_to_ratio():
-        f = pick([Fraction(2, 5), Fraction(3, 8), Fraction(1, 4), Fraction(3, 7), Fraction(5, 9), Fraction(4, 9)])
+        f = pick(_by(d, [Fraction(1, 4), Fraction(2, 5), Fraction(1, 3), Fraction(3, 4), Fraction(3, 5)],
+                     [Fraction(2, 5), Fraction(3, 8), Fraction(1, 4), Fraction(3, 7), Fraction(5, 9), Fraction(4, 9)],
+                     [Fraction(3, 8), Fraction(5, 12), Fraction(7, 10), Fraction(4, 9), Fraction(5, 9), Fraction(7, 12)]))
         return _tb("%s of a class are boys and the rest are girls. The ratio boys : girls is %d : ___. What is the missing number?"
                    % (_fs(f), f.numerator), f.denominator - f.numerator, "int", {},
                    ["Out of %d parts, %d are boys and %d are girls." % (f.denominator, f.numerator, f.denominator - f.numerator)])
 
     def t_recipe():
-        n1 = pick([2, 4, 6])
-        n2 = pick([v for v in (3, 5, 8, 9, 10, 12) if v != n1])
+        if d == 0:                                  # easy: scale up by a whole number
+            n1 = pick([2, 4])
+            n2 = n1 * pick([2, 3])
+        else:
+            n1 = pick(_by(d, None, [2, 4, 6], [3, 4, 6]))
+            n2 = pick([v for v in _by(d, None, (3, 5, 8, 9, 10, 12), (5, 7, 9, 10, 14, 15)) if v != n1])
         g = random.randint(2, 9) * 30
         return _tb("A recipe for %d people uses %d g of flour. How much flour is needed for %d people, in g?" % (n1, g, n2),
                    _ds(Fraction(g * n2, n1)), "num", {"unit": "g"},
                    ["For 1 person: %d ÷ %d = %s g." % (g, n1, _ds(Fraction(g, n1))), "For %d: %s g." % (n2, _ds(Fraction(g * n2, n1)))])
 
     def t_unit_price():
-        n1, n2 = random.randint(3, 6), random.randint(7, 12)
-        each = Decimal(random.randint(15, 95)) / 100
+        n1, n2 = random.randint(_by(d, 2, 3, 3), _by(d, 4, 6, 9)), random.randint(_by(d, 5, 7, 10), _by(d, 10, 12, 25))
+        each = Decimal(random.randint(_by(d, 3, 15, 15), _by(d, 19, 95, 199)) * _by(d, 5, 1, 1)) / 100
         return _tb("%d pens cost £%s. How much do %d pens cost, in pounds?" % (n1, format(each * n1, ".2f"), n2), _ds(each * n2), "num",
                    {"unit": "£"}, ["One pen: £%s." % format(each, ".2f"), "%d pens: £%s." % (n2, format(each * n2, ".2f"))])
 
@@ -249,7 +255,9 @@ def _(d=1):
         na, nb = pick([(6, 10), (4, 6), (5, 8), (3, 4)])
         pa = Decimal(random.randint(20, 60)) / 10 * na / 5
         ua = pa / na
-        ub = ua + pick([Decimal("0.02"), Decimal("-0.02"), Decimal("0.05"), Decimal("-0.05")])
+        ub = ua + pick(_by(d, [Decimal("0.10"), Decimal("-0.10"), Decimal("0.20"), Decimal("-0.20")],
+                           [Decimal("0.02"), Decimal("-0.02"), Decimal("0.05"), Decimal("-0.05")],
+                           [Decimal("0.01"), Decimal("-0.01"), Decimal("0.02"), Decimal("-0.02")]))
         pa, pb = pa.quantize(Decimal("0.01")), (ub * nb).quantize(Decimal("0.01"))
         if pa / na == pb / nb:
             pb += Decimal("0.05")
@@ -258,28 +266,32 @@ def _(d=1):
                    ["Price per can: A £%s, B £%s." % (format(pa / na, ".3f"), format(pb / nb, ".3f"))], "A or B")
 
     def t_conversion():
-        mi = random.randint(2, 20) * 5
+        if d == 2 and random.random() < 0.5:        # stretch: convert the other way
+            km = random.randint(3, 25) * 8
+            return _tb("5 miles is about 8 km. About how many miles is %d km?" % km, km * 5 // 8, "int", {"unit": "miles"},
+                       ["%d ÷ 8 = %d; × 5 = %d." % (km, km // 8, km * 5 // 8)])
+        mi = random.randint(2, _by(d, 10, 20, 40)) * 5
         return _tb("5 miles is about 8 km. About how many km is %d miles?" % mi, mi * 8 // 5, "int", {"unit": "km"},
                    ["%d ÷ 5 = %d; × 8 = %d." % (mi, mi // 5, mi * 8 // 5)])
 
     def t_table():
-        k = random.randint(2, 9)
-        xs = random.sample(range(1, 13), 4)
+        k = random.randint(2, _by(d, 5, 9, 15))
+        xs = random.sample(range(1, _by(d, 11, 13, 21)), 4)
         rows = [[x, k * x] for x in xs]
         m = random.randrange(4)
         return _io("y is directly proportional to x. What goes in the empty cell?", rows, m, k * xs[m],
                    ["y = %d × x." % k, "%d × %d = %d." % (k, xs[m], k * xs[m])])
 
     def t_wages():
-        rate = Decimal(random.randint(18, 30)) / 2
-        h1, h2 = random.randint(3, 6), random.randint(7, 12)
+        rate = Decimal(random.randint(18, _by(d, 24, 30, 45))) / 2
+        h1, h2 = random.randint(3, _by(d, 4, 6, 8)), random.randint(7, _by(d, 10, 12, 20))
         return _tb("%s earns £%s for %d hours of work. How much will they earn for %d hours, in pounds?"
                    % (_who(), format(rate * h1, ".2f"), h1, h2), _ds(rate * h2), "num", {"unit": "£"},
                    ["One hour: £%s." % format(rate, ".2f"), "%d hours: £%s." % (h2, format(rate * h2, ".2f"))])
 
     def t_scale_down():
-        n1 = pick([8, 12])
-        n2 = pick([2, 3, 4, 6])
+        n1 = pick(_by(d, [8, 12], [8, 12], [12, 15, 16]))
+        n2 = pick(_by(d, [2, 4], [2, 3, 4, 6], [5, 7, 9, 10]))
         g = n1 * random.randint(5, 30)
         return _tb("A stew for %d people uses %d g of beef. How much beef is needed for %d people, in g?" % (n1, g, n2),
                    _ds(Fraction(g * n2, n1)), "num", {"unit": "g"}, ["%d ÷ %d × %d = %s." % (g, n1, n2, _ds(Fraction(g * n2, n1)))])
@@ -289,13 +301,15 @@ def _(d=1):
                    Fraction(b, a), ["%d ÷ %d = %s." % (b, a, _fs(Fraction(b, a)))], "e.g. 5/2")
 
     def t_petrol():
-        lit = random.randint(20, 50)
+        lit = random.randint(_by(d, 10, 20, 35), _by(d, 30, 50, 80))
         p = Decimal(random.randint(130, 160)) / 100
         return _tb("Petrol costs £%s per litre. How much does %d litres cost, in pounds?" % (format(p, ".2f"), lit), _ds(p * lit),
                    "num", {"unit": "£"}, ["%d × %s = %s." % (lit, format(p, ".2f"), _ds(p * lit))])
 
-    return _pick_t([t_fraction_of, t_frac_to_ratio, t_recipe, t_unit_price, t_best_buy, t_conversion, t_wages, t_scale_down,
-                    t_how_many_times, t_petrol], [t_recipe_table, t_table])
+    every = [t_fraction_of, t_frac_to_ratio, t_recipe, t_unit_price, t_best_buy, t_conversion, t_wages, t_scale_down,
+             t_how_many_times, t_petrol]
+    return _pick_t(_by(d, [t_fraction_of, t_frac_to_ratio, t_recipe, t_unit_price, t_best_buy, t_conversion, t_scale_down],
+                       every, every), [t_recipe_table, t_table])
 
 
 # ================================================================== 7.5 ======

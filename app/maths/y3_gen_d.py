@@ -15,7 +15,7 @@ MONTHS = [("January", 31), ("February", 28), ("March", 31), ("April", 30), ("May
 @skill("Y3.6.k", "Tenths: dividing by 10", S6)
 def _(d=1):
     d = _d(d)
-    n = random.randint(1, 9)
+    n = random.randint(_by(d, 1, 1, 2), _by(d, 5, 9, 9))
 
     def t_divide():
         return _fq("Work out %d ÷ 10. Write the answer as a fraction." % n, Fraction(n, 10),
@@ -31,9 +31,21 @@ def _(d=1):
                    Fraction(n, 10), ["%d ÷ 10 = %d/10." % (n, n)], "e.g. 3/10")
 
     def t_how_many_tenths():
-        w = random.randint(1, 3)
+        w = random.randint(1, _by(d, 1, 3, 5))
+        if d == 2:                                      # stretch: wholes and some tenths
+            return _tb("How many tenths are there in %d whole%s and %d/10?" % (w, "" if w == 1 else "s", n), 10 * w + n, "int", {},
+                       ["1 whole = 10 tenths, so %d whole%s = %d tenths." % (w, "" if w == 1 else "s", 10 * w),
+                        "%d + %d = %d tenths." % (10 * w, n, 10 * w + n)])
         return _tb("How many tenths are there in %d whole%s?" % (w, "" if w == 1 else "s"), 10 * w, "int", {},
                    ["1 whole = 10 tenths, so %d × 10 = %d." % (w, 10 * w)])
+
+    def t_missing():                                    # stretch: the number being divided is missing
+        return _tb("___ ÷ 10 = %d/10" % n, n, "int", {}, ["Dividing by 10 makes tenths, so %d ÷ 10 = %d/10." % (n, n)])
+
+    def t_compare():                                    # stretch: which share is bigger
+        a, b = random.sample(range(1, 10), 2)
+        return _fq("Which is bigger: %d ÷ 10 or %d ÷ 10? Write the bigger answer as a fraction." % (a, b), Fraction(max(a, b), 10),
+                   ["%d ÷ 10 = %d/10 and %d ÷ 10 = %d/10." % (a, a, b, b), "%d/10 is bigger." % max(a, b)], "e.g. 3/10")
 
     def t_bar():
         return {"prompt": "Shade the bar to show %d ÷ 10. The bar is one whole split into tenths." % n,
@@ -44,7 +56,8 @@ def _(d=1):
         return _nld("Work out %d ÷ 10 and mark it on the number line." % n, Fraction(n, 10), 0, 1, Decimal("0.1"),
                     Decimal("0.1"), ["%d ÷ 10 = %d/10." % (n, n)])
 
-    return _pick_t([t_divide, t_object, t_share, t_how_many_tenths], [t_bar, t_line])
+    return _pick_t(_by(d, [t_divide, t_object, t_share], [t_divide, t_object, t_share, t_how_many_tenths],
+                       [t_divide, t_share, t_how_many_tenths, t_missing, t_compare]), [t_bar, t_line])
 
 
 @skill("Y3.8.m", "Days in each month, leap years and seconds in a minute", S8)
@@ -95,17 +108,26 @@ def _(d=1):
     d = _d(d)
 
     def t_name():
-        what, ans = pick([("The edge of a table top, running from side to side", "horizontal"),
-                          ("A flagpole standing straight up", "vertical"),
-                          ("The line where the sea meets the sky", "horizontal"),
-                          ("A lamp post", "vertical"),
-                          ("A shelf on a wall", "horizontal"),
-                          ("The side of a door frame", "vertical")])
+        what, ans = pick(_by(d, [("A flagpole standing straight up", "vertical"), ("A shelf on a wall", "horizontal"),
+                                 ("A lamp post", "vertical"), ("The edge of a table top, running from side to side", "horizontal")],
+                             [("The edge of a table top, running from side to side", "horizontal"),
+                              ("A flagpole standing straight up", "vertical"),
+                              ("The line where the sea meets the sky", "horizontal"),
+                              ("A lamp post", "vertical"),
+                              ("A shelf on a wall", "horizontal"),
+                              ("The side of a door frame", "vertical")],
+                             [("The surface of still water in a bath", "horizontal"),
+                              ("A string hanging straight down with a weight on the end", "vertical"),
+                              ("The line where the sea meets the sky", "horizontal"),
+                              ("The side of a door frame", "vertical"),
+                              ("The top step of a staircase", "horizontal"),
+                              ("The corner where two walls of a room meet", "vertical")]))
         return _wq("%s: is it horizontal or vertical?" % what, ans,
                    ["Horizontal goes side to side; vertical goes straight up and down."], "horizontal / vertical")
 
     def t_letters():
-        letter, h, v = pick([("T", 1, 1), ("H", 1, 2), ("E", 3, 1), ("L", 1, 1), ("F", 2, 1)])
+        letter, h, v = pick(_by(d, [("T", 1, 1), ("L", 1, 1)], [("T", 1, 1), ("H", 1, 2), ("E", 3, 1), ("L", 1, 1), ("F", 2, 1)],
+                                [("H", 1, 2), ("E", 3, 1), ("F", 2, 1)]))
         kind = pick(["horizontal", "vertical"])
         return _tb("Look at the capital letter %s. How many %s lines does it have?" % (letter, kind),
                    h if kind == "horizontal" else v, "int", {},
@@ -117,19 +139,33 @@ def _(d=1):
                    ["Two sides go up and down."])
 
     def t_plot():
-        x, y = random.randint(1, 6), random.randint(1, 6)
-        k = random.randint(2, 4)
+        x, y = (random.randint(1, 6), random.randint(1, 6)) if d < 2 else (random.randint(1, 9), random.randint(1, 9))
+        k = random.randint(_by(d, 1, 2, 3), _by(d, 3, 4, 5))
         horiz = random.random() < 0.5
-        ans = (x + k, y) if horiz else (x, y + k)
-        return {"prompt": "Plot a point so that the line from A to your point is %s and %d squares long, going %s."
-                          % ("horizontal" if horiz else "vertical", k, "right" if horiz else "up"),
+        c = x if horiz else y
+        back = d == 2 and (c + k > 10 or (c - k >= 1 and random.random() < 0.5))     # stretch: going left or down
+        step = -k if back else k
+        ans = (x + step, y) if horiz else (x, y + step)
+        return {"prompt": "Plot a point so that the line from A to your point is %s and %s long, going %s."
+                          % ("horizontal" if horiz else "vertical", "1 square" if k == 1 else "%d squares" % k,
+                             ("left" if back else "right") if horiz else ("down" if back else "up")),
                 "component": "coordinate_grid", "spec": {"mode": "plot", "size": 10, "points": [[x, y, "A"]]},
                 "answer": "(%d,%d)" % ans, "answer_type": "coord",
                 "solution": ["A %s line keeps the same %s." % ("horizontal" if horiz else "vertical",
                                                                "height" if horiz else "across position")]}
 
+    def t_shape_horizontal():                           # stretch: count the horizontal sides as well
+        name, h, v = pick([("rectangle", 2, 2), ("right-angled triangle", 1, 1)])
+        kind = pick(["horizontal", "vertical"])
+        return _tb("A %s is drawn with its bottom side horizontal%s. How many of its sides are %s?"
+                   % (name, " and its right angle at the bottom left" if "triangle" in name else "", kind),
+                   h if kind == "horizontal" else v, "int", {},
+                   ["%s has %d horizontal and %d vertical side%s; %s." % ("A " + name, h, v, "" if v == 1 else "s",
+                                                                       "the third side slopes" if "triangle" in name else "no side slopes")])
+
     def t_perp():
         return _wq("A horizontal line and a vertical line meet. Is the angle they make acute, right or obtuse?", "right",
                    ["Horizontal and vertical lines are perpendicular: they meet at a right angle."], "acute / right / obtuse")
 
-    return _pick_t([t_name, t_letters, t_shape, t_perp], [t_plot])
+    return _pick_t(_by(d, [t_name, t_letters, t_shape], [t_name, t_letters, t_shape, t_perp],
+                       [t_name, t_letters, t_shape_horizontal]), [t_plot])

@@ -706,10 +706,10 @@ def _(d=1):
     d = _d(d)
 
     def _frac():
-        den = pick([2, 4, 5, 8, 10, 20, 25])
+        den = pick({0: [2, 4, 5, 10], 1: [2, 4, 5, 8, 10, 20, 25], 2: [8, 20, 25, 40, 50]}[d])
         num = random.randint(1, den - 1)
         f = Fraction(num, den)
-        if random.random() < 0.4:
+        if random.random() < {0: 0.2, 1: 0.4, 2: 0.5}[d]:
             f = -f
         return f
 
@@ -723,8 +723,9 @@ def _(d=1):
     def t_compare():
         f = _frac()
         dv = Decimal(f.numerator) / Decimal(f.denominator)
-        other = dv + pick([Decimal("0.1"), Decimal("-0.1"), Decimal("0.15"),
-                           Decimal("-0.2")])
+        other = dv + pick({0: [Decimal("0.2"), Decimal("-0.2"), Decimal("0.3")],
+                           1: [Decimal("0.1"), Decimal("-0.1"), Decimal("0.15"), Decimal("-0.2")],
+                           2: [Decimal("0.01"), Decimal("-0.02"), Decimal("0.05"), Decimal("-0.05")]}[d])
         vals = [(dv, _fmt_frac(f)), (other, _fmt(other))]
         smaller = min(vals, key=lambda z: z[0])
         return _numq("Which is smaller, %s or %s? Type your answer as a decimal."
@@ -746,12 +747,14 @@ def _(d=1):
                       "The smallest is %s." % _fmt(min(vals))])
 
     def t_between():
-        target = pick([Fraction(1, 4), Fraction(3, 8), Fraction(3, 5),
-                       Fraction(7, 10)])
+        target = pick({0: [Fraction(1, 2), Fraction(1, 4), Fraction(3, 4)],
+                       1: [Fraction(1, 4), Fraction(3, 8), Fraction(3, 5), Fraction(7, 10)],
+                       2: [Fraction(5, 8), Fraction(7, 20), Fraction(9, 25), Fraction(-3, 8), Fraction(-11, 20)]}[d])
         dv = Decimal(target.numerator) / Decimal(target.denominator)
-        lo = dv - Decimal("0.15")
-        hi = dv + Decimal("0.15")
-        others = [dv - Decimal("0.3"), dv + Decimal("0.3")]
+        gap = Decimal("0.05") if d == 2 else Decimal("0.15")      # stretch: a narrow interval
+        lo = dv - gap
+        hi = dv + gap
+        others = [dv - 2 * gap, dv + 2 * gap]
         toks = [(_fmt_frac(target), dv)] + [("%s" % _fmt(o), o) for o in others]
         random.shuffle(toks)
         shown = _lst(t for t, _v in toks)
@@ -761,8 +764,8 @@ def _(d=1):
                       % (_fmt_frac(target), _fmt(dv), _fmt(lo), _fmt(hi))])
 
     def t_is_integer():
-        num = random.randint(2, 9) * pick([2, 3, 4])
-        den = pick([2, 3, 4])
+        num = random.randint(2, {0: 9, 1: 9, 2: 20}[d]) * pick({0: [2, 5, 10], 1: [2, 3, 4], 2: [3, 4, 6, 7]}[d])
+        den = pick({0: [2, 5, 10], 1: [2, 3, 4], 2: [3, 4, 6, 7, 8]}[d])
         f = Fraction(num, den)
         return _yn("Is %d/%d an integer? (yes/no)" % (num, den),
                    "yes" if f.denominator == 1 else "no",
@@ -771,14 +774,17 @@ def _(d=1):
                     else "%d/%d = %d, a whole number." % (num, den, num // den)])
 
     def t_terminating():
-        den = pick([2, 3, 4, 5, 6, 8, 9, 11])
+        den = pick({0: [2, 3, 4, 5, 9, 10], 1: [2, 3, 4, 5, 6, 8, 9, 11],
+                    2: [6, 12, 14, 15, 24, 30, 35, 40]}[d])
         num = random.randint(1, den - 1)
         f = Fraction(num, den)
+        # stretch shows the fraction unsimplified (3/12): cancel first, then look at the denominator
+        shown = "%d/%d" % (num, den) if d == 2 else _fmt_frac(f)
         return _yn("Does the fraction %s give a terminating decimal? (yes/no)"
-                   % _fmt_frac(f), "yes" if _terminates(f) else "no",
+                   % shown, "yes" if _terminates(f) else "no",
                    ["A fraction terminates only if its denominator (in lowest terms) "
                     "has just 2s and 5s as prime factors.",
-                    "%s is %s." % (_fmt_frac(f),
+                    "%s is %s." % (shown if shown == _fmt_frac(f) else "%s = %s, which" % (shown, _fmt_frac(f)),
                                    "terminating" if _terminates(f) else "recurring")])
 
     def t_count_neg():
@@ -810,7 +816,7 @@ def _(d=1):
 
     def t_reciprocal():
         # Multiplicative inverse (reciprocal) of a rational number.
-        if random.random() < 0.5:
+        if random.random() < {0: 1.0, 1: 0.5, 2: 0.0}[d]:
             n = random.randint(2, 12)
             return {"prompt": "The reciprocal (also called the multiplicative "
                     "inverse) of %d is a fraction. Write it, like 1/7." % n,
@@ -822,19 +828,24 @@ def _(d=1):
         pairs = [(2, 3), (2, 5), (2, 7), (2, 9), (3, 4), (3, 5), (3, 7), (3, 8),
                  (4, 5), (4, 7), (5, 6), (5, 8), (4, 9), (5, 9), (3, 10), (7, 10)]
         a, b = pick(pairs)
+        sg = "-" if d == 2 and random.random() < 0.5 else ""      # stretch: a negative keeps its sign
         return {"prompt": "Find the multiplicative inverse (the reciprocal) of the "
-                "fraction %d/%d. Give your answer as a fraction, like 5/2." % (a, b),
+                "fraction %s%d/%d. Give your answer as a fraction, like 5/2." % (sg, a, b),
                 "component": "number",
                 "spec": {"text": True, "placeholder": "e.g. 5/2"},
-                "answer": "%d/%d" % (b, a), "answer_type": "frac", "tolerance": 0,
+                "answer": "%s%d/%d" % (sg, b, a), "answer_type": "frac", "tolerance": 0,
                 "solution": ["To find the reciprocal, swap the numerator and "
-                             "denominator.",
-                             "The multiplicative inverse of %d/%d is %d/%d."
-                             % (a, b, b, a)]}
+                             "denominator%s." % (" and keep the sign" if sg else ""),
+                             "The multiplicative inverse of %s%d/%d is %s%d/%d."
+                             % (sg, a, b, sg, b, a)]}
 
-    return _pick_t([t_frac_to_dec, t_compare, t_order_smallest, t_between,
-                    t_is_integer, t_terminating, t_count_neg, t_nth_dec,
-                    t_reciprocal], [])
+    return _pick_t({0: [t_frac_to_dec, t_compare, t_order_smallest, t_is_integer,
+                        t_count_neg, t_reciprocal],
+                    1: [t_frac_to_dec, t_compare, t_order_smallest, t_between,
+                        t_is_integer, t_terminating, t_count_neg, t_nth_dec,
+                        t_reciprocal],
+                    2: [t_frac_to_dec, t_compare, t_between, t_terminating, t_nth_dec,
+                        t_reciprocal]}[d], [])
 
 
 def _fmt_frac(f):
@@ -948,19 +959,20 @@ def _(d=1):
 @skill("Y8.0.g", "Priority of operations (BIDMAS)", S0)
 def _(d=1):
     d = _d(d)
+    hi = {0: 6, 1: 9, 2: 12}[d]                    # the largest single number in most framings
 
     def t_bracket_add():
-        a = random.randint(2, 9)
-        b = random.randint(2, 9)
-        c = random.randint(2, 9)
+        a = random.randint(2, hi)
+        b = random.randint(2, hi)
+        c = random.randint(2, hi)
         ans = a * (b + c)
         return _tb("Work out:   %d × (%d + %d)" % (a, b, c), ans, "int", {},
                    ["Brackets first: %d + %d = %d." % (b, c, b + c),
                     "%d × %d = %d." % (a, b + c, ans)])
 
     def t_mul_before_add():
-        a = random.randint(2, 9)
-        b = random.randint(2, 9)
+        a = random.randint(2, hi)
+        b = random.randint(2, hi)
         c = random.randint(2, 20)
         ans = c + a * b
         return _tb("Work out:   %d + %d × %d" % (c, a, b), ans, "int", {},
@@ -968,10 +980,14 @@ def _(d=1):
                     "%d + %d = %d." % (c, a * b, ans)])
 
     def t_index():
-        a = random.randint(2, 5)
+        a = random.randint(2, 3 if d == 0 else 5)
         b = random.randint(2, 9)
         c = random.randint(2, 9)
-        ans = b + a ** 2 * (1 if d == 0 else 1)
+        if d == 2:                                 # stretch: index, then multiply, then subtract
+            ans = b * a ** 2 - c
+            return _tb("Work out (use BIDMAS):   %d × %d^2 − %d" % (b, a, c), ans, "int", {},
+                       ["Index first: %d^2 = %d." % (a, a * a),
+                        "%d × %d = %d, then − %d = %d." % (b, a * a, b * a * a, c, ans)])
         ans = c + a ** 2
         return _tb("Work out (use BIDMAS):   %d + %d^2" % (c, a), ans, "int", {},
                    ["Index first: %d^2 = %d." % (a, a * a),
@@ -988,8 +1004,8 @@ def _(d=1):
                     "%d × %d = %d, then − %d = %d." % (a, b + c, a * (b + c), e, ans)])
 
     def t_div_mix():
-        q = random.randint(2, 9)
-        b = random.randint(2, 9)
+        q = random.randint(2, hi)
+        b = random.randint(2, hi)
         a = q * b
         c = random.randint(2, 20)
         ans = c + a // b
@@ -1010,7 +1026,6 @@ def _(d=1):
                     "%d × %d = %d." % (a - b, c - e, ans)])
 
     def t_decimal():
-        a = Decimal(random.randint(2, 9)) / 10 * 10          # keep tidy
         a = Decimal(random.randint(2, 9))
         b = Decimal(random.randint(2, 9)) / 10
         c = random.randint(2, 6)
@@ -1020,10 +1035,15 @@ def _(d=1):
                       "%s + %s = %s." % (_fmt(a), _fmt(b * c), _fmt(ans))])
 
     def t_missing_val():
-        a = random.randint(2, 9)
-        b = random.randint(2, 9)
+        a = random.randint(2, hi)
+        b = random.randint(2, hi)
         c = random.randint(3, 20)
         total = a * b + c
+        if d == 2:                                 # stretch: the gap is inside the product
+            return _tb("Fill the missing number:   %d × ___ + %d = %d" % (a, c, total),
+                       b, "int", {},
+                       ["%d − %d = %d." % (total, c, a * b),
+                        "%d ÷ %d = %d." % (a * b, a, b)])
         return _tb("Fill the missing number:   %d × %d + ___ = %d" % (a, b, total),
                    c, "int", {},
                    ["%d × %d = %d." % (a, b, a * b),
@@ -1071,8 +1091,8 @@ def _(d=1):
         want = None
         r_i = random.randint(0, 2)
         for i in range(3):
-            a = random.randint(2, 9)
-            b = random.randint(2, 9)
+            a = random.randint(2, hi)
+            b = random.randint(2, hi)
             c = random.randint(2, 12)
             rows.append(["%d + %d × %d" % (c, a, b), str(c + a * b)])
             if i == r_i:
@@ -1081,6 +1101,18 @@ def _(d=1):
                    "cell?", ["Calculation", "Answer"], rows, want,
                    ["Multiply before adding: %d × %d = %d." % (a0, b0, a0 * b0),
                     "%d + %d = %d." % (c0, a0 * b0, want)], missing=[r_i, 1])
+
+    def t_square_bracket():                        # stretch: brackets, then the index, then the rest
+        a = random.randint(3, 6)
+        b = random.randint(1, 4)
+        c = random.randint(2, 6)
+        e = random.randint(2, min(9, ((a + b) ** 2 - 1) // c))     # keeps the answer positive
+        ans = (a + b) ** 2 - c * e
+        return _tb("Work out:   (%d + %d)^2 − %d × %d" % (a, b, c, e), ans, "int", {},
+                   ["Brackets: %d + %d = %d." % (a, b, a + b),
+                    "Index: %d^2 = %d." % (a + b, (a + b) ** 2),
+                    "Multiply: %d × %d = %d." % (c, e, c * e),
+                    "%d − %d = %d." % ((a + b) ** 2, c * e, ans)])
 
     def t_eval_dec():
         a = Decimal(random.randint(2, 9))
@@ -1099,9 +1131,13 @@ def _(d=1):
         return _numq("Evaluate this numerical expression involving decimals (use "
                      "BIDMAS):   %s" % expr, _fmt(val), [sol])
 
-    return _pick_t([t_bracket_add, t_mul_before_add, t_index, t_full, t_div_mix,
-                    t_two_bracket, t_decimal, t_missing_val, t_insert_bracket,
-                    t_compare, t_word, t_eval_dec], [t_table])
+    return _pick_t({0: [t_bracket_add, t_mul_before_add, t_index, t_div_mix,
+                        t_missing_val, t_insert_bracket, t_word],
+                    1: [t_bracket_add, t_mul_before_add, t_index, t_full, t_div_mix,
+                        t_two_bracket, t_decimal, t_missing_val, t_insert_bracket,
+                        t_compare, t_word, t_eval_dec],
+                    2: [t_index, t_full, t_two_bracket, t_decimal, t_missing_val,
+                        t_compare, t_eval_dec, t_square_bracket]}[d], [t_table])
 
 
 @skill("Y8.0.h", "Estimate to check a calculation", S0)
@@ -1558,11 +1594,12 @@ def _(d=1):
     d = _d(d)
 
     def _pair():
-        g = random.randint(2, 12)
-        a = g * random.randint(2, 9)
-        b = g * random.randint(2, 9)
+        g = random.randint(*{0: (2, 6), 1: (2, 12), 2: (6, 25)}[d])
+        m = {0: 5, 1: 9, 2: 12}[d]
+        a = g * random.randint(2, m)
+        b = g * random.randint(2, m)
         while a == b:
-            b = g * random.randint(2, 9)
+            b = g * random.randint(2, m)
         return a, b
 
     def t_two():
@@ -1574,8 +1611,8 @@ def _(d=1):
                     "HCF(%d, %d) = %d." % (a, b, h)])
 
     def t_three():
-        g = random.randint(2, 8)
-        m1, m2, m3 = random.sample(range(2, 9), 3)
+        g = random.randint(2, {0: 5, 1: 8, 2: 15}[d])
+        m1, m2, m3 = random.sample(range(2, {0: 7, 1: 9, 2: 13}[d]), 3)
         a, b, c = g * m1, g * m2, g * m3
         h = math.gcd(math.gcd(a, b), c)
         return _tb("Find the HCF of %d, %d and %d." % (a, b, c), h, "int", {},
@@ -1591,7 +1628,7 @@ def _(d=1):
                     "HCF = %d." % h])
 
     def t_word_rows():
-        h = random.randint(3, 9)
+        h = random.randint(*{0: (2, 5), 1: (3, 9), 2: (6, 15)}[d])
         a = h * random.randint(2, 6)
         b = h * random.randint(2, 6)
         while a == b:
@@ -1605,9 +1642,11 @@ def _(d=1):
                     "The greatest such number is HCF = %d." % math.gcd(a, b)])
 
     def t_word_bags():
-        h = random.randint(4, 10)
+        h = random.randint(*{0: (2, 6), 1: (4, 10), 2: (8, 18)}[d])
         a = h * random.randint(2, 6)
         b = h * random.randint(2, 6)
+        while a == b:
+            b = h * random.randint(2, 6)
         return _tb("A packer has %d pens and %d pencils to share into identical bags "
                    "with no items left over. What is the greatest number of bags?"
                    % (a, b), math.gcd(a, b), "int", {},
@@ -1615,8 +1654,11 @@ def _(d=1):
                     "Greatest = HCF = %d." % math.gcd(a, b)])
 
     def t_coprime():
-        a = pick([8, 9, 15, 16, 25, 21, 35])
-        b = pick([7, 11, 13, 17, 19])
+        if d == 2:                                 # stretch: two composites, which may or may not share a factor
+            a, b = pick([(15, 28), (21, 32), (25, 36), (27, 40), (35, 48), (33, 35), (21, 35), (26, 39), (45, 56), (49, 63)])
+        else:
+            a = pick([8, 9, 15, 16, 25, 21, 35])
+            b = pick([7, 11, 13, 17, 19] if d else [7, 11, 13])
         return _yn("Do %d and %d have a highest common factor of 1? (yes/no)" % (a, b),
                    "yes" if math.gcd(a, b) == 1 else "no",
                    ["HCF(%d, %d) = %d." % (a, b, math.gcd(a, b))])
@@ -1644,8 +1686,8 @@ def _(d=1):
                    ["Find the largest factor shared by the two numbers in that row.",
                     "The HCF is %d." % want], missing=[r_i, 2])
 
-    return _pick_t([t_two, t_three, t_from_pf, t_word_rows, t_word_bags, t_coprime,
-                    t_check], [t_table])
+    return _pick_t([t_two, t_three, t_from_pf, t_word_rows, t_word_bags, t_coprime, t_check] if d
+                   else [t_two, t_word_rows, t_word_bags, t_coprime, t_check], [t_table])
 
 
 @skill("Y8.1.e", "Lowest common multiple (LCM)", S1)

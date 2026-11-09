@@ -277,7 +277,9 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    a, b = random.sample([6, 8, 10, 12, 20], 2)
+    a, b = random.sample(_by(d, [4, 6, 8, 10], [6, 8, 10, 12, 20], [8, 12, 15, 18, 20, 24]), 2)
+    while d == 2 and max(a, b) % min(a, b) == 0:      # stretch: never one pack size a multiple of the other
+        a, b = random.sample([8, 12, 15, 18, 20, 24], 2)
     l = _lcm(a, b)
     return _int("Sausages come in packs of %d and rolls in packs of %d. What is the smallest number of packs of "
                 "sausages to buy so that there are exactly as many sausages as rolls?" % (a, b), l // a,
@@ -287,7 +289,9 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    t1, t2 = pick([(40, 60), (45, 60), (50, 75), (60, 80), (36, 48), (60, 90), (72, 96)])
+    t1, t2 = pick(_by(d, [(20, 30), (30, 40), (40, 60), (30, 45)],
+                      [(40, 60), (45, 60), (50, 75), (60, 80), (36, 48), (60, 90), (72, 96)],
+                      [(48, 72), (54, 72), (72, 96), (84, 126), (75, 90)]))
     l = _lcm(t1, t2)
     return _int("%s runs a lap in %d seconds and %s runs a lap in %d seconds. They start together at the start line. "
                 "How many laps has %s run when they are next at the start line together?"
@@ -311,7 +315,9 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    a, b = random.sample([8, 10, 12, 15, 16, 18, 20, 24], 2)
+    a, b = random.sample(_by(d, [8, 10, 12, 16], [8, 10, 12, 15, 16, 18, 20, 24], [14, 15, 18, 21, 24, 32, 36]), 2)
+    while d == 2 and max(a, b) % min(a, b) == 0:
+        a, b = random.sample([14, 15, 18, 21, 24, 32, 36], 2)
     l = _lcm(a, b)
     return _int("Gear A has %d teeth and gear B has %d teeth. They turn together. How many full turns does gear A "
                 "make before both gears are back in their starting positions for the first time?" % (a, b), l // a,
@@ -321,10 +327,11 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    h = random.randint(4, 12)
-    a, b = random.sample(range(2, 8), 2)
+    h = random.randint(_by(d, 2, 4, 6), _by(d, 6, 12, 15))
+    top = _by(d, 6, 8, 10)
+    a, b = random.sample(range(2, top), 2)
     while gcd(a, b) != 1:
-        a, b = random.sample(range(2, 8), 2)
+        a, b = random.sample(range(2, top), 2)
     r, bl = a * h, b * h
     return _int("A hall has %d red chairs and %d blue chairs. They are put in rows, every row has the same number "
                 "of chairs, and each row has only one colour. Rows are as long as possible. How many rows are there?"
@@ -335,7 +342,9 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    p, q = pick([(10, 15), (12, 18), (15, 20), (20, 30), (9, 12), (6, 8), (12, 20), (18, 24)])
+    p, q = pick(_by(d, [(10, 15), (10, 20), (15, 30), (20, 30)],
+                    [(10, 15), (12, 18), (15, 20), (20, 30), (9, 12), (6, 8), (12, 20), (18, 24)],
+                    [(14, 21), (16, 24), (18, 24), (24, 36), (8, 14), (16, 20)]))
     l = _lcm(p, q)
     n = 180 // l + 1
     return _int("One bell rings every %d minutes and another every %d minutes. Both ring at 9:00. How many times do "
@@ -480,7 +489,7 @@ def _(d):
 @_more("Y8.1.i", 10)
 def _(d):
     b = random.randint(2, 9)
-    m, n = random.randint(3, 9), random.randint(2, 8)
+    m, n = random.randint(_by(d, 2, 3, 5), _by(d, 5, 9, 12)), random.randint(2, _by(d, 4, 8, 10))
     p = random.randint(1, m + n - 1)
     return _int("Write %d^%d × %d^%d ÷ %d^%d as a single power of %d. What is the power?" % (b, m, b, n, b, p, b), m + n - p,
                 ["Multiply: add the powers, %d + %d = %d." % (m, n, m + n),
@@ -489,8 +498,10 @@ def _(d):
 
 @_more("Y8.1.i", 10)
 def _(d):
-    b, big, k = pick([(2, 4, 2), (2, 8, 3), (2, 16, 4), (3, 9, 2), (3, 27, 3), (5, 25, 2), (2, 32, 5)])
-    m = random.randint(2, 6)
+    b, big, k = pick(_by(d, [(2, 4, 2), (3, 9, 2), (5, 25, 2), (2, 8, 3)],
+                         [(2, 4, 2), (2, 8, 3), (2, 16, 4), (3, 9, 2), (3, 27, 3), (5, 25, 2), (2, 32, 5)],
+                         [(2, 32, 5), (2, 64, 6), (3, 81, 4), (5, 125, 3), (3, 27, 3), (2, 16, 4)]))
+    m = random.randint(2, _by(d, 4, 6, 9))
     return _int("%d^%d × %d = %d^?. What is the missing power?" % (b, m, big, b), m + k,
                 ["%d = %d^%d." % (big, b, k), "%d^%d × %d^%d = %d^%d." % (b, m, b, k, b, m + k)])
 
@@ -498,7 +509,7 @@ def _(d):
 @_more("Y8.1.i", 10)
 def _(d):
     b = random.randint(2, 5)
-    m, n = random.randint(2, 6), random.randint(2, 6)
+    m, n = random.randint(2, _by(d, 4, 6, 9)), random.randint(2, _by(d, 4, 6, 9))
     return _int("%s says %d^%d × %d^%d = %d^%d. That is wrong. %d^%d × %d^%d = %d^?. What is the correct power?"
                 % (_who(), b, m, b, n, b * b, m * n, b, m, b, n, b), m + n,
                 ["Keep the base the same and add the powers.", "%d + %d = %d." % (m, n, m + n)])
@@ -507,7 +518,7 @@ def _(d):
 @_more("Y8.1.i", 10)
 def _(d):
     v = pick(["a", "y", "m", "p", "t"])
-    m, n = random.randint(5, 12), random.randint(2, 4)
+    m, n = random.randint(_by(d, 4, 5, 8), _by(d, 9, 12, 15)), random.randint(2, _by(d, 3, 4, 6))
     kind = random.randrange(3)
     if kind == 0:
         return _int("Simplify %s^%d ÷ %s^%d. What is the power of %s?" % (v, m, v, n, v), m - n, ["Subtract the powers: %d − %d = %d." % (m, n, m - n)])
@@ -529,27 +540,34 @@ def _(d):
 @_more("Y8.1.i", 10)
 def _(d):
     b = random.randint(2, 7)
-    n, tot = random.randint(2, 6), random.randint(8, 14)
+    n, tot = random.randint(2, _by(d, 4, 6, 9)), random.randint(_by(d, 6, 8, 12), _by(d, 10, 14, 20))
+    if d == 2 and random.random() < 0.5:               # stretch: the missing power is in a division
+        return _int("%d^? ÷ %d^%d = %d^%d. What is the missing power?" % (b, b, n, b, tot), tot + n,
+                    ["Powers subtract when dividing: ? − %d = %d." % (n, tot), "? = %d." % (tot + n)])
     return _int("%d^? × %d^%d = %d^%d. What is the missing power?" % (b, b, n, b, tot), tot - n,
                 ["Powers add when multiplying: ? + %d = %d." % (n, tot), "? = %d." % (tot - n)])
 
 
 @_more("Y8.1.i", 10)
 def _(d):
-    b, m, n = pick([(2, 2, 2), (2, 3, 2), (3, 2, 2), (2, 2, 3), (10, 2, 2), (5, 1, 3), (2, 4, 2)])
+    b, m, n = pick(_by(d, [(2, 2, 2), (3, 2, 2), (10, 2, 2), (2, 1, 3)],
+                       [(2, 2, 2), (2, 3, 2), (3, 2, 2), (2, 2, 3), (10, 2, 2), (5, 1, 3), (2, 4, 2)],
+                       [(2, 3, 3), (3, 2, 3), (2, 2, 4), (10, 3, 2), (5, 2, 2), (3, 3, 2)]))
     return _int("Work out (%d^%d)^%d." % (b, m, n), b ** (m * n),
                 ["(%d^%d)^%d = %d^%d." % (b, m, n, b, m * n), "= %s." % _c(b ** (m * n))])
 
 
 @_more("Y8.1.j", 10)
 def _(d):
-    a, b = random.sample(range(2, 13), 2)
+    a, b = random.sample(range(_by(d, 2, 2, 6), _by(d, 8, 13, 16)), 2)
     return _int("Work out √%d + √%d." % (a * a, b * b), a + b, ["√%d = %d and √%d = %d." % (a * a, a, b * b, b), "%d + %d = %d." % (a, b, a + b)])
 
 
 @_more("Y8.1.j", 10)
 def _(d):
-    a, b, c = pick([(3, 4, 5), (6, 8, 10), (5, 12, 13), (8, 15, 17), (9, 12, 15), (12, 16, 20)])
+    a, b, c = pick(_by(d, [(3, 4, 5), (6, 8, 10)],
+                       [(3, 4, 5), (6, 8, 10), (5, 12, 13), (8, 15, 17), (9, 12, 15), (12, 16, 20)],
+                       [(5, 12, 13), (8, 15, 17), (7, 24, 25), (20, 21, 29), (12, 35, 37), (9, 40, 41)]))
     return _int("Work out √(%d + %d). (Add first, then take the square root.)" % (a * a, b * b), c,
                 ["%d + %d = %d." % (a * a, b * b, c * c), "√%d = %d. (Not √%d + √%d = %d.)" % (c * c, c, a * a, b * b, a + b)])
 
@@ -563,7 +581,8 @@ def _(d):
 
 @_more("Y8.1.j", 10)
 def _(d):
-    x = pick(["1.5", "1.2", "2.5", "0.9", "0.6", "1.1", "3.5", "0.7"])
+    x = pick(_by(d, ["0.5", "1.1", "1.2", "1.5", "0.9"], ["1.5", "1.2", "2.5", "0.9", "0.6", "1.1", "3.5", "0.7"],
+                 ["1.3", "1.4", "1.6", "2.4", "3.2", "4.5", "0.8"]))
     a = Decimal(x) ** 2
     return _num("A square garden has an area of %s m². How long is each side, in metres?" % _ds(a), x,
                 ["Side = √%s." % _ds(a), "%s × %s = %s, so the side is %s m." % (x, x, _ds(a), x)], "m")
@@ -571,7 +590,7 @@ def _(d):
 
 @_more("Y8.1.j", 10)
 def _(d):
-    n = pick([x for x in range(10, 120) if isqrt(x) ** 2 != x])
+    n = pick([x for x in range(_by(d, 10, 10, 100), _by(d, 50, 120, 300)) if isqrt(x) ** 2 != x])
     r = _round(Decimal(n).sqrt(), 1)
     lo = isqrt(n)
     return _num("Without a calculator, √%d lies between %d and %d. Using a calculator, give √%d correct to 1 decimal place."
@@ -580,7 +599,7 @@ def _(d):
 
 @_more("Y8.1.j", 10)
 def _(d):
-    k = random.randint(3, 11)
+    k = random.randint(_by(d, 3, 3, 9), _by(d, 6, 11, 15))
     n = k * k + random.choice([-3, -2, -1, 1, 2, 3])
     return _yn("Is √%d greater than %d?" % (n, k), n > k * k,
                ["%d = √%d." % (k, k * k), "√%d is %s than √%d." % (n, "greater" if n > k * k else "less", k * k)])
@@ -589,7 +608,7 @@ def _(d):
 @_more("Y8.1.j", 10)
 def _(d):
     while True:
-        n = random.randint(5, 95)
+        n = random.randint(_by(d, 5, 5, 30), _by(d, 30, 95, 99))
         r = n ** 0.5
         near = round(r * 2) / 2.0
         if isqrt(n) ** 2 != n and abs(r - near) < 0.15:
@@ -2597,8 +2616,9 @@ def _(d):
 
 @_more("Y8.8.k", 11)
 def _(d):
-    a, k = random.randint(2, 8) * 2, pick(["1.5", "2.5", "0.5"])
-    other = random.randint(3, 12) * 2
+    # easy: whole-number scale factors; stretch: 1.25, 3.5 … and longer sides
+    a, k = random.randint(2, _by(d, 6, 8, 12)) * 2, pick(_by(d, ["2", "3", "0.5"], ["1.5", "2.5", "0.5"], ["1.5", "2.5", "1.25", "3.5", "0.5"]))
+    other = random.randint(3, _by(d, 8, 12, 20)) * 2
     if k == "0.5":
         return _num("Two triangles are similar. A side of %d cm in the large triangle matches a side of %d cm in the small one. "
                     "Another side of the large triangle is %d cm. How long is the matching side in the small triangle, in cm?"
@@ -2625,30 +2645,39 @@ def _(d):
     a, b = random.randint(2, 6), random.randint(3, 9)
     if a == b:
         b += 1
-    k = random.randint(2, 4)
+    # easy: small whole scale factors and an obvious mismatch; stretch: scale factors like 1.5 and a mismatch of 1
+    k = Decimal(pick(_by(d, ["2", "3"], ["2", "3", "4"], ["1.5", "2.5", "3", "4"])))
+    if k != int(k):
+        a, b = 2 * a, 2 * b
     sim = random.random() < 0.5
-    c, e = (a * k, b * k) if sim else (a * k, b * k + pick([-1, 1, 2]))
+    c, e = (int(a * k), int(b * k)) if sim else (int(a * k), int(b * k) + pick(_by(d, [2, 3], [-1, 1, 2], [-1, 1])))
     return _yn("Rectangle A is %d cm by %d cm. Rectangle B is %d cm by %d cm. Are they similar?" % (a, b, c, e), sim,
-               ["%d ÷ %d = %d and %d ÷ %d = %s." % (c, a, k, e, b, _ds(_round(Decimal(e) / b, 2))),
-                "%s" % ("Both sides are multiplied by %d, so yes." % k if sim else "The sides are not multiplied by the same number, so no.")])
+               ["%d ÷ %d = %s and %d ÷ %d = %s." % (c, a, _ds(k), e, b, _ds(_round(Decimal(e) / b, 2))),
+                "%s" % ("Both sides are multiplied by %s, so yes." % _ds(k) if sim else "The sides are not multiplied by the same number, so no.")])
 
 
 @_more("Y8.8.k", 11)
 def _(d):
-    stick, sh = pick([(2, 3), (1, 2), (2, 5), (3, 4), (1.5, 2)])
-    k = random.randint(3, 8)
+    stick, sh = pick(_by(d, [(2, 3), (1, 2), (2, 5), (3, 4)], [(2, 3), (1, 2), (2, 5), (3, 4), (1.5, 2)],
+                         [(2, 3), (1.5, 2), (1.2, 1.6), (2, 5), (1.8, 2.4)]))
+    k = Decimal(pick(_by(d, ["2", "3", "4"], ["3", "4", "5", "6", "7", "8"], ["2.5", "3.5", "4.5", "6", "7.5"])))
     tree = Decimal(str(stick)) * k
     return _num("A %s m stick casts a shadow %s m long. At the same time a tree casts a shadow %s m long. How tall is the tree, in m? "
-                "(The triangles are similar.)" % (_ds(Decimal(str(stick))), _ds(Decimal(sh)), _ds(Decimal(sh) * k)), tree,
-                ["The tree's shadow is %d times as long." % k, "%s × %d = %s m." % (_ds(Decimal(str(stick))), k, _ds(tree))], "m")
+                "(The triangles are similar.)" % (_ds(Decimal(str(stick))), _ds(Decimal(str(sh))), _ds(Decimal(str(sh)) * k)), tree,
+                ["The tree's shadow is %s times as long." % _ds(k), "%s × %s = %s m." % (_ds(Decimal(str(stick))), _ds(k), _ds(tree))], "m")
 
 
 @_more("Y8.8.k", 11)
 def _(d):
-    s = [random.randint(3, 9) for _ in range(3)]
-    k = random.randint(2, 4)
+    s = [random.randint(_by(d, 2, 3, 3), _by(d, 6, 9, 12)) for _ in range(3)]
+    k = random.randint(2, _by(d, 3, 4, 6))
     i = random.randrange(3)
     rows = [["ABC"] + [str(x) for x in s], ["PQR"] + [str(x * k) for x in s]]
+    if d == 2 and random.random() < 0.5:               # stretch: the missing side is in the smaller triangle
+        return _dt("Triangle ABC is similar to triangle PQR (AB matches PQ, BC matches QR, CA matches RP). Lengths are in cm. What goes in "
+                   "the empty cell?", ["Triangle", "AB / PQ", "BC / QR", "CA / RP"], rows, s[i],
+                   ["Scale factor = %d ÷ %d = %d." % (s[(i + 1) % 3] * k, s[(i + 1) % 3], k), "%d ÷ %d = %d cm." % (s[i] * k, k, s[i])],
+                   missing=(0, i + 1))
     return _dt("Triangle ABC is similar to triangle PQR (AB matches PQ, BC matches QR, CA matches RP). Lengths are in cm. What goes in "
                "the empty cell?", ["Triangle", "AB / PQ", "BC / QR", "CA / RP"], rows, s[i] * k,
                ["Scale factor = %d ÷ %d = %d." % (s[(i + 1) % 3] * k, s[(i + 1) % 3], k), "%d × %d = %d cm." % (s[i], k, s[i] * k)],
@@ -2768,12 +2797,15 @@ def _(d):
 def _(d):
     want = random.random() < 0.5
     while True:
-        s = sorted(random.sample(range(2, 15), 3))
-        if s[0] + s[1] != s[2] and (s[0] + s[1] > s[2]) == want:
+        s = sorted(random.sample(range(2, _by(d, 12, 15, 25)), 3))
+        gap = s[0] + s[1] - s[2]
+        # easy: a clear yes or no; stretch: within 1 cm, or exactly equal (a flat 'triangle', so no)
+        if (s[0] + s[1] > s[2]) == want and _by(d, abs(gap) >= 3, gap != 0, abs(gap) <= 1):
             break
     ok = want
     return _yn("Can you construct a triangle with sides %d cm, %d cm and %d cm?" % tuple(s), ok,
-               ["The two shorter sides must add up to more than the longest.", "%d + %d = %d, which is %s than %d." % (s[0], s[1], s[0] + s[1], "more" if ok else "less", s[2])])
+               ["The two shorter sides must add up to more than the longest.",
+                "%d + %d = %d, which is %s %d." % (s[0], s[1], s[0] + s[1], "more than" if ok else ("less than" if gap else "only equal to"), s[2])])
 
 
 @_more("Y8.8.n", 11)
@@ -2787,10 +2819,12 @@ def _(d):
 
 @_more("Y8.8.n", 11)
 def _(d):
-    start, word, times = pick([(60, "an equilateral triangle", 1), (60, "an equilateral triangle", 2), (90, "a perpendicular", 1), (90, "a perpendicular", 2)])
+    start, word = pick([(60, "an equilateral triangle"), (90, "a perpendicular")])
+    times = pick(_by(d, [1], [1, 2], [2, 3]))
     v = start / 2 ** times
     return _num("You construct a %d° angle using %s, then bisect it%s. What angle do you end up with, in degrees?"
-                % (start, word, "" if times == 1 else ", then bisect one of the halves"), Decimal(str(v)),
+                % (start, word, {1: "", 2: ", then bisect one of the halves",
+                                 3: ", then bisect one of the halves, then bisect one of those"}[times]), Decimal(str(v)),
                 ["Each bisection halves the angle.", "%d ÷ %d = %s°." % (start, 2 ** times, _ds(Decimal(str(v))))], "°")
 
 
@@ -2804,7 +2838,9 @@ def _(d):
 def _(d):
     while True:
         ax, ay, bx, by = [random.randint(0, 10) for _ in range(4)]
-        if (ax + bx) % 2 == 0 and (ay + by) % 2 == 0 and (ax, ay) != (bx, by) and abs(ax - bx) + abs(ay - by) >= 4:
+        # easy: AB is horizontal or vertical; stretch: a long slanted AB
+        shape = _by(d, ax == bx or ay == by, True, ax != bx and ay != by and abs(ax - bx) + abs(ay - by) >= 8)
+        if (ax + bx) % 2 == 0 and (ay + by) % 2 == 0 and (ax, ay) != (bx, by) and abs(ax - bx) + abs(ay - by) >= 4 and shape:
             break
     mx, my = (ax + bx) // 2, (ay + by) // 2
     return {"prompt": "The perpendicular bisector of AB crosses AB at its midpoint. Plot that point.",

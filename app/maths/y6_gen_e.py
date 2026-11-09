@@ -1263,13 +1263,16 @@ def _(d=1):
 @skill("Y6.8.g", "Angles in a triangle", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3, 3])
+    # stretch: fewer of the fixed-fact framings (equilateral = 60°)
+    t = _pick_t([2, 1, 1, 1, 0 if d == 2 else 1, 1, 1, 1, 1, 1, 4, 3, 1 if d == 2 else 2, 3, 3])
 
     if t == 13:                                       # rotational symmetry: amount of rotation
-        nm, order = pick([("equilateral triangle", 3), ("square", 4),
-                          ("regular pentagon", 5), ("regular hexagon", 6),
-                          ("regular octagon", 8), ("rectangle", 2),
-                          ("parallelogram", 2), ("regular decagon", 10)])
+        shapes = [("equilateral triangle", 3), ("square", 4),
+                  ("regular pentagon", 5), ("regular hexagon", 6),
+                  ("regular octagon", 8), ("rectangle", 2),
+                  ("parallelogram", 2), ("regular decagon", 10)]
+        nm, order = pick(_by_d(d, [x for x in shapes if x[1] <= 4], shapes,
+                               [x for x in shapes if x[1] >= 5]))
         return _num_q("A shape has rotational symmetry when it fits onto itself as it is "
                       "turned. %s has rotational symmetry of order %d. What is the "
                       "smallest amount of rotation, in degrees, that turns it onto itself?"
@@ -1280,7 +1283,7 @@ def _(d=1):
                                 "360 ÷ %d = %d°." % (order, 360 // order)])
 
     if t == 14:                                       # amount of rotation -> order
-        order = pick([2, 3, 4, 5, 6, 8])
+        order = pick(_by_d(d, [2, 3, 4], [2, 3, 4, 5, 6, 8], [5, 6, 8, 9, 10, 12]))
         ask_order = random.random() < 0.5
         if ask_order:
             return _num_q("A shape has rotational symmetry. The smallest amount of "
@@ -1289,7 +1292,7 @@ def _(d=1):
                           order, "int",
                           solution=["360 ÷ %d = %d." % (360 // order, order),
                                     "The order of rotational symmetry is %d." % order])
-        turns = pick([2, 3])
+        turns = pick(_by_d(d, [2], [2, 3], [3, 4, 5]))
         return _num_q("A shape has rotational symmetry of order %d, so the smallest amount "
                       "of rotation that turns it onto itself is %d°. Through how many "
                       "degrees has the shape turned after %d of these smallest rotations?"
@@ -1301,11 +1304,13 @@ def _(d=1):
                                                     turns * (360 // order))])
 
     if t == 10:                                       # visual: measure, then find the third
-        a = random.choice([30, 40, 50, 60, 70, 80])
-        deg = random.choice([30, 40, 50, 60, 70, 80, 100, 110])
+        a = random.choice([30, 40, 50, 60, 70, 80]) if d < 2 else random.randint(21, 79)
+        degs = _by_d(d, [40, 50, 60, 70, 80], [30, 40, 50, 60, 70, 80, 100, 110],
+                     [25, 35, 45, 55, 65, 75, 85, 95, 105, 115])
+        deg = random.choice(degs)
         third = 180 - a - deg
         while third < 10:
-            deg = random.choice([30, 40, 50, 60])
+            deg = random.choice([d_ for d_ in degs if d_ <= 60])
             third = 180 - a - deg
         return {"prompt": "The angle shown is one angle of a triangle. Another angle of "
                           "the same triangle is %d°. Measure the angle shown, then work "
@@ -1318,7 +1323,9 @@ def _(d=1):
                              "180 − (%d + %d) = %d°." % (deg, a, third)]}
 
     if t == 11:                                       # visual: isosceles from a drawn apex
-        deg = random.choice([20, 30, 40, 50, 60, 70, 80, 100, 120, 140])
+        deg = random.choice(_by_d(d, [40, 60, 80, 100],
+                                  [20, 30, 40, 50, 60, 70, 80, 100, 120, 140],
+                                  [20, 50, 70, 110, 130, 150, 160]))
         base = (180 - deg) // 2
         return {"prompt": "The angle shown is the top angle of an isosceles triangle "
                           "whose two base angles are equal. Measure the angle shown, then "
@@ -1352,7 +1359,7 @@ def _(d=1):
                                 % (a, b, a + b, a + b, c)])
 
     if t == 1:                                        # right-angled triangle
-        a = random.randint(15, 75)
+        a = random.randint(2, 7) * 10 if d == 0 else random.randint(15 if d == 1 else 11, 75 if d == 1 else 79)
         return _num_q("A right-angled triangle has one angle of 90° and another of %d°. "
                       "What is the third angle, in degrees?" % a,
                       90 - a, "int", unit="degrees",
@@ -1360,7 +1367,8 @@ def _(d=1):
                                 "180 − 90 = 90, and 90 − %d = %d°." % (a, 90 - a)])
 
     if t == 2:                                        # isosceles: apex -> base
-        base = random.randint(35, 85)
+        # easy: base angles in 5s; stretch: any, so the top angle may be obtuse
+        base = random.randint(7, 17) * 5 if d == 0 else random.randint(35 if d == 1 else 15, 85)
         apex = 180 - 2 * base
         return _num_q("An isosceles triangle has an angle of %d° at the top and two equal "
                       "angles at the base. How many degrees is each base angle?" % apex,
@@ -1370,7 +1378,7 @@ def _(d=1):
                                 "%d ÷ 2 = %d°." % (180 - apex, base)])
 
     if t == 3:                                        # isosceles: base -> apex
-        base = random.randint(30, 80)
+        base = random.randint(3, 8) * 10 if d == 0 else random.randint(30 if d == 1 else 20, 80 if d == 1 else 89)
         apex = 180 - 2 * base
         return _num_q("An isosceles triangle has two equal base angles of %d° each. "
                       "How many degrees is the angle at the top?" % base,
@@ -1386,13 +1394,22 @@ def _(d=1):
                                 "180 ÷ 3 = 60°."])
 
     if t == 5:                                        # classify from two angles
-        a = random.randint(20, 100)
-        b = random.randint(20, min(150, 175 - a))
-        c = 180 - a - b
-        while c < 5:
+        if d == 0:                                    # easy: angles in 10s
+            a = random.randint(2, 10) * 10
+            b = random.randint(2, (170 - a) // 10) * 10
+            c = 180 - a - b
+        elif d == 2:                                  # stretch: the largest angle sits near 90°
+            c = random.randint(86, 94)
+            a = random.randint(20, 180 - c - 20)
+            b = 180 - a - c
+        else:
             a = random.randint(20, 100)
             b = random.randint(20, min(150, 175 - a))
             c = 180 - a - b
+            while c < 5:
+                a = random.randint(20, 100)
+                b = random.randint(20, min(150, 175 - a))
+                c = 180 - a - b
         biggest = max(a, b, c)
         kind = "right" if biggest == 90 else ("obtuse" if biggest > 90 else "acute")
         return _num_q("Two angles of a triangle are %d° and %d°. Work out the third "
@@ -1405,7 +1422,9 @@ def _(d=1):
 
     if t == 6:                                        # ratio of angles
         k = pick([1, 2, 3, 4, 5, 6])
-        mult = pick([[1, 2, 3], [1, 1, 4], [2, 3, 4], [1, 3, 5], [1, 2, 2]])
+        mult = pick(_by_d(d, [[1, 2, 3], [1, 1, 4], [1, 1, 1]],
+                          [[1, 2, 3], [1, 1, 4], [2, 3, 4], [1, 3, 5], [1, 2, 2]],
+                          [[2, 3, 4], [3, 4, 5], [4, 5, 6], [1, 4, 7], [2, 2, 5]]))
         unit = 180 // sum(mult)
         if 180 % sum(mult) != 0:
             mult = [1, 2, 3]
@@ -1422,8 +1441,11 @@ def _(d=1):
                                 "%d × %d = %d°." % (mult[want], unit, angs[want])])
 
     if t == 7:                                        # exterior angle
-        a = random.randint(30, 80)
-        b = random.randint(30, 80)
+        if d == 0:
+            a, b = random.randint(3, 7) * 10, random.randint(3, 7) * 10
+        else:
+            a, b = random.randint(30 if d == 1 else 11, 80 if d == 1 else 85), \
+                random.randint(30 if d == 1 else 11, 80 if d == 1 else 85)
         c = 180 - a - b
         ext = 180 - c
         return _num_q("Two angles of a triangle are %d° and %d°. The third angle sits on "
@@ -1434,9 +1456,16 @@ def _(d=1):
                                 "180 − %d = %d°." % (c, ext)])
 
     if t == 8:                                        # possible or not
-        vals, ok = pick([([60, 70, 50], True), ([90, 45, 45], True),
-                         ([100, 50, 40], False), ([80, 60, 30], False),
-                         ([120, 30, 30], True), ([45, 45, 45], False)])
+        vals, ok = pick(_by_d(d, [([60, 70, 50], True), ([90, 45, 45], True),
+                                  ([100, 100, 40], False), ([60, 60, 60], True),
+                                  ([90, 90, 90], False)],
+                              [([60, 70, 50], True), ([90, 45, 45], True),
+                               ([100, 50, 40], False), ([80, 60, 30], False),
+                               ([120, 30, 30], True), ([45, 45, 45], False)],
+                              # stretch: totals only a degree or two away from 180°
+                              [([61, 59, 61], False), ([89, 46, 45], True),
+                               ([73, 54, 52], False), ([104, 38, 38], True),
+                               ([117, 29, 34], True), ([66, 67, 48], False)]))
         return _num_q("Could a triangle have angles of %s? (type yes or no)"
                       % ", ".join("%d°" % v for v in vals),
                       "yes" if ok else "no", "str", text=True, placeholder="yes / no",
@@ -1447,7 +1476,15 @@ def _(d=1):
 
     # word problem
     who = pick(NAMES)
-    a = random.randint(25, 50)
+    if d == 2:                                        # stretch: work back to the smallest angle
+        a = random.randint(37, 44)
+        b = 180 - 3 * a
+        return _num_q("%s draws a triangle. Its largest angle is twice its smallest angle, and "
+                      "its middle angle is %d°. How many degrees is the smallest angle?" % (who, b),
+                      a, "int", unit="degrees",
+                      solution=["The smallest and largest angles make 180 − %d = %d°." % (b, 180 - b),
+                                "That is 3 lots of the smallest angle: %d ÷ 3 = %d°." % (180 - b, a)])
+    a = random.randint(25, 50) if d == 1 else random.randint(5, 10) * 5
     b = a + random.randint(10, 40)
     while 180 - a - b <= b:                           # the third angle must really be the largest
         a = random.randint(25, 50)
@@ -1464,10 +1501,18 @@ def _(d=1):
 @skill("Y6.8.h", "Angles in a quadrilateral", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 1, 1, 1, 1, 1, 3, 1, 1, 1, 4, 2, 3, 3, 3])
+    # stretch: fewer of the fixed-fact framings (angles of a rectangle, 2 × 180°)
+    fixed = 1 if d == 2 else None
+    t = _pick_t([2, 1, 1, 1, 1, 1, fixed or 3, 1, 0 if d == 2 else 1, 1, 4, fixed or 2, 3, 3, 3])
+
+    def _ang(lo, hi):
+        """An angle in [lo, hi]: a multiple of 10 when easy."""
+        if d == 0:
+            return random.randint(-(-lo // 10), hi // 10) * 10
+        return random.randint(lo, hi)
 
     if t == 12:                                       # identify rhombuses
-        case, ans = pick([
+        cases = [
             ("has four equal sides and two pairs of parallel sides", "yes"),
             ("has four equal sides and four right angles", "yes"),
             ("has four right angles but its sides are 8 cm, 5 cm, 8 cm and 5 cm", "no"),
@@ -1476,7 +1521,9 @@ def _(d=1):
             ("has sides of 7 cm, 7 cm, 4 cm and 4 cm with no parallel sides", "no"),
             ("has two pairs of parallel sides with sides of 9 cm, 5 cm, 9 cm and 5 cm",
              "no"),
-        ])
+        ]
+        case, ans = pick(_by_d(d, [cases[0], cases[3], cases[4]], cases,
+                               [cases[1], cases[2], cases[5], cases[6]]))
         return _num_q("A rhombus is a quadrilateral with four equal sides. Identify "
                       "whether this quadrilateral is a rhombus: the quadrilateral %s. "
                       "(type yes or no)" % case,
@@ -1485,7 +1532,7 @@ def _(d=1):
                                 "The answer is %s." % ans])
 
     if t == 13:                                       # relationships between quadrilaterals
-        stmt, ans = pick([
+        stmts = [
             ("A square is a rhombus", "always"),
             ("A square is a rectangle", "always"),
             ("A rectangle is a square", "sometimes"),
@@ -1498,7 +1545,12 @@ def _(d=1):
             ("A trapezium is a quadrilateral", "always"),
             ("A quadrilateral is a triangle", "never"),
             ("A rhombus is a pentagon", "never"),
-        ])
+        ]
+        easy = ("A square is a rectangle", "A rectangle is a square", "A trapezium is a quadrilateral",
+                "A parallelogram is a quadrilateral", "A quadrilateral is a triangle",
+                "A rhombus is a pentagon")
+        stmt, ans = pick(_by_d(d, [x for x in stmts if x[0] in easy], stmts,
+                               [x for x in stmts if x[0] not in easy[2:]]))
         return _num_q("Think about the relationships between quadrilaterals. “%s.” Is "
                       "this always, sometimes or never true? (type one word)" % stmt,
                       ans, "str", text=True, placeholder="always / sometimes / never",
@@ -1507,7 +1559,7 @@ def _(d=1):
                                 "The statement is %s true." % ans])
 
     if t == 14:                                       # describe relationships among quads
-        desc, nm = pick([
+        descs = [
             ("a rhombus with four right angles", "square"),
             ("a rectangle with four equal sides", "square"),
             ("a parallelogram with four equal sides and no right angles", "rhombus"),
@@ -1516,20 +1568,23 @@ def _(d=1):
             ("a quadrilateral with exactly one pair of parallel sides", "trapezium"),
             ("a quadrilateral with two pairs of parallel sides and no right angles, "
              "whose sides are not all equal", "parallelogram"),
-        ])
+        ]
+        desc, nm = pick(_by_d(d, descs[:2] + descs[4:5], descs, descs[2:4] + descs[5:]))
         return _num_q("Quadrilaterals can be described using their relationships to one "
                       "another. Which quadrilateral is %s? (type the name)" % desc,
                       nm, "str", text=True, placeholder=_QUAD_NAMES,
                       solution=["%s is %s." % (_a(nm).capitalize(), desc)])
 
     if t == 10:                                       # visual: measure, then find the rest
-        deg = random.choice([50, 60, 70, 80, 100, 110, 120, 130])
-        a = random.randint(60, 120)
-        b = random.randint(60, 120)
+        deg = random.choice(_by_d(d, [60, 70, 80, 100, 110],
+                                  [50, 60, 70, 80, 100, 110, 120, 130],
+                                  [45, 55, 65, 75, 85, 95, 105, 115, 125, 135]))
+        a = _ang(60, 120)
+        b = _ang(60, 120)
         rest = 360 - deg - a - b
         while not (20 <= rest <= 200):
-            a = random.randint(60, 120)
-            b = random.randint(60, 120)
+            a = _ang(60, 120)
+            b = _ang(60, 120)
             rest = 360 - deg - a - b
         return {"prompt": "The angle shown is one angle of a quadrilateral. Two of the "
                           "other angles are %d° and %d°. Measure the angle shown, then "
@@ -1553,13 +1608,11 @@ def _(d=1):
                              "Any quadrilateral's angles add up to 360°."]}
 
     if t == 0:                                       # three given, find the fourth
-        a = random.randint(50, 130)
-        b = random.randint(50, 130)
-        c = random.randint(50, 130)
+        lo, hi = _by_d(d, (50, 130), (50, 130), (35, 165))
+        a, b, c = _ang(lo, hi), _ang(lo, hi), _ang(lo, hi)
         rest = 360 - a - b - c
         while not (20 <= rest <= 200):
-            a, b, c = (random.randint(50, 130), random.randint(50, 130),
-                       random.randint(50, 130))
+            a, b, c = _ang(lo, hi), _ang(lo, hi), _ang(lo, hi)
             rest = 360 - a - b - c
         return _num_q("Three angles of a quadrilateral are %d°, %d° and %d°. "
                       "What is the fourth angle, in degrees?" % (a, b, c),
@@ -1569,8 +1622,8 @@ def _(d=1):
                                 % (a, b, c, a + b + c, a + b + c, rest)])
 
     if t == 1:                                        # two given, other two equal
-        a = random.randint(60, 130)
-        b = random.randint(60, 130)
+        a = _ang(60, 130) if d < 2 else random.randint(40, 155)
+        b = _ang(60, 130) if d < 2 else random.randint(40, 155)
         each = (360 - a - b) // 2
         b = 360 - a - 2 * each
         return _num_q("A quadrilateral has angles of %d° and %d°. The other two angles "
@@ -1582,8 +1635,8 @@ def _(d=1):
                                 "%d ÷ 2 = %d°." % (360 - a - b, each)])
 
     if t == 2:                                        # parallelogram
-        a = random.randint(35, 145)
-        ask_opp = random.random() < 0.5
+        a = _ang(35, 145) if d < 2 else random.randint(21, 159)
+        ask_opp = random.random() < _by_d(d, 0.5, 0.5, 0.25)   # stretch: mostly the harder one
         if ask_opp:
             return _num_q("In a parallelogram, opposite angles are equal. One angle is "
                           "%d°. How many degrees is the angle opposite it?" % a,
@@ -1599,8 +1652,8 @@ def _(d=1):
                                 % (2 * a, 360 - 2 * a, 360 - 2 * a, 180 - a)])
 
     if t == 3:                                        # kite
-        top = random.randint(50, 130)
-        bottom = random.randint(40, 120)
+        top = _ang(50, 130) if d < 2 else random.randint(35, 150)
+        bottom = _ang(40, 120) if d < 2 else random.randint(25, 140)
         each = (360 - top - bottom) // 2
         bottom = 360 - top - 2 * each
         return _num_q("A kite has one angle of %d° at the top and one of %d° at the "
@@ -1611,7 +1664,7 @@ def _(d=1):
                                 "%d ÷ 2 = %d°." % (360 - top - bottom, each)])
 
     if t == 4:                                        # trapezium co-interior
-        a = random.randint(50, 130)
+        a = _ang(50, 130) if d < 2 else random.randint(21, 159)
         return _num_q("In a trapezium, the two angles on the same side between the "
                       "parallel lines add up to 180°. One of them is %d°. How many "
                       "degrees is the other?" % a,
@@ -1620,8 +1673,10 @@ def _(d=1):
                                 "180 − %d = %d°." % (a, 180 - a)])
 
     if t == 5:                                        # ratio
-        mult = pick([[1, 2, 3, 4], [1, 1, 2, 2], [2, 3, 3, 4], [1, 3, 4, 4],
-                     [1, 2, 2, 3]])
+        mult = pick(_by_d(d, [[1, 1, 2, 2], [1, 2, 1, 2], [1, 1, 1, 3]],
+                          [[1, 2, 3, 4], [1, 1, 2, 2], [2, 3, 3, 4], [1, 3, 4, 4],
+                           [1, 2, 2, 3]],
+                          [[2, 3, 3, 4], [1, 3, 4, 4], [3, 4, 5, 6], [2, 3, 4, 6], [1, 2, 3, 6]]))
         unit = 360 // sum(mult)
         angs = [m * unit for m in mult]
         want = random.randrange(4)
@@ -1656,9 +1711,15 @@ def _(d=1):
                              "360 ÷ 4 = 90°."]}
 
     if t == 7:                                        # possible or not
-        vals, ok = pick([([90, 90, 90, 90], True), ([100, 80, 100, 80], True),
-                         ([120, 60, 120, 70], False), ([70, 110, 70, 110], True),
-                         ([90, 90, 90, 80], False), ([45, 135, 45, 135], True)])
+        vals, ok = pick(_by_d(d, [([90, 90, 90, 90], True), ([100, 80, 100, 80], True),
+                                  ([120, 120, 120, 120], False), ([90, 90, 90, 80], False)],
+                              [([90, 90, 90, 90], True), ([100, 80, 100, 80], True),
+                               ([120, 60, 120, 70], False), ([70, 110, 70, 110], True),
+                               ([90, 90, 90, 80], False), ([45, 135, 45, 135], True)],
+                              # stretch: totals a degree or two away from 360°
+                              [([97, 83, 96, 84], True), ([112, 68, 111, 70], False),
+                               ([59, 121, 61, 118], False), ([143, 37, 88, 92], True),
+                               ([76, 104, 77, 102], False)]))
         return _num_q("Could a quadrilateral have angles of %s? (type yes or no)"
                       % ", ".join("%d°" % v for v in vals),
                       "yes" if ok else "no", "str", text=True, placeholder="yes / no",
@@ -1677,14 +1738,29 @@ def _(d=1):
 
     # word problem
     who = pick(NAMES)
-    a = random.randint(60, 110)
-    b = a + random.randint(10, 40)
-    c = random.randint(50, 110)
+    if d == 2:                                        # stretch: the third angle depends on the first
+        a = random.randint(40, 70)
+        x = random.randint(10, 40)
+        rest = 360 - a - (a + x) - 2 * a
+        while not (20 <= rest <= 200):
+            a = random.randint(40, 70)
+            x = random.randint(10, 40)
+            rest = 360 - a - (a + x) - 2 * a
+        return _num_q("%s draws a quadrilateral. One angle is %d°, the next is %d° larger than "
+                      "that one, and a third angle is twice the first. How many degrees is the "
+                      "last angle?" % (who, a, x),
+                      rest, "int", unit="degrees",
+                      solution=["The angles so far are %d°, %d° and %d°." % (a, a + x, 2 * a),
+                                "%d + %d + %d = %d, and 360 − %d = %d°."
+                                % (a, a + x, 2 * a, 4 * a + x, 4 * a + x, rest)])
+    a = _ang(60, 110)
+    b = a + _ang(10, 40)
+    c = _ang(50, 110)
     rest = 360 - a - b - c
     while not (20 <= rest <= 200):
-        a = random.randint(60, 110)
-        b = a + random.randint(10, 40)
-        c = random.randint(50, 110)
+        a = _ang(60, 110)
+        b = a + _ang(10, 40)
+        c = _ang(50, 110)
         rest = 360 - a - b - c
     return _num_q("%s draws a quadrilateral. One angle is %d°, the next is %d° larger "
                   "than that one, and a third angle is %d°. How many degrees is the "
@@ -4505,7 +4581,10 @@ def _(d=1):
     d = _tier(d)
     title, ylab, xlab, labels, mids, lo, hi = pick(_LG6_TOPICS)
     n = 5
-    step = 2
+    # easy: readings in 5s; core: in 2s; stretch: any whole number, so reading needs care
+    step = _by_d(d, 5, 2, 1)
+    if step == 5:
+        lo = -(-lo // 5) * 5
     vals = sorted(random.sample(range(lo, hi + 1, step), n))
     if labels[0] == "0 min":                          # distance travelled is 0 at the start
         vals = [0] + sorted(random.sample(range(lo + step, hi + 1, step), n - 1))
@@ -4515,7 +4594,10 @@ def _(d=1):
     pts = [[lab, v] for lab, v in zip(labels, vals)]
     spec = {"points": pts, "yLabel": ylab, "xLabel": xlab}
     i, j = random.sample(range(n), 2)
-    t = _pick_t([2, 3, 2, 1, 1, 1, 1, 1, 1, 1])
+    # easy: mostly straight reading; stretch: more comparing, rates of change and conversion
+    t = _pick_t(_by_d(d, [3, 1, 1, 2, 2, 3, 0, 1, 1, 1],
+                      [2, 3, 2, 1, 1, 1, 1, 1, 1, 1],
+                      [1, 3, 3, 1, 1, 1, 3, 2, 1, 2]))
 
     if t == 0:                                        # read a plotted point
         return {"prompt": "%s. Use the graph. What is the reading at %s?"
@@ -4612,8 +4694,16 @@ def _(d=1):
                              "So the reading %s." % ans]}
 
     # conversion graph reasoning (no picture claimed)
-    rate = pick([2, 4, 5, 8, 10])
-    x = random.randint(2, 12)
+    rate = pick(_by_d(d, [2, 5, 10], [2, 4, 5, 8, 10], [3, 4, 6, 8, 12]))
+    x = random.randint(*_by_d(d, (2, 6), (2, 12), (3, 15)))
+    if d == 2 and random.random() < 0.5:              # stretch: read the conversion backwards
+        return _num_q("A conversion graph is a straight line through (0,0). It shows that "
+                      "1 unit on the bottom axis is worth %d units on the side axis. "
+                      "What value on the bottom axis matches %d on the side axis?"
+                      % (rate, rate * x),
+                      x, "int",
+                      solution=["Each step of 1 across gives a rise of %d." % rate,
+                                "%d ÷ %d = %d." % (rate * x, rate, x)])
     return _num_q("A conversion graph is a straight line through (0,0). It shows that "
                   "1 unit on the bottom axis is worth %d units on the side axis. "
                   "What value on the side axis matches %d on the bottom axis?"

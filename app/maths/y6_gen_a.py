@@ -955,23 +955,26 @@ def _(d=1):
                     "%s to the nearest %s is %s." % (_c(n), _UNITW[unit], _c(_r(n, unit)))])
 
     def t_context():
-        n = random.randint(11000, 89000)
-        unit = pick([100, 1000])
+        n = random.randint(*{0: (1100, 8900), 1: (11000, 89000), 2: (110000, 990000)}[d])
+        unit = pick({0: [10, 100], 1: [100, 1000], 2: [1000, 10000]}[d])
         return _tb("%s people attended a concert. Round %s to the nearest %s."
                    % (_c(n), _c(n), _UNITW[unit]), _r(n, unit), "int", {},
                    ["%s to the nearest %s is %s."
                     % (_c(n), _UNITW[unit], _c(_r(n, unit)))])
 
     def t_money():
-        p = random.randint(100000, 9999999)
-        unit = pick([1000, 10000])
+        p = random.randint(*{0: (10000, 99999), 1: (100000, 9999999), 2: (1000000, 9999999)}[d])
+        unit = pick({0: [100, 1000], 1: [1000, 10000], 2: [10000, 100000]}[d])
         return _tb("A charity raised £%s. Round that amount to the nearest £%s."
                    % (_c(p), _UNITW[unit]), _r(p, unit), "int", {"unit": "£"},
                    ["£%s to the nearest £%s is £%s."
                     % (_c(p), _UNITW[unit], _c(_r(p, unit)))])
 
+    # easy: round to tens and hundreds; stretch: ten-thousands up to millions
+    EDGE = {0: [10, 100], 1: [100, 1000, 10000], 2: [10000, 100000]}[d]
+
     def t_smallest():
-        unit = pick([100, 1000, 10000])
+        unit = pick(EDGE)
         target = random.randint(5, 90) * unit
         return _tb("A whole number rounds to %s when rounded to the nearest %s. "
                    "What is the SMALLEST whole number it could be?"
@@ -980,7 +983,7 @@ def _(d=1):
                     "%s − %s = %s." % (_c(target), _c(unit // 2), _c(target - unit // 2))])
 
     def t_largest():
-        unit = pick([100, 1000, 10000])
+        unit = pick(EDGE)
         target = random.randint(5, 90) * unit
         return _tb("A whole number rounds to %s when rounded to the nearest %s. "
                    "What is the LARGEST whole number it could be?"
@@ -990,8 +993,13 @@ def _(d=1):
                     "So the largest is %s." % _c(target + unit // 2 - 1)])
 
     def t_two_ways():
-        n = random.randint(120000, 980000)
-        u1, u2 = 1000, 100000
+        if d == 0:
+            n, u1, u2 = random.randint(1200, 9800), 10, 1000
+        elif d == 1:
+            n, u1, u2 = random.randint(120000, 980000), 1000, 100000
+        else:                                        # stretch: digits that carry all the way
+            n = random.randint(1, 8) * 1000000 + random.randint(495000, 999999)
+            u1, u2 = 10000, 1000000
         return _tb("Round %s to the nearest %s, then round that answer to the "
                    "nearest %s. What is the final answer?"
                    % (_c(n), _UNITW[u1], _UNITW[u2]), _r(_r(n, u1), u2), "int", {},
@@ -1000,22 +1008,28 @@ def _(d=1):
                     % (_c(_r(n, u1)), _UNITW[u2], _c(_r(_r(n, u1), u2)))])
 
     def t_which_rounds():
-        unit = pick([100, 1000])
+        unit = pick({0: [10, 100], 1: [100, 1000], 2: [10000, 100000]}[d])
         target = random.randint(6, 90) * unit
         good = target + random.randint(-unit // 2 + 1, unit // 2 - 1)
-        opts = [good,
-                target + unit + random.randint(0, unit // 2 - 1),
-                target - unit - random.randint(0, unit // 2 - 1),
-                target + 2 * unit]
+        if d == 2:                                   # stretch: decoys just past each halfway point
+            opts = [good, target + unit // 2, target - unit // 2 - 1, target + unit]
+        else:
+            opts = [good,
+                    target + unit + random.randint(0, unit // 2 - 1),
+                    target - unit - random.randint(0, unit // 2 - 1),
+                    target + 2 * unit]
         random.shuffle(opts)
         return _tb("Which of these numbers rounds to %s when rounded to the nearest "
                    "%s?   %s" % (_c(target), _UNITW[unit], _lst(opts)), good, "int", {},
                    ["%s rounds to %s." % (_c(good), _c(target))])
 
     def t_yes_no():
-        unit = pick([1000, 10000])
-        n = random.randint(20, 900) * unit + random.randint(1, unit - 1)
-        claim = _r(n, unit) if random.random() < 0.5 else _r(n, unit) + unit
+        unit = pick({0: [10, 100], 1: [1000, 10000], 2: [100000, 1000000]}[d])
+        top = 900 if unit < 100000 else 9999999 // unit - 1
+        n = random.randint(20 if unit < 100000 else 1, top) * unit + random.randint(1, unit - 1)
+        # stretch: the wrong claim may be one unit too low as well as too high
+        wrong = _r(n, unit) + (unit if d < 2 or random.random() < 0.5 or _r(n, unit) == 0 else -unit)
+        claim = _r(n, unit) if random.random() < 0.5 else wrong
         return _yn("%s says that %s rounded to the nearest %s is %s. Is that "
                    "correct? (type 'yes' or 'no')"
                    % (pick(NAMES), _c(n), _UNITW[unit], _c(claim)),
@@ -1024,8 +1038,8 @@ def _(d=1):
                     % (_c(n), _UNITW[unit], _c(_r(n, unit)))])
 
     def t_line():
-        unit = pick([1000, 10000, 100000])
-        n = random.randint(4, 40) * unit + random.randint(1, unit - 1)
+        unit = pick({0: [10, 100], 1: [1000, 10000, 100000], 2: [10000, 100000]}[d])
+        n = random.randint(4, 40 if d < 2 else 90) * unit + random.randint(1, unit - 1)
         ans = _r(n, unit)
         return _nlq("Round %s to the nearest %s and place your answer on the number "
                     "line." % (_c(n), _UNITW[unit]), ans,
@@ -1035,9 +1049,9 @@ def _(d=1):
                     step=unit, major=unit * 5)
 
     def t_line_which():
-        unit = pick([1000, 10000])
+        unit = pick({0: [100], 1: [1000, 10000], 2: [10000, 100000]}[d])
         small = unit // 10
-        base = random.randint(3, 30) * unit
+        base = random.randint(3, 30 if d < 2 else 90) * unit
         return _nlq("Place the largest number marked on this line that still rounds "
                     "DOWN to %s when rounded to the nearest %s."
                     % (_c(base), _UNITW[unit]), base + 4 * small,
@@ -1047,7 +1061,7 @@ def _(d=1):
                     step=small, major=unit // 2, lo=base, hi=base + unit)
 
     def t_table():
-        unit = pick([1000, 10000, 100000])
+        unit = pick({0: [10, 100], 1: [1000, 10000, 100000], 2: [10000, 100000]}[d])
         ns = sorted(random.sample(range(unit * 3, unit * 90), 4))
         rows = [[_c(x), _c(_r(x, unit))] for x in ns]
         r = random.randint(0, 3)
@@ -1058,10 +1072,16 @@ def _(d=1):
                     % (_c(ns[r]), _UNITW[unit], _c(_r(ns[r], unit)))], missing=[r, 1])
 
     def t_table_two():
-        n = random.randint(120000, 9800000)
-        us = [1000, 10000, 100000, 1000000]
+        if d == 0:
+            n, us = random.randint(1200, 9800), [10, 100, 1000]
+        elif d == 1:
+            n, us = random.randint(120000, 9800000), [1000, 10000, 100000, 1000000]
+        else:                                        # stretch: 9s that carry into the next place
+            n = random.randint(1, 8) * 1000000 + random.randint(1, 9) * 100000 + \
+                random.randint(95000, 99999)
+            us = [1000, 10000, 100000, 1000000]
         row = [_c(_r(n, u)) for u in us]
-        col = random.randint(0, 3)
+        col = random.randint(0, len(us) - 1)
         return _dt("The table rounds %s to different degrees of accuracy. What "
                    "belongs in the empty cell?" % _c(n),
                    ["Nearest %s" % _UNITW[u] for u in us], [row], _r(n, us[col]),

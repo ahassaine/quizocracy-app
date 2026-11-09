@@ -301,7 +301,7 @@ def _(d=1):
 @skill("Y1.1.a", "Number bonds to 10", S1)
 def _(d=1):
     d = _d(d)
-    a = random.randint(0, 10)
+    a = random.randint(_by(d, 5, 0, 1), _by(d, 9, 10, 5))     # easy: small part to find; hard: big part
 
     def t_missing():
         return _tb("%d + ___ = 10" % a, 10 - a, "int", {}, ["%d and %d make 10." % (a, 10 - a)])
@@ -342,7 +342,18 @@ def _(d=1):
     def t_ten_equals():
         return _tb("10 = %d + ___" % a, 10 - a, "int", {}, ["%d and %d make 10." % (a, 10 - a)])
 
-    return _pick_t([t_missing, t_take, t_word, t_partner, t_left_missing, t_frame, t_sub_missing, t_pencils, t_ten_equals],
+    def t_three_parts():                                # hard: three numbers make 10
+        x = random.randint(1, 7)
+        y = random.randint(1, 8 - x)
+        return _tb("%d + %d + ___ = 10" % (x, y), 10 - x - y, "int", {},
+                   ["%d + %d = %d." % (x, y, x + y), "%d and %d make 10." % (x + y, 10 - x - y)])
+
+    def t_sub_equals():                                 # hard: the = sign on the left
+        return _tb("%d = 10 − ___" % a, 10 - a, "int", {}, ["10 − %d = %d." % (10 - a, a)])
+
+    return _pick_t(_by(d, [t_missing, t_take, t_word, t_partner, t_frame, t_pencils],
+                       [t_missing, t_take, t_word, t_partner, t_left_missing, t_frame, t_sub_missing, t_pencils, t_ten_equals],
+                       [t_left_missing, t_sub_missing, t_ten_equals, t_three_parts, t_sub_equals, t_pencils]),
                    [t_bar, t_line])
 
 
@@ -514,7 +525,7 @@ def _(d=1):
 @skill("Y1.1.d", "Missing numbers and the = sign", S1)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(1, 10), random.randint(1, 9)
+    a, b = random.randint(_by(d, 1, 1, 4), _by(d, 5, 10, 11)), random.randint(_by(d, 1, 1, 3), _by(d, 4, 9, 9))
 
     def t_left():
         return _tb("___ + %d = %d" % (b, a + b), a, "int", {}, ["%d − %d = %d." % (a + b, b, a)])
@@ -568,7 +579,7 @@ def _(d=1):
 
     def t_line_missing():
         return _nl("%d + ___ = %d. Mark the missing number on the number line." % (b, a + b), a, 1, 5,
-                   ["%d − %d = %d." % (a + b, b, a)], lo=0, hi=10)
+                   ["%d − %d = %d." % (a + b, b, a)], lo=0, hi=10 if a <= 10 else 20)
 
     def t_bag():
         return _tb("A bag had some sweets. %s put in %d more. Now there are %d. How many were in the bag at first?" % (_kid(), b, a + b),
@@ -583,7 +594,7 @@ def _(d=1):
     d = _d(d)
     kid = _kid()
     t = pick(THINGS)
-    a, b = random.randint(2, 12), random.randint(1, 8)
+    a, b = random.randint(_by(d, 2, 2, 6), _by(d, 6, 12, 12)), random.randint(_by(d, 1, 1, 4), _by(d, 4, 8, 8))
 
     def t_add():
         return _tb("%s has %d %s. %s finds %d more. How many %s now?" % (kid, a, t[0], kid, b, t[0]), a + b, "int", {},
@@ -599,7 +610,7 @@ def _(d=1):
                    ["%d − %d = %d." % (a + b, a, b)])
 
     def t_bus():
-        on, off = random.randint(5, 12), random.randint(1, 5)
+        on, off = random.randint(_by(d, 4, 5, 11), _by(d, 9, 12, 20)), random.randint(1, _by(d, 3, 5, 9))
         return _tb("%d people are on a bus. %d %s off. How many are on the bus now?" % (on, off, "gets" if off == 1 else "get"), on - off, "int", {},
                    ["%d − %d = %d." % (on, off, on - off)])
 
@@ -608,7 +619,17 @@ def _(d=1):
                 "component": "equal_groups", "spec": {"mode": "read", "groups": 1, "per": a + b}, "answer": a + b,
                 "answer_type": "int", "solution": ["%d + %d = %d." % (a, b, a + b)]}
 
-    return _pick_t([t_add, t_sub, t_difference, t_bus], [t_groups])
+    def t_two_step():                                   # hard: two steps
+        c = random.randint(1, a - 1)
+        return _tb("%s has %d %s. %s finds %d more, then gives %d away. How many %s now?" % (kid, a, t[0], kid, b, c, t[0]),
+                   a + b - c, "int", {}, ["%d + %d = %d." % (a, b, a + b), "%d − %d = %d." % (a + b, c, a + b - c)])
+
+    def t_start_unknown():                              # hard: the start is missing
+        return _tb("%s had some %s and gave away %d. Now %s has %d. How many did %s have at first?" % (kid, t[0], b, kid, a, kid),
+                   a + b, "int", {}, ["Put back the %d given away: %d + %d = %d." % (b, a, b, a + b)])
+
+    return _pick_t(_by(d, [t_add, t_sub, t_add, t_bus], [t_add, t_sub, t_difference, t_bus],
+                       [t_add, t_sub, t_difference, t_bus, t_two_step, t_start_unknown]), [t_groups])
 
 
 # ================================================================== 1.2 ======
@@ -674,7 +695,7 @@ def _(d=1):
 @skill("Y1.2.b", "Sharing and grouping", S2)
 def _(d=1):
     d = _d(d)
-    k, each = random.randint(2, 5), random.randint(2, 5)
+    k, each = random.randint(2, _by(d, 3, 5, 5)), random.randint(_by(d, 2, 2, 3), _by(d, 5, 5, 6))
 
     def t_share():
         return _tb("%d sweets are shared equally between %d children. How many does each child get?" % (k * each, k), each,
@@ -685,7 +706,7 @@ def _(d=1):
                    ["Make groups of %d: %d groups." % (each, k)])
 
     def t_half():
-        n = 2 * random.randint(1, 10)
+        n = 2 * random.randint(_by(d, 1, 1, 6), _by(d, 5, 10, 10))
         return _tb("Half of %d is ___" % n, n // 2, "int", {}, ["Share %d into 2 equal groups: %d." % (n, n // 2)])
 
     def t_pic():
@@ -694,7 +715,7 @@ def _(d=1):
                 "answer_type": "int", "solution": ["Each group has %d." % each]}
 
     def t_fair():
-        n = random.randint(5, 16)
+        n = random.randint(_by(d, 4, 5, 9), _by(d, 10, 16, 20))
         return _wq("Can %d sweets be shared fairly between 2 children? (yes or no)" % n, "yes" if n % 2 == 0 else "no",
                    ["%s" % ("Each gets %d." % (n // 2) if n % 2 == 0 else "One would be left over.")], "yes / no")
 
@@ -709,22 +730,29 @@ def _(d=1):
                       ["%d shared into %d is %d each." % (k * each, k, each)])
 
     def t_tens():
-        n = random.randint(2, 5)
+        n = random.randint(2, _by(d, 3, 5, 9))
         return _tb("%d pencils go into packs of 10. How many packs?" % (10 * n), n, "int", {}, ["Count in 10s: %d packs." % n])
 
     def t_pairs():
-        n = random.randint(2, 10)
+        n = random.randint(_by(d, 2, 2, 6), _by(d, 5, 10, 12))
         return _tb("%d socks are put into pairs. How many pairs?" % (2 * n), n, "int", {}, ["Count in 2s: %d pairs." % n])
 
     def t_fives():
-        n = random.randint(2, 6)
+        n = random.randint(2, _by(d, 3, 6, 8))
         return _tb("%d flowers go into vases of 5. How many vases?" % (5 * n), n, "int", {}, ["Count in 5s: %d vases." % n])
 
     def t_plates():
         return _tb("%s puts %d cakes onto %d plates, the same on each plate. How many cakes on each plate?" % (_kid(), k * each, k),
                    each, "int", {}, ["Share them out one at a time: %d each." % each])
 
-    return _pick_t([t_share, t_group, t_half, t_fair, t_tens, t_pairs, t_fives, t_plates], [t_pic, t_how_many_groups, t_strip])
+    def t_missing_total():                              # hard: work back from the share
+        return _tb("Some cakes are shared equally between %d children. Each child gets %d. How many cakes were there?" % (k, each),
+                   k * each, "int", {}, ["%d groups of %d: count in %ds to %d." % (k, each, each, k * each)])
+
+    return _pick_t(_by(d, [t_share, t_group, t_half, t_fair, t_pairs, t_plates],
+                       [t_share, t_group, t_half, t_fair, t_tens, t_pairs, t_fives, t_plates],
+                       [t_share, t_group, t_half, t_tens, t_pairs, t_fives, t_plates, t_missing_total]),
+                   [t_pic, t_how_many_groups, t_strip])
 
 
 # ================================================================== 1.3 ======
@@ -741,11 +769,11 @@ def _(d=1):
                 "spec": {"parts": 4, "mode": "shade"}, "answer": "2/4", "answer_type": "frac", "solution": ["Half of 4 parts is 2 parts."]}
 
     def t_quantity():
-        n = 2 * random.randint(1, 10)
+        n = 2 * random.randint(_by(d, 1, 1, 5), _by(d, 5, 10, 10))
         return _tb("What is half of %d?" % n, n // 2, "int", {}, ["%d shared into 2 equal groups is %d." % (n, n // 2)])
 
     def t_word():
-        n = 2 * random.randint(2, 8)
+        n = 2 * random.randint(_by(d, 1, 2, 5), _by(d, 5, 8, 10))
         return _tb("%s has %d strawberries and gives half to a friend. How many does the friend get?" % (_kid(), n), n // 2,
                    "int", {}, ["Half of %d is %d." % (n, n // 2)])
 
@@ -756,24 +784,24 @@ def _(d=1):
         return _tb("How many halves make a whole?", 2, "int", {}, ["2 halves make 1 whole."])
 
     def t_half_groups():
-        n = random.randint(1, 8)
+        n = random.randint(_by(d, 1, 1, 4), _by(d, 5, 8, 10))
         return {"prompt": "The counters are in 2 equal groups. What is half of %d?" % (2 * n), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": 2, "per": n}, "answer": n, "answer_type": "int",
                 "solution": ["One group has %d." % n]}
 
     def t_grid():
-        parts = pick([2, 4, 6, 8])
+        parts = pick(_by(d, [2, 4], [2, 4, 6, 8], [6, 8, 10]))
         return _area("Shade half of the shape.", {"mode": "fraction", "parts": parts}, "%d/%d" % (parts // 2, parts),
                      ["Half of %d squares is %s." % (parts, _pn(parts // 2, "square"))], atype="frac")
 
     def t_is_half():
-        parts = pick([4, 6, 8])
+        parts = pick(_by(d, [4], [4, 6, 8], [6, 8, 10]))
         sh = pick([parts // 2, parts // 2, parts // 2 - 1, parts // 2 + 1])
         return _wq("%d of the %d equal parts %s shaded. Is half shaded? (yes or no)" % (sh, parts, "is" if sh == 1 else "are"), "yes" if 2 * sh == parts else "no",
                    ["Half of %d is %d." % (parts, parts // 2)], "yes / no")
 
     def t_length():
-        n = 2 * random.randint(2, 10)
+        n = 2 * random.randint(_by(d, 1, 2, 5), _by(d, 5, 10, 10))
         return _tb("A string is %d cm long. It is cut in half. How long is each piece, in cm?" % n, n // 2, "int", {"unit": "cm"},
                    ["Half of %d is %d." % (n, n // 2)])
 
@@ -781,8 +809,15 @@ def _(d=1):
         n = random.randint(2, 10)
         return _tb("Half of a number is %d. What is the number?" % n, 2 * n, "int", {}, ["Double %d is %d." % (n, 2 * n)])
 
-    return _pick_t([t_quantity, t_word, t_equal, t_how_many_halves, t_is_half, t_length, t_whole],
-                   [t_shape, t_bar4, t_half_groups, t_grid])
+    def t_half_left():                                  # hard: how many are left after giving half away
+        n = 2 * random.randint(3, 10)
+        return _tb("A bag has %d marbles. Half of them roll away. How many marbles are still in the bag?" % n, n // 2, "int", {},
+                   ["Half of %d is %d, so %d roll away and %d stay." % (n, n // 2, n // 2, n // 2)])
+
+    return _pick_t(_by(d, [t_quantity, t_word, t_equal, t_how_many_halves, t_length],
+                       [t_quantity, t_word, t_equal, t_how_many_halves, t_is_half, t_length, t_whole],
+                       [t_quantity, t_word, t_is_half, t_length, t_whole, t_whole, t_half_left]),
+                   _by(d, [t_shape, t_half_groups, t_grid], [t_shape, t_bar4, t_half_groups, t_grid], [t_bar4, t_half_groups, t_grid]))
 
 
 @skill("Y1.3.b", "Quarters", S3)
@@ -794,7 +829,7 @@ def _(d=1):
                 "answer": "1/4", "answer_type": "frac", "solution": ["One of four equal parts."]}
 
     def t_quantity():
-        n = 4 * random.randint(1, 5)
+        n = 4 * random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
         return _tb("What is a quarter of %d?" % n, n // 4, "int", {}, ["Share %d into 4 equal groups: %d." % (n, n // 4)])
 
     def t_parts():
@@ -804,7 +839,7 @@ def _(d=1):
         return _tb("A pizza is cut into quarters. How many slices are there?", 4, "int", {}, ["Quarters means 4 equal parts."])
 
     def t_groups():
-        n = random.randint(1, 5)
+        n = random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
         return {"prompt": "There are 4 equal groups. What is one quarter of %d?" % (4 * n), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": 4, "per": n}, "answer": n, "answer_type": "int",
                 "solution": ["One group has %d." % n]}
@@ -815,12 +850,12 @@ def _(d=1):
                 "solution": ["8 parts shared into 4 groups is 2 parts."]}
 
     def t_grid():
-        parts = pick([4, 8, 12])
+        parts = pick(_by(d, [4], [4, 8, 12], [8, 12]))
         return _area("Shade one quarter of the shape.", {"mode": "fraction", "parts": parts}, "%d/%d" % (parts // 4, parts),
                      ["A quarter of %d squares is %s." % (parts, _pn(parts // 4, "square"))], atype="frac")
 
     def t_word():
-        n = 4 * random.randint(1, 5)
+        n = 4 * random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
         what = pick(["grapes", "stickers", "pens", "marbles"])
         return _tb("%s has %d %s and gives a quarter of them away. How many %s are given away?" % (_kid(), n, what, what), n // 4,
                    "int", {}, ["Share %d into 4 equal groups: %d." % (n, n // 4)])
@@ -841,15 +876,22 @@ def _(d=1):
                    ["One quarter is 1 of %d equal parts." % parts], "yes / no")
 
     def t_length():
-        n = 4 * random.randint(1, 5)
+        n = 4 * random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))
         return _tb("A ribbon is %d cm long. What is a quarter of it, in cm?" % n, n // 4, "int", {"unit": "cm"},
                    ["%d shared into 4 equal parts is %d." % (n, n // 4)])
 
     def t_equal_parts():
         return _wq("Are quarters equal parts? (yes or no)", "yes", ["A quarter is one of four equal parts."], "yes / no")
 
-    return _pick_t([t_quantity, t_parts, t_pizza, t_word, t_bigger, t_half_of_half, t_is_quarter, t_length, t_equal_parts],
-                   [t_shape, t_groups, t_bar8, t_grid])
+    def t_whole():                                      # hard: from a quarter back to the whole
+        n = random.randint(2, 5)
+        return _tb("A quarter of a number is %d. What is the number?" % n, 4 * n, "int", {},
+                   ["4 quarters make the whole: %d + %d + %d + %d = %d." % (n, n, n, n, 4 * n)])
+
+    return _pick_t(_by(d, [t_quantity, t_parts, t_pizza, t_word, t_bigger, t_equal_parts],
+                       [t_quantity, t_parts, t_pizza, t_word, t_bigger, t_half_of_half, t_is_quarter, t_length, t_equal_parts],
+                       [t_quantity, t_word, t_half_of_half, t_is_quarter, t_length, t_whole, t_whole]),
+                   _by(d, [t_shape, t_groups, t_grid], [t_shape, t_groups, t_bar8, t_grid], [t_groups, t_bar8, t_grid]))
 
 
 # ================================================================== 1.4 ======
@@ -857,13 +899,20 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _pair(lo, hi):
+        """Two different lengths: far apart when easy, close together when hard."""
+        a, b = random.sample(range(_by(d, 2, lo, lo + 4), _by(d, 11, hi, hi)), 2)
+        while (d == 0 and abs(a - b) < 3) or (d == 2 and abs(a - b) > 3):
+            a, b = random.sample(range(_by(d, 2, lo, lo + 4), _by(d, 11, hi, hi)), 2)
+        return a, b
+
     def t_longer():
-        a, b = random.sample(range(2, 20), 2)
+        a, b = _pair(2, 20)
         return _wq("A red ribbon is %d cm long. A blue ribbon is %d cm long. Which is longer? (red or blue)" % (a, b),
                    "red" if a > b else "blue", ["%d cm is more than %d cm." % (max(a, b), min(a, b))], "red or blue")
 
     def t_heavier():
-        a, b = random.sample(range(1, 20), 2)
+        a, b = _pair(1, 20)
         return _wq("A bag of apples weighs %d kg. A bag of potatoes weighs %d kg. Which is heavier? (apples or potatoes)" % (a, b),
                    "apples" if a > b else "potatoes", ["The bigger number is heavier."], "apples or potatoes")
 
@@ -877,13 +926,13 @@ def _(d=1):
         return _wq("A jug has no water in it. Is it full or empty?", "empty", ["No water means empty."], "full or empty")
 
     def t_ruler():
-        cm = random.randint(2, 15)
+        cm = random.randint(_by(d, 2, 2, 8), _by(d, 10, 15, 19))
         return {"prompt": "How long is the pencil, in cm?", "component": "ruler",
                 "spec": {"mode": "length", "value": cm, "max": 20, "unit": "cm"}, "answer": cm, "answer_type": "num",
                 "tolerance": 0.5, "solution": ["It reaches %d cm." % cm]}
 
     def t_difference():
-        a, b = random.sample(range(2, 20), 2)
+        a, b = random.sample(range(_by(d, 2, 2, 8), _by(d, 11, 20, 21)), 2)
         return _tb("One tower is %d cubes tall. Another is %d cubes tall. How many cubes taller is the bigger one?" % (a, b),
                    abs(a - b), "int", {}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
@@ -899,7 +948,19 @@ def _(d=1):
         return _wq("%s ran round the field in %d seconds. %s took %d seconds. Who was quicker?" % (kids[0], a, kids[1], b),
                    kids[0] if a < b else kids[1], ["Fewer seconds means quicker."], "name")
 
-    return _pick_t([t_longer, t_heavier, t_words, t_full, t_difference, t_quicker], [t_ruler, t_jug])
+    def t_tallest():                                    # hard: order three heights
+        vals = random.sample(range(60, 100), 3)
+        kids = random.sample(KIDS, 3)
+        most = pick([("tallest", max), ("shortest", min)])
+        ans = kids[vals.index(most[1](vals))]
+        return _wq("%s is %d cm tall, %s is %d cm tall and %s is %d cm tall. Who is the %s?"
+                   % (kids[0], vals[0], kids[1], vals[1], kids[2], vals[2], most[0]), ans,
+                   ["%s is %d cm, the %s height." % (ans, most[1](vals), "biggest" if most[1] is max else "smallest")], "name")
+
+    return _pick_t(_by(d, [t_longer, t_heavier, t_words, t_full, t_difference],
+                       [t_longer, t_heavier, t_words, t_full, t_difference, t_quicker],
+                       [t_longer, t_heavier, t_difference, t_quicker, t_tallest, t_tallest]),
+                   _by(d, [t_ruler], [t_ruler, t_jug], [t_ruler, t_jug]))
 
 
 @skill("Y1.4.b", "Coins and notes", S4)
@@ -965,7 +1026,24 @@ def _(d=1):
         return _wq("Which do you usually do first: %s or %s?" % (b, a), a, ["%s comes before %s." % (a.capitalize(), b)],
                    "type it")
 
-    return _pick_t([t_after, t_before, t_tomorrow, t_yesterday, t_month, t_counts, t_order])
+    def t_days_on():                                    # hard: more than one day on or back
+        k = random.randrange(7)
+        j = random.randint(2, 3)
+        fwd = random.random() < 0.6
+        when = ("the day after tomorrow" if j == 2 else "in 3 days") if fwd else ("the day before yesterday" if j == 2 else "3 days ago")
+        ans = DAYS[(k + j) % 7] if fwd else DAYS[(k - j) % 7]
+        return _wq("Today is %s. What day %s %s?" % (DAYS[k], "will it be" if fwd else "was it", when), ans,
+                   ["Count %s %d days from %s: %s." % ("on" if fwd else "back", j, DAYS[k],
+                                                     ", ".join(DAYS[(k + (i if fwd else -i)) % 7] for i in range(1, j + 1)))], "day")
+
+    def t_month_before():                               # hard: months backwards
+        k = random.randrange(12)
+        return _wq("Which month comes before %s?" % MON[k], MON[(k - 1) % 12], ["The months go in order: %s comes just before %s."
+                                                                               % (MON[(k - 1) % 12], MON[k])], "month")
+
+    return _pick_t(_by(d, [t_after, t_tomorrow, t_after, t_counts, t_order],
+                       [t_after, t_before, t_tomorrow, t_yesterday, t_month, t_counts, t_order],
+                       [t_before, t_yesterday, t_month, t_month_before, t_days_on, t_days_on]))
 
 
 @skill("Y1.4.d", "O'clock and half past", S4)
@@ -1032,8 +1110,22 @@ def _(d=1):
         return {"prompt": "School starts at 9 o'clock. Set the clock.", "component": "clock", "spec": {"mode": "set"},
                 "answer": "9:00", "answer_type": "time", "solution": ["Long hand on 12, short hand on 9."]}
 
-    return _pick_t([t_hand, t_later, t_long_hand, t_long_oclock, t_earlier, t_short_half, t_which_first, t_half_or_oclock],
-                   [t_oclock, t_half, t_half_later, t_hour_after_half, t_bed, t_school])
+    def t_two_hours():                                  # hard: two hours on from half past
+        return {"prompt": "It is half past %d. Set the clock to 2 hours later." % h, "component": "clock", "spec": {"mode": "set"},
+                "answer": "%d:30" % ((h + 1) % 12 + 1), "answer_type": "time",
+                "solution": ["1 hour later is half past %d; 2 hours later is half past %d." % (h % 12 + 1, (h + 1) % 12 + 1)]}
+
+    def t_half_earlier():                               # hard: back half an hour
+        return {"prompt": "It is half past %d. Set the clock to half an hour earlier." % h, "component": "clock",
+                "spec": {"mode": "set"}, "answer": "%d:00" % h, "answer_type": "time",
+                "solution": ["Half an hour before half past %d is %d o'clock." % (h, h)]}
+
+    return _pick_t(_by(d, [t_hand, t_later, t_long_oclock, t_which_first],
+                       [t_hand, t_later, t_long_hand, t_long_oclock, t_earlier, t_short_half, t_which_first, t_half_or_oclock],
+                       [t_long_hand, t_earlier, t_short_half, t_half_or_oclock]),
+                   _by(d, [t_oclock, t_oclock, t_half, t_school],
+                       [t_oclock, t_half, t_half_later, t_hour_after_half, t_bed, t_school],
+                       [t_half, t_half_later, t_hour_after_half, t_bed, t_two_hours, t_half_earlier]))
 
 
 # ================================================================== 1.5 ======
@@ -1116,7 +1208,9 @@ def _(d=1):
     d = _d(d)
 
     def t_turn_pic():
-        deg, name = pick([(90, "quarter"), (180, "half"), (270, "three-quarter"), (360, "whole")])
+        deg, name = pick(_by(d, [(90, "quarter"), (180, "half"), (360, "whole")],
+                             [(90, "quarter"), (180, "half"), (270, "three-quarter"), (360, "whole")],
+                             [(90, "quarter"), (270, "three-quarter"), (270, "three-quarter"), (180, "half")]))
         return {"prompt": "The arrow shows a turn. Is it a quarter, half, three-quarter or whole turn?", "component": "angle",
                 "spec": {"mode": "turn", "degrees": deg}, "answer": name, "answer_type": "str", "solution": ["It is a %s turn." % name]}
 
@@ -1148,6 +1242,15 @@ def _(d=1):
                      ("You make a half turn and then another half turn. What turn is that altogether? (half or whole)", "whole")])
         return _wq(q, a, ["Add the turns together."], "half / whole")
 
+    def t_turn_sum():                                   # hard: mixed turns add up
+        q, a = pick([("You make a half turn and then a quarter turn. What turn is that altogether? (quarter, half, three-quarter or whole)",
+                      "three-quarter"),
+                     ("You make a three-quarter turn and then a quarter turn. What turn is that altogether? (quarter, half, three-quarter or whole)",
+                      "whole"),
+                     ("You make a quarter turn, then another, then another. What turn is that altogether? (quarter, half, three-quarter or whole)",
+                      "three-quarter")])
+        return _wq(q, a, ["A quarter turn is 1 of 4 equal turns; add up the quarters."], "turn")
+
     def t_line_up():
         kids = random.sample(KIDS, 3)
         which, a = pick([("first", kids[0]), ("in the middle", kids[1]), ("last", kids[2])])
@@ -1163,13 +1266,20 @@ def _(d=1):
         return _wq(q, a, ["Use position words."], "word")
 
     def t_grid():
-        x, y = random.randint(1, 3), random.randint(1, 3)
-        r = random.randint(1, 3)
-        u = random.randint(1, 3)
-        return {"prompt": "Start at the dot. Move %d square%s right and %d square%s up. Mark where you stop."
-                          % (r, "" if r == 1 else "s", u, "" if u == 1 else "s"),
+        if d == 2:                                      # hard: left or down as well, up to 4 squares
+            x, y = random.randint(1, 7), random.randint(1, 7)
+            r = random.choice([k for k in range(-4, 5) if k and 1 <= x + k <= 7])
+            u = random.choice([k for k in range(-4, 5) if k and 1 <= y + k <= 7])
+        else:
+            x, y = random.randint(1, 3), random.randint(1, 3)
+            r = random.randint(1, _by(d, 2, 3, 3))
+            u = random.randint(1, _by(d, 2, 3, 3))
+        return {"prompt": "Start at the dot. Move %d square%s %s and %d square%s %s. Mark where you stop."
+                          % (abs(r), "" if abs(r) == 1 else "s", "right" if r > 0 else "left",
+                             abs(u), "" if abs(u) == 1 else "s", "up" if u > 0 else "down"),
                 "component": "coordinate_grid", "spec": {"mode": "plot", "size": 8, "points": [[x, y, "Start"]]},
-                "answer": "(%d,%d)" % (x + r, y + u), "answer_type": "coord", "solution": ["%d right, then %d up." % (r, u)]}
+                "answer": "(%d,%d)" % (x + r, y + u), "answer_type": "coord",
+                "solution": ["%d %s, then %d %s." % (abs(r), "right" if r > 0 else "left", abs(u), "up" if u > 0 else "down")]}
 
     def t_clock_turn():
         q, a = pick([("The long hand of a clock goes from 12 to 6. Is that a quarter, half or whole turn?", "half"),
@@ -1178,5 +1288,7 @@ def _(d=1):
                      ("The long hand of a clock goes from 12 to 9. Is that a quarter, half or three-quarter turn?", "three-quarter")])
         return _wq(q, a, ["A quarter turn moves the hand 3 numbers on."], "turn")
 
-    return _pick_t([t_halves, t_face, t_position, t_half_turn, t_three_q, t_two_halves, t_line_up, t_more_position, t_clock_turn],
+    return _pick_t(_by(d, [t_face, t_position, t_half_turn, t_line_up, t_more_position],
+                       [t_halves, t_face, t_position, t_half_turn, t_three_q, t_two_halves, t_line_up, t_more_position, t_clock_turn],
+                       [t_halves, t_face, t_three_q, t_two_halves, t_turn_sum, t_turn_sum, t_clock_turn]),
                    [t_turn_pic, t_grid])

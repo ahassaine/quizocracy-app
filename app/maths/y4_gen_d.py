@@ -2672,10 +2672,18 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1])
-    mins = pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
+    mins = pick(_clock_minutes(d))   # o'clock/quarters, 5-minute steps, then any minute
 
     if t == 0:                       # afternoon 24-hour -> 12-hour
-        h24 = random.randint(13, 23)
+        h24 = random.randint(13, 18 if d == 0 else 23)
+        if d == 2 and random.random() < 0.3:
+            h24 = 12                 # stretch: the 12 o'clock hour is the trap
+            return _num_q("A programme starts at %s in 24-hour time. Write that time as a "
+                          "12-hour time (h:mm)." % _hm24(h24, mins),
+                          _hm(12, mins), "time", text=True, placeholder="e.g. 2:30",
+                          solution=["12:00 is midday, so the 12 o'clock hour is already pm.",
+                                    "Do not take 12 away: %s is %s pm."
+                                    % (_hm24(h24, mins), _hm(12, mins))])
         return _num_q("A programme starts at %s in 24-hour time. Write that time as a "
                       "12-hour time (h:mm)." % _hm24(h24, mins),
                       _hm(h24 - 12, mins), "time", text=True, placeholder="e.g. 2:30",
@@ -2684,7 +2692,16 @@ def _(d=1):
                                 % (h24, h24 - 12, _hm(h24 - 12, mins))])
 
     if t == 1:                       # afternoon 12-hour -> 24-hour
-        h12 = random.randint(1, 11)
+        h12 = random.randint(1, 6 if d == 0 else 11)
+        if d == 2 and random.random() < 0.3:   # stretch: 12-something am/pm
+            am = random.random() < 0.5
+            ans = _hm24(0 if am else 12, mins)
+            return _num_q("A train leaves at %s %s. Write that time in 24-hour form "
+                          "(hh:mm)." % (_hm(12, mins), "am" if am else "pm"),
+                          ans, "str", text=True, placeholder="e.g. 14:30",
+                          solution=["12 o'clock at night (am) is hour 00; 12 o'clock midday "
+                                    "(pm) stays hour 12.",
+                                    "So %s %s is %s." % (_hm(12, mins), "am" if am else "pm", ans)])
         return _num_q("A train leaves at %s pm. Write that time in 24-hour form "
                       "(hh:mm)." % _hm(h12, mins),
                       _hm24(h12 + 12, mins), "str", text=True,
@@ -2702,7 +2719,15 @@ def _(d=1):
                                 % (_hm24(h12, mins), h12)])
 
     if t == 3:                       # 24-hour morning -> 12-hour
-        h24 = random.randint(6, 11)
+        h24 = random.randint(8, 11) if d == 0 else random.randint(6, 11)
+        if d == 2 and random.random() < 0.3:
+            h24 = 0                  # stretch: 00:xx is 12-something am
+            return _num_q("A night bus leaves at %s in 24-hour time. Write that as a "
+                          "12-hour time (h:mm)." % _hm24(h24, mins), _hm(h24, mins), "time",
+                          text=True, placeholder="e.g. 9:30",
+                          solution=["Hour 00 is the hour after midnight, which is 12 on a "
+                                    "12-hour clock.",
+                                    "%s is %s am." % (_hm24(h24, mins), _hm(h24, mins))])
         return _num_q("A shop opens at %s in 24-hour time. Write that as a 12-hour "
                       "time (h:mm)." % _hm24(h24, mins), _hm(h24, mins), "time",
                       text=True, placeholder="e.g. 9:30",
@@ -2714,7 +2739,7 @@ def _(d=1):
         times = []
         for label in ["Assembly", "Maths", "Break", "English"]:
             h24 = random.randint(9, 15)
-            mm = pick([0, 15, 30, 45])
+            mm = pick(_by_d(d, [0, 30], [0, 15, 30, 45], _clock_minutes(2)))
             times.append((h24, mm))
             rows.append([label, _hm24(h24, mm)])
         k = random.randrange(4)
@@ -2727,7 +2752,8 @@ def _(d=1):
                          "As a 12-hour time that is %s." % ans])
 
     if t == 5:                       # is a 24-hour time morning or afternoon
-        h24 = random.randint(6, 17)
+        # stretch: hours either side of midday, where 12:xx is the trap
+        h24 = random.randint(10, 14) if d == 2 else random.randint(6, 17)
         return _num_q("Is %s in 24-hour time in the morning or the afternoon? "
                       "Type morning or afternoon." % _hm24(h24, mins),
                       "morning" if h24 < 12 else "afternoon", "str", text=True,
@@ -2757,7 +2783,7 @@ def _(d=1):
                                                                 _hm24(h12 + 12, mins))])
 
     # match a clock face to a 24-hour time
-    h24 = random.randint(13, 23)
+    h24 = random.randint(13, 18 if d == 0 else 23)
     return {"prompt": "A bus leaves at %s in 24-hour time. Set the clock to show "
                       "that time." % _hm24(h24, mins),
             "component": "clock", "spec": {"mode": "set"},

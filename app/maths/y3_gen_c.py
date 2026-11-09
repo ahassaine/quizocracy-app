@@ -2277,7 +2277,7 @@ def _(d=1):
 @skill("Y3.8.j", "Compare an angle to a right angle", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([1, 1, 1, 2, 1])
+    t = _pick_t(_by_d(d, [2, 2, 1, 2, 1], [1, 1, 1, 2, 1], [1, 2, 2, 1, 2]))
 
     if t == 0:                                          # definition
         kind, ans = pick([("smaller than", "acute"), ("larger than", "obtuse")])
@@ -2286,8 +2286,9 @@ def _(d=1):
                       solution=["An angle %s a right angle is called %s." % (kind, ans)])
 
     if t == 1:                                          # clock hands (real life)
-        cases = [(1, "acute"), (2, "acute"), (3, "right"), (4, "obtuse"), (5, "obtuse"),
-                 (9, "right")]
+        cases = _by_d(d, [(1, "acute"), (3, "right"), (5, "obtuse"), (9, "right")],
+                      [(1, "acute"), (2, "acute"), (3, "right"), (4, "obtuse"), (5, "obtuse"), (9, "right")],
+                      [(2, "acute"), (4, "obtuse"), (7, "obtuse"), (8, "obtuse"), (10, "acute"), (11, "acute")])
         h, ans = pick(cases)
         return _num_q("At %d o'clock, the hands of a clock make an angle. "
                       "Is it acute, right or obtuse? (type the word)" % h,
@@ -2317,6 +2318,17 @@ def _(d=1):
     # counting acute/obtuse in a set
     acute = random.randint(1, 4)
     obtuse = random.randint(1, 4)
+    if d == 2:                                          # stretch: right angles are in the set too
+        right = random.randint(1, 3)
+        big = random.random() < 0.5
+        return _num_q("A set of angles has %s smaller than a right angle, %s that are exactly right angles and "
+                      "%s larger than a right angle. How many of the angles are %s?"
+                      % (_pl(acute, "angle"), _pl(right, "angle"), _pl(obtuse, "angle"),
+                         "obtuse" if big else "not acute"),
+                      obtuse if big else right + obtuse, "int", unit="angles",
+                      solution=["Obtuse angles are larger than a right angle." if big else
+                                "Angles that are not acute are right angles or obtuse angles.",
+                                "There are %d of them." % (obtuse if big else right + obtuse)])
     return _num_q("A set of angles has %s smaller than a right angle and "
                   "%s larger than a right angle. How many acute angles are there?"
                   % (_pl(acute, "angle"), _pl(obtuse, "angle")),
@@ -2328,7 +2340,7 @@ def _(d=1):
 @skill("Y3.8.k", "Parallel and perpendicular lines", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([1, 1, 1, 2, 1, 2])
+    t = _pick_t(_by_d(d, [2, 2, 2, 2, 1, 0], [1, 1, 1, 2, 1, 2], [0, 0, 2, 1, 2, 3]))
 
     if t == 0:                                          # definition: parallel
         return _num_q("Two straight lines never meet, no matter how far they go. "
@@ -2344,11 +2356,19 @@ def _(d=1):
                       solution=["Lines that meet at a right angle are perpendicular."])
 
     if t == 2:                                          # real life
-        case, ans = pick([("the two long rails of a ladder", "parallel"),
-                          ("the two lines in the letter L", "perpendicular"),
-                          ("the two edges of a straight road", "parallel"),
-                          ("the two sides that meet at a corner of a picture frame", "perpendicular"),
-                          ("railway tracks", "parallel")])
+        cases = [("the two long rails of a ladder", "parallel"),
+                 ("the two lines in the letter L", "perpendicular"),
+                 ("the two edges of a straight road", "parallel"),
+                 ("the two sides that meet at a corner of a picture frame", "perpendicular"),
+                 ("railway tracks", "parallel")]
+        if d == 2:                                      # stretch: less familiar cases
+            cases = [("the clock hands at 3 o'clock", "perpendicular"),
+                     ("the top edge and the bottom edge of a door", "parallel"),
+                     ("the two lines that make a plus sign +", "perpendicular"),
+                     ("the lines on a page of lined paper", "parallel"),
+                     ("the top edge and the side edge of a book cover", "perpendicular"),
+                     ("the two lines in the letter H that go up and down", "parallel")]
+        case, ans = pick(cases)
         return _num_q("Are %s parallel or perpendicular? (type the word)" % case,
                       ans, "str", text=True, placeholder="parallel / perpendicular",
                       solution=["%s are %s." % (case.capitalize(), ans)])
@@ -2387,8 +2407,9 @@ def _(d=1):
                                 % (_a(quad).capitalize(), _pl(pairs, "pair"))])
 
     # counting pairs
-    name, pairs = pick([("square", 2), ("rectangle", 2), ("regular hexagon", 3),
-                        ("regular octagon", 4)])
+    name, pairs = pick(_by_d(d, [("square", 2), ("rectangle", 2)],
+                             [("square", 2), ("rectangle", 2), ("regular hexagon", 3), ("regular octagon", 4)],
+                             [("regular hexagon", 3), ("regular octagon", 4), ("rectangle", 2)]))
     return _num_q("How many pairs of parallel sides does a %s have?" % name,
                   pairs, "int", unit="pairs",
                   solution=["Opposite sides of a %s are parallel." % name,

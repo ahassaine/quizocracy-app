@@ -34,7 +34,7 @@ def _(d=1):
     name, sym, rate = pick(_CURR)
 
     def t_to_foreign():
-        gbp = random.randint(2, 40) * 10
+        gbp = random.randint(2, _by(d, 10, 40, 40)) * 10
         return _tb("£1 = %s%s. How many %s do you get for £%d?" % (sym, _money(rate), name, gbp), _money(gbp * rate), "num", {},
                    ["%d × %s = %s." % (gbp, _money(rate), _money(gbp * rate))])
 
@@ -107,8 +107,11 @@ def _(d=1):
         return _lg("The conversion graph changes pounds to %s. Use it to convert £%d." % (name, g), pts, _ds(g * rate),
                    ["Read up from £%d: %s%s." % (g, sym, _ds(g * rate))], name[:1].upper() + name[1:], "Pounds", atype="num")
 
-    return _pick_t([t_to_foreign, t_to_pounds, t_compare, t_commission, t_kmh_ms, t_mmin_kmh, t_density_units, t_flow, t_wage_minutes, t_typing],
-                   [t_table, t_graph])
+    # easy: one conversion or one rate; hard: two steps (commission, compare prices) and changing both units of a compound unit
+    return _pick_t(_by(d, [t_to_foreign, t_to_pounds, t_typing],
+                       [t_to_foreign, t_to_pounds, t_compare, t_commission, t_kmh_ms, t_mmin_kmh, t_density_units, t_flow, t_wage_minutes, t_typing],
+                       [t_compare, t_commission, t_kmh_ms, t_mmin_kmh, t_density_units, t_flow, t_wage_minutes]),
+                   _by(d, [t_table, t_graph], [t_table, t_graph], [t_table]))
 
 
 @skill("Y9.4.e", "Ratio, fractions and linear functions", S4)
@@ -176,8 +179,11 @@ def _(d=1):
         return _tb("Flour and butter are used in the ratio %d:%d. A graph shows flour (up) against butter (across). What is its gradient?" % (p, q),
                    _ds(Fraction(p, q)), "num", {}, ["Every %d g of butter needs %d g of flour: gradient %d/%d = %s." % (q, p, p, q, _ds(Fraction(p, q)))])
 
-    return _pick_t([t_part_of_part, t_part_of_whole, t_k, t_unit_rate, t_times_as, t_frac_to_ratio, t_bigger_than_one, t_proportional, t_gradient],
-                   [t_io, t_grid])
+    # easy: ratio to fraction and back directly; hard: k in y = kx, gradients, fractions above 1, mixed-number multipliers
+    return _pick_t(_by(d, [t_part_of_part, t_part_of_whole, t_frac_to_ratio, t_proportional],
+                       [t_part_of_part, t_part_of_whole, t_k, t_unit_rate, t_times_as, t_frac_to_ratio, t_bigger_than_one, t_proportional, t_gradient],
+                       [t_part_of_whole, t_k, t_unit_rate, t_times_as, t_bigger_than_one, t_gradient]),
+                   _by(d, [t_io, t_grid], [t_io, t_grid], [t_grid]))
 
 
 # ================================================================== 9.5 ======
@@ -301,8 +307,11 @@ def _(d=1):
                    income - rent - food - bills, "int", {"unit": "£"}, ["%s − %s − %d − %d = %s." % (_c(income), _c(rent), food, bills,
                                                                                                    _c(income - rent - food - bills))])
 
-    return _pick_t([t_overtime, t_monthly, t_tax, t_bill, t_best_buy, t_contract, t_credit, t_vat, t_discount, t_hourly, t_saving, t_split, t_budget],
-                   [t_statement, t_payslip])
+    # easy: one or two whole-pound steps; hard: overtime, tax, bills, unit pricing and percentages with pennies
+    return _pick_t(_by(d, [t_monthly, t_contract, t_vat, t_discount, t_hourly, t_budget],
+                       [t_overtime, t_monthly, t_tax, t_bill, t_best_buy, t_contract, t_credit, t_vat, t_discount, t_hourly, t_saving, t_split, t_budget],
+                       [t_overtime, t_tax, t_bill, t_best_buy, t_credit, t_saving, t_split]),
+                   _by(d, [t_statement], [t_statement, t_payslip], [t_statement, t_payslip]))
 
 
 # ================================================================== 9.6 ======
@@ -409,8 +418,11 @@ def _(d=1):
         return _tb("The interior angles of a polygon add up to %s°. How many sides does it have?" % _c(tot), n, "int", {},
                    ["(n − 2) × 180 = %d, so n − 2 = %d." % (tot, n - 2), "n = %d." % n])
 
-    return _pick_t([t_corresponding, t_alternate_size, t_co_interior, t_exterior, t_pentagon, t_regular_ratio, t_parallelogram, t_point, t_isos,
-                    t_polygon_n])
+    # easy: one angle fact gives one equation for x; hard: find x then the angle, polygons with five or six expressions, regular-polygon ratios
+    return _pick_t(_by(d, [t_corresponding, t_co_interior, t_exterior, t_isos, t_polygon_n],
+                       [t_corresponding, t_alternate_size, t_co_interior, t_exterior, t_pentagon, t_regular_ratio, t_parallelogram, t_point, t_isos,
+                        t_polygon_n],
+                       [t_alternate_size, t_pentagon, t_regular_ratio, t_parallelogram, t_point]))
 
 
 # ================================================================== 9.8 ======
@@ -453,7 +465,7 @@ def _(d=1):
                    k * (k - 1), "int", {}, ["%d choices for the tens digit, then %d for the units: %d × %d = %d." % (k, k - 1, k, k - 1, k * (k - 1))])
 
     def t_arrange():
-        k = pick([3, 4, 5])
+        k = pick(_by(d, [3, 4], [3, 4, 5], [4, 5]))
         word = pick({3: ["CAT", "SUN", "BOX"], 4: ["MATH", "FISH", "CLAY"], 5: ["PLANT", "CHAIR", "MOUSE"]}[k])
         f = 1
         for v in range(2, k + 1):
@@ -485,7 +497,10 @@ def _(d=1):
         return _tb("A café offers %d sandwiches and %d drinks. How many different sandwich-and-drink combinations are there?" % (s, m), s * m, "int", {},
                    ["List them in a grid: %d × %d = %d." % (s, m, s * m)])
 
-    return _pick_t([t_with_rep, t_without, t_one_each, t_at_least, t_digits, t_arrange, t_pairs, t_codes, t_listed_prob, t_menu], [t_tree_table])
+    # easy: product rule for two choices, one branch of a tree with replacement; hard: without replacement, either order, 'at least', listing
+    return _pick_t(_by(d, [t_with_rep, t_digits, t_arrange, t_codes, t_menu],
+                       [t_with_rep, t_without, t_one_each, t_at_least, t_digits, t_arrange, t_pairs, t_codes, t_listed_prob, t_menu],
+                       [t_without, t_one_each, t_at_least, t_arrange, t_pairs, t_listed_prob]), [t_tree_table])
 
 
 # ================================================================== 9.9 ======
@@ -497,7 +512,7 @@ _GCHART = [("Time (min)", "times, in minutes", 0, 10), ("Height (cm)", "heights,
 def _(d=1):
     d = _d(d)
     head, desc, base, w = pick(_GCHART)
-    k = pick([4, 5])
+    k = pick(_by(d, [4], [4, 5], [5]))
     groups = [(base + i * w, base + (i + 1) * w) for i in range(k)]
     f = [random.randint(1, 16) for _ in groups]
     cats = ["%d–%d" % g for g in groups]
@@ -575,4 +590,8 @@ def _(d=1):
                 "component": "pie_chart", "spec": {"slices": [[c, x] for c, x in zip(cats, ff)], "mode": "read", "highlight": i},
                 "answer": ff[i], "answer_type": "int", "solution": ["%d/360 × %d = %d." % (ff[i] * 360 // tot, tot, ff[i])]}
 
-    return _pick_t([t_tally, t_boundary], [t_read, t_total, t_above, t_modal, t_width, t_difference, t_percent, t_line_chart, t_pie])
+    # easy: read one bar, add the bars, modal class, class width; hard: cumulative counts, percentages, means, pie sectors, class boundaries
+    return _pick_t(_by(d, [t_tally], [t_tally, t_boundary], [t_tally, t_boundary]),
+                   _by(d, [t_read, t_total, t_modal, t_width, t_difference],
+                       [t_read, t_total, t_above, t_modal, t_width, t_difference, t_percent, t_line_chart, t_pie],
+                       [t_above, t_difference, t_percent, t_line_chart, t_pie]))

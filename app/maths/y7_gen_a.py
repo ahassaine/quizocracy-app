@@ -176,16 +176,16 @@ def _(d=1):
     def _kind():
         k = pick(["linear", "geometric", "square", "triangular", "fibonacci"])
         if k == "linear":
-            a, s = random.randint(1, 20), random.randint(2, 9)
+            a, s = random.randint(1, _by(d, 10, 20, 50)), random.randint(_by(d, 2, 2, 3), _by(d, 5, 9, 15))
             return k, [a + i * s for i in range(5)]
         if k == "geometric":
-            a, r = random.randint(1, 5), pick([2, 3, 10])
+            a, r = random.randint(1, _by(d, 3, 5, 6)), pick(_by(d, [2, 10], [2, 3, 10], [2, 3, 4, 5]))
             return k, [a * r ** i for i in range(5)]
         if k == "square":
             return k, [i * i for i in range(1, 6)]
         if k == "triangular":
             return k, [i * (i + 1) // 2 for i in range(1, 6)]
-        x, y = random.randint(1, 3), random.randint(1, 4)
+        x, y = random.randint(1, _by(d, 2, 3, 9)), random.randint(1, _by(d, 3, 4, 12))
         t = [x, y]
         for _ in range(3):
             t.append(t[-1] + t[-2])
@@ -216,7 +216,7 @@ def _(d=1):
                      "fibonacci": "Add the two previous terms."}[k]])
 
     def t_ratio():
-        a, r = random.randint(1, 6), pick([2, 3, 4, 5])
+        a, r = random.randint(1, _by(d, 5, 6, 12)), pick(_by(d, [2, 3, 10], [2, 3, 4, 5], [3, 4, 5, 6]))
         t = [a * r ** i for i in range(4)]
         return _tb("What is the common ratio of the geometric sequence %s, ...?" % ", ".join(map(str, t)), r, "int", {},
                    ["%d ÷ %d = %d." % (t[1], t[0], r)])
@@ -227,18 +227,18 @@ def _(d=1):
                    ["They are the %s numbers." % k], "square / triangular / cube")
 
     def t_fib():
-        x, y = random.randint(1, 5), random.randint(1, 6)
+        x, y = random.randint(1, _by(d, 3, 5, 12)), random.randint(1, _by(d, 4, 6, 15))
         t = [x, y]
         for _ in range(4):
             t.append(t[-1] + t[-2])
-        k = random.randint(2, 5)
+        k = random.randint(_by(d, 2, 2, 0), 5)          # stretch: an early term, found by working backwards
         shown = ", ".join("___" if i == k else str(v) for i, v in enumerate(t))
-        return _tb("Each term is the sum of the two before it. Find the missing term:  %s" % shown, t[k], "int", {},
-                   ["%d + %d = %d." % (t[k - 2], t[k - 1], t[k])])
+        how = "%d + %d = %d." % (t[k - 2], t[k - 1], t[k]) if k >= 2 else "%d − %d = %d." % (t[k + 2], t[k + 1], t[k])
+        return _tb("Each term is the sum of the two before it. Find the missing term:  %s" % shown, t[k], "int", {}, [how])
 
     def t_geo_term():
         a, r = random.randint(1, 5), pick([2, 3])
-        k = random.randint(5, 7)
+        k = random.randint(_by(d, 3, 5, 6), _by(d, 4, 7, 8))
         return _tb("A geometric sequence starts at %d and each term is %d times the one before. What is term %d?" % (a, r, k),
                    a * r ** (k - 1), "int", {}, ["%d × %d^%d = %d." % (a, r, k - 1, a * r ** (k - 1))])
 
@@ -249,14 +249,16 @@ def _(d=1):
                    ["Each term is half the one before: %d ÷ 2 = %d." % (t[-1], end)])
 
     def t_nth_special():
-        k, n = pick([("square", random.randint(9, 15)), ("triangular", random.randint(6, 12)), ("cube", random.randint(4, 7))])
+        k, n = pick([("square", random.randint(_by(d, 4, 9, 13), _by(d, 10, 15, 20))),
+                     ("triangular", random.randint(_by(d, 4, 6, 10), _by(d, 7, 12, 20))),
+                     ("cube", random.randint(_by(d, 2, 4, 6), _by(d, 5, 7, 10)))])
         v = {"square": n * n, "triangular": n * (n + 1) // 2, "cube": n ** 3}[k]
         how = {"square": "%d × %d" % (n, n), "triangular": "%d × %d ÷ 2" % (n, n + 1), "cube": "%d × %d × %d" % (n, n, n)}[k]
         return _tb("What is the %s %s number?" % (_ord(n), k), v, "int", {}, ["%s = %d." % (how, v)])
 
     def t_not_square():
-        sq = random.sample([x * x for x in range(3, 13)], 3)
-        odd = pick([x for x in range(10, 145) if int(x ** 0.5) ** 2 != x])
+        sq = random.sample([x * x for x in range(_by(d, 2, 3, 6), _by(d, 11, 13, 16))], 3)
+        odd = pick([x for x in range(10, _by(d, 101, 145, 226)) if int(x ** 0.5) ** 2 != x])
         shown = sq + [odd]
         random.shuffle(shown)
         return _tb("Which of these is NOT a square number?  %s" % ", ".join(map(str, shown)), odd, "int", {},
@@ -264,23 +266,26 @@ def _(d=1):
 
     def t_linear_table():
         lin = random.random() < 0.5
-        a = random.randint(1, 9)
-        s = random.randint(2, 6)
+        a = random.randint(1, _by(d, 9, 9, 30))
+        s = random.randint(2, _by(d, 5, 6, 12))
         vals = [a + s * i for i in range(5)] if lin else [a * 2 ** i for i in range(5)]
         return _io("The table shows the first five terms of a sequence. Is the sequence linear? (yes or no)",
                    [[i + 1, v] for i, v in enumerate(vals)], None, "yes" if lin else "no",
                    ["%s." % ("The terms go up by %d each time" % s if lin else "The differences are not the same")], atype="str")
 
     def t_increasing():
-        a, r = random.randint(2, 6), pick([2, 3])
-        neg = random.random() < 0.5
+        a, r = random.randint(2, 6), pick(_by(d, [2, 3], [2, 3], [2, 3, 4]))
+        neg = random.random() < _by(d, 0, 0.5, 0.7)     # easy: increasing only, so the ratio is a whole number
         t = [a * r ** i for i in range(4)] if not neg else [a * r ** 3 // r ** i for i in range(4)]
         return _tb("Find the common ratio of %s, ... (it may be a fraction)" % ", ".join(map(str, t)),
                    _fs(Fraction(t[1], t[0])), "frac", {"text": True, "placeholder": "e.g. 3 or 1/2"},
                    ["%d ÷ %d = %s." % (t[1], t[0], _fs(Fraction(t[1], t[0])))])
 
-    return _pick_t([t_type, t_next_special, t_ratio, t_name, t_fib, t_geo_term, t_halving, t_nth_special, t_not_square,
-                    t_increasing], [t_linear_table])
+    return _pick_t(_by(d, [t_type, t_next_special, t_ratio, t_name, t_fib, t_halving, t_nth_special, t_not_square],
+                       [t_type, t_next_special, t_ratio, t_name, t_fib, t_geo_term, t_halving, t_nth_special, t_not_square,
+                        t_increasing],
+                       [t_type, t_next_special, t_ratio, t_fib, t_geo_term, t_nth_special, t_not_square, t_increasing]),
+                   [t_linear_table])
 
 
 def _ord(n):
@@ -292,30 +297,30 @@ def _(d=1):
     d = _d(d)
 
     def t_tiles():
-        add, start = random.randint(2, 6), random.randint(1, 8)
-        n = random.randint(6, 15)
+        add, start = random.randint(2, _by(d, 5, 6, 9)), random.randint(1, 8)
+        n = random.randint(_by(d, 4, 6, 20), _by(d, 10, 15, 50))
         return _tb("A tile pattern uses %d tiles in step 1, %d in step 2 and %d in step 3. How many tiles in step %d?"
                    % (start + add, start + 2 * add, start + 3 * add, n), start + add * n, "int", {"unit": "tiles"},
                    ["Each step adds %d: %d + %d × %d = %d." % (add, start, add, n, start + add * n)])
 
     def t_savings():
-        s, w = random.randint(5, 40), random.randint(2, 10)
-        n = random.randint(5, 20)
+        s, w = random.randint(5, _by(d, 20, 40, 90)), random.randint(2, _by(d, 5, 10, 15))
+        n = random.randint(_by(d, 3, 5, 12), _by(d, 10, 20, 52))
         who = _who()
         return _tb("%s has £%d and saves £%d each week. How much will %s have after %d weeks?" % (who, s, w, who, n),
                    s + w * n, "int", {"unit": "£"}, ["%d + %d × %d = %d." % (s, w, n, s + w * n)])
 
     def t_tables():
         p, extra = random.randint(2, 4), random.randint(2, 4)
-        n = random.randint(5, 12)
+        n = random.randint(_by(d, 4, 5, 15), _by(d, 8, 12, 40))
         return _tb("Tables are pushed together in a row. 1 table seats %d people, 2 tables seat %d, 3 tables "
                    "seat %d. How many people can sit at %d tables?" % (p + extra, 2 * p + extra, 3 * p + extra, n),
                    p * n + extra, "int", {"unit": "people"}, ["Seats = %dn + %d." % (p, extra),
                                                               "%d × %d + %d = %d." % (p, n, extra, p * n + extra)])
 
     def t_which_step():
-        add, start = random.randint(3, 7), random.randint(1, 10)
-        n = random.randint(8, 25)
+        add, start = random.randint(3, _by(d, 5, 7, 12)), random.randint(1, 10)
+        n = random.randint(_by(d, 4, 8, 20), _by(d, 10, 25, 60))
         return _tb("A pattern has %d dots in step 1 and gains %d dots each step. Which step has %d dots?"
                    % (start + add, add, start + add * n), n, "int", {}, ["%d + %dn = %d gives n = %d." % (start, add,
                                                                                                      start + add * n, n)])
@@ -329,7 +334,7 @@ def _(d=1):
 
     def t_sticks_table():
         add, start = random.randint(2, 5), random.randint(1, 4)
-        n = pick([10, 12, 15, 20])
+        n = pick(_by(d, [5, 6, 8, 10], [10, 12, 15, 20], [25, 30, 40, 50]))
         rows = [[k, start + add * k] for k in (1, 2, 3, n)]
         return _io("A matchstick pattern: the table shows the pattern number and the number of matchsticks. What goes in the "
                    "empty cell?", rows, 3, start + add * n,
@@ -344,42 +349,46 @@ def _(d=1):
 
     def t_bounce():
         h = pick([160, 320, 240, 480, 128])
-        k = random.randint(2, 4)
+        k = random.randint(_by(d, 1, 2, 3), _by(d, 2, 4, 5))
         return _tb("A ball is dropped from %d cm. Each bounce reaches half the height of the one before. How high is bounce "
                    "%d, in cm?" % (h, k), _ds(Fraction(h, 2 ** k)), "num", {"unit": "cm"},
                    ["Halve %d times: %d ÷ %d = %s." % (k, h, 2 ** k, _ds(Fraction(h, 2 ** k)))])
 
     def t_doubling():
         s = pick([5, 10, 20, 25, 50])
-        k = random.randint(3, 6)
+        k = random.randint(_by(d, 2, 3, 5), _by(d, 4, 6, 8))
         return _tb("A number of cells doubles every hour. There are %d cells at the start. How many after %d hours?" % (s, k),
                    s * 2 ** k, "int", {"unit": "cells"}, ["%d × 2^%d = %d." % (s, k, s * 2 ** k)])
 
     def t_formula():
-        add, start = random.randint(2, 6), random.randint(1, 9)
+        add, start = random.randint(2, _by(d, 5, 6, 12)), random.randint(1, _by(d, 5, 9, 20))
         return _wq("A pattern has %d tiles in pattern 1, %d in pattern 2 and %d in pattern 3. Write a formula for the number "
                    "of tiles T in pattern n, like T=3n+2." % (start + add, start + 2 * add, start + 3 * add),
                    "T=%dn+%d" % (add, start), ["Goes up %d each time, so %dn; %d × 1 + %d = %d." % (add, add, add, start, start + add)],
                    "e.g. T=3n+2")
 
     def t_savings_graph():
-        s, w = random.randint(0, 6) * 5, random.randint(2, 8) * 5
+        s, w = random.randint(0, 6) * 5, random.randint(2, _by(d, 4, 8, 8)) * 5
         pts = [("Wk %d" % k, s + w * k) for k in range(5)]
+        wk = 10 if d == 1 else (6 if d == 0 else pick([15, 20, 26]))
         return _lg("The graph shows how much is in a savings jar each week. The same amount is added every week. How much "
-                   "will be in the jar in week 10, in pounds?", pts, s + w * 10,
-                   ["%d is added each week." % w, "%d + %d × 10 = %d." % (s, w, s + w * 10)], "£", "Week")
+                   "will be in the jar in week %d, in pounds?" % wk, pts, s + w * wk,
+                   ["%d is added each week." % w, "%d + %d × %d = %d." % (s, w, wk, s + w * wk)], "£", "Week")
 
     def t_taxi_over():
-        fee, per = random.randint(2, 5), random.randint(2, 3)
-        lim = random.randint(20, 40)
+        fee, per = random.randint(2, 5), random.randint(2, _by(d, 3, 3, 4))
+        lim = random.randint(_by(d, 12, 20, 40), _by(d, 25, 40, 90))
         k = (lim - fee) // per + 1
         return _tb("A taxi costs £%d plus £%d for each mile. What is the smallest whole number of miles for which the fare is "
                    "more than £%d?" % (fee, per, lim), k, "int", {"unit": "miles"},
                    ["%d + %d × %d = %d, which is not more than %d." % (fee, per, k - 1, fee + per * (k - 1), lim),
                     "%d + %d × %d = %d." % (fee, per, k, fee + per * k)])
 
-    return _pick_t([t_tiles, t_savings, t_tables, t_which_step, t_cooling, t_theatre, t_bounce, t_doubling, t_formula,
-                    t_taxi_over], [t_sticks_table, t_savings_graph])
+    return _pick_t(_by(d, [t_tiles, t_savings, t_tables, t_cooling, t_theatre, t_bounce, t_doubling],
+                       [t_tiles, t_savings, t_tables, t_which_step, t_cooling, t_theatre, t_bounce, t_doubling, t_formula,
+                        t_taxi_over],
+                       [t_tiles, t_savings, t_tables, t_which_step, t_theatre, t_bounce, t_doubling, t_formula, t_taxi_over]),
+                   [t_sticks_table, t_savings_graph])
 
 
 # ================================================================== 7.1 ======
@@ -387,8 +396,8 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     v = pick(["x", "y", "n", "a", "m"])
-    k = random.randint(2, 9)
-    c = random.randint(1, 12)
+    k = random.randint(2, _by(d, 5, 9, 12))
+    c = random.randint(1, _by(d, 10, 12, 30))
 
     def t_more():
         return _wq("Write an expression for %d more than %s. Write the letter first." % (c, v), "%s+%d" % (v, c), ["%s + %d." % (v, c)],
@@ -424,26 +433,37 @@ def _(d=1):
         return _wq("A square has sides of length %s cm. Write an expression for its perimeter." % v, "4%s" % v,
                    ["%s + %s + %s + %s = 4%s." % (v, v, v, v, v)], "e.g. 4x")
 
-    return _pick_t([t_more, t_less, t_times, t_two_step, t_bracket, t_divide, t_word, t_perimeter])
+    def t_from():
+        n = c + k
+        return _wq("Write an expression for %s subtracted from %d." % (v, n), "%d-%s" % (n, v),
+                   ["Start with %d and take away %s: %d − %s." % (n, v, n, v)], "e.g. 10-x")
+
+    def t_two_step_sub():
+        return _wq("Write an expression for: multiply %s by %d, then subtract %d." % (v, k, c), "%d%s-%d" % (k, v, c),
+                   ["%d%s − %d." % (k, v, c)], "e.g. 3x-2")
+
+    return _pick_t(_by(d, [t_more, t_less, t_times, t_divide, t_perimeter],
+                       [t_more, t_less, t_times, t_two_step, t_bracket, t_divide, t_word, t_perimeter],
+                       [t_two_step, t_two_step_sub, t_bracket, t_divide, t_word, t_from]))
 
 
 @skill("Y7.1.b", "Read algebraic notation (ab, 3y, a², a/b)", S1)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(2, 9), random.randint(2, 9)
+    a, b = random.randint(2, _by(d, 5, 9, 12)), random.randint(2, _by(d, 5, 9, 12))
 
     def t_ab():
         return _tb("If a = %d and b = %d, what is ab?" % (a, b), a * b, "int", {}, ["ab means a × b = %d." % (a * b)])
 
     def t_3y():
-        k = random.randint(2, 9)
+        k = random.randint(2, _by(d, 5, 9, 15))
         return _tb("If y = %d, what is %dy?" % (b, k), k * b, "int", {}, ["%dy means %d × y = %d." % (k, k, k * b)])
 
     def t_sq():
         return _tb("If a = %d, what is a²?" % a, a * a, "int", {}, ["a² means a × a = %d." % (a * a)])
 
     def t_cube():
-        a2 = random.randint(2, 5)
+        a2 = random.randint(2, _by(d, 3, 5, 6))
         return _tb("If x = %d, what is x³?" % a2, a2 ** 3, "int", {}, ["x³ = x × x × x = %d." % a2 ** 3])
 
     def t_frac():
@@ -451,19 +471,31 @@ def _(d=1):
         return _tb("If a = %d and b = %d, what is a/b?" % (q * b, b), q, "int", {}, ["a/b means a ÷ b = %d." % q])
 
     def t_same():
-        k = random.randint(3, 6)
+        k = random.randint(3, _by(d, 5, 6, 8))
         return _wq("Write  %s  in the shortest form." % " + ".join(["y"] * k), "%dy" % k,
                    ["%d lots of y is %dy." % (k, k)], "e.g. 4y")
 
     def t_a2b():
-        a2, b2 = random.randint(2, 4), random.randint(2, 5)
+        a2, b2 = random.randint(2, _by(d, 3, 4, 6)), random.randint(2, _by(d, 3, 5, 9))
         return _tb("If a = %d and b = %d, what is a²b?" % (a2, b2), a2 * a2 * b2, "int", {},
                    ["a²b = a × a × b = %d × %d × %d = %d." % (a2, a2, b2, a2 * a2 * b2)])
 
     def t_equivalent():
         return _q_equiv()
 
-    return _pick_t([t_ab, t_3y, t_sq, t_cube, t_frac, t_same, t_a2b, t_equivalent])
+    def t_kab():
+        k = random.randint(2, 5)
+        return _tb("If a = %d and b = %d, what is %dab?" % (a, b, k), k * a * b, "int", {},
+                   ["%dab means %d × a × b = %d × %d × %d = %d." % (k, k, k, a, b, k * a * b)])
+
+    def t_2a2():
+        k = random.randint(2, 5)
+        return _tb("If a = %d, what is %da²?" % (a, k), k * a * a, "int", {},
+                   ["Square first: a² = %d; then × %d = %d." % (a * a, k, k * a * a)])
+
+    return _pick_t(_by(d, [t_ab, t_3y, t_sq, t_frac, t_same],
+                       [t_ab, t_3y, t_sq, t_cube, t_frac, t_same, t_a2b, t_equivalent],
+                       [t_sq, t_cube, t_frac, t_a2b, t_equivalent, t_kab, t_2a2]))
 
 
 def _q_equiv():
@@ -518,8 +550,8 @@ def _(d=1):
 @skill("Y7.1.d", "Function machines and inverse operations", S1)
 def _(d=1):
     d = _d(d)
-    m, c = random.randint(2, 9), random.randint(1, 20)
-    x = random.randint(1, 15)
+    m, c = random.randint(2, _by(d, 5, 9, 12)), random.randint(1, _by(d, 10, 20, 40))
+    x = random.randint(1, _by(d, 10, 15, 25))
 
     def t_output():
         return _tb("A function machine does: × %d, then + %d. What comes out when %d goes in?" % (m, c, x), m * x + c,
@@ -564,12 +596,12 @@ def _(d=1):
                    "e.g. 3(x+2)")
 
     def t_square_machine():
-        v = random.randint(2, 12)
+        v = random.randint(2, _by(d, 6, 12, 15))
         return _tb("A function machine does: square the number, then + %d. What comes out when %d goes in?" % (c, v), v * v + c,
                    "int", {}, ["%d² = %d; + %d = %d." % (v, v * v, c, v * v + c)])
 
     def t_find_add():
-        a = random.randint(3, 40)
+        a = random.randint(3, _by(d, 20, 40, 90))
         rows = [[v, v + a] for v in random.sample(range(1, 30), 4)]
         return _io("A function machine adds a number. What number does it add?", rows, None, a,
                    ["%d − %d = %d." % (rows[0][1], rows[0][0], a)])
@@ -583,12 +615,23 @@ def _(d=1):
                     "Machine A gives %dx + %d." % (m, k2)], "yes / no")
 
     def t_negative_in():
-        v = random.randint(-9, -1)
+        v = random.randint(_by(d, -5, -9, -15), -1)
         return _tb("A function machine does: × %d, then + %d. What comes out when %d goes in?" % (m, c, v), m * v + c, "int", {},
                    ["%d × (%d) = %d; + %d = %d." % (m, v, m * v, c, m * v + c)])
 
-    return _pick_t([t_output, t_input, t_order_matters, t_expression, t_divide_first, t_three_step, t_bracket_expr,
-                    t_square_machine, t_same, t_negative_in], [t_find_rule, t_table, t_find_add])
+    def t_input_three():
+        a, b, e = random.randint(1, 9), random.randint(2, 5), random.randint(1, 9)
+        out = (x + a) * b - e
+        return _tb("A function machine does: + %d, then × %d, then − %d. %d comes out. What went in?" % (a, b, e, out), x, "int",
+                   {}, ["Work backwards: + %d, then ÷ %d, then − %d." % (e, b, a),
+                        "%d + %d = %d; ÷ %d = %d; − %d = %d." % (out, e, out + e, b, x + a, a, x)])
+
+    return _pick_t(_by(d, [t_output, t_input, t_order_matters, t_square_machine],
+                       [t_output, t_input, t_order_matters, t_expression, t_divide_first, t_three_step, t_bracket_expr,
+                        t_square_machine, t_same, t_negative_in],
+                       [t_input, t_expression, t_divide_first, t_three_step, t_bracket_expr, t_same, t_negative_in,
+                        t_input_three]),
+                   _by(d, [t_find_rule, t_table, t_find_add], [t_find_rule, t_table, t_find_add], [t_table]))
 
 
 @skill("Y7.1.e", "Use formulae given in words and symbols", S1)
@@ -596,33 +639,34 @@ def _(d=1):
     d = _d(d)
 
     def t_cost():
-        fee, per, h = random.randint(5, 30), random.randint(3, 12), random.randint(2, 8)
+        fee, per, h = (random.randint(5, _by(d, 20, 30, 60)), random.randint(3, _by(d, 10, 12, 25)),
+                       random.randint(2, _by(d, 5, 8, 12)))
         return _tb("A plumber charges £%d to call plus £%d for each hour. How much for %d hours, in pounds?"
                    % (fee, per, h), fee + per * h, "int", {"unit": "£"}, ["%d + %d × %d = %d." % (fee, per, h, fee + per * h)])
 
     def t_symbols():
-        l, w = random.randint(3, 20), random.randint(2, 15)
+        l, w = random.randint(3, _by(d, 10, 20, 60)), random.randint(2, _by(d, 10, 15, 45))
         return _tb("The formula for the perimeter of a rectangle is P = 2l + 2w. Find P when l = %d and w = %d." % (l, w),
                    2 * l + 2 * w, "int", {}, ["2 × %d + 2 × %d = %d." % (l, w, 2 * l + 2 * w)])
 
     def t_area():
-        b, h = random.randint(2, 12) * 2, random.randint(2, 12)
+        b, h = random.randint(2, _by(d, 6, 12, 20)) * 2, random.randint(2, _by(d, 10, 12, 25))
         return _tb("The area of a triangle is A = bh/2. Find A when b = %d and h = %d." % (b, h), b * h // 2, "int", {},
                    ["%d × %d ÷ 2 = %d." % (b, h, b * h // 2)])
 
     def t_speed():
-        s, t = random.randint(3, 12) * 10, random.randint(2, 5)
+        s, t = random.randint(3, _by(d, 8, 12, 12)) * 10 + (pick([0, 5]) if d == 2 else 0), random.randint(2, _by(d, 3, 5, 7))
         return _tb("Distance = speed × time. A car travels at %d km/h for %d hours. How far does it go, in km?" % (s, t),
                    s * t, "int", {"unit": "km"}, ["%d × %d = %d." % (s, t, s * t)])
 
     def t_write():
-        per, fee = random.randint(2, 9), random.randint(3, 20)
+        per, fee = random.randint(2, 9), random.randint(3, _by(d, 10, 20, 40))
         return _wq("A taxi charges £%d plus £%d per mile. Write a formula for the cost C in pounds for m miles, like "
                    "C=2m+5." % (fee, per), "C=%dm+%d" % (per, fee), ["C = %dm + %d." % (per, fee)], "e.g. C=2m+5")
 
     def t_reverse():
-        fee, per = random.randint(5, 20), random.randint(2, 9)
-        h = random.randint(2, 9)
+        fee, per = random.randint(5, _by(d, 10, 20, 60)), random.randint(2, _by(d, 5, 9, 25))
+        h = random.randint(2, _by(d, 5, 9, 12))
         return _tb("A hall costs £%d plus £%d per hour. A booking cost £%d. How many hours was it?"
                    % (fee, per, fee + per * h), h, "int", {"unit": "hours"},
                    ["(%d − %d) ÷ %d = %d." % (fee + per * h, fee, per, h)])
@@ -646,7 +690,7 @@ def _(d=1):
                    "int", {"unit": "km"}, ["%d × 8 = %d; ÷ 5 = %d." % (mi, mi * 8, mi * 8 // 5)])
 
     def t_width():
-        w, l = random.randint(2, 12), random.randint(3, 15)
+        w, l = random.randint(2, _by(d, 9, 12, 25)), random.randint(3, _by(d, 10, 15, 30))
         return _tb("The area of a rectangle is A = lw. A = %d cm² and l = %d cm. Find w, in cm." % (l * w, l), w, "int",
                    {"unit": "cm"}, ["w = A ÷ l = %d ÷ %d = %d." % (l * w, l, w)])
 
@@ -659,7 +703,7 @@ def _(d=1):
                    rows[k][1], ["%d × %d + %d = %d." % (per, rows[k][0], fee, rows[k][1])], rule="C = %dn + %d" % (per, fee))
 
     def t_mean_formula():
-        a, b, c = random.randint(10, 40), random.randint(10, 40), random.randint(10, 40)
+        a, b, c = [random.randint(10, _by(d, 30, 40, 99)) for _ in range(3)]
         s = a + b + c
         while s % 3:
             c += 1
@@ -667,8 +711,11 @@ def _(d=1):
         return _tb("The formula m = (a + b + c)/3 gives the mean of three numbers. Find m when a = %d, b = %d and c = %d."
                    % (a, b, c), s // 3, "int", {}, ["(%d + %d + %d) ÷ 3 = %d ÷ 3 = %d." % (a, b, c, s, s // 3)])
 
-    return _pick_t([t_cost, t_symbols, t_area, t_speed, t_write, t_reverse, t_chicken, t_fahrenheit, t_miles, t_width,
-                    t_mean_formula], [t_table])
+    return _pick_t(_by(d, [t_cost, t_symbols, t_area, t_speed, t_miles],
+                       [t_cost, t_symbols, t_area, t_speed, t_write, t_reverse, t_chicken, t_fahrenheit, t_miles, t_width,
+                        t_mean_formula],
+                       [t_cost, t_symbols, t_area, t_write, t_reverse, t_chicken, t_fahrenheit, t_width, t_mean_formula]),
+                   [t_table])
 
 
 @skill("Y7.1.f", "Vocabulary: expressions, equations, formulae, terms", S1)
@@ -676,32 +723,52 @@ def _(d=1):
     d = _d(d)
 
     def t_classify():
-        item, ans = pick([("3x + 5", "expression"), ("3x + 5 = 20", "equation"), ("A = lw", "formula"),
-                          ("2a − b", "expression"), ("P = 2l + 2w", "formula"), ("x − 4 = 9", "equation"),
-                          ("x > 7", "inequality")])
+        item, ans = pick(_by(d, [("3x + 5", "expression"), ("3x + 5 = 20", "equation"), ("A = lw", "formula"),
+                                 ("x − 4 = 9", "equation"), ("2a − b", "expression"), ("x > 7", "inequality")],
+                             [("3x + 5", "expression"), ("3x + 5 = 20", "equation"), ("A = lw", "formula"),
+                              ("2a − b", "expression"), ("P = 2l + 2w", "formula"), ("x − 4 = 9", "equation"),
+                              ("x > 7", "inequality")],
+                             [("4(x − 1)", "expression"), ("5 = 2y + 1", "equation"), ("v = u + at", "formula"),
+                              ("3y ≤ 12", "inequality"), ("C = πd", "formula"), ("7 − 2x > 1", "inequality"),
+                              ("a² + 2ab", "expression"), ("2(x + 3) = 14", "equation")]))
         return _wq("Is  %s  an expression, an equation, a formula or an inequality?" % item, ans,
                    ["An expression has no equals sign; an equation can be solved; a formula links quantities; an "
                     "inequality uses < or >."], "expression / equation / formula / inequality")
 
     def t_terms():
-        k = random.randint(2, 5)
+        k = random.randint(2, _by(d, 3, 5, 6))
         terms = random.sample(["3x", "5", "y²", "2ab", "7y", "z", "4xy"], k)
-        return _tb("How many terms are in the expression  %s ?" % " + ".join(terms), k, "int", {},
+        if d == 2:                                  # stretch: some terms are subtracted, which does not change the count
+            shown = terms[0] + "".join(" %s %s" % (pick(["+", "−"]), t) for t in terms[1:])
+        else:
+            shown = " + ".join(terms)
+        return _tb("How many terms are in the expression  %s ?" % shown, k, "int", {},
                    ["The terms are %s." % ", ".join(terms)])
 
     def t_coef():
         m = random.randint(2, 12)
         v = pick(["x", "y", "p"])
         c = random.randint(1, 9)
+        if d == 2 and random.random() < 0.5:        # stretch: a bare letter, so the coefficient is 1
+            return _tb("What is the coefficient of %s in  %d + %s ?" % (v, c, v), 1, "int", {},
+                       ["%s means 1 × %s, so the coefficient is 1." % (v, v)])
+        if d == 2:                                  # stretch: the letter term comes second
+            return _tb("What is the coefficient of %s in  %d + %d%s ?" % (v, c, m, v), m, "int", {},
+                       ["The coefficient is the number multiplying %s: %d." % (v, m)])
         return _tb("What is the coefficient of %s in  %d%s + %d ?" % (v, m, v, c), m, "int", {},
                    ["The coefficient is the number multiplying %s: %d." % (v, m)])
 
     def t_constant():
         m, c = random.randint(2, 9), random.randint(1, 20)
+        if d == 2:                                  # stretch: three terms, constant in the middle
+            n = random.randint(2, 9)
+            return _tb("What is the constant term in  %dx + %d + %dy ?" % (m, c, n), c, "int", {},
+                       ["The term with no letter: %d." % c])
         return _tb("What is the constant term in  %dx + %d ?" % (m, c), c, "int", {}, ["The term with no letter: %d." % c])
 
     def t_like():
-        a, b = random.sample(["3x", "4y", "x²", "5x", "2xy", "7"], 2)
+        a, b = random.sample(_by(d, ["3x", "4y", "5x", "7", "2y"], ["3x", "4y", "x²", "5x", "2xy", "7"],
+                                 ["3x", "x²", "5x²", "2xy", "4xy", "x²y", "3xy²"]), 2)
         like = a.lstrip("0123456789") == b.lstrip("0123456789")
         return _wq("Are %s and %s like terms? (yes or no)" % (a, b), "yes" if like else "no",
                    ["Like terms have exactly the same letters and powers."], "yes / no")

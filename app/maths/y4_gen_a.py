@@ -2094,41 +2094,61 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _v(lo=3, hi=9):
+        """The one-digit multiplier/divisor: 2-5 when easy, the 6-9 tables at stretch."""
+        if d == 0:
+            return random.randint(2, min(hi, 5))
+        return random.randint(max(lo, 6) if d == 2 else lo, hi)
+
+    def _off(opts):
+        """How far the real number sits from the round one: right next to it when easy,
+        the far end (nearer the halfway point) at stretch."""
+        if d == 1:
+            return pick(opts)
+        mags = sorted({abs(o) for o in opts})
+        keep = mags[:max(1, len(mags) // 2)] if d == 0 else mags[len(mags) // 2:]
+        return pick([o for o in opts if abs(o) in keep])
+
+    def _tens():
+        """The round number in a 'nearest 10' estimate: 3-digit at stretch (347 × 6)."""
+        return random.randint(11, 49) * 10 if d == 2 else random.randint(2, 9) * 10
+
     def t_product_10():
-        v = random.randint(3, 9)
-        b = random.randint(2, 9) * 10
-        n = b + pick([-4, -3, -2, -1, 1, 2, 3, 4])
-        return _tb("Estimate %d × %d by rounding %d to the nearest 10." % (v, n, n),
+        v = _v()
+        b = _tens()
+        n = b + _off([-4, -3, -2, -1, 1, 2, 3, 4])
+        return _tb("Estimate %d × %s by rounding %s to the nearest 10." % (v, _c(n), _c(n)),
                    v * b, "int", {},
-                   ["%d ≈ %d." % (n, b),
-                    "%d × %d = %s." % (v, b, _c(v * b))])
+                   ["%s ≈ %s." % (_c(n), _c(b)),
+                    "%d × %s = %s." % (v, _c(b), _c(v * b))])
 
     def t_product_100():
-        v = random.randint(2, 6)
+        v = _v(2, 6) if d < 2 else random.randint(6, 9)
         b = random.randint(2, 9) * 100
-        n = b + pick([-40, -30, -20, 20, 30, 40])
+        n = b + _off([-40, -30, -20, 20, 30, 40])
         return _tb("Estimate %d × %s by rounding %s to the nearest 100." % (v, _c(n), _c(n)),
                    v * b, "int", {},
                    ["%s ≈ %s." % (_c(n), _c(b)),
                     "%d × %s = %s." % (v, _c(b), _c(v * b))])
 
     def t_word_product():
-        v = random.randint(3, 9)
-        b = random.randint(2, 9) * 10
-        n = b + pick([-3, -2, -1, 1, 2, 3])
+        v = _v()
+        b = _tens()
+        n = b + _off([-3, -2, -1, 1, 2, 3])
         who = pick(NAMES)
         thing = pick(["stickers", "beads", "marbles", "seeds"])
-        return _tb("%s buys %d packets of %s. Each packet holds %d %s. Estimate how many %s "
-                   "%s has by rounding %d to the nearest 10."
-                   % (who, v, thing, n, thing, thing, who, n), v * b, "int", {"unit": thing},
-                   ["%d ≈ %d." % (n, b),
-                    "%d × %d = %s." % (v, b, _c(v * b))])
+        return _tb("%s buys %d packets of %s. Each packet holds %s %s. Estimate how many %s "
+                   "%s has by rounding %s to the nearest 10."
+                   % (who, v, thing, _c(n), thing, thing, who, _c(n)), v * b, "int",
+                   {"unit": thing},
+                   ["%s ≈ %s." % (_c(n), _c(b)),
+                    "%d × %s = %s." % (v, _c(b), _c(v * b))])
 
     def t_quotient_compat():
-        v = random.randint(4, 9)
-        q = random.randint(2, 9) * 10
+        v = _v(4, 9) if d < 2 else random.randint(6, 9)
+        q = random.randint(2, 9) * 10 if d < 2 else random.randint(11, 99) * 10
         exact = v * q
-        n = exact + (pick([-1, 1]) if v == 4 else pick([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
+        n = exact + (pick([-1, 1]) if v == 4 else _off([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
         return _tb("Estimate %s ÷ %d. Use the number closest to %s that divides exactly by %d."
                    % (_c(n), v, _c(n), v), q, "int", {},
                    ["%s is the closest number to %s that divides exactly by %d."
@@ -2136,18 +2156,26 @@ def _(d=1):
                     "%s ÷ %d = %d." % (_c(exact), v, q)])
 
     def t_quotient_100():
-        v = pick([2, 4, 5])
+        if d == 2:                           # 4-digit, nearest 1,000 / 100 still divides evenly
+            v = pick([2, 4, 5])
+            b = random.randint(2, 9) * 1000
+            n = b + pick([-300, -200, -100, 100, 200, 300])
+            return _tb("Estimate %s ÷ %d by rounding %s to the nearest 1,000." % (_c(n), v, _c(n)),
+                       b // v, "int", {},
+                       ["%s ≈ %s." % (_c(n), _c(b)),
+                        "%s ÷ %d = %s." % (_c(b), v, _c(b // v))])
+        v = 2 if d == 0 else pick([2, 4, 5])
         b = random.randint(2, 9) * 100
-        n = b + pick([-30, -20, -10, 10, 20, 30])
+        n = b + _off([-30, -20, -10, 10, 20, 30])
         return _tb("Estimate %s ÷ %d by rounding %s to the nearest 100." % (_c(n), v, _c(n)),
                    b // v, "int", {},
                    ["%s ≈ %s." % (_c(n), _c(b)),
                     "%s ÷ %d = %d." % (_c(b), v, b // v)])
 
     def t_word_quotient():
-        v = random.randint(4, 9)
-        q = random.randint(2, 9) * 10
-        n = v * q + (pick([-1, 1]) if v == 4 else pick([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
+        v = _v(4, 9) if d < 2 else random.randint(6, 9)
+        q = random.randint(2, 9) * 10 if d < 2 else random.randint(11, 99) * 10
+        n = v * q + (pick([-1, 1]) if v == 4 else _off([-2, -1, 1, 2]))   # 2 off with v=4 is a tie
         who = pick(NAMES)
         return _tb("%s shares %s marbles equally between %d friends. Estimate how many "
                    "marbles each friend gets. Use the number closest to %s that divides "
@@ -2155,9 +2183,10 @@ def _(d=1):
                    ["%s ÷ %d = %d." % (_c(v * q), v, q)])
 
     def t_buses():
-        per = pick([40, 50])
-        buses = random.randint(3, 9)
-        n = per * buses - random.randint(1, 20)
+        per = 50 if d == 0 else pick([40, 50])
+        buses = random.randint(3, 6) if d == 0 else random.randint(3 if d == 1 else 6, 9)
+        # stretch: often just past the previous full coach, the "one more coach" trap
+        n = per * buses - random.randint(1, {0: 9, 1: 20, 2: per - 1}[d])
         return _tb("A school has %s pupils. Each coach carries %d pupils. Estimate how many "
                    "coaches are needed by rounding %s up to the nearest %d."
                    % (_c(n), per, _c(n), per), buses, "int", {"unit": "coaches"},
@@ -2165,22 +2194,26 @@ def _(d=1):
                     "%s ÷ %d = %d coaches." % (_c(per * buses), per, buses)])
 
     def t_closest():
-        v = random.randint(3, 9)
+        v = _v()
         b = random.randint(2, 9) * 10
         n = b + pick([-3, -2, 2, 3])
         exact = v * b
-        opts = sorted([exact, exact * 10, max(1, exact // 10)])
+        opts = {exact, exact * 10, max(1, exact // 10)}
+        if d == 2:                           # near-miss options: one ten too many / too few
+            opts |= {v * (b - 10), v * (b + 10)}
+        opts = sorted(opts)
         return _tb("About how much is %d × %d? Choose the closest estimate:   %s"
                    % (v, n, _lst(opts)), exact, "int", {},
                    ["%d ≈ %d, and %d × %d = %s." % (n, b, v, b, _c(exact)),
                     "The closest estimate is %s." % _c(exact)])
 
     def t_inequality_true():
-        v = random.randint(3, 9)
+        v = _v()
         b = random.randint(3, 9) * 10
-        n = b + pick([-3, -2, -1, 1, 2, 3])
+        n = b + _off([-3, -2, -1, 1, 2, 3])
         exact = v * n
-        gap = pick([50, 100, 150])
+        # the gap always beats the rounding error (at most 9 × 3 = 27), so the estimate decides it
+        gap = pick({0: [100, 150], 1: [50, 100, 150], 2: [40, 50]}[d])
         down = (v * b - gap) >= 40 and random.random() < 0.5
         target = v * b - gap if down else v * b + gap
         ans = "true" if exact > target else "false"
@@ -2192,22 +2225,38 @@ def _(d=1):
                    "true / false")
 
     def t_inequality_smallest():
-        v = random.randint(2, 5) if d == 0 else random.randint(3, 9)
+        v = random.randint(2, 5) if d == 0 else random.randint(3 if d == 1 else 6, 9)
         b = random.randint(2, 9) * 10
-        target = v * b
+        # stretch: the target is not itself a multiple of v
+        target = v * b + (random.randint(1, v - 1) if d == 2 else 0)
         ans = b + 1
+        if target == v * b:
+            why = "%d × %s = %s, which is not greater than %s." % (v, _c(b), _c(target), _c(target))
+        else:
+            why = "%d × %s = %s, which is still less than %s." % (v, _c(b), _c(v * b), _c(target))
         return _tb("Solve this inequality using estimation:   %d × ___ > %s   "
                    "What is the smallest whole number that can go in the gap to make the "
                    "inequality true?" % (v, _c(target)), ans, "int", {},
-                   ["%d × %s = %s, which is not greater than %s."
-                    % (v, _c(b), _c(target), _c(target)),
+                   [why,
                     "One more lot of %d is needed, so the smallest whole number is %s."
                     % (v, _c(ans))])
 
+    def t_two_products():
+        # stretch only: an extra step, two estimates added together
+        v1, v2 = random.randint(3, 9), random.randint(3, 9)
+        b1, b2 = random.randint(2, 9) * 10, random.randint(2, 9) * 10
+        n1, n2 = b1 + pick([-3, -2, -1, 1, 2, 3]), b2 + pick([-3, -2, -1, 1, 2, 3])
+        ans = v1 * b1 + v2 * b2
+        return _tb("Estimate %d × %d + %d × %d by rounding each two-digit number to the "
+                   "nearest 10." % (v1, n1, v2, n2), ans, "int", {},
+                   ["%d ≈ %d and %d ≈ %d." % (n1, b1, n2, b2),
+                    "%d × %d = %s and %d × %d = %s." % (v1, b1, _c(v1 * b1), v2, b2, _c(v2 * b2)),
+                    "%s + %s = %s." % (_c(v1 * b1), _c(v2 * b2), _c(ans))])
+
     def t_line():
-        v = random.randint(3, 9)
+        v = _v()
         b = random.randint(2, 6) * 10
-        n = b + pick([-3, -2, 2, 3])
+        n = b + _off([-3, -2, 2, 3])
         ans = v * b
         return _nl("Estimate %d × %d by rounding %d to the nearest 10, then place your "
                    "estimate on the number line." % (v, n, n), ans, 10, 100,
@@ -2215,8 +2264,9 @@ def _(d=1):
 
     def t_table():
         items = random.sample(["pencils", "rubbers", "rulers", "glue sticks"], 2)
-        per = [random.randint(2, 9) * 10 + pick([-2, -1, 1, 2]) for _i in range(2)]
-        packs = [random.randint(3, 8) for _i in range(2)]
+        per = [random.randint(2, 9) * 10 + _off([-2, -1, 1, 2]) for _i in range(2)]
+        packs = [{0: random.randint(2, 5), 1: random.randint(3, 8), 2: random.randint(6, 9)}[d]
+                 for _i in range(2)]
         rows = [[items[i], str(packs[i]), str(per[i])] for i in range(2)]
         r = random.randint(0, 1)
         b = _r10(per[r])
@@ -2229,17 +2279,21 @@ def _(d=1):
 
     def t_build():
         v = random.randint(2, 4)
-        b = random.randint(3, 9) * 10
-        n = b + pick([-2, -1, 1, 2])
+        b = random.randint(3, 9) * 10 if d < 2 else random.randint(11, 24) * 10
+        if v * b > 999:
+            v = 999 // b
+        n = b + _off([-2, -1, 1, 2])
         ans = v * b
-        return _bt("Estimate %d × %d by rounding %d to the nearest 10, then build your "
-                   "estimate with the blocks." % (v, n, n), ans,
-                   ["%d ≈ %d." % (n, b), "%d × %d = %d." % (v, b, ans)])
+        return _bt("Estimate %d × %s by rounding %s to the nearest 10, then build your "
+                   "estimate with the blocks." % (v, _c(n), _c(n)), ans,
+                   ["%s ≈ %s." % (_c(n), _c(b)), "%d × %s = %d." % (v, _c(b), ans)])
 
-    return _pick_t([t_product_10, t_product_100, t_word_product, t_quotient_compat,
-                    t_quotient_100, t_word_quotient, t_buses, t_closest,
-                    t_inequality_true, t_inequality_smallest],
-                   [t_line, t_table, t_build])
+    plain = [t_product_10, t_product_100, t_word_product, t_quotient_compat,
+             t_quotient_100, t_word_quotient, t_buses, t_closest,
+             t_inequality_true, t_inequality_smallest]
+    if d == 2:
+        plain.append(t_two_products)
+    return _pick_t(plain, [t_line, t_table, t_build])
 
 
 @skill("Y4.1.f", "Number sequences and rules", S1)
@@ -2640,22 +2694,26 @@ def _(d=1):
     # matchstick patterns: shape, sticks for the first shape, sticks added each time
     PATTERNS = [("squares", 4, 3), ("triangles", 3, 2), ("hexagons", 6, 5),
                 ("pentagons", 5, 4)]
+    if d == 0:                               # easy: the two familiar shapes only
+        PATTERNS = PATTERNS[:2]
 
     def t_next_term():
         name, first, add = pick(PATTERNS)
-        k = random.randint(3, 5)
+        k = random.randint(3, 4 if d == 0 else 5)
+        ahead = 2 if d == 2 else 1           # stretch: two shapes beyond the list
         counts = [first + i * add for i in range(k)]
-        ans = counts[-1] + add
+        ans = counts[-1] + ahead * add
         return _tb("A pattern is made from matchsticks. 1 %s uses %d sticks, and each extra "
                    "%s in the row uses %d more sticks: %s. How many sticks are needed for "
-                   "%d %s?" % (name[:-1], first, name[:-1], add, _lst(counts), k + 1, name),
+                   "%d %s?" % (name[:-1], first, name[:-1], add, _lst(counts), k + ahead, name),
                    ans, "int", {"unit": "sticks"},
                    ["Each new %s adds %d sticks." % (name[:-1], add),
-                    "%d + %d = %d." % (counts[-1], add, ans)])
+                    ("%d + %d = %d." % (counts[-1], add, ans)) if ahead == 1 else
+                    ("%d + %d + %d = %d." % (counts[-1], add, add, ans))])
 
     def t_nth_term():
         name, first, add = pick(PATTERNS)
-        k = random.randint(6, 12)
+        k = random.randint(*{0: (4, 6), 1: (6, 12), 2: (15, 30)}[d])
         ans = first + (k - 1) * add
         return _tb("In a matchstick pattern, 1 %s uses %d sticks and every extra %s uses %d "
                    "more sticks. How many sticks are needed for %d %s?"
@@ -2666,7 +2724,7 @@ def _(d=1):
 
     def t_inverse():
         name, first, add = pick(PATTERNS)
-        k = random.randint(4, 10)
+        k = random.randint(*{0: (3, 6), 1: (4, 10), 2: (12, 25)}[d])
         total = first + (k - 1) * add
         return _tb("In a matchstick pattern, 1 %s uses %d sticks and every extra %s uses %d "
                    "more sticks. %s uses %d sticks altogether. How many %s are in the pattern?"
@@ -2679,7 +2737,8 @@ def _(d=1):
 
     def t_step_size():
         name, first, add = pick(PATTERNS)
-        counts = [first + i * add for i in range(5)]
+        j = 0 if d < 2 else random.randint(5, 12)   # stretch: a later stretch of the pattern
+        counts = [first + (j + i) * add for i in range(5 if d < 2 else 4)]
         return _tb("A growing pattern of %s uses these numbers of matchsticks:  %s. "
                    "How many extra sticks are added each time?" % (name, _lst(counts)),
                    add, "int", {"unit": "sticks"},
@@ -2687,8 +2746,8 @@ def _(d=1):
 
     def t_difference():
         name, first, add = pick(PATTERNS)
-        a = random.randint(3, 6)
-        b = a + random.randint(2, 5)
+        a = random.randint(*{0: (2, 4), 1: (3, 6), 2: (8, 15)}[d])
+        b = a + random.randint(*{0: (1, 3), 1: (2, 5), 2: (6, 12)}[d])
         ans = (b - a) * add
         return _tb("In a matchstick pattern of %s, each extra %s uses %d more sticks. "
                    "How many more sticks are needed for %d %s than for %d %s?"
@@ -2697,7 +2756,7 @@ def _(d=1):
                     "%d × %d = %d." % (b - a, add, ans)])
 
     def t_square_numbers():
-        k = random.randint(3, 9)
+        k = random.randint(*{0: (3, 5), 1: (3, 9), 2: (10, 12)}[d])
         ans = k * k
         return _tb("A pattern is made from dots in squares: pattern 1 has 1 dot, pattern 2 has "
                    "4 dots, pattern 3 has 9 dots, pattern 4 has 16 dots. "
@@ -2706,7 +2765,7 @@ def _(d=1):
                     "%d × %d = %d." % (k, k, ans)])
 
     def t_triangle_rows():
-        k = random.randint(4, 9)
+        k = random.randint(*{0: (4, 5), 1: (4, 9), 2: (10, 12)}[d])
         ans = k * (k + 1) // 2
         return _tb("A triangle of counters is built in rows: row 1 has 1 counter, row 2 has 2, "
                    "row 3 has 3, and so on. How many counters are used altogether for %d rows?"
@@ -2716,7 +2775,7 @@ def _(d=1):
 
     def t_repeating_shape():
         seq = random.sample(["circle", "square", "triangle", "star", "hexagon"], 3)
-        k = random.randint(10, 40)
+        k = random.randint(*{0: (7, 15), 1: (10, 40), 2: (41, 99)}[d])
         ans = seq[(k - 1) % 3]
         return _wq("A pattern repeats these shapes over and over: %s, %s, %s, %s, %s, %s, ... "
                    "Which shape is in position %d? (type the word)"
@@ -2727,7 +2786,7 @@ def _(d=1):
 
     def t_repeating_colour():
         seq = random.sample(["red", "blue", "green", "yellow"], 4)
-        k = random.randint(12, 50)
+        k = random.randint(*{0: (9, 20), 1: (12, 50), 2: (51, 120)}[d])
         ans = seq[(k - 1) % 4]
         return _wq("Beads are threaded in a repeating pattern: %s, %s, %s, %s, %s, ... "
                    "What colour is bead number %d? (type the word)"
@@ -2738,9 +2797,9 @@ def _(d=1):
 
     def t_tiles():
         who = pick(NAMES)
-        first = random.randint(2, 6)
-        add = random.randint(2, 6)
-        k = random.randint(5, 10)
+        first = random.randint(2, 4 if d == 0 else 6)
+        add = random.randint(*{0: (2, 4), 1: (2, 6), 2: (3, 9)}[d])
+        k = random.randint(*{0: (4, 6), 1: (5, 10), 2: (12, 20)}[d])
         ans = first + (k - 1) * add
         return _tb("%s builds a pattern with tiles. Pattern 1 uses %d tiles and each pattern "
                    "after that uses %d more tiles than the one before. How many tiles are in "
@@ -2750,8 +2809,9 @@ def _(d=1):
 
     def t_io():
         name, first, add = pick(PATTERNS)
-        rows = [[i, first + (i - 1) * add] for i in range(1, 5)]
-        miss = random.randint(0, 3)
+        ins = [1, 2, 3, 4] if d < 2 else [1, 2, 3, random.randint(7, 12)]   # stretch: jump ahead
+        rows = [[i, first + (i - 1) * add] for i in ins]
+        miss = 3 if d == 2 and random.random() < 0.6 else random.randint(0, 3)
         return _io("This table shows how many matchsticks are used to make a row of %s. "
                    "What number goes in the empty cell?" % name,
                    rows, miss, rows[miss][1],
@@ -2761,20 +2821,21 @@ def _(d=1):
 
     def t_table():
         name, first, add = pick(PATTERNS)
-        vals = [first + i * add for i in range(5)]
-        r = random.randint(0, 4)
+        cols = [1, 2, 3, 4, 5] if d < 2 else [1, 2, 3, 4, random.randint(8, 15)]   # stretch: jump ahead
+        vals = [first + (c - 1) * add for c in cols]
+        r = 4 if d == 2 and random.random() < 0.6 else random.randint(0, 4)
         return _dt("This table shows a growing pattern of %s made from matchsticks. "
                    "What number belongs in the empty cell?" % name,
-                   ["Number of %s" % name, "1", "2", "3", "4", "5"],
+                   ["Number of %s" % name] + [str(c) for c in cols],
                    [["Matchsticks"] + [str(v) for v in vals]], vals[r],
                    ["Each extra %s adds %d sticks." % (name[:-1], add),
-                    "%d %s %s %d sticks." % (r + 1, name if r else name[:-1], "need" if r else "needs", vals[r])],
+                    "%d %s %s %d sticks." % (cols[r], name if r else name[:-1], "need" if r else "needs", vals[r])],
                    missing=[0, r + 1])
 
     def t_table_repeat():
         seq = random.sample(["circle", "square", "triangle"], 3)
         cells = [seq[i % 3] for i in range(6)]
-        k = random.randint(10, 30)
+        k = random.randint(*{0: (7, 12), 1: (10, 30), 2: (31, 60)}[d])
         ans = seq[(k - 1) % 3]
         return _dt("This table shows the first six shapes of a repeating pattern. "
                    "Which shape is in position %d? (type the word)" % k,
@@ -2786,7 +2847,7 @@ def _(d=1):
     def t_line():
         add = pick([5, 10, 25])
         first = add * random.randint(1, 2)
-        k = random.randint(3, 6)
+        k = random.randint(*{0: (2, 4), 1: (3, 6), 2: (5, 8)}[d])
         ans = first + k * add
         major = {5: 50, 10: 100, 25: 100}[add]
         return _nl("A growing pattern uses %d counters in pattern 1 and %d more counters in "

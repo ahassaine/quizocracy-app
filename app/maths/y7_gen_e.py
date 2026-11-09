@@ -75,37 +75,57 @@ def _(d=1):
     d = _d(d)
 
     def t_dice():
-        q, fav = pick([("an even number", 3), ("a number greater than 4", 2), ("a 6", 1), ("a prime number", 3),
-                       ("a number less than 3", 2), ("a multiple of 3", 2)])
+        q, fav = pick(_by(d, [("an even number", 3), ("a 6", 1), ("a number less than 3", 2), ("an odd number", 3)],
+                          [("an even number", 3), ("a number greater than 4", 2), ("a 6", 1), ("a prime number", 3),
+                           ("a number less than 3", 2), ("a multiple of 3", 2)],
+                          [("a factor of 6", 4), ("a square number", 2), ("a number that is not a 3", 5), ("a prime number", 3),
+                           ("a multiple of 3", 2), ("a number greater than 2", 4)]))
         return _fq("A fair six-sided dice is rolled. What is the probability of rolling %s? Simplest form." % q,
                    Fraction(fav, 6), ["%d out of 6 = %s." % (fav, _fs(Fraction(fav, 6)))])
 
     def t_bag():
-        r, b, g = random.randint(1, 8), random.randint(1, 8), random.randint(0, 6)
+        r, b, g = random.randint(1, _by(d, 5, 8, 15)), random.randint(1, _by(d, 5, 8, 15)), random.randint(0, _by(d, 4, 6, 10))
         col, n = pick([("red", r), ("blue", b)] + ([("green", g)] if g else []))
+        if d == 2 and random.random() < 0.5:        # stretch: the complement, 'not red'
+            return _fq("A bag has %d red, %d blue and %d green counters. One is taken at random. What is the probability it is "
+                       "NOT %s? Simplest form." % (r, b, g, col), Fraction(r + b + g - n, r + b + g),
+                       ["%d − %d = %d are not %s, out of %d." % (r + b + g, n, r + b + g - n, col, r + b + g)])
         return _fq("A bag has %d red, %d blue and %d green counters. One is taken at random. What is the probability it is "
                    "%s?" % (r, b, g, col), Fraction(n, r + b + g), ["%d out of %d." % (n, r + b + g)])
 
     def t_not():
-        p = Fraction(random.randint(1, 9), 10)
+        p = Fraction(random.randint(1, _by(d, 9, 9, 99)), _by(d, 10, 10, 100))
         return _tb("The probability that it rains tomorrow is %s. What is the probability that it does NOT rain? (decimal)"
                    % _ds(p), _ds(1 - p), "num", {}, ["Probabilities add to 1: 1 − %s = %s." % (_ds(p), _ds(1 - p))])
 
     def t_words():
-        ev, ans = pick([("rolling a 7 on a normal dice", "impossible"), ("the sun rising tomorrow", "certain"),
-                        ("getting heads when you flip a fair coin", "even chance"),
-                        ("picking a red card from a bag of only red cards", "certain"),
-                        ("picking a blue counter from a bag of only red counters", "impossible")])
+        ev, ans = pick(_by(d, [("rolling a 7 on a normal dice", "impossible"), ("the sun rising tomorrow", "certain"),
+                               ("getting heads when you flip a fair coin", "even chance"),
+                               ("picking a blue counter from a bag of only red counters", "impossible")],
+                           [("rolling a 7 on a normal dice", "impossible"), ("the sun rising tomorrow", "certain"),
+                            ("getting heads when you flip a fair coin", "even chance"),
+                            ("picking a red card from a bag of only red cards", "certain"),
+                            ("picking a blue counter from a bag of only red counters", "impossible")],
+                           [("picking a red counter from a bag of 9 red and 1 blue", "likely"),
+                            ("rolling a 6 on a fair dice", "unlikely"),
+                            ("getting an even number on a fair dice", "even chance"),
+                            ("a fair spinner with 1 red and 4 blue sections landing on red", "unlikely"),
+                            ("picking a blue counter from a bag of only red counters", "impossible"),
+                            ("rolling a number less than 6 on a fair dice", "likely")]))
         return _wq("Describe the chance of %s: impossible, unlikely, even chance, likely or certain?" % ev, ans,
                    ["Use the 0–1 scale."], "word")
 
     def t_scale():
-        ev, val = pick([("an impossible event", 0), ("a certain event", 1), ("an even chance", Fraction(1, 2))])
+        ev, val = pick(_by(d, [("an impossible event", 0), ("a certain event", 1), ("an even chance", Fraction(1, 2))],
+                           [("an impossible event", 0), ("a certain event", 1), ("an even chance", Fraction(1, 2))],
+                           [("the chance of picking red from a bag of 3 red and 1 blue counter", Fraction(3, 4)),
+                            ("the chance of picking red from a bag of 1 red and 4 blue counters", Fraction(1, 5)),
+                            ("the chance of getting tails on a fair coin", Fraction(1, 2)), ("an impossible event", 0)]))
         return _tb("What number on the 0–1 probability scale shows %s?" % ev, _ds(val), "frac", {"text": True},
                    ["0 = impossible, 0.5 = even chance, 1 = certain."])
 
     def t_missing():
-        ps = [Fraction(random.randint(1, 3), 10) for _ in range(3)]
+        ps = [Fraction(random.randint(_by(d, 1, 1, 5), _by(d, 2, 3, 30)), _by(d, 10, 10, 100)) for _ in range(3)]
         rest = 1 - sum(ps)
         cols = ["Red", "Blue", "Green", "Yellow"]
         rows = [[c, _ds(p)] for c, p in zip(cols, ps)] + [[cols[3], ""]]
@@ -114,7 +134,8 @@ def _(d=1):
                    missing=[3, 1], atype="num")
 
     def t_spinner():
-        slices = [["Red", random.randint(1, 4)], ["Blue", random.randint(1, 4)], ["Green", random.randint(1, 4)]]
+        hi = _by(d, 3, 4, 7)
+        slices = [["Red", random.randint(1, hi)], ["Blue", random.randint(1, hi)], ["Green", random.randint(1, hi)]]
         tot = sum(s[1] for s in slices)
         k = random.randrange(3)
         return {"prompt": "The spinner is split into %d equal sections, shown by colour. What is the probability of %s? "
@@ -130,10 +151,25 @@ def _(d=1):
     d = _d(d)
 
     def t_count():
-        a, b = pick([("a coin", 2), ("a dice", 6), ("a 4-sided spinner", 4)]), pick([("a coin", 2), ("a dice", 6), ("a 3-colour spinner", 3)])
+        a = pick(_by(d, [("a coin", 2), ("a 4-sided spinner", 4)], [("a coin", 2), ("a dice", 6), ("a 4-sided spinner", 4)],
+                     [("a dice", 6), ("an 8-sided spinner", 8), ("a 5-colour spinner", 5)]))
+        b = pick(_by(d, [("a coin", 2), ("a 3-colour spinner", 3)], [("a coin", 2), ("a dice", 6), ("a 3-colour spinner", 3)],
+                     [("a coin", 2), ("a dice", 6), ("a 4-sided spinner", 4)]))
         who = ("Two coins" if a[0] == "a coin" else "Two dice") if a[0] == b[0] else "%s and %s" % (a[0].capitalize(), b[0])
         return _tb("%s are used together. How many possible outcomes are there?" % who, a[1] * b[1],
                    "int", {}, ["%d × %d = %d." % (a[1], b[1], a[1] * b[1])])
+
+    def t_three():
+        items = random.sample([("a coin", 2), ("a dice", 6), ("a 3-colour spinner", 3), ("a 4-sided spinner", 4)], 3)
+        return _tb("%s, %s and %s are used together. How many possible outcomes are there?"
+                   % (items[0][0].capitalize(), items[1][0], items[2][0]), items[0][1] * items[1][1] * items[2][1], "int", {},
+                   ["%d × %d × %d = %d." % (items[0][1], items[1][1], items[2][1], items[0][1] * items[1][1] * items[2][1])])
+
+    def t_dice_more():
+        s = random.randint(7, 11)
+        ways = sum(1 for x in range(1, 7) for y in range(1, 7) if x + y > s)
+        return _fq("Two fair dice are rolled and the scores added. What is the probability of a total greater than %d? "
+                   "Simplest form." % s, Fraction(ways, 36), ["%d of the 36 outcomes give more than %d." % (ways, s)])
 
     def t_two_dice_sum():
         s = random.randint(2, 12)
@@ -142,17 +178,33 @@ def _(d=1):
                    Fraction(ways, 36), ["%d of the 36 outcomes give %d." % (ways, s)])
 
     def t_coins():
+        if d == 2:                                  # stretch: three coins, 8 outcomes
+            k = pick([0, 1, 2, 3])
+            return _fq("Three fair coins are flipped. What is the probability of getting exactly %d head%s? Simplest form."
+                       % (k, "" if k == 1 else "s"), Fraction({0: 1, 1: 3, 2: 3, 3: 1}[k], 8),
+                       ["Outcomes: HHH, HHT, HTH, THH, HTT, THT, TTH, TTT."])
         k = pick([0, 1, 2])
         ways = {0: 1, 1: 2, 2: 1}[k]
         return _fq("Two fair coins are flipped. What is the probability of getting exactly %d head%s? Simplest form."
                    % (k, "" if k == 1 else "s"), Fraction(ways, 4), ["Outcomes: HH, HT, TH, TT."])
 
     def t_list():
-        a, b = random.randint(2, 4), random.randint(2, 4)
+        a, b = random.randint(2, _by(d, 3, 4, 7)), random.randint(2, _by(d, 3, 4, 8))
+        if d == 2:                                  # stretch: a third course
+            c = random.randint(2, 5)
+            return _tb("A menu has %d starters, %d mains and %d desserts. How many different three-course meals (one of each) "
+                       "are there?" % (a, b, c), a * b * c, "int", {}, ["%d × %d × %d = %d." % (a, b, c, a * b * c)])
         return _tb("A menu has %d starters and %d mains. How many different two-course meals (one of each) are there?" % (a, b),
                    a * b, "int", {}, ["%d × %d = %d." % (a, b, a * b)])
 
     def t_grid():
+        if d == 2:                                  # stretch: 4 × 4 grid
+            rows = [[str(x)] + [str(x + y) for y in range(1, 5)] for x in range(1, 5)]
+            target = random.randint(3, 7)
+            ways = sum(1 for x in range(1, 5) for y in range(1, 5) if x + y == target)
+            return _dt("Two spinners each show 1, 2, 3 or 4. The table shows every total. What is the probability of a total of "
+                       "%d? Simplest form." % target, ["+", "1", "2", "3", "4"], rows, _fs(Fraction(ways, 16)),
+                       ["%d of the 16 totals are %d." % (ways, target)], atype="frac")
         rows = [[str(x)] + [str(x + y) for y in range(1, 4)] for x in range(1, 4)]
         target = random.randint(3, 5)
         ways = sum(1 for x in range(1, 4) for y in range(1, 4) if x + y == target)
@@ -160,7 +212,8 @@ def _(d=1):
                    "Simplest form." % target, ["+", "1", "2", "3"], rows, _fs(Fraction(ways, 9)),
                    ["%d of the 9 totals are %d." % (ways, target)], atype="frac")
 
-    return _pick_t([t_count, t_two_dice_sum, t_coins, t_list], [t_grid])
+    return _pick_t(_by(d, [t_count, t_coins, t_list], [t_count, t_two_dice_sum, t_coins, t_list],
+                       [t_count, t_two_dice_sum, t_coins, t_list, t_three, t_dice_more]), [t_grid])
 
 
 @skill("Y7.9.d", "Primes, HCF, LCM and prime factorisation", S9)
@@ -211,9 +264,10 @@ def _(d=1):
 @skill("Y7.9.e", "The mean, and comparing averages", S9)
 def _(d=1):
     d = _d(d)
-    n = random.randint(4, 7)
-    m = random.randint(8, 40)
-    vals = [m + random.randint(-6, 6) for _ in range(n - 1)]
+    n = random.randint(_by(d, 3, 4, 5), _by(d, 5, 7, 9))
+    m = random.randint(_by(d, 5, 8, 20), _by(d, 20, 40, 99))
+    sp = _by(d, 3, 6, 10)
+    vals = [m + random.randint(-sp, sp) for _ in range(n - 1)]
     vals.append(m * n - sum(vals))
     if vals[-1] < 0:
         vals[-1] = m
@@ -224,15 +278,16 @@ def _(d=1):
                    ["%d ÷ %d = %s." % (tot, len(vals), _ds(Fraction(tot, len(vals))))]) if Fraction(tot, len(vals)).denominator in (1, 2, 4, 5) else t_missing()
 
     def t_missing():
-        mm = random.randint(5, 30)
-        k = 4
-        known = [random.randint(1, 2 * mm) for _ in range(k - 1)]
+        mm = random.randint(_by(d, 3, 5, 10), _by(d, 15, 30, 60))
+        k = _by(d, 3, 4, 5)
+        known = [random.randint(1, _by(d, mm + mm // 3, 2 * mm, mm + mm // 5)) for _ in range(k - 1)]   # keeps the last one positive
         last = mm * k - sum(known)
         if last < 0:
             known = [mm] * (k - 1)
             last = mm
-        return _tb("The mean of four numbers is %d. Three of them are %s. What is the fourth?" % (mm, ", ".join(map(str, known))),
-                   last, "int", {}, ["Total = %d × 4 = %d." % (mm, 4 * mm), "%d − %d = %d." % (4 * mm, sum(known), last)])
+        w = {3: ("three", "Two", "third"), 4: ("four", "Three", "fourth"), 5: ("five", "Four", "fifth")}[k]
+        return _tb("The mean of %s numbers is %d. %s of them are %s. What is the %s?" % (w[0], mm, w[1], ", ".join(map(str, known)), w[2]),
+                   last, "int", {}, ["Total = %d × %d = %d." % (mm, k, k * mm), "%d − %d = %d." % (k * mm, sum(known), last)])
 
     def t_which_average():
         q, ans = pick([("Which average is the most common value? (mean, median or mode)", "mode"),
@@ -241,15 +296,15 @@ def _(d=1):
         return _wq(q, ans, ["Definitions of the averages."], "mean / median / mode")
 
     def t_mode():
-        base = random.sample(range(1, 30), 5)
+        base = random.sample(range(1, _by(d, 15, 30, 60)), _by(d, 4, 5, 7))
         mode = pick(base)
         data = base + [mode, mode]
         random.shuffle(data)
         return _tb("Find the mode of: %s" % ", ".join(map(str, data)), mode, "int", {}, ["%d appears most often." % mode])
 
     def t_compare():
-        a = [random.randint(10, 30) for _ in range(5)]
-        b = [random.randint(10, 30) for _ in range(5)]
+        a = [random.randint(10, _by(d, 20, 30, 99)) for _ in range(5)]
+        b = [random.randint(10, _by(d, 20, 30, 99)) for _ in range(5)]
         ma, mb = Fraction(sum(a), 5), Fraction(sum(b), 5)
         if ma == mb:
             b[0] += 1
@@ -260,16 +315,17 @@ def _(d=1):
 
     def t_bar_mean():
         cats = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-        mm = random.randint(13, 30)                 # the last bar is at least mm − 12
-        v = [mm + random.randint(-3, 3) for _ in range(4)]
+        sp = _by(d, 2, 3, 6)
+        mm = random.randint(_by(d, 13, 13, 25), _by(d, 30, 30, 60))   # the last bar is at least mm − 4·sp
+        v = [mm + random.randint(-sp, sp) for _ in range(4)]
         v.append(5 * mm - sum(v))
         return _bar("The bar chart shows how many emails were received each day. What is the mean number per day?", cats, v, mm,
                     ["Total %d ÷ 5 = %d." % (sum(v), mm)])
 
     def t_new_value():
-        k = random.randint(4, 6)
-        mm = random.randint(10, 30)
-        nv = random.randint(1, 40)
+        k = random.randint(_by(d, 3, 4, 6), _by(d, 4, 6, 9))
+        mm = random.randint(10, _by(d, 20, 30, 60))
+        nv = random.randint(1, _by(d, 30, 40, 99))
         while (mm * k + nv) % (k + 1):
             nv += 1
         return _tb("The mean of %d numbers is %d. Another number, %d, is added. What is the new mean?" % (k, mm, nv),
@@ -295,11 +351,15 @@ def _(d=1):
                    ["Range A = %d, range B = %d." % (max(a) - min(a), max(b) - min(b))], atype="str")
 
     def t_mean_decimal():
-        vals = [Decimal(random.randint(10, 99)) / 10 for _ in range(4)]
+        vals = [Decimal(random.randint(10, _by(d, 99, 99, 999))) / _by(d, 10, 10, 100) for _ in range(4)]
+        while d == 2 and int(sum(vals) * 100) % 4:      # stretch: hundredths, but a mean with at most 2 decimal places
+            vals[-1] += Decimal("0.01")
         return _tb("Find the mean of these times in seconds: %s" % ", ".join(_ds(v) for v in vals), _ds(sum(vals) / 4), "num",
                    {"unit": "seconds"}, ["%s ÷ 4 = %s." % (_ds(sum(vals)), _ds(sum(vals) / 4))])
 
-    return _pick_t([t_mean, t_missing, t_which_average, t_mode, t_new_value, t_best, t_mean_decimal],
+    return _pick_t(_by(d, [t_mean, t_missing, t_which_average, t_mode, t_new_value],
+                       [t_mean, t_missing, t_which_average, t_mode, t_new_value, t_best, t_mean_decimal],
+                       [t_mean, t_missing, t_mode, t_new_value, t_best, t_mean_decimal]),
                    [t_compare, t_bar_mean, t_range_compare])
 
 
@@ -307,25 +367,26 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     cats = ["Walk", "Bus", "Car", "Cycle"]
+    lo, hi = _by(d, (1, 12), (3, 30), (10, 60))
 
     def t_bar_total():
-        v = [random.randint(3, 30) for _ in cats]
+        v = [random.randint(lo, hi) for _ in cats]
         return _bar("The bar chart shows how pupils travel to school. How many pupils are there altogether?", cats, v, sum(v),
                     ["%s = %d." % (" + ".join(map(str, v)), sum(v))])
 
     def t_bar_fraction():
-        v = [random.randint(2, 20) for _ in cats]
+        v = [random.randint(_by(d, 1, 2, 5), _by(d, 6, 20, 40)) for _ in cats]
         k = random.randrange(4)
         return _bar("The bar chart shows how pupils travel to school. What fraction of the pupils %s? Simplest form."
                     % {"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[k]], cats, v,
                     _fs(Fraction(v[k], sum(v))), ["%d out of %d." % (v[k], sum(v))], atype="frac")
 
     def t_pie():
-        a = pick([90, 120, 60, 180])
+        a = pick(_by(d, [90, 180], [90, 120, 60, 180], [30, 45, 72, 135, 150]))
         rest = 360 - a
         b = rest // 2
         slices = [["Football", a], ["Tennis", b], ["Rugby", rest - b]]
-        tot = pick([24, 36, 60, 72, 120])
+        tot = pick([n for n in _by(d, (24, 36, 60), (24, 36, 60, 72, 120), (24, 40, 60, 72, 120, 180, 360)) if (n * a) % 360 == 0])
         return {"prompt": "The pie chart shows the favourite sport of %d pupils. The Football sector is %d°. How many chose "
                           "Football?" % (tot, a), "component": "pie_chart",
                 "spec": {"slices": slices, "mode": "read", "highlight": 0}, "answer": tot * a // 360, "answer_type": "int",
@@ -333,7 +394,7 @@ def _(d=1):
 
     def t_line():
         months = ["Jan", "Feb", "Mar", "Apr", "May"]
-        v = [random.randint(10, 60) for _ in months]
+        v = [random.randint(_by(d, 10, 10, 20), _by(d, 40, 60, 99)) for _ in months]
         i, j = random.sample(range(5), 2)
         return _lg("The graph shows books sold each month. What is the difference between %s and %s?" % (months[i], months[j]),
                    list(zip(months, v)), abs(v[i] - v[j]), ["%d and %d." % (v[i], v[j])], "Books", "Month")
@@ -343,7 +404,7 @@ def _(d=1):
                    "smaller? (type bigger or smaller)", "bigger", ["Cutting the axis exaggerates differences."], "bigger / smaller")
 
     def t_bar_more():
-        v = random.sample(range(3, 31), 4)
+        v = random.sample(range(lo, hi + 1), 4)
         i, j = random.sample(range(4), 2)
         if v[i] < v[j]:
             i, j = j, i
@@ -353,13 +414,13 @@ def _(d=1):
                     cats, v, v[i] - v[j], ["%d − %d = %d." % (v[i], v[j], v[i] - v[j])])
 
     def t_bar_mode():
-        v = random.sample(range(3, 31), 4)
+        v = random.sample(range(lo, hi + 1), 4)
         return _bar("The bar chart shows how pupils travel to school. Which way of travelling is the mode? (type it as on the chart)",
                     cats, v, cats[v.index(max(v))], ["The tallest bar is %s." % cats[v.index(max(v))]], atype="str")
 
     def t_pictogram():
-        key = pick([2, 4, 10])
-        vals = [key * random.randint(1, 8) + (key // 2 if random.random() < 0.3 else 0) for _ in range(4)]
+        key = pick(_by(d, [2, 10], [2, 4, 10], [4, 10, 20]))
+        vals = [key * random.randint(1, 8) + (key // 2 if random.random() < _by(d, 0, 0.3, 0.6) else 0) for _ in range(4)]
         names = ["Mon", "Tue", "Wed", "Thu"]
         k = random.randrange(4)
         return {"prompt": "The pictogram shows cakes sold each day. Each symbol stands for %d cakes. How many were sold on %s?"
@@ -369,13 +430,13 @@ def _(d=1):
 
     def t_line_max():
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-        v = random.sample(range(10, 60), 6)
+        v = random.sample(range(_by(d, 10, 10, 20), _by(d, 40, 60, 99)), 6)
         return _lg("The graph shows books sold each month. In which month were the most books sold?", list(zip(months, v)),
                    months[v.index(max(v))], ["The highest point is %s (%d)." % (months[v.index(max(v))], max(v))], "Books", "Month",
                    atype="str")
 
     def t_pie_angle():
-        a = pick([45, 60, 72, 90, 120, 135, 150])
+        a = pick(_by(d, [90, 120, 180, 60], [45, 60, 72, 90, 120, 135, 150], [40, 45, 72, 135, 150, 210]))
         tot = pick([n for n in (24, 40, 60, 72, 120, 180, 360) if (n * a) % 360 == 0])
         rest = 360 - a
         slices = [["Cats", a], ["Dogs", rest // 2], ["Fish", rest - rest // 2]]
@@ -386,7 +447,7 @@ def _(d=1):
 
     def t_line_rise():
         months = ["Jan", "Feb", "Mar", "Apr", "May"]
-        v = [random.randint(10, 60) for _ in months]
+        v = [random.randint(_by(d, 10, 10, 20), _by(d, 40, 60, 99)) for _ in months]
         i = random.randrange(4)
         if v[i + 1] == v[i]:
             v[i + 1] += 3

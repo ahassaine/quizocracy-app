@@ -562,10 +562,15 @@ def _(d=1):
 @skill("Y4.8.d", "Classify quadrilaterals", S8)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 1])
+    t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2 if d == 2 else 0])
+    # easy: the everyday quadrilaterals; stretch: lean on the ones pupils mix up
+    easy_q = ("square", "rectangle", "trapezium")
+    hard_q = ("rhombus", "parallelogram", "trapezium", "kite")
+    quads = _by_d(d, [q for q in _QUADS if q[0] in easy_q], _QUADS,
+                  [q for q in _QUADS if q[0] in hard_q])
 
     if t == 0:                                        # attributes -> name
-        attrs, quad = pick([
+        attrs, quad = pick([x for x in [
             ("4 equal sides and 4 right angles", "square"),
             ("4 right angles, with opposite sides equal but not all four sides equal",
              "rectangle"),
@@ -574,20 +579,20 @@ def _(d=1):
              "parallelogram"),
             ("exactly one pair of parallel sides", "trapezium"),
             ("two pairs of equal sides next to each other and no parallel sides", "kite"),
-        ])
+        ] if d == 1 or x[1] in [q[0] for q in quads]])
         return _num_q("Which quadrilateral has %s? (type the name)" % attrs,
                       quad, "str", text=True, placeholder=_QUAD_NAMES,
                       solution=["%s has %s." % (_a(quad).capitalize(), attrs)])
 
     if t == 1:                                        # pairs of parallel sides
-        quad, par, ra, eq, sym = pick(_QUADS)
+        quad, par, ra, eq, sym = pick(quads)
         return _num_q("How many pairs of parallel sides does %s have?" % _a(quad),
                       par, "int", unit="pairs",
                       solution=["%s has %s of parallel sides."
                                 % (_a(quad).capitalize(), _pl(par, "pair"))])
 
     if t == 2:                                        # right angles
-        quad, par, ra, eq, sym = pick(_QUADS)
+        quad, par, ra, eq, sym = pick(quads)
         return _num_q("How many right angles must %s always have?" % _a(quad),
                       ra, "int", unit="right angles",
                       solution=["%s has %s." % (_a(quad).capitalize(),
@@ -595,8 +600,11 @@ def _(d=1):
                                                 "no right angles")])
 
     if t == 3:                                        # perpendicular sides
-        quad, per = pick([("square", 4), ("rectangle", 4), ("rhombus", 0),
-                          ("parallelogram", 0), ("kite", 0)])
+        quad, per = pick(_by_d(d, [("square", 4), ("rectangle", 4)],
+                               [("square", 4), ("rectangle", 4), ("rhombus", 0),
+                                ("parallelogram", 0), ("kite", 0)],
+                               [("rhombus", 0), ("parallelogram", 0), ("kite", 0),
+                                ("square", 4)]))
         return _num_q("Two sides are perpendicular when they meet at a right angle. "
                       "How many pairs of perpendicular sides must %s always have at its corners?"
                       % _a(quad),
@@ -640,7 +648,8 @@ def _(d=1):
                                                          _pl(4 if nm == "square" else 2, "line"))]}
 
     if t == 5:                                        # all four sides equal?
-        quad = pick(["square", "rectangle", "rhombus", "parallelogram", "trapezium", "kite"])
+        quad = pick([q[0] for q in quads] if d != 1 else
+                    ["square", "rectangle", "rhombus", "parallelogram", "trapezium", "kite"])
         ans = "yes" if quad in ("square", "rhombus") else "no"
         return _num_q("Does %s always have all four sides the same length? "
                       "(type yes or no)" % _a(quad),
@@ -650,18 +659,27 @@ def _(d=1):
                                 "So the answer for %s is %s." % (_a(quad), ans)])
 
     if t == 6:                                        # real-life
-        thing, quad = pick([("a football pitch", "rectangle"),
-                            ("a chess board", "square"),
-                            ("a kite flown on a string", "kite"),
-                            ("the face of a house brick", "rectangle"),
-                            ("a leaning street sign shaped like a squashed square", "rhombus")])
+        things = [("a football pitch", "rectangle"),
+                  ("a chess board", "square"),
+                  ("a kite flown on a string", "kite"),
+                  ("the face of a house brick", "rectangle"),
+                  ("a leaning street sign shaped like a squashed square", "rhombus")]
+        thing, quad = pick(_by_d(d, things[:2] + things[3:4], things, things[2:3] + things[4:]))
         return _num_q("In the real world, %s is shaped like which quadrilateral? "
                       "(type the name)" % thing,
                       quad, "str", text=True, placeholder=_QUAD_NAMES,
                       solution=["%s is shaped like %s." % (thing.capitalize(), _a(quad))])
 
     if t == 7:                                        # sorting
-        chosen = random.sample(_QUADS, 4)
+        chosen = random.sample(_QUADS, _by_d(d, 3, 4, 5))
+        if d == 2 and random.random() < 0.5:          # stretch: a different property to sort by
+            cnt = sum(1 for q in chosen if q[1] >= 1)
+            return _num_q("Sort these quadrilaterals: %s. How many of them have AT LEAST ONE "
+                          "pair of parallel sides?" % ", ".join(q[0] for q in chosen),
+                          cnt, "int", unit="quadrilaterals",
+                          solution=["Pairs of parallel sides: %s."
+                                    % ", ".join("%s %d" % (q[0], q[1]) for q in chosen),
+                                    "%d of them have at least 1 pair." % cnt])
         cnt = sum(1 for q in chosen if q[1] == 2)
         return _num_q("Sort these quadrilaterals: %s. How many of them have TWO pairs of "
                       "parallel sides?" % ", ".join(q[0] for q in chosen),
@@ -671,12 +689,42 @@ def _(d=1):
                                 "%d of them have 2 pairs." % cnt])
 
     if t == 8:                                        # lines of symmetry of a quadrilateral
-        quad, sym = pick([("square", 4), ("rectangle", 2), ("rhombus", 2),
-                          ("parallelogram", 0), ("kite", 1)])
+        quad, sym = pick(_by_d(d, [("square", 4), ("rectangle", 2)],
+                               [("square", 4), ("rectangle", 2), ("rhombus", 2),
+                                ("parallelogram", 0), ("kite", 1)],
+                               [("rhombus", 2), ("parallelogram", 0), ("kite", 1),
+                                ("rectangle", 2)]))
         return _num_q("How many lines of symmetry does %s have?" % _a(quad),
                       sym, "int", unit="lines",
                       solution=["%s has %s of symmetry."
                                 % (_a(quad).capitalize(), _pl(sym, "line"))])
+
+    if t == 10:                                       # stretch: one family inside another
+        q1, q2, ans, why = pick([
+            ("square", "rectangle", "yes", "A square has 4 right angles, so it is a special rectangle."),
+            ("rectangle", "square", "no", "A rectangle's sides need not all be equal."),
+            ("square", "rhombus", "yes", "A square has 4 equal sides, so it is a special rhombus."),
+            ("rhombus", "square", "no", "A rhombus need not have right angles."),
+            ("rhombus", "parallelogram", "yes", "A rhombus has two pairs of parallel sides."),
+            ("parallelogram", "rhombus", "no", "A parallelogram's sides need not all be equal."),
+            ("rectangle", "parallelogram", "yes", "A rectangle has two pairs of parallel sides."),
+            ("parallelogram", "rectangle", "no", "A parallelogram need not have right angles."),
+        ])
+        return _num_q("Is every %s also %s? (type yes or no)" % (q1, _a(q2)),
+                      ans, "str", text=True, placeholder="yes / no",
+                      solution=[why, "So the answer is %s." % ans])
+
+    if d == 0:                                        # easy: same idea with friendlier angles
+        a = 90
+        b = 90
+        c = random.randint(5, 13) * 10
+        rest = 360 - a - b - c
+        return _num_q("Three angles of a quadrilateral are %d°, %d° and %d°. What is the "
+                      "fourth angle, in degrees?" % (a, b, c),
+                      rest, "int", unit="degrees",
+                      solution=["The angles of a quadrilateral add up to 360°.",
+                                "%d + %d + %d = %d, and 360 − %d = %d°."
+                                % (a, b, c, a + b + c, a + b + c, rest)])
 
     # angles of a quadrilateral
     a = random.randint(50, 120)
@@ -2867,22 +2915,30 @@ def _(d=1):
     t = _pick_t([1, 1, 1, 1, 1, 1, 1, 1, 1])
 
     if t == 0:                                        # certain / impossible / likely
-        event, ans = pick([
+        events = [
             ("rolling a number less than 7 on an ordinary dice", "certain"),
             ("rolling a 9 on an ordinary dice", "impossible"),
             ("picking a red counter from a bag of only red counters", "certain"),
             ("picking a blue counter from a bag of only red counters", "impossible"),
             ("the sun rising tomorrow morning", "certain"),
             ("a fair coin landing on heads", "even chance"),
-        ])
+        ]
+        hard = [                                      # stretch: you have to reason it out
+            ("rolling an even number on an ordinary dice", "even chance"),
+            ("rolling a 0 on an ordinary dice", "impossible"),
+            ("rolling a number greater than 0 on an ordinary dice", "certain"),
+            ("picking a red counter from a bag of 5 red and 5 blue counters", "even chance"),
+            ("rolling a number from 1 to 3 on an ordinary dice", "even chance"),
+        ]
+        event, ans = pick(_by_d(d, events[2:], events, events[:2] + hard))
         return _num_q("Is this certain, impossible or an even chance: %s? "
                       "(type the answer)" % event,
                       ans, "str", text=True, placeholder="certain / impossible / even chance",
                       solution=["%s is %s." % (event.capitalize(), ans)])
 
     if t == 1:                                        # likely / unlikely from counters
-        red = random.randint(7, 12)
-        blue = random.randint(1, 3)
+        red = random.randint(*_by_d(d, (8, 12), (7, 12), (7, 10)))
+        blue = random.randint(*_by_d(d, (1, 2), (1, 3), (3, 5)))   # stretch: closer counts
         ask_red = random.random() < 0.5
         ans = "likely" if ask_red else "unlikely"
         return _num_q("A bag holds %s and %s. One counter is "
@@ -2895,8 +2951,16 @@ def _(d=1):
                                 % ("red" if ask_red else "blue", ans)])
 
     if t == 2:                                        # counting the other outcome
-        red = random.randint(3, 12)
-        blue = random.randint(3, 12)
+        red = random.randint(*_by_d(d, (2, 6), (3, 12), (5, 15)))
+        blue = random.randint(*_by_d(d, (2, 6), (3, 12), (5, 15)))
+        if d == 2:                                    # stretch: two other colours to add
+            green = random.randint(3, 12)
+            return _num_q("A bag holds %s, %s and %s. How many counters in the bag are "
+                          "NOT red?" % (_pl(red, "red counter"), _pl(blue, "blue counter"),
+                                        _pl(green, "green counter")),
+                          blue + green, "int", unit="counters",
+                          solution=["The blue and the green counters are not red.",
+                                    "%d + %d = %d." % (blue, green, blue + green)])
         return _num_q("A bag holds %s and %s. How many counters "
                       "in the bag are NOT red?"
                       % (_pl(red, "red counter"), _pl(blue, "blue counter")),
@@ -2905,6 +2969,13 @@ def _(d=1):
                                 "That is %d." % blue])
 
     if t == 3:                                        # total outcomes
+        if d == 2:
+            n = random.randint(8, 12)
+            return _num_q("A spinner has %d equal sections numbered 1 to %d. How many "
+                          "different numbers could it land on?" % (n, n),
+                          n, "int", unit="numbers",
+                          solution=["The spinner shows 1, 2, ... up to %d." % n,
+                                    "That is %d different numbers." % n])
         return _num_q("An ordinary dice is numbered 1 to 6. How many different numbers "
                       "could it land on?",
                       6, "int", unit="numbers",
@@ -2912,9 +2983,21 @@ def _(d=1):
                                 "That is 6 different numbers."])
 
     if t == 4:                                        # favourable outcomes on a dice
-        kind, cnt = pick([("an even number", 3), ("an odd number", 3),
-                          ("a number bigger than 4", 2), ("a number less than 3", 2),
-                          ("a multiple of 3", 2)])
+        if d == 2:                                    # stretch: a 1-10 spinner, two conditions
+            kind, cnt, fit = pick([("a multiple of 3", 3, "3, 6, 9"),
+                                   ("a number bigger than 6", 4, "7, 8, 9, 10"),
+                                   ("an even number less than 9", 4, "2, 4, 6, 8"),
+                                   ("an odd number bigger than 4", 3, "5, 7, 9"),
+                                   ("a multiple of 4", 2, "4, 8")])
+            return _num_q("A spinner has 10 equal sections numbered 1 to 10. On how many "
+                          "sections could it land on %s?" % kind,
+                          cnt, "int", unit="sections",
+                          solution=["The numbers that fit are %s." % fit,
+                                    "There are %d." % cnt])
+        kind, cnt = pick(_by_d(d, [("an even number", 3), ("an odd number", 3)],
+                               [("an even number", 3), ("an odd number", 3),
+                                ("a number bigger than 4", 2), ("a number less than 3", 2),
+                                ("a multiple of 3", 2)], None))
         return _num_q("An ordinary dice is numbered 1 to 6. On how many of the six faces "
                       "would you roll %s?" % kind,
                       cnt, "int", unit="faces",
@@ -2922,9 +3005,22 @@ def _(d=1):
                                 "There are %d." % cnt])
 
     if t == 5:                                        # probability as a fraction
-        red = random.randint(1, 5)
-        others = random.randint(1, 7)
+        red = random.randint(1, 3 if d == 0 else 5)
+        others = random.randint(1, 4 if d == 0 else 7)
         total = red + others
+        if d == 2:                                    # stretch: three colours in the bag
+            yel = random.randint(1, 5)
+            grn = random.randint(1, 5)
+            total = red + yel + grn
+            return _num_q("A bag holds %s, %s and %s. One counter is taken without looking. "
+                          "Write the fraction of the counters that are red."
+                          % (_pl(red, "red counter"), _pl(yel, "yellow counter"),
+                             _pl(grn, "green counter")),
+                          "%d/%d" % (red, total), "frac", text=True, placeholder="e.g. 3/8",
+                          solution=["There are %d + %d + %d = %d counters in total."
+                                    % (red, yel, grn, total),
+                                    "%d of them are red, so the fraction is %d/%d."
+                                    % (red, red, total)])
         return _num_q("A bag holds %s and %s. One counter is taken without looking. "
                       "Write the fraction of the counters that are red."
                       % (_pl(red, "red counter"), _pl(others, "yellow counter")),
@@ -2935,8 +3031,16 @@ def _(d=1):
                                 % (red, red, total)])
 
     if t == 6:                                        # spinner
-        parts = pick([4, 5, 6, 8, 10])
+        parts = pick(_by_d(d, [4, 5, 6], [4, 5, 6, 8, 10], [8, 10, 12]))
         wins = random.randint(1, parts - 1)
+        if d == 2 and random.random() < 0.5:          # stretch: the sections that are NOT green
+            rest = parts - wins
+            return _num_q("A spinner has %d equal sections and %d of them %s green. Write the "
+                          "fraction of the spinner that is NOT green."
+                          % (parts, wins, "is" if wins == 1 else "are"),
+                          "%d/%d" % (rest, parts), "frac", text=True, placeholder="e.g. 3/8",
+                          solution=["%d − %d = %d sections are not green." % (parts, wins, rest),
+                                    "The fraction is %d/%d." % (rest, parts)])
         return _num_q("A spinner has %d equal sections and %d of them %s green. Write the "
                       "fraction of the spinner that is green."
                       % (parts, wins, "is" if wins == 1 else "are"),
@@ -2946,7 +3050,17 @@ def _(d=1):
 
     if t == 7:                                        # make it certain
         red = random.randint(2, 8)
-        blue = random.randint(1, 5)
+        blue = random.randint(1, 3 if d == 0 else 5)
+        if d == 2:                                    # stretch: two colours must go
+            grn = random.randint(1, 5)
+            return _num_q("A bag holds %s, %s and %s. How many counters must be taken out "
+                          "so that picking a red counter becomes certain?"
+                          % (_pl(red, "red counter"), _pl(blue, "blue counter"),
+                             _pl(grn, "green counter")),
+                          blue + grn, "int", unit="counters",
+                          solution=["Picking red is certain only when every counter is red.",
+                                    "Take out all %d blue and %d green: %d + %d = %d."
+                                    % (blue, grn, blue, grn, blue + grn)])
         return _num_q("A bag holds %s and %s. How many blue "
                       "counters must be taken out so that picking a red counter becomes "
                       "certain?" % (_pl(red, "red counter"), _pl(blue, "blue counter")),
@@ -2955,14 +3069,31 @@ def _(d=1):
                                 "All %s must be taken out." % _pl(blue, "blue counter")])
 
     # ordering likelihood
-    a = random.randint(1, 4)
-    b = random.randint(6, 12)
+    if d == 2:                                        # stretch: same-size bags, close counts
+        total = random.randint(10, 16)
+        a = random.randint(3, total - 4)
+        b = a + pick([-2, -1, 1, 2])
+        win = "A" if a > b else "B"
+        return _num_q("Bag A holds %d counters and %d of them are red. Bag B also holds %d "
+                      "counters and %d of them are red. From which bag are you more likely "
+                      "to pick a red counter? (type A or B)" % (total, a, total, b),
+                      win, "str", text=True, placeholder="A / B",
+                      solution=["Both bags hold %d counters, so compare %d/%d with %d/%d."
+                                % (total, a, total, b, total),
+                                "Bag %s has more red counters, so red is more likely from "
+                                "bag %s." % (win, win)])
+    a = random.randint(1, 3 if d == 0 else 4)
+    b = random.randint(8 if d == 0 else 6, 12)
+    if random.random() < 0.5:                         # don't let the answer always be B
+        a, b, win = b, a, "A"
+    else:
+        win = "B"
     return _num_q("Bag A holds %s and 10 white counters. Bag B holds %s and 10 white "
                   "counters. From which bag are you more likely to pick a red counter? "
                   "(type A or B)" % (_pl(a, "red counter"), _pl(b, "red counter")),
-                  "B", "str", text=True, placeholder="A / B",
-                  solution=["Bag B has more red counters among the same 10 white ones.",
-                            "So a red counter is more likely from bag B."])
+                  win, "str", text=True, placeholder="A / B",
+                  solution=["Bag %s has more red counters among the same 10 white ones." % win,
+                            "So a red counter is more likely from bag %s." % win])
 
 
 @skill("Y4.9.i", "Mean and range", S9)

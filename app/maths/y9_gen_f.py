@@ -50,17 +50,20 @@ def _(d=1):
                    _ds(ans), "num", {"unit": unit}, ["Half a unit either side: %s ≤ x < %s." % (_ds(Decimal(v) - Decimal("0.5")), _ds(Decimal(v) + Decimal("0.5")))])
 
     def t_ten():
-        step = pick([10, 100])
+        step = pick(_by(d, [10], [10, 100], [100, 1000]))
         v = random.randint(3, 60) * step
         return _tb("A crowd is %s people, to the nearest %d. What is the smallest number of people there could be?" % (_c(v), step),
                    v - step // 2, "int", {}, ["Half of %d is %d: %s − %d = %s." % (step, step // 2, _c(v), step // 2, _c(v - step // 2))])
 
     def t_dp():
-        v = Decimal(random.randint(11, 99)) / 10
+        # hard: 2 decimal places (half of 0.01 is 0.005); the last digit is never 0 so the 2 dp shows
+        dp = _by(d, 1, 1, 2)
+        v = Decimal(random.randint(11, 99)) / 10 if dp == 1 else Decimal(random.choice([k for k in range(101, 1000) if k % 10])) / 100
+        h = Decimal("0.05") if dp == 1 else Decimal("0.005")
         hi = random.random() < 0.5
-        return _tb("x = %s, correct to 1 decimal place. What is the %s bound of x?" % (_ds(v), "upper" if hi else "lower"),
-                   _ds(v + Decimal("0.05") if hi else v - Decimal("0.05")), "num", {},
-                   ["%s ≤ x < %s." % (_ds(v - Decimal("0.05")), _ds(v + Decimal("0.05")))])
+        return _tb("x = %s, correct to %d decimal place%s. What is the %s bound of x?" % (format(v.quantize(Decimal(10) ** -dp), "f"), dp, "" if dp == 1 else "s", "upper" if hi else "lower"),
+                   _ds(v + h if hi else v - h), "num", {},
+                   ["%s ≤ x < %s." % (_ds(v - h), _ds(v + h))])
 
     def t_sf():
         v = random.randint(11, 99) * 100
@@ -77,7 +80,7 @@ def _(d=1):
 
     def t_truncate():
         v = Decimal(random.randint(11, 99)) / 10
-        return _tb("A number x is TRUNCATED (cut off, not rounded) to 1 decimal place, giving %s. What is the upper bound of x?" % _ds(v),
+        return _tb("A number x is TRUNCATED (cut off, not rounded) to 1 decimal place, giving %s. What is the upper bound of x?" % format(v.quantize(Decimal("0.1")), "f"),
                    _ds(v + Decimal("0.1")), "num", {}, ["Truncating means %s ≤ x < %s." % (_ds(v), _ds(v + Decimal("0.1")))])
 
     def t_could_be():
@@ -112,10 +115,13 @@ def _(d=1):
 
     def t_line():
         v = Decimal(random.randint(41, 58)) / 10
-        return _nld("y = %s to 1 decimal place. Mark the LOWER bound of y on the number line." % _ds(v), v - Decimal("0.05"),
+        return _nld("y = %s to 1 decimal place. Mark the LOWER bound of y on the number line." % format(v.quantize(Decimal("0.1")), "f"), v - Decimal("0.05"),
                     v - Decimal("0.3"), v + Decimal("0.2"), 0.05, 0.1, ["Lower bound = %s − 0.05 = %s." % (_ds(v), _ds(v - Decimal("0.05")))])
 
-    return _pick_t([t_whole, t_ten, t_dp, t_sf, t_interval, t_truncate, t_could_be, t_max_total, t_min_perimeter, t_estimate_error], [t_line])
+    # easy: one bound of a single rounded value; hard: s.f., truncation, bounds of totals and estimates
+    return _pick_t(_by(d, [t_whole, t_ten, t_dp, t_interval, t_could_be],
+                       [t_whole, t_ten, t_dp, t_sf, t_interval, t_truncate, t_could_be, t_max_total, t_min_perimeter, t_estimate_error],
+                       [t_dp, t_sf, t_interval, t_truncate, t_could_be, t_max_total, t_min_perimeter, t_estimate_error]), [t_line])
 
 
 @skill("Y9.0.f", "Exact calculation with fractions, surds and π", S0)
@@ -123,7 +129,8 @@ def _(d=1):
     d = _d(d)
 
     def t_add():
-        a, b = Fraction(random.randint(1, 5), pick([3, 4, 6])), Fraction(random.randint(1, 7), pick([8, 9, 12]))
+        # easy: one denominator is a multiple of the other (2, 4 -> 8)
+        a, b = Fraction(random.randint(1, 5), pick(_by(d, [2, 4], [3, 4, 6], [3, 4, 6]))), Fraction(random.randint(1, 7), pick(_by(d, [8], [8, 9, 12], [8, 9, 12])))
         return _fq("Work out %s + %s exactly. Give a fraction or mixed number in its simplest form." % (_fs(a), _fs(b)), a + b,
                    ["Common denominator: %s." % _mixed(a + b)], "e.g. 1 5/12")
 
@@ -159,7 +166,7 @@ def _(d=1):
         return _tb("A square has sides of √%d cm. What is its exact area, in cm²?" % k, k, "int", {"unit": "cm²"}, ["√%d × √%d = %d." % (k, k, k)])
 
     def t_surd_rect():
-        r, a, b = pick([2, 3, 5]), random.randint(1, 3), random.randint(2, 4)
+        r, a, b = pick([2, 3, 5]), random.randint(1, _by(d, 3, 3, 5)), random.randint(2, _by(d, 4, 4, 6))
         return _tb("A rectangle is √%d cm by √%d cm. What is its exact area, in cm²?" % (a * a * r, b * b * r), a * b * r, "int", {"unit": "cm²"},
                    ["√%d = %s√%d and √%d = %d√%d." % (a * a * r, "" if a == 1 else a, r, b * b * r, b, r), "Product = %d × %d = %d." % (a * b, r, a * b * r)])
 
@@ -183,18 +190,25 @@ def _(d=1):
 
     def t_surd_power():
         r = pick([2, 3, 5, 7])
+        if d == 2 and random.random() < 0.5:
+            return _tb("(√%d)⁵ = k√%d. What is k?" % (r, r), r * r, "int", {},
+                       ["(√%d)⁵ = (√%d)² × (√%d)² × √%d = %d × %d × √%d = %d√%d." % (r, r, r, r, r, r, r, r * r, r)])
         return _tb("(√%d)³ = k√%d. What is k?" % (r, r), r, "int", {}, ["(√%d)³ = √%d × √%d × √%d = %d√%d." % (r, r, r, r, r, r)])
 
-    return _pick_t([t_add, t_mult_mixed, t_divide, t_neg, t_semi_area, t_semi_perim, t_quarter, t_surd_square, t_surd_rect, t_exact_or_not,
-                    t_to_decimal, t_to_fraction, t_surd_power])
+    # easy: one-step exact work; hard: mixed numbers, negatives, perimeters with π, surd products and powers
+    return _pick_t(_by(d, [t_add, t_divide, t_semi_area, t_quarter, t_surd_square, t_to_decimal, t_to_fraction],
+                       [t_add, t_mult_mixed, t_divide, t_neg, t_semi_area, t_semi_perim, t_quarter, t_surd_square, t_surd_rect, t_exact_or_not,
+                        t_to_decimal, t_to_fraction, t_surd_power],
+                       [t_add, t_mult_mixed, t_divide, t_neg, t_semi_perim, t_surd_rect, t_exact_or_not, t_surd_power]))
 
 
 # ================================================================== 9.1 ======
 @skill("Y9.1.f", "Expand several brackets; factorise with algebraic factors", S1)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(2, 5), random.randint(2, 5)
-    p, q = random.randint(1, 9), random.randint(-9, 9) or 4
+    # easy: no negative constant inside the brackets; hard: bigger multipliers
+    a, b = random.randint(2, _by(d, 5, 5, 9)), random.randint(2, _by(d, 5, 5, 9))
+    p, q = random.randint(1, 9), random.randint(_by(d, 1, -9, -9), 9) or 4
 
     def t_add_brackets():
         return _wq("Expand and simplify %d(x %s) + %d(x %s). Write it like 5x-4." % (a, _t(p), b, _t(q)), _lin(a + b, a * p + b * q),
@@ -266,8 +280,11 @@ def _(d=1):
         return _wq("Is %dx² + %dx fully factorised as %s? (yes or no)" % (2 * k * m, 2 * k * n, shown),
                    "no" if wrong else "yes", ["Fully factorised: %dx(%dx+%d)." % (2 * k, m, n)], "yes / no")
 
-    return _pick_t([t_add_brackets, t_sub_brackets, t_x_bracket, t_factor_ax2, t_factor_outside, t_factor_xy, t_triple_const, t_triple_x2,
-                    t_two_products, t_area, t_fully])
+    # easy: add two brackets, one-bracket area, factorise with the form shown; hard: subtraction, x(…), three or two products, 'fully?'
+    return _pick_t(_by(d, [t_add_brackets, t_factor_ax2, t_factor_xy, t_triple_const, t_area],
+                       [t_add_brackets, t_sub_brackets, t_x_bracket, t_factor_ax2, t_factor_outside, t_factor_xy, t_triple_const, t_triple_x2,
+                        t_two_products, t_area, t_fully],
+                       [t_sub_brackets, t_x_bracket, t_factor_outside, t_triple_x2, t_two_products, t_fully]))
 
 
 _ASN = [("x² is always bigger than x.", "sometimes", "True for x = 3, false for x = 0.5."),
@@ -315,7 +332,7 @@ def _(d=1):
                    ["n = %d gives %d, which is not prime (%s)." % (n, f(n), "%d × %d" % next((k, f(n) // k) for k in range(2, f(n)) if f(n) % k == 0))])
 
     def t_identity_const():
-        k, a = random.randint(2, 7), random.randint(-6, 9) or 3
+        k, a = random.randint(2, 7), random.randint(_by(d, 1, -6, -6), 9) or 3
         return _tb("%d(x + a) ≡ %dx %s for every x. Find a." % (k, k, _t(k * a)), a, "int", {}, ["%dx + %da ≡ %dx %s, so %da = %d." % (k, k, k, _t(k * a), k, k * a)])
 
     def t_identity_quad():
@@ -361,7 +378,10 @@ def _(d=1):
                                                            "Same both sides: every x works." if same else "The x terms cancel and leave a false statement."],
                    "none / one / infinitely many")
 
-    return _pick_t([t_identity, t_asn, t_counter, t_identity_const, t_identity_quad, t_test, t_parity, t_proof, t_disprove, t_solutions])
+    # easy: classify or test one statement; hard: counter-examples, matching coefficients, short proofs
+    return _pick_t(_by(d, [t_identity, t_asn, t_identity_const, t_test, t_parity, t_solutions],
+                       [t_identity, t_asn, t_counter, t_identity_const, t_identity_quad, t_test, t_parity, t_proof, t_disprove, t_solutions],
+                       [t_counter, t_identity_const, t_identity_quad, t_proof, t_disprove, t_solutions]))
 
 
 # ================================================================== 9.2 ======
@@ -432,7 +452,7 @@ def _(d=1):
                    ["%dc + %d = 2(c + %d)." % (k, t, t), "%sc = %d, c = %d." % ("" if k == 3 else k - 2, t, child)])
 
     def t_consecutive():
-        n, k = random.randint(1, 40), pick([3, 4, 5])
+        n, k = random.randint(1, _by(d, 20, 40, 90)), pick(_by(d, [3], [3, 4, 5], [4, 5]))
         return _tb("%s consecutive whole numbers add up to %d. What is the smallest?" % (_words(k).capitalize(), k * n + k * (k - 1) // 2), n, "int", {},
                    ["n + (n + 1) + … = %dn + %d = %d." % (k, k * (k - 1) // 2, k * n + k * (k - 1) // 2), "n = %d." % n])
 
@@ -466,7 +486,10 @@ def _(d=1):
         return _tb("The angles of a quadrilateral are %s. Find x." % ", ".join(parts), x, "int", {},
                    ["They add to 360: %dx %s = 360." % (sum(ks), _t(sum(cs))), "x = %d." % x])
 
-    return _pick_t([t_line, t_point, t_triangle, t_vert_opp, t_perimeter, t_isos, t_ages, t_consecutive, t_tickets, t_think, t_quad_angles])
+    # easy: one fact, x on one side; hard: x on both sides, four angles, ages and 'think of a number'
+    return _pick_t(_by(d, [t_line, t_triangle, t_perimeter, t_consecutive, t_tickets],
+                       [t_line, t_point, t_triangle, t_vert_opp, t_perimeter, t_isos, t_ages, t_consecutive, t_tickets, t_think, t_quad_angles],
+                       [t_point, t_vert_opp, t_isos, t_ages, t_consecutive, t_think, t_quad_angles]))
 
 
 # ================================================================== 9.3 ======
@@ -545,13 +568,16 @@ def _(d=1):
         i = random.randrange(len(rows))
         return _io("Complete the table for y = %d/x." % k, rows, i, rows[i][1], ["%d ÷ %d = %d." % (k, rows[i][0], rows[i][1])])
 
-    return _pick_t([t_equation, t_feature, t_cubic_value, t_recip_value, t_on_graph], [t_table, t_graph, t_complete])
+    # easy: name the type from its equation, shape or plotted graph; hard: from a table, and substituting into cubics/reciprocals
+    return _pick_t(_by(d, [t_equation, t_feature], [t_equation, t_feature, t_cubic_value, t_recip_value, t_on_graph],
+                       [t_cubic_value, t_recip_value, t_on_graph]),
+                   _by(d, [t_graph], [t_table, t_graph, t_complete], [t_table, t_complete]))
 
 
 @skill("Y9.3.f", "Parallel lines and y = mx + c", S3)
 def _(d=1):
     d = _d(d)
-    m = random.choice([v for v in range(-5, 6) if v])
+    m = random.choice([v for v in range(_by(d, 1, -5, -5), 6) if v])  # easy: positive gradients only
     c = random.randint(-6, 6)
 
     def t_pick():
@@ -621,7 +647,9 @@ def _(d=1):
                          "points": [[0, c2, ""]], "typed": True, "placeholder": "y=mx+c"},
                 "answer": _line(mm, c2), "answer_type": "str", "solution": ["Same gradient %d; it crosses the y-axis at %d." % (mm, c2)]}
 
-    return _pick_t([t_pick, t_rearranged, t_frac_grad, t_through, t_equation, t_are_parallel, t_meet, t_find_k], [t_grid])
+    # easy: spot the same gradient in y = mx + c; hard: rearrange first, fractional gradients, find k, write the equation
+    return _pick_t(_by(d, [t_pick, t_through, t_meet], [t_pick, t_rearranged, t_frac_grad, t_through, t_equation, t_are_parallel, t_meet, t_find_k],
+                       [t_rearranged, t_frac_grad, t_equation, t_are_parallel, t_find_k]), [t_grid])
 
 
 @skill("Y9.3.g", "Approximate solutions from graphs, including simultaneous equations", S3)
@@ -629,7 +657,7 @@ def _(d=1):
     d = _d(d)
 
     def _pair():
-        x0, y0 = random.randint(-3, 3), random.randint(-3, 3)
+        x0, y0 = random.randint(_by(d, 0, -3, -3), 3), random.randint(_by(d, 0, -3, -3), 3)  # easy: crossing in the first quadrant
         m1, m2 = random.sample([-2, -1, 1, 2, 3], 2)
         return x0, y0, (m1, y0 - m1 * x0), (m2, y0 - m2 * x0)
 
@@ -705,4 +733,7 @@ def _(d=1):
         return _tb("How many times does the graph of y = x² meet the line y = %d?" % c, n, "int", {},
                    ["y = x² is never below 0; it touches y = 0 once and crosses higher lines twice."])
 
-    return _pick_t([t_how_many], [t_cross, t_cross_x, t_cross_y, t_quad_root, t_quad_equal, t_read_y, t_reciprocal, t_exponential, t_piecewise])
+    # easy: read one value or one crossing; hard: estimate a root to 1 dp, read a reciprocal graph backwards, solve x² = k
+    return _pick_t([t_how_many], _by(d, [t_cross, t_cross_x, t_cross_y, t_read_y, t_exponential, t_piecewise],
+                                     [t_cross, t_cross_x, t_cross_y, t_quad_root, t_quad_equal, t_read_y, t_reciprocal, t_exponential, t_piecewise],
+                                     [t_cross, t_quad_root, t_quad_equal, t_reciprocal, t_piecewise]))

@@ -3046,7 +3046,8 @@ def _pie_parts(total):
 def _(d=1):
     d = _tier(d)
     topic, cats, who = pick(_PIE8)
-    total = pick([36, 40, 60, 72, 90, 120])          # all divide 360
+    # all divide 360; easy keeps 10°, 5° or 4° per item, stretch uses 9°, 8°, 3° and 15°
+    total = pick(_by_d(d, [36, 72, 90], [36, 40, 60, 72, 90, 120], [24, 40, 45, 120]))
     topic = topic % total
     one = {"students": "student", "children": "child", "people": "person",
            "minutes": "minute"}[who]
@@ -3055,7 +3056,8 @@ def _(d=1):
     slices = [[c, p] for c, p in zip(cats, parts)]
     i = random.randrange(4)
     ang = parts[i] * unit
-    t = _pick_t([3, 3, 2, 2, 2, 1, 1, 1])
+    t = _pick_t(_by_d(d, [3, 3, 3, 2, 2, 1, 1, 1], [3, 3, 2, 2, 2, 1, 1, 1],
+                      [2, 2, 1, 2, 2, 2, 2, 3]))
 
     if t == 0:                                        # angle of a sector (visual)
         return {"prompt": "This pie chart shows %s. The %s sector is outlined. "
@@ -3106,16 +3108,19 @@ def _(d=1):
                                 "%d × %d = %d°." % (share, unit, unit * share)])
 
     if t == 5:                                        # percentage -> angle
-        pct = pick([10, 20, 25, 40, 50, 75])
+        pct = pick(_by_d(d, [10, 25, 50, 75], [10, 20, 25, 40, 50, 75],
+                         [15, 35, 45, 60, 65, 85]))
         return _num_q("A sector is %d%% of a pie chart. How many degrees is its angle?"
                       % pct, 360 * pct // 100, "int", unit="degrees",
                       solution=["The whole pie is 360° and 1% is 3.6°.",
                                 "%d × 3.6 = %d°." % (pct, 360 * pct // 100)])
 
     if t == 6:                                        # remaining sector
-        used = random.sample([30, 45, 60, 75, 90, 100, 120], 3)
+        pool = _by_d(d, [30, 60, 90, 120], [30, 45, 60, 75, 90, 100, 120],
+                     list(range(25, 140, 5)))
+        used = random.sample(pool, 3)
         while sum(used) >= 350:
-            used = random.sample([30, 45, 60, 75, 90], 3)
+            used = random.sample(pool, 3)
         return _num_q("A pie chart has four sectors. Three have angles %s. How many "
                       "degrees is the fourth?" % ", ".join("%d°" % u for u in used),
                       360 - sum(used), "int", unit="degrees",
@@ -3124,7 +3129,7 @@ def _(d=1):
                                 "360 − %d = %d°." % (sum(used), 360 - sum(used))])
 
     # inverse: total from a sector
-    each = pick([2, 3, 4, 5, 6, 8, 9, 10, 12])
+    each = pick(_by_d(d, [5, 10, 12], [2, 3, 4, 5, 6, 8, 9, 10, 12], [8, 9, 15, 18, 24]))
     n_tot = 360 // each
     share = random.randint(2, n_tot - 1)
     return _num_q("On a pie chart, a sector of %d° stands for %d %s. How many %s are in "
@@ -3272,24 +3277,29 @@ def _(d=1):
 @skill("Y8.9.l", "Outliers, populations, samples and bias", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([3, 2, 2, 2, 2, 2, 1, 1, 2, 1])
+    # easy leans on spotting outliers and the vocabulary; stretch on the calculations
+    t = _pick_t(_by_d(d, [3, 3, 3, 1, 2, 3, 1, 2, 1, 1], [3, 2, 2, 2, 2, 2, 1, 1, 2, 1],
+                      [3, 1, 2, 2, 3, 2, 2, 1, 3, 2]))
 
     if t == 8:                                         # mean after removing the outlier
-        base = [random.randint(10, 20) for _ in range(4)]
-        while sum(base) % 4:
-            base = [random.randint(10, 20) for _ in range(4)]
-        outlier = pick([random.randint(80, 100), random.randint(1, 4)])
+        k = _by_d(d, 3, 4, 5)
+        lo, hi = _by_d(d, (10, 20), (10, 20), (15, 40))
+        base = [random.randint(lo, hi) for _ in range(k)]
+        while sum(base) % k:
+            base = [random.randint(lo, hi) for _ in range(k)]
+        outlier = pick([random.randint(_by_d(d, 80, 80, 110), _by_d(d, 100, 100, 160)),
+                        random.randint(1, 4)])
         data = base + [outlier]
         random.shuffle(data)
-        ans = sum(base) // 4
+        ans = sum(base) // k
         return _num_q("This data set contains one outlier: %s. Identify the outlier and "
                       "remove it. What is the mean of the remaining values? (Removing an "
                       "outlier changes the mean.)"
                       % ", ".join(str(v) for v in data), ans, "int",
                       solution=["The outlier is %d; the other values are %s."
                                 % (outlier, ", ".join(str(v) for v in base)),
-                                "Mean of the rest = %d ÷ 4 = %d."
-                                % (sum(base), ans)])
+                                "Mean of the rest = %d ÷ %d = %d."
+                                % (sum(base), k, ans)])
 
     if t == 9:                                         # effect of removing the outlier
         high = random.random() < 0.5
@@ -3304,15 +3314,18 @@ def _(d=1):
                                 "Removing it makes the mean %s." % ans])
 
     if t == 0:                                        # find the outlier value
-        base = sorted(random.sample(range(20, 40), 5))
-        outlier = pick([random.randint(1, 8), random.randint(80, 99)])
+        # stretch: more values and an outlier nearer the cluster
+        base = sorted(random.sample(range(20, 40), _by_d(d, 4, 5, 7)))
+        outlier = pick(_by_d(d, [random.randint(1, 4), random.randint(90, 99)],
+                             [random.randint(1, 8), random.randint(80, 99)],
+                             [random.randint(3, 8), random.randint(60, 70)]))
         vals = base + [outlier]
         random.shuffle(vals)
         return _data_list("Most of these values are clustered together but one is an "
                           "outlier (very different). Which value is the outlier?",
                           vals, outlier, "Value",
-                          ["Five values are between %d and %d; %d is far away."
-                           % (base[0], base[-1], outlier),
+                          ["%d values are between %d and %d; %d is far away."
+                           % (len(base), base[0], base[-1], outlier),
                            "The outlier is %d." % outlier])
 
     if t == 1:                                        # population vs sample vocab
@@ -3358,11 +3371,13 @@ def _(d=1):
                                 "The mean is affected more."])
 
     if t == 4:                                        # median resistant - compute both roughly
-        base = sorted([random.randint(10, 20) for _ in range(4)])
-        outlier = random.randint(70, 90)
+        base = sorted([random.randint(10, _by_d(d, 20, 20, 40))
+                       for _ in range(_by_d(d, 4, 4, 6))])
+        outlier = pick(_by_d(d, [random.randint(70, 90)], [random.randint(70, 90)],
+                             [random.randint(90, 150), random.randint(1, 3)]))
         vals = base + [outlier]
         s = sorted(vals)
-        median = s[2]
+        median = s[len(s) // 2]
         return _data_list("This data contains an outlier. Find the MEDIAN (middle value) "
                           "of the values in the table.", vals, median, "Value",
                           ["In order: %s." % ", ".join(str(v) for v in s),
@@ -3370,8 +3385,11 @@ def _(d=1):
                            % median])
 
     if t == 5:                                        # is it an outlier yes/no
-        base = sorted(random.sample(range(30, 45), 4))
-        val = pick([random.randint(30, 45), random.randint(1, 5)])
+        base = sorted(random.sample(range(30, 45), _by_d(d, 4, 4, 6)))
+        val = pick(_by_d(d, [random.randint(30, 45), random.randint(1, 5)],
+                         [random.randint(30, 45), random.randint(1, 5)],
+                         [random.randint(30, 45), random.randint(1, 5),
+                          random.randint(70, 80)]))
         is_out = val < 20 or val > 60
         vals = sorted(base + [val])
         return _num_q("In the data %s, is the value %d an outlier (very different from "
@@ -3383,12 +3401,17 @@ def _(d=1):
                                                                  else "is not")])
 
     if t == 6:                                        # sample size sensible
-        return _num_q("To find out the favourite subject of all 900 students in a school, "
-                      "a fair sample of 90 students is surveyed. What FRACTION of the "
-                      "whole school is this sample? Give your answer as a fraction.",
-                      "90/900", "frac",
-                      solution=["90 out of 900 = 90/900 = 1/10.",
-                                "The sample is one tenth of the population."])
+        pop, smp = pick(_by_d(d, [(200, 20), (300, 30), (500, 50)], [(900, 90)],
+                              [(1200, 150), (800, 40), (600, 75), (1000, 125)]))
+        fr = Fraction(smp, pop)
+        return _num_q("To find out the favourite subject of all %d students in a school, "
+                      "a fair sample of %d students is surveyed. What FRACTION of the "
+                      "whole school is this sample? Give your answer as a fraction."
+                      % (pop, smp),
+                      "%d/%d" % (smp, pop), "frac",
+                      solution=["%d out of %d = %d/%d = 1/%d." % (smp, pop, smp, pop,
+                                                                   fr.denominator),
+                                "The sample is 1/%d of the population." % fr.denominator])
 
     # why sample rather than whole population
     reason, ans = pick([
@@ -3406,8 +3429,11 @@ def _(d=1):
 @skill("Y8.9.m", "Scatter graphs and correlation", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([3, 3, 2, 2, 2, 2, 2, 1, 2, 2])
+    # easy leans on reading points and naming the correlation; stretch on predictions
+    t = _pick_t(_by_d(d, [3, 1, 1, 3, 3, 3, 3, 1, 3, 1], [3, 3, 2, 2, 2, 2, 2, 1, 2, 2],
+                      [3, 3, 3, 2, 1, 1, 2, 1, 1, 3]))
     kind = pick(["positive", "negative", "none"])
+    noise = _by_d(d, 1, 2, 4)                        # stretch: weaker, noisier correlation
     # each context is paired with the correlation it really has
     _CTX = {
         "positive": [("Height (cm)", "Mass (kg)", "height and mass"),
@@ -3431,13 +3457,25 @@ def _(d=1):
         pts = []
         for x in xs:
             if kind == "positive":
-                y = 2 * x + random.randint(-2, 2)
+                y = 2 * x + random.randint(-noise, noise)
             elif kind == "negative":
-                y = 40 - 2 * x + random.randint(-2, 2)
+                y = 40 - 2 * x + random.randint(-noise, noise)
             else:
                 y = random.randint(5, 35)
             pts.append([x, max(1, y)])
         return pts
+
+    def _line():
+        # line of best fit y = mx + c; stretch also uses a falling line y = c − mx
+        m = pick(_by_d(d, [2], [2, 3], [2, 3, -2, -3]))
+        c = random.randint(2, 8) if m > 0 else random.randint(32, 40)
+        pts = [[x, max(1, m * x + c + random.randint(-2, 2))]
+               for x in sorted(random.sample(range(1, 10), 6))]
+        xq = pick(_by_d(d, [2, 3, 4, 5], [4, 5, 6, 7, 8], [3, 4, 6, 7, 8, 9]))
+        eq = "y = %dx + %d" % (m, c) if m > 0 else "y = %d − %dx" % (c, -m)
+        at = ("y = %d × %d + %d" % (m, xq, c) if m > 0
+              else "y = %d − %d × %d" % (c, -m, xq))
+        return m, c, pts, xq, m * xq + c, eq, at
 
     if t == 8:                                         # create a scatter plot (plot a point)
         x0 = random.randint(2, 12)
@@ -3451,22 +3489,16 @@ def _(d=1):
                                 % (x0, y0, y0)])
 
     if t == 9:                                         # make a prediction from best-fit line
-        m = pick([2, 3])
-        c = random.randint(2, 8)
-        pts = [[x, m * x + c + random.randint(-2, 2)]
-               for x in sorted(random.sample(range(1, 10), 6))]
-        xq = pick([4, 5, 6, 7, 8])
-        pred = m * xq + c
+        m, c, pts, xq, pred, eq, at = _line()
         return {"prompt": "This scatter graph has a line of best fit. Make a prediction: "
-                          "use the line of best fit, which follows y = %dx + %d, to "
-                          "predict the y-value when x = %d." % (m, c, xq),
+                          "use the line of best fit, which follows %s, to "
+                          "predict the y-value when x = %d." % (eq, xq),
                 "component": "scatter_plot",
                 "spec": {"points": pts, "xLabel": xlab, "yLabel": ylab,
                          "line": {"p1": [0, c], "p2": [10, c + 10 * m]}},
                 "answer": pred, "answer_type": "num", "tolerance": 1,
-                "solution": ["The line of best fit is y = %dx + %d." % (m, c),
-                             "At x = %d, y = %d × %d + %d = %d."
-                             % (xq, m, xq, c, pred)]}
+                "solution": ["The line of best fit is %s." % eq,
+                             "At x = %d, %s = %d." % (xq, at, pred)]}
 
     if t == 0:                                        # describe correlation (visual)
         pts = _pts(kind)
@@ -3482,22 +3514,17 @@ def _(d=1):
 
     if t == 1:                                        # predict from line of best fit (visual)
         # line through (0, c) and (10, c+10m) with integer prediction
-        m = pick([2, 3])
-        c = random.randint(2, 8)
+        m, c, pts, xq, pred, eq, at = _line()
         x1, y1 = 0, c
         x2, y2 = 10, c + 10 * m
-        pts = [[x, m * x + c + random.randint(-2, 2)] for x in sorted(
-            random.sample(range(1, 10), 6))]
-        xq = pick([4, 5, 6, 7, 8])
-        pred = m * xq + c
         return {"prompt": "This scatter graph has a line of best fit drawn on it. "
                           "Use the line to predict the y-value when x = %d." % xq,
                 "component": "scatter_plot",
                 "spec": {"points": pts, "xLabel": xlab, "yLabel": ylab,
                          "line": {"p1": [x1, y1], "p2": [x2, y2]}},
                 "answer": pred, "answer_type": "num", "tolerance": 1,
-                "solution": ["The line of best fit follows y = %dx + %d." % (m, c),
-                             "At x = %d, y = %d × %d + %d = %d." % (xq, m, xq, c, pred)]}
+                "solution": ["The line of best fit follows %s." % eq,
+                             "At x = %d, %s = %d." % (xq, at, pred)]}
 
     if t == 2:                                        # identify outlier x-value (visual)
         xlab, ylab, ctx = _ctx("positive")
@@ -3587,12 +3614,15 @@ _DICE = [(1, "landing on a 6", 6, 1), ]
 @skill("Y8.9.n", "Probability of single events", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([2, 2, 2, 2, 2, 2, 2, 1, 1, 4, 1, 1])
+    # easy leans on simple fractions and the spinner; stretch on decimals, % and predictions
+    t = _pick_t(_by_d(d, [3, 3, 1, 1, 2, 1, 2, 2, 2, 4, 1, 1],
+                      [2, 2, 2, 2, 2, 2, 2, 1, 1, 4, 1, 1],
+                      [2, 2, 3, 3, 2, 3, 2, 0, 2, 2, 2, 2]))
 
     if t == 10:                                        # collected data -> probability + prediction
-        trials = pick([10, 20, 25, 50])
+        trials = pick(_by_d(d, [10, 20], [10, 20, 25, 50], [20, 25, 40, 50]))
         success = random.randint(1, trials - 1)
-        mult = pick([2, 3, 4, 5])
+        mult = pick(_by_d(d, [2, 3], [2, 3, 4, 5], [3, 4, 6, 8]))
         newN = trials * mult
         pred = success * mult
         return _num_q("Use collected data to find a probability and make a prediction. "
@@ -3607,8 +3637,9 @@ def _(d=1):
 
     if t == 11:                                        # prediction from theoretical probability
         target, fav = pick([("an even number", 3), ("a number greater than 4", 2),
-                            ("a 6", 1), ("a prime number", 3)])
-        n = pick([12, 18, 24, 30, 60])
+                            ("a 6", 1), ("a prime number", 3)]
+                           + _by_d(d, [], [], [("a factor of 6", 4), ("a multiple of 3", 2)]))
+        n = pick(_by_d(d, [12, 18, 24, 30], [12, 18, 24, 30, 60], [36, 48, 90, 120, 150]))
         pred = fav * n // 6
         return _num_q("Make a prediction using theoretical probability. A fair six-sided "
                       "dice is rolled %d times. Using the theoretical probability, "
@@ -3618,9 +3649,10 @@ def _(d=1):
                                 "Prediction = %d/6 × %d = %d times." % (fav, n, pred)])
 
     if t == 9:                                        # spinner as a pie chart (visual)
-        r = random.randint(1, 4)
-        b = random.randint(1, 4)
-        g = random.randint(1, 4)
+        hi = _by_d(d, 3, 4, 6)
+        r = random.randint(1, hi)
+        b = random.randint(1, hi)
+        g = random.randint(1, hi)
         total = r + b + g
         colour, fav = pick([("red", r), ("blue", b), ("green", g)])
         fr = Fraction(fav, total)
@@ -3635,9 +3667,14 @@ def _(d=1):
                              "P = %d/%d." % (fav, total)]}
 
     if t == 0:                                        # dice probability (fraction)
-        target, fav = pick([("an even number", 3), ("a number greater than 4", 2),
-                            ("a 6", 1), ("a number less than 3", 2),
-                            ("a prime number", 3)])
+        target, fav = pick(_by_d(d, [("an even number", 3), ("a 6", 1),
+                                     ("a number less than 3", 2)],
+                                 [("an even number", 3), ("a number greater than 4", 2),
+                                  ("a 6", 1), ("a number less than 3", 2),
+                                  ("a prime number", 3)],
+                                 [("a prime number", 3), ("a factor of 6", 4),
+                                  ("a square number", 2), ("a multiple of 3", 2),
+                                  ("a number greater than 4", 2)]))
         fr = Fraction(fav, 6)
         return _num_q("A fair six-sided dice is rolled. What is the probability of "
                       "rolling %s? Give your answer as a fraction." % target,
@@ -3647,12 +3684,19 @@ def _(d=1):
                                 "P = %d/6 = %d/%d." % (fav, fr.numerator, fr.denominator)])
 
     if t == 1:                                        # coloured balls (fraction)
-        r = random.randint(2, 6)
-        b = random.randint(2, 6)
-        g = random.randint(1, 5)
+        r = random.randint(2, _by_d(d, 4, 6, 9))
+        b = random.randint(2, _by_d(d, 4, 6, 9))
+        g = random.randint(1, _by_d(d, 4, 5, 9))
         total = r + b + g
         colour, fav = pick([("red", r), ("blue", b), ("green", g)])
-        fr = Fraction(fav, total)
+        if d == 2 and random.random() < 0.5:          # stretch: the complement
+            return _num_q("A bag has %d red, %d blue and %d green counters. One counter is "
+                          "taken at random. What is the probability it is NOT %s? "
+                          "Give your answer as a fraction." % (r, b, g, colour),
+                          "%d/%d" % (total - fav, total), "frac",
+                          solution=["There are %d counters and %d are not %s."
+                                    % (total, total - fav, colour),
+                                    "P = %d/%d." % (total - fav, total)])
         return _num_q("A bag has %d red, %d blue and %d green counters. One counter is "
                       "taken at random. What is the probability it is %s? "
                       "Give your answer as a fraction." % (r, b, g, colour),
@@ -3662,31 +3706,31 @@ def _(d=1):
                                 "P = %d/%d." % (fav, total)])
 
     if t == 2:                                        # probability as a decimal
-        fav = random.randint(1, 9)
-        total = 10 if fav <= 10 else 20
-        total = pick([10, 20, 5, 4])
+        total = pick(_by_d(d, [10, 2, 4], [10, 20, 5, 4], [8, 20, 25, 40, 50]))
         fav = random.randint(1, total - 1)
         p = fav / float(total)
-        return _num_q("A spinner has %d equal sections and %d of them are winning "
-                      "sections. What is the probability of winning, as a DECIMAL?"
-                      % (total, fav), round(p, 4), "num", tolerance=0.001,
+        return _num_q("A spinner has %d equal sections and %d of them %s winning. "
+                      "What is the probability of winning, as a DECIMAL?"
+                      % (total, fav, "is" if fav == 1 else "are"), round(p, 4), "num", tolerance=0.001,
                       solution=["P = %d ÷ %d = %s." % (fav, total, _f(round(p, 4)))])
 
     if t == 3:                                        # probability as a percentage
-        total = pick([4, 5, 10, 20])
+        pool = _by_d(d, [2, 4, 10], [4, 5, 10, 20], [8, 20, 25, 40, 50])
+        total = pick(pool)
         fav = random.randint(1, total - 1)
         pct = 100 * fav // total
         while (100 * fav) % total:
-            total = pick([4, 5, 10, 20])
+            total = pick(pool)
             fav = random.randint(1, total - 1)
             pct = 100 * fav // total
-        return _num_q("A spinner has %d equal sections; %d are red. What is the "
-                      "probability of landing on red, as a PERCENTAGE?" % (total, fav),
+        return _num_q("A spinner has %d equal sections; %d %s red. What is the "
+                      "probability of landing on red, as a PERCENTAGE?"
+                      % (total, fav, "is" if fav == 1 else "are"),
                       pct, "num", unit="%", tolerance=0.1,
                       solution=["P = %d/%d = %d%%." % (fav, total, pct)])
 
     if t == 4:                                        # complement (not event)
-        total = pick([6, 8, 10])
+        total = pick(_by_d(d, [4, 5, 10], [6, 8, 10], [12, 15, 20, 25]))
         fav = random.randint(1, total - 1)
         fr = Fraction(total - fav, total)
         return _num_q("The probability of an event is %d/%d. What is the probability that "
@@ -3696,11 +3740,12 @@ def _(d=1):
                                 "1 − %d/%d = %d/%d." % (fav, total, total - fav, total)])
 
     if t == 5:                                        # expected frequency
-        total = pick([4, 5, 6, 10])
+        total = pick(_by_d(d, [2, 4, 5, 10], [4, 5, 6, 10], [3, 6, 8, 12]))
         fav = random.randint(1, total - 1)
-        n = pick([20, 40, 60, 100, 120])
+        ns = _by_d(d, [20, 40, 100], [20, 40, 60, 100, 120], [24, 48, 72, 96, 120, 240])
+        n = pick(ns)
         while (n * fav) % total:
-            n = pick([20, 40, 60, 100, 120])
+            n = pick(ns)
         exp = n * fav // total
         return _num_q("The probability of a spinner landing on blue is %d/%d. "
                       "If it is spun %d times, how many times would you EXPECT it to "
@@ -3709,7 +3754,7 @@ def _(d=1):
                                 "%d/%d × %d = %d." % (fav, total, n, exp)])
 
     if t == 6:                                        # experimental probability
-        trials = pick([20, 50, 100])
+        trials = pick(_by_d(d, [10, 20], [20, 50, 100], [40, 80, 200, 250]))
         success = random.randint(1, trials - 1)
         fr = Fraction(success, trials)
         return _num_q("In an experiment a drawing pin was dropped %d times and landed "
@@ -3731,8 +3776,12 @@ def _(d=1):
                                 "This is %s." % ans])
 
     # cards from a deck (fraction)
-    target, fav = pick([("a heart", 13), ("a king", 4), ("the ace of spades", 1),
-                        ("a red card", 26), ("a picture card (J, Q, K)", 12)])
+    target, fav = pick(_by_d(d, [("a heart", 13), ("a king", 4), ("a red card", 26)],
+                             [("a heart", 13), ("a king", 4), ("the ace of spades", 1),
+                              ("a red card", 26), ("a picture card (J, Q, K)", 12)],
+                             [("a picture card (J, Q, K)", 12), ("a red king", 2),
+                              ("a black ace", 2), ("a club or a diamond", 26),
+                              ("an ace or a king", 8), ("a red picture card (J, Q, K)", 6)]))
     fr = Fraction(fav, 52)
     return _num_q("One card is taken at random from a standard pack of 52 playing cards. "
                   "What is the probability it is %s? Give your answer as a fraction."
@@ -3744,12 +3793,15 @@ def _(d=1):
 @skill("Y8.9.o", "Sample spaces and combined events", S9)
 def _(d=1):
     d = _tier(d)
-    t = _pick_t([3, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2])
+    # easy leans on counting and small sample spaces; stretch on combined probabilities
+    t = _pick_t(_by_d(d, [3, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2],
+                      [3, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2],
+                      [2, 3, 2, 3, 3, 1, 3, 1, 2, 2, 2]))
 
     if t == 10:                                        # compound events: number of outcomes
-        a = pick([2, 3, 4])
-        b = pick([2, 3, 4, 5])
-        c = pick([2, 3])
+        a = pick(_by_d(d, [2, 3], [2, 3, 4], [3, 4, 5, 6]))
+        b = pick(_by_d(d, [2, 3], [2, 3, 4, 5], [4, 5, 6, 7]))
+        c = pick(_by_d(d, [2], [2, 3], [3, 4]))
         return _num_q("Compound events: find the number of outcomes. A three-course meal "
                       "is made by choosing %d starters, %d main courses and %d puddings. "
                       "Using the counting principle, how many different meals (outcomes) "
@@ -3762,66 +3814,91 @@ def _(d=1):
         # two dice, table of totals; ask a count or a probability
         headers = ["+"] + [str(c) for c in range(1, 7)]
         rows = [[str(r)] + [str(r + c) for c in range(1, 7)] for r in range(1, 7)]
-        target = pick([5, 6, 7, 8, 9, 10])
-        ways = sum(1 for r in range(1, 7) for c in range(1, 7) if r + c == target)
+        # easy: totals with few cells; stretch: 'at least' a total (several totals to count)
+        target = pick(_by_d(d, [2, 3, 4, 10, 11, 12], [5, 6, 7, 8, 9, 10], [7, 8, 9, 10]))
+        least = d == 2
+        ways = sum(1 for r in range(1, 7) for c in range(1, 7)
+                   if (r + c >= target if least else r + c == target))
+        what = ("at least %d" % target) if least else ("equal to %d" % target)
         if t == 8:                                    # count
             return {"prompt": "This table shows the total when two fair dice are added "
                               "(one dice across the top, one down the side). In how many "
-                              "of the 36 cells is the total equal to %d?" % target,
+                              "of the 36 cells is the total %s?" % what,
                     "component": "data_table",
                     "spec": {"caption": "Sum of two dice", "headers": headers,
                              "rows": rows},
                     "answer": ways, "answer_type": "int",
-                    "solution": ["Count the cells showing %d." % target,
+                    "solution": ["Count the cells showing %s."
+                                 % (("%d or more" % target) if least else target),
                                  "There are %d of them out of 36." % ways]}
         fr = Fraction(ways, 36)
         return {"prompt": "This table shows the total when two fair dice are added. "
-                          "What is the probability the total is %d? Give a fraction."
-                          % target,
+                          "What is the probability the total is %s? Give a fraction."
+                          % what,
                 "component": "data_table",
                 "spec": {"caption": "Sum of two dice", "headers": headers, "rows": rows},
                 "answer": "%d/36" % ways, "answer_type": "frac",
-                "solution": ["%d of the 36 cells show %d." % (ways, target),
+                "solution": ["%d of the 36 cells show %s."
+                             % (ways, ("%d or more" % target) if least else target),
                              "P = %d/36 = %d/%d." % (ways, fr.numerator,
                                                      fr.denominator)]}
 
     if t == 0:                                        # size of sample space
-        setup, size = pick([
+        setup, size = pick(_by_d(d, [
+            ("two fair coins are flipped", 4),
+            ("a coin is flipped and a six-sided dice is rolled", 12),
+            ("a four-sided spinner is spun and a coin is flipped", 8),
+        ], [
             ("two fair coins are flipped", 4),
             ("a coin is flipped and a six-sided dice is rolled", 12),
             ("two six-sided dice are rolled", 36),
             ("a four-sided spinner is spun and a coin is flipped", 8),
-        ])
+        ], [
+            ("three fair coins are flipped", 8),
+            ("a coin is flipped and two six-sided dice are rolled", 72),
+            ("a six-sided dice is rolled and a spinner numbered 1 to 5 is spun", 30),
+            ("two six-sided dice are rolled", 36),
+        ]))
         return _num_q("When %s, how many equally likely outcomes are there in the sample "
                       "space altogether?" % setup, size, "int",
                       solution=["Multiply the number of outcomes for each part.",
                                 "There are %d outcomes." % size])
 
     if t == 1:                                        # two dice sum probability
-        target = pick([2, 3, 7, 11, 12, 6, 8])
-        ways = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2,
-                12: 1}[target]
+        if d == 2:                                    # stretch: a range of totals
+            target, ways = pick([("greater than 9", 6), ("less than 5", 6),
+                                 ("an even number", 18), ("a prime number", 15)])
+        else:
+            target = pick(_by_d(d, [2, 12, 7, 3, 11], [2, 3, 7, 11, 12, 6, 8], []))
+            ways = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2,
+                    12: 1}[target]
+            target = str(target)
         fr = Fraction(ways, 36)
         return _num_q("Two fair six-sided dice are rolled and their scores are added. "
-                      "What is the probability the total is %d? Give your answer as a "
+                      "What is the probability the total is %s? Give your answer as a "
                       "fraction." % target, "%d/36" % ways, "frac",
-                      solution=["There are 36 outcomes and %d give a total of %d."
+                      solution=["There are 36 outcomes and %d give a total that is %s."
                                 % (ways, target),
                                 "P = %d/36 = %d/%d." % (ways, fr.numerator,
                                                         fr.denominator)])
 
     if t == 2:                                        # coin and dice combined event
-        fr = Fraction(1, 12)
+        side, ev, ways = pick(_by_d(d, [("head", "a six", 1)], [("head", "a six", 1)],
+                                    [("tail", "an even number", 3),
+                                     ("head", "a number greater than 4", 2),
+                                     ("tail", "a prime number", 3)]))
         return _num_q("A fair coin and a fair six-sided dice are used. What is the "
-                      "probability of getting a head AND a six? Give your answer as a "
-                      "fraction.", "1/12", "frac",
+                      "probability of getting a %s AND %s? Give your answer as a "
+                      "fraction." % (side, ev), "%d/12" % ways, "frac",
                       solution=["There are 2 × 6 = 12 equally likely outcomes.",
-                                "Only 1 is (head, six), so P = 1/12."])
+                                ("Only 1 is (head, six), so P = 1/12." if ways == 1 else
+                                 "%d outcomes are a %s with %s, so P = %d/12."
+                                 % (ways, side, ev, ways))])
 
     if t == 3:                                        # mutually exclusive OR
-        total = pick([6, 8, 10])
+        total = pick(_by_d(d, [4, 5, 6], [6, 8, 10], [12, 15, 20]))
         a = random.randint(1, total - 2)
-        b = random.randint(1, total - a)
+        b = random.randint(1, total - a - 1)          # keep the answer below 1
         fr = Fraction(a + b, total)
         return _num_q("Two events cannot both happen (they are mutually exclusive). "
                       "One has probability %d/%d and the other %d/%d. What is the "
@@ -3832,16 +3909,21 @@ def _(d=1):
                                                             total)])
 
     if t == 4:                                        # count favourable outcomes two dice
-        target = pick(["a double", "a total of 7", "at least one 6"])
-        ways = {"a double": 6, "a total of 7": 6, "at least one 6": 11}[target]
+        target = pick(_by_d(d, ["a double", "a total of 7"],
+                            ["a double", "a total of 7", "at least one 6"],
+                            ["at least one 6", "a total of more than 8",
+                             "two numbers that differ by 1", "an even total"]))
+        ways = {"a double": 6, "a total of 7": 6, "at least one 6": 11,
+                "a total of more than 8": 10, "two numbers that differ by 1": 10,
+                "an even total": 18}[target]
         return _num_q("Two fair six-sided dice are rolled (36 outcomes in total). "
                       "How many of the outcomes give %s?" % target, ways, "int",
                       solution=["List or count the matching outcomes.",
                                 "There are %d such outcomes out of 36." % ways])
 
     if t == 5:                                        # product rule (count)
-        aa = pick([2, 3, 4])
-        bb = pick([2, 3, 4, 5])
+        aa = pick(_by_d(d, [2, 3], [2, 3, 4], [4, 5, 6]))
+        bb = pick(_by_d(d, [2, 3], [2, 3, 4, 5], [5, 6, 7, 8]))
         return _num_q("A meal deal offers %d choices of sandwich and %d choices of drink. "
                       "How many different sandwich-and-drink combinations are possible?"
                       % (aa, bb), aa * bb, "int", unit="combinations",
@@ -3849,17 +3931,19 @@ def _(d=1):
                                 "= %d combinations." % (aa * bb)])
 
     if t == 6:                                        # spinner and spinner sum
-        target = pick([2, 3, 4, 5, 6])
-        # two 3-sided spinners (1,2,3): outcomes 9
-        ways = {2: 1, 3: 2, 4: 3, 5: 2, 6: 1}[target]
-        fr = Fraction(ways, 9)
-        return _num_q("Two spinners each show 1, 2 or 3 with equal chance. Their numbers "
-                      "are added. Out of the 9 equally likely outcomes, what is the "
-                      "probability the total is %d? Give a fraction." % target,
-                      "%d/9" % ways, "frac",
-                      solution=["There are 3 × 3 = 9 outcomes, %d give a total of %d."
-                                % (ways, target),
-                                "P = %d/9." % ways])
+        # two spinners numbered 1..k; stretch uses 1..4 (16 outcomes)
+        k = _by_d(d, 3, 3, 4)
+        target = random.randint(2, 2 * k)
+        ways = sum(1 for p in range(1, k + 1) for q in range(1, k + 1) if p + q == target)
+        n_out = k * k
+        sides = "1, 2 or 3" if k == 3 else "1, 2, 3 or 4"
+        return _num_q("Two spinners each show %s with equal chance. Their numbers "
+                      "are added. Out of the %d equally likely outcomes, what is the "
+                      "probability the total is %d? Give a fraction." % (sides, n_out, target),
+                      "%d/%d" % (ways, n_out), "frac",
+                      solution=["There are %d × %d = %d outcomes, %d give a total of %d."
+                                % (k, k, n_out, ways, target),
+                                "P = %d/%d." % (ways, n_out)])
 
     # mutually exclusive: are they? P(A)+P(B) not exceeding 1 reasoning
     return _num_q("Rolling a fair dice, are the events 'rolling a 2' and 'rolling an odd "

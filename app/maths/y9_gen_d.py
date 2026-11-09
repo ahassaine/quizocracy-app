@@ -22,8 +22,9 @@ def _r1(x):
 @skill("Y9.6.a", "Trigonometry: find a missing side", S6)
 def _(d=1):
     d = _d(d)
-    ang = random.randint(15, 75)
-    known = random.randint(4, 20)
+    # Easy: friendly angles, short sides, side = known × ratio.  Stretch: side = known ÷ ratio, contexts, two steps.
+    ang = random.randint(_by(d, 25, 15, 10), _by(d, 65, 75, 80))
+    known = random.randint(_by(d, 4, 4, 8), _by(d, 12, 20, 45))
     rad = math.radians(ang)
 
     def t_opp_from_hyp():
@@ -86,15 +87,18 @@ def _(d=1):
         return _tb("Use a calculator: give %s %d° to 3 decimal places." % (name, ang), round(f(rad) + 1e-12, 3), "num", {},
                    ["%s %d° = %.5f." % (name, ang, f(rad))], tol=0.0005)
 
-    return _pick_t([t_opp_from_hyp, t_adj_from_hyp, t_opp_from_adj, t_hyp_from_opp, t_which_ratio, t_ladder, t_adj_from_opp, t_hyp_from_adj,
-                    t_elevation, t_plane, t_isosceles, t_value])
+    return _pick_t(_by(d, [t_opp_from_hyp, t_adj_from_hyp, t_opp_from_adj, t_which_ratio, t_ladder, t_value],
+                       [t_opp_from_hyp, t_adj_from_hyp, t_opp_from_adj, t_hyp_from_opp, t_which_ratio, t_ladder, t_adj_from_opp, t_hyp_from_adj,
+                        t_elevation, t_plane, t_isosceles, t_value],
+                       [t_hyp_from_opp, t_adj_from_opp, t_hyp_from_adj, t_elevation, t_plane, t_isosceles]))
 
 
 @skill("Y9.6.b", "Trigonometry: find a missing angle", S6)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(3, 15), random.randint(3, 15)
-    h = max(a, b) + random.randint(1, 8)
+    # Easy: one inverse ratio with small sides.  Stretch: larger sides, contexts and two-step angle work.
+    a, b = random.randint(3, _by(d, 10, 15, 30)), random.randint(3, _by(d, 10, 15, 30))
+    h = max(a, b) + random.randint(1, _by(d, 5, 8, 15))
 
     def t_tan():
         return _tb("A right-angled triangle has opposite %d cm and adjacent %d cm. Find the angle, to 1 decimal place, in degrees." % (a, b),
@@ -153,13 +157,18 @@ def _(d=1):
                    % (a, b), _r1(90 - math.degrees(math.atan(a / b))), "num", {"unit": "°"},
                    ["A = tan⁻¹(%d/%d) = %.2f°." % (a, b, math.degrees(math.atan(a / b))), "The other is 90° − A."], tol=0.051)
 
-    return _pick_t([t_tan, t_sin, t_cos, t_ramp, t_exact, t_elevation, t_ladder, t_which, t_apex, t_third], [t_line_angle])
+    return _pick_t(*_by(d, ([t_tan, t_sin, t_cos, t_ramp, t_exact, t_which], [t_line_angle]),
+                        ([t_tan, t_sin, t_cos, t_ramp, t_exact, t_elevation, t_ladder, t_which, t_apex, t_third], [t_line_angle]),
+                        ([t_sin, t_cos, t_elevation, t_ladder, t_apex, t_third], [])))
 
 
 @skill("Y9.6.c", "Pythagoras: shorter sides and problems", S6)
 def _(d=1):
     d = _d(d)
-    triples = [(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25), (6, 8, 10), (9, 12, 15), (20, 21, 29)]
+    # Easy: small triples, one square root.  Stretch: bigger triples, non-integer shorter sides, two-step problems.
+    triples = _by(d, [(3, 4, 5), (6, 8, 10), (5, 12, 13), (8, 15, 17)],
+                  [(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25), (6, 8, 10), (9, 12, 15), (20, 21, 29)],
+                  [(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25), (20, 21, 29), (9, 40, 41), (12, 35, 37), (11, 60, 61)])
 
     def t_short():
         a, b, c = pick(triples)
@@ -167,12 +176,12 @@ def _(d=1):
                    {"unit": "cm"}, ["√(%d² − %d²) = √%d = %d." % (c, a, c * c - a * a, b)])
 
     def t_decimal():
-        a, b = random.randint(3, 15), random.randint(3, 15)
+        a, b = random.randint(3, _by(d, 10, 15, 30)), random.randint(3, _by(d, 10, 15, 30))
         return _tb("Find the hypotenuse of a right-angled triangle with sides %d cm and %d cm, to 1 decimal place." % (a, b),
                    _r1(math.hypot(a, b)), "num", {"unit": "cm"}, ["√(%d + %d) = √%d." % (a * a, b * b, a * a + b * b)], tol=0.051)
 
     def t_diagonal():
-        a, b = random.randint(3, 20), random.randint(3, 20)
+        a, b = random.randint(3, _by(d, 12, 20, 40)), random.randint(3, _by(d, 12, 20, 40))
         return _tb("A rectangle is %d m by %d m. How long is its diagonal, to 1 decimal place, in m?" % (a, b), _r1(math.hypot(a, b)),
                    "num", {"unit": "m"}, ["√(%d² + %d²)." % (a, b)], tol=0.051)
 
@@ -222,20 +231,23 @@ def _(d=1):
                    tol=0.051)
 
     def t_short_decimal():
-        h = random.randint(8, 20)
+        h = random.randint(8, _by(d, 12, 20, 40))
         a = random.randint(2, h - 2)
         return _tb("The hypotenuse of a right-angled triangle is %d cm and one other side is %d cm. Find the third side, to 1 decimal place, in "
                    "cm." % (h, a), _r1(math.sqrt(h * h - a * a)), "num", {"unit": "cm"}, ["√(%d − %d) = √%d." % (h * h, a * a, h * h - a * a)], tol=0.051)
 
-    return _pick_t([t_short, t_decimal, t_diagonal, t_distance, t_is_right, t_ladder, t_isos_height, t_perimeter, t_square_diag,
-                    t_short_decimal], [t_grid])
+    return _pick_t(*_by(d, ([t_short, t_decimal, t_diagonal, t_distance, t_is_right, t_ladder], [t_grid]),
+                        ([t_short, t_decimal, t_diagonal, t_distance, t_is_right, t_ladder, t_isos_height, t_perimeter, t_square_diag,
+                          t_short_decimal], [t_grid]),
+                        ([t_short, t_distance, t_is_right, t_ladder, t_isos_height, t_perimeter, t_square_diag, t_short_decimal], [])))
 
 
 @skill("Y9.6.d", "Similar shapes: lengths and areas", S6)
 def _(d=1):
     d = _d(d)
-    k = pick([2, 3, 4, Fraction(3, 2), Fraction(5, 2)])
-    a = random.randint(2, 10) * 2
+    # Easy: whole-number scale factors, lengths only.  Stretch: decimal scale factors, area-to-length and nested triangles.
+    k = pick(_by(d, [2, 3, 4], [2, 3, 4, Fraction(3, 2), Fraction(5, 2)], [Fraction(3, 2), Fraction(5, 2), Fraction(5, 4), Fraction(7, 2), 4]))
+    a = random.randint(2, _by(d, 6, 10, 15)) * 2
 
     def t_length():
         return _tb("Two triangles are similar. A side of %d cm in the small one matches %s cm in the large one. Another side in the small "
@@ -247,8 +259,8 @@ def _(d=1):
                    "num", {}, ["%s ÷ %d = %s." % (_ds(Fraction(a) * k), a, _ds(Fraction(k)))])
 
     def t_area():
-        sf = pick([2, 3, 4, 5])
-        A = random.randint(3, 20)
+        sf = pick(_by(d, [2, 3], [2, 3, 4, 5], [3, 4, 5, 6, 7]))
+        A = random.randint(3, _by(d, 10, 20, 30))
         return _tb("Two similar shapes have lengths in the ratio 1:%d. The small one has area %d cm². What is the area of the large one, in cm²?"
                    % (sf, A), A * sf * sf, "int", {"unit": "cm²"}, ["Area scale factor = %d² = %d." % (sf, sf * sf), "%d × %d = %d." % (A, sf * sf, A * sf * sf)])
 
@@ -306,8 +318,10 @@ def _(d=1):
         return _tb("The area of a shape is multiplied by %d when it is enlarged. What is the length scale factor?" % (sf * sf), sf, "int", {},
                    ["Area scale factor = (length scale factor)², so √%d = %d." % (sf * sf, sf)])
 
-    return _pick_t([t_length, t_scale, t_area, t_shadow, t_angle, t_area_back, t_nested, t_reduce, t_perimeter, t_are_similar,
-                    t_length_sf_from_area])
+    return _pick_t(_by(d, [t_length, t_scale, t_area, t_shadow, t_angle, t_perimeter],
+                       [t_length, t_scale, t_area, t_shadow, t_angle, t_area_back, t_nested, t_reduce, t_perimeter, t_are_similar,
+                        t_length_sf_from_area],
+                       [t_length, t_area, t_area_back, t_nested, t_reduce, t_are_similar, t_length_sf_from_area]))
 
 
 @skill("Y9.6.e", "Congruence criteria and angle reasoning", S6)
@@ -336,7 +350,7 @@ def _(d=1):
                    180 - (180 - apex) // 2, "int", {"unit": "°"}, ["Base angle = %d°." % ((180 - apex) // 2), "Exterior = 180 − %d." % ((180 - apex) // 2)])
 
     def t_polygon():
-        n = pick([5, 6, 8, 9, 10, 12])
+        n = pick(_by(d, [5, 6, 8, 9, 10, 12], [5, 6, 8, 9, 10, 12], [7, 9, 10, 11, 12, 15, 18, 20]))
         return _tb("A regular polygon has %d sides. Find the size of one interior angle." % n, 180 - 360 // n, "int", {"unit": "°"},
                    ["Exterior = 360 ÷ %d = %d." % (n, 360 // n), "Interior = 180 − %d." % (360 // n)]) if 360 % n == 0 else \
             _tb("Find the sum of the interior angles of %s %d-sided polygon." % (_a(n), n), (n - 2) * 180, "int", {"unit": "°"}, ["(%d − 2) × 180." % n])
@@ -377,12 +391,15 @@ def _(d=1):
                    {"unit": "°"}, ["The exterior angle equals the sum of the two opposite interior angles: %d + %d = %d." % (x, y, x + y)])
 
     def t_polygon_sides():
-        n = pick([5, 6, 8, 9, 10, 12, 15, 18, 20])
+        n = pick(_by(d, [5, 6, 8, 10], [5, 6, 8, 9, 10, 12, 15, 18, 20], [9, 12, 15, 18, 20, 24, 30, 36, 40]))
         return _tb("Each exterior angle of a regular polygon is %d°. How many sides does it have?" % (360 // n), n, "int", {},
                    ["360 ÷ %d = %d." % (360 // n, n)])
 
-    return _pick_t([t_criteria, t_aaa, t_parallel_triangle, t_isos_exterior, t_polygon, t_co_interior, t_not_proof, t_ssa, t_matching_side,
-                    t_matching_angle, t_exterior_sum, t_polygon_sides])
+    # Easy: name the rule, one-fact angle steps.  Stretch: the traps (SSA, AAA) and multi-step angle chains.
+    return _pick_t(_by(d, [t_criteria, t_aaa, t_co_interior, t_not_proof, t_matching_side, t_exterior_sum],
+                       [t_criteria, t_aaa, t_parallel_triangle, t_isos_exterior, t_polygon, t_co_interior, t_not_proof, t_ssa, t_matching_side,
+                        t_matching_angle, t_exterior_sum, t_polygon_sides],
+                       [t_parallel_triangle, t_isos_exterior, t_polygon, t_ssa, t_matching_angle, t_polygon_sides]))
 
 
 @skill("Y9.6.f", "Loci and perpendicular distance", S6)
@@ -457,15 +474,19 @@ def _(d=1):
         return _tb("Which point on the x-axis is the same distance from (%d,0) and (%d,0)? Give its x-coordinate." % (a, b), (a + b) // 2, "int",
                    {}, ["It is halfway between: (%d + %d) ÷ 2 = %d." % (a, b, (a + b) // 2)])
 
-    return _pick_t([t_locus_point, t_locus_two, t_angle_bisector, t_goat, t_perp, t_y_axis, t_horizontal, t_vertical, t_parallel_lines,
-                    t_corner_goat, t_equidistant], [t_midpoint])
+    # Easy: name the locus, distance to an axis.  Stretch: distance to other lines, quarter-circle region, equidistant points.
+    return _pick_t(*_by(d, ([t_locus_point, t_locus_two, t_goat, t_perp, t_y_axis, t_parallel_lines], [t_midpoint]),
+                        ([t_locus_point, t_locus_two, t_angle_bisector, t_goat, t_perp, t_y_axis, t_horizontal, t_vertical, t_parallel_lines,
+                          t_corner_goat, t_equidistant], [t_midpoint]),
+                        ([t_angle_bisector, t_horizontal, t_vertical, t_corner_goat, t_equidistant], [t_midpoint])))
 
 
 # ================================================================== 9.7 ======
 @skill("Y9.7.a", "Circles, semicircles and quarter circles", S7)
 def _(d=1):
     d = _d(d)
-    r = random.randint(2, 15)
+    # Easy: small radii, one formula.  Stretch: larger radii, composite shapes, working back from C or A.
+    r = random.randint(2, _by(d, 10, 15, 25))
 
     def t_area_pi():
         return _tb("A circle has radius %d cm. Its area is kπ cm². What is k?" % r, r * r, "int", {}, ["A = πr² = %dπ." % (r * r)])
@@ -519,7 +540,7 @@ def _(d=1):
                    ["One turn = π × %d cm." % dcm, "%d turns = %.2f cm = %.3f m." % (turns, math.pi * dcm * turns, math.pi * dcm * turns / 100)], tol=0.051)
 
     def t_diam_from_circ():
-        C = random.randint(10, 90)
+        C = random.randint(10, _by(d, 50, 90, 200))
         return _tb("A circle has a circumference of %d cm. Find its diameter, to 1 decimal place, in cm." % C, _r1(C / math.pi), "num",
                    {"unit": "cm"}, ["d = C ÷ π = %.3f." % (C / math.pi)], tol=0.051)
 
@@ -528,21 +549,24 @@ def _(d=1):
                 "spec": {"radius": r, "show": "diameter", "label": "d = %d cm" % (2 * r)}, "answer": _r1(math.pi * 2 * r), "answer_type": "num",
                 "tolerance": 0.051, "solution": ["πd = π × %d = %.3f." % (2 * r, math.pi * 2 * r)]}
 
-    return _pick_t([t_area_pi, t_circ, t_semi_area, t_semi_perim, t_quarter, t_radius_from_area, t_area_from_circ, t_quarter_perim, t_ring,
-                    t_square_minus, t_wheel, t_diam_from_circ], [t_pic, t_pic_circ])
+    return _pick_t(*_by(d, ([t_area_pi, t_circ, t_semi_area, t_quarter, t_radius_from_area], [t_pic, t_pic_circ]),
+                        ([t_area_pi, t_circ, t_semi_area, t_semi_perim, t_quarter, t_radius_from_area, t_area_from_circ, t_quarter_perim, t_ring,
+                          t_square_minus, t_wheel, t_diam_from_circ], [t_pic, t_pic_circ]),
+                        ([t_semi_perim, t_area_from_circ, t_quarter_perim, t_ring, t_square_minus, t_wheel, t_diam_from_circ], [])))
 
 
 @skill("Y9.7.b", "Surface area of cuboids, prisms and cylinders", S7)
 def _(d=1):
     d = _d(d)
 
+    # Easy: cubes, cuboids and the curved side in π.  Stretch: prisms, open shapes, decimals and working back.
     def t_cuboid():
-        l, w, h = random.randint(2, 12), random.randint(2, 10), random.randint(2, 10)
+        l, w, h = random.randint(2, _by(d, 6, 12, 20)), random.randint(2, _by(d, 6, 10, 15)), random.randint(2, _by(d, 6, 10, 15))
         return _tb("Find the surface area of a cuboid %d cm × %d cm × %d cm, in cm²." % (l, w, h), 2 * (l * w + l * h + w * h), "int",
                    {"unit": "cm²"}, ["2(%d + %d + %d) = %d." % (l * w, l * h, w * h, 2 * (l * w + l * h + w * h))])
 
     def t_cube():
-        s = random.randint(2, 12)
+        s = random.randint(2, _by(d, 6, 12, 12))
         return _tb("A cube has edges of %d cm. Find its surface area, in cm²." % s, 6 * s * s, "int", {"unit": "cm²"}, ["6 × %d² = %d." % (s, 6 * s * s)])
 
     def t_tri_prism():
@@ -604,21 +628,24 @@ def _(d=1):
         return {"prompt": "This is the net of a 3-D solid. How many faces does the solid have?", "component": "net", "spec": {"solid": solid},
                 "answer": faces, "answer_type": "int", "solution": ["Count the shapes in the net: %d faces." % faces]}
 
-    return _pick_t([t_cuboid, t_cube, t_tri_prism, t_cylinder_pi, t_cube_from_sa, t_cyl_decimal, t_open_box, t_curved, t_paint,
-                    t_missing_height, t_open_cyl], [t_net_solid])
+    return _pick_t(*_by(d, ([t_cuboid, t_cube, t_cylinder_pi, t_curved], [t_net_solid]),
+                        ([t_cuboid, t_cube, t_tri_prism, t_cylinder_pi, t_cube_from_sa, t_cyl_decimal, t_open_box, t_curved, t_paint,
+                          t_missing_height, t_open_cyl], [t_net_solid]),
+                        ([t_tri_prism, t_cube_from_sa, t_cyl_decimal, t_open_box, t_paint, t_missing_height, t_open_cyl], [])))
 
 
 @skill("Y9.7.c", "Volume of prisms and cylinders", S7)
 def _(d=1):
     d = _d(d)
 
+    # Easy: area × length and kπ answers.  Stretch: working back, litres, compound cross-sections.
     def t_prism():
-        A, L = random.randint(5, 40), random.randint(3, 20)
+        A, L = random.randint(5, _by(d, 20, 40, 80)), random.randint(3, _by(d, 10, 20, 30))
         return _tb("A prism has cross-section area %d cm² and length %d cm. Find its volume, in cm³." % (A, L), A * L, "int", {"unit": "cm³"},
                    ["V = %d × %d = %d." % (A, L, A * L)])
 
     def t_tri_prism():
-        b, h, L = random.randint(2, 12) * 2, random.randint(2, 10), random.randint(3, 15)
+        b, h, L = random.randint(2, _by(d, 6, 12, 12)) * 2, random.randint(2, 10), random.randint(3, _by(d, 10, 15, 15))
         return _tb("A triangular prism has a triangle end with base %d cm and height %d cm, and length %d cm. Find its volume, in cm³." % (b, h, L),
                    b * h // 2 * L, "int", {"unit": "cm³"}, ["½ × %d × %d = %d; × %d = %d." % (b, h, b * h // 2, L, b * h // 2 * L)])
 
@@ -628,7 +655,7 @@ def _(d=1):
                    _r1(math.pi * r * r * h), "num", {"unit": "cm³"}, ["πr²h = %.3f." % (math.pi * r * r * h)], tol=0.051)
 
     def t_cylinder_pi():
-        r, h = random.randint(2, 10), random.randint(2, 15)
+        r, h = random.randint(2, _by(d, 6, 10, 10)), random.randint(2, _by(d, 10, 15, 15))
         return _tb("A cylinder has radius %d cm and height %d cm. Its volume is kπ cm³. What is k?" % (r, h), r * r * h, "int", {},
                    ["πr²h = %dπ." % (r * r * h)])
 
@@ -681,8 +708,10 @@ def _(d=1):
                    "%d cm long. Find its volume, in cm³." % (_a(a), a, b, _a(c), c, e, L), A * L, "int", {"unit": "cm³"},
                    ["Cross-section %d − %d = %d." % (a * b, c * e, A), "%d × %d = %d." % (A, L, A * L)])
 
-    return _pick_t([t_prism, t_tri_prism, t_cylinder, t_cylinder_pi, t_height, t_litres, t_cuboid_missing, t_cyl_height, t_cubes_fit,
-                    t_trapezium, t_cyl_litres, t_l_prism])
+    return _pick_t(_by(d, [t_prism, t_tri_prism, t_cylinder, t_cylinder_pi, t_height, t_cubes_fit],
+                       [t_prism, t_tri_prism, t_cylinder, t_cylinder_pi, t_height, t_litres, t_cuboid_missing, t_cyl_height, t_cubes_fit,
+                        t_trapezium, t_cyl_litres, t_l_prism],
+                       [t_litres, t_cuboid_missing, t_cyl_height, t_trapezium, t_cyl_litres, t_l_prism]))
 
 
 @skill("Y9.7.d", "Convert area and volume units", S7)
@@ -718,12 +747,14 @@ def _(d=1):
         return _tb("Convert %d mm² to cm²." % k, _ds(Fraction(k, 100)), "num", {"unit": "cm²"}, ["1 cm² = 100 mm², so ÷ 100."])
 
     def t_m3_litres():
-        k = pick([Fraction(1, 2), 1, 2, 3, Fraction(3, 2), Fraction(1, 4), 5])
+        k = pick(_by(d, [1, 2, 3, 5], [Fraction(1, 2), 1, 2, 3, Fraction(3, 2), Fraction(1, 4), 5],
+                     [Fraction(1, 2), Fraction(3, 2), Fraction(1, 4), Fraction(9, 4), Fraction(3, 5), Fraction(7, 20)]))
         return _tb("A tank holds %s m³ of water. How many litres is that?" % _ds(Fraction(k)), int(k * 1000), "int", {"unit": "litres"},
                    ["1 m³ = 1,000,000 cm³ = 1000 litres."])
 
     def t_litres_cm3():
-        k = pick([Fraction(1, 2), Fraction(5, 2), Fraction(3, 4), 2, 4, Fraction(6, 5)])
+        k = pick(_by(d, [2, 3, 4, 5], [Fraction(1, 2), Fraction(5, 2), Fraction(3, 4), 2, 4, Fraction(6, 5)],
+                     [Fraction(5, 2), Fraction(3, 4), Fraction(6, 5), Fraction(3, 8), Fraction(13, 4)]))
         return _tb("How many cm³ are in %s litres?" % _ds(Fraction(k)), int(k * 1000), "int", {"unit": "cm³"}, ["1 litre = 1000 cm³."])
 
     def t_hectares():
@@ -744,5 +775,8 @@ def _(d=1):
         return _tb("A room is %d cm by %d cm. What is its floor area in m²?" % (a, b), _ds(Fraction(a * b, 10000)), "num", {"unit": "m²"},
                    ["%s m × %s m = %s m²." % (_ds(Fraction(a, 100)), _ds(Fraction(b, 100)), _ds(Fraction(a * b, 10000)))])
 
-    return _pick_t([t_m2_cm2, t_cm2_mm2, t_cm2_m2, t_cm3_m3, t_ml, t_trap, t_mm2_cm2, t_m3_litres, t_litres_cm3, t_hectares, t_km2, t_mm3,
-                    t_room])
+    # Easy: big unit to small unit, whole numbers.  Stretch: small to big (decimal answers), hectares, two-step conversions.
+    return _pick_t(_by(d, [t_m2_cm2, t_cm2_mm2, t_cm3_m3, t_trap, t_m3_litres, t_litres_cm3, t_km2],
+                       [t_m2_cm2, t_cm2_mm2, t_cm2_m2, t_cm3_m3, t_ml, t_trap, t_mm2_cm2, t_m3_litres, t_litres_cm3, t_hectares, t_km2, t_mm3,
+                        t_room],
+                       [t_cm2_m2, t_ml, t_mm2_cm2, t_m3_litres, t_litres_cm3, t_hectares, t_mm3, t_room]))

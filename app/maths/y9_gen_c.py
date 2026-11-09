@@ -15,10 +15,12 @@ S5 = "9.5 Percentages & finance"
 @skill("Y9.4.a", "Ratio problems with differences and totals", S4)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(1, 7), random.randint(1, 7)
+    # easy: small parts, one-step sharing; hard: bigger parts, three-way, linked and changing ratios
+    top = _by(d, 5, 7, 9)
+    a, b = random.randint(1, top), random.randint(1, top)
     while a == b:
-        b = random.randint(1, 7)
-    unit = random.randint(2, 15)
+        b = random.randint(1, top)
+    unit = random.randint(*_by(d, (2, 10), (2, 15), (6, 25)))
 
     def t_difference():
         return _tb("Sweets are shared between Ali and Ben in the ratio %d:%d. Ben gets %d %s sweets than Ali. How many sweets are there "
@@ -40,7 +42,7 @@ def _(d=1):
                    max(a, b, c) * unit, "int", {"unit": "£"}, ["1 part = £%d." % unit, "Largest share: %d × %d = %d." % (max(a, b, c), unit, max(a, b, c) * unit)])
 
     def t_simplify():
-        k = random.randint(2, 8)
+        k = random.randint(*_by(d, (2, 5), (2, 8), (4, 12)))
         return _wq("Write %d:%d in its simplest form (like 2:3)." % (a * k, b * k), "%d:%d" % (a // _g(a, b), b // _g(a, b)),
                    ["Divide both by %d." % (k * _g(a, b))], "e.g. 2:3")
 
@@ -95,8 +97,13 @@ def _(d=1):
                    _ds(Fraction(sc * cm, 100000)), "num", {"unit": "km"},
                    ["%d × %s = %s cm." % (cm, _c(sc), _c(sc * cm)), "÷ 100,000 = %s km." % _ds(Fraction(sc * cm, 100000))])
 
-    return _pick_t([t_difference, t_one_part, t_fraction, t_three, t_simplify, t_units, t_one_to_n, t_join, t_link, t_frac_to_ratio, t_squash,
-                    t_map], [t_strip])
+    plain = [t_difference, t_one_part, t_fraction, t_three, t_simplify, t_units, t_one_to_n, t_join, t_link, t_frac_to_ratio, t_squash, t_map]
+    visual = [t_strip]
+    if d == 0:
+        plain = [t_difference, t_one_part, t_fraction, t_simplify, t_one_to_n]
+    elif d == 2:
+        plain, visual = [t_difference, t_three, t_units, t_join, t_link, t_frac_to_ratio, t_squash, t_map], []
+    return _pick_t(plain, visual)
 
 
 def _g(a, b):
@@ -122,8 +129,8 @@ def _(d=1):
                    "num", {"unit": "hours"}, ["Distance %d km." % (s * t), "%d ÷ %d = %s h." % (s * t, s2, _ds(Fraction(s * t, s2)))])
 
     def t_direct():
-        n, cost = random.randint(2, 8), random.randint(30, 250)
-        n2 = random.randint(3, 15)
+        n, cost = random.randint(*_by(d, (2, 5), (2, 8), (3, 12))), random.randint(*_by(d, (2, 20), (30, 250), (120, 600)))
+        n2 = random.randint(*_by(d, (3, 10), (3, 15), (8, 25)))
         return _tb("%d metres of cable cost £%d. How much do %d metres cost, in pounds?" % (n, n * cost, n2),
                    n2 * cost, "int", {"unit": "£"}, ["1 m = £%d." % cost, "%d × %d = %d." % (n2, cost, n2 * cost)])
 
@@ -136,8 +143,8 @@ def _(d=1):
                    "direct / inverse")
 
     def t_table():
-        k = random.randint(2, 9) * 6
-        xs = [1, 2, 3, 6]
+        k = random.randint(*_by(d, (1, 5), (2, 9), (2, 9))) * _by(d, 6, 6, 12)
+        xs = _by(d, [1, 2, 3, 6], [1, 2, 3, 6], [2, 3, 4, 6])
         rows = [[x, k // x] for x in xs]
         i = random.randrange(4)
         return _io("y is inversely proportional to x (x × y is always the same). What goes in the empty cell?", rows, i, rows[i][1],
@@ -150,13 +157,13 @@ def _(d=1):
                    {"unit": "g"}, ["%d ÷ %d × %d = %d." % (g, serves, n, g * n // serves)])
 
     def t_direct_formula():
-        k = random.randint(2, 9)
-        x1, x2 = random.sample(range(2, 12), 2)
+        k = random.randint(*_by(d, (2, 5), (2, 9), (4, 15)))
+        x1, x2 = random.sample(range(2, _by(d, 10, 12, 20)), 2)
         return _tb("y is directly proportional to x. When x = %d, y = %d. Find y when x = %d." % (x1, k * x1, x2), k * x2, "int", {},
                    ["y = kx, so k = %d ÷ %d = %d." % (k * x1, x1, k), "y = %d × %d = %d." % (k, x2, k * x2)])
 
     def t_inverse_formula():
-        k = pick([12, 24, 36, 48, 60, 72, 120])
+        k = pick(_by(d, [12, 24, 36, 48, 60, 72, 120], [12, 24, 36, 48, 60, 72, 120], [72, 96, 120, 144, 180, 240]))
         x1, x2 = random.sample([v for v in range(2, 13) if k % v == 0], 2)
         return _tb("y is inversely proportional to x. When x = %d, y = %d. Find y when x = %d." % (x1, k // x1, x2), k // x2, "int", {},
                    ["y = k/x, so k = %d × %d = %d." % (x1, k // x1, k), "y = %d ÷ %d = %d." % (k, x2, k // x2)])
@@ -175,29 +182,36 @@ def _(d=1):
                 "solution": ["When x = 0, y = k × 0 = 0: the line passes through the origin (0,0)."]}
 
     def t_animals():
-        n, days = random.randint(2, 8) * 2, random.randint(3, 12)
+        n, days = random.randint(*_by(d, (1, 5), (2, 8), (5, 15))) * 2, random.randint(*_by(d, (3, 10), (3, 12), (8, 20)))
         n2 = pick([v for v in range(2, 25) if v != n and (n * days) % v == 0])
         return _tb("Hay for %d horses lasts %d days. How long would the same hay last %d horses, in days?" % (n, days, n2), n * days // n2, "int",
                    {"unit": "days"}, ["%d horse-days of hay." % (n * days), "%d ÷ %d = %d." % (n * days, n2, n * days // n2)])
 
     def t_direct_table():
-        k = random.randint(3, 15)
-        xs = sorted(random.sample(range(1, 13), 4))
+        k = random.randint(*_by(d, (2, 10), (3, 15), (12, 30)))
+        xs = sorted(random.sample(range(1, _by(d, 11, 13, 21)), 4))
         rows = [[x, k * x] for x in xs]
         i = random.randrange(1, 4)
         return _io("y is directly proportional to x. What goes in the empty cell?", rows, i, rows[i][1],
                    ["y ÷ x = %d each time." % k, "%d × %d = %d." % (rows[i][0], k, rows[i][1])])
 
-    return _pick_t([t_inverse_workers, t_inverse_speed, t_direct, t_which, t_recipe, t_direct_formula, t_inverse_formula, t_origin, t_animals],
-                   [t_table, t_graph, t_direct_table])
+    plain = [t_inverse_workers, t_inverse_speed, t_direct, t_which, t_recipe, t_direct_formula, t_inverse_formula, t_origin, t_animals]
+    visual = [t_table, t_graph, t_direct_table]
+    if d == 0:
+        plain, visual = [t_direct, t_which, t_recipe, t_direct_formula, t_origin, t_animals], [t_graph, t_direct_table]
+    elif d == 2:
+        plain, visual = [t_inverse_workers, t_inverse_speed, t_direct, t_inverse_formula, t_inverse_formula, t_animals], [t_table, t_direct_table]
+    return _pick_t(plain, visual)
 
 
 @skill("Y9.4.c", "Compound measures: speed, density and pressure", S4)
 def _(d=1):
     d = _d(d)
 
+    # easy: whole-hour times, one formula step; hard: minutes and unit changes, two-step (cube mass, area from pressure)
     def t_speed():
-        sp, t = random.randint(4, 12) * 10, pick([Fraction(1, 2), Fraction(3, 2), 2, Fraction(5, 2), 3])
+        sp, t = random.randint(4, 12) * 10, pick(_by(d, [2, 3, 4], [Fraction(1, 2), Fraction(3, 2), 2, Fraction(5, 2), 3],
+                                                     [Fraction(3, 4), Fraction(5, 4), Fraction(3, 2), Fraction(5, 2), Fraction(9, 4)]))
         return _tb("A car travels at %d km/h for %s hours. How far does it go, in km?" % (sp, _ds(Fraction(t))), _ds(sp * Fraction(t)),
                    "num", {"unit": "km"}, ["%d × %s = %s." % (sp, _ds(Fraction(t)), _ds(sp * Fraction(t)))])
 
@@ -208,12 +222,16 @@ def _(d=1):
                    {"unit": "km"}, ["%d minutes = %s hours." % (m, _ds(Fraction(m, 60))), "%d × %s = %s." % (sp, _ds(Fraction(m, 60)), _ds(Fraction(sp * m, 60)))])
 
     def t_convert():
+        if d == 2 and random.random() < 0.5:
+            kmh = 18 * random.randint(2, 8)
+            return _tb("Convert %d km/h to m/s." % kmh, kmh * 5 // 18, "int", {"unit": "m/s"},
+                       ["× 1000 metres, ÷ 3600 seconds: ÷ 3.6.", "%d ÷ 3.6 = %d." % (kmh, kmh * 5 // 18)])
         ms = random.randint(2, 30)
         return _tb("Convert %d m/s to km/h." % ms, _ds(Fraction(ms * 3600, 1000)), "num", {"unit": "km/h"},
                    ["× 3600 seconds, ÷ 1000 metres: × 3.6.", "%d × 3.6 = %s." % (ms, _ds(Fraction(ms * 3600, 1000)))])
 
     def t_density():
-        dens, vol = random.randint(2, 12), random.randint(5, 50)
+        dens, vol = random.randint(*_by(d, (2, 10), (2, 12), (5, 20))), random.randint(*_by(d, (2, 20), (5, 50), (20, 120)))
         q = pick(["mass", "density", "volume"])
         if q == "mass":
             return _tb("A metal has density %d g/cm³. What is the mass of %d cm³, in grams?" % (dens, vol), dens * vol, "int", {"unit": "g"},
@@ -235,6 +253,11 @@ def _(d=1):
                    "int", {"unit": "minutes"}, ["%d ÷ %d = %d." % (lit * mins, lit, mins)])
 
     def t_avg_speed():
+        if d == 2:
+            v = random.randint(2, 6) * 10
+            d1 = random.randint(1, 3 * v // 10 - 1) * 10
+            return _tb("A cyclist rides %d km in the first hour and %d km in the next 2 hours. What is the average speed, in km/h?" % (d1, 3 * v - d1),
+                       v, "int", {"unit": "km/h"}, ["Total %d km in 3 hours." % (3 * v), "%d ÷ 3 = %d km/h." % (3 * v, v)])
         d1, d2 = random.randint(2, 6) * 10, random.randint(2, 6) * 10
         return _tb("A cyclist rides %d km in the first hour and %d km in the second hour. What is the average speed, in km/h?" % (d1, d2),
                    _ds(Fraction(d1 + d2, 2)), "num", {"unit": "km/h"}, ["Total %d km in 2 hours." % (d1 + d2)])
@@ -280,17 +303,23 @@ def _(d=1):
         return _tb("%s runs %d m in %d s. %s runs %d m in %d s. What is the speed of the faster runner, in m/s?" % (a, s1 * t1, t1, b, s2 * t2, t2),
                    max(s1, s2), "int", {"unit": "m/s"}, ["%s: %d m/s. %s: %d m/s." % (a, s1, b, s2)])
 
-    return _pick_t([t_speed, t_minutes, t_convert, t_density, t_pressure, t_rate, t_avg_speed, t_time, t_cube_mass, t_area_from_pressure,
-                    t_fuel, t_pop_density, t_faster])
+    plain = [t_speed, t_minutes, t_convert, t_density, t_pressure, t_rate, t_avg_speed, t_time, t_cube_mass, t_area_from_pressure,
+             t_fuel, t_pop_density, t_faster]
+    if d == 0:
+        plain = [t_speed, t_density, t_pressure, t_rate, t_avg_speed, t_pop_density]
+    elif d == 2:
+        plain = [t_speed, t_minutes, t_convert, t_density, t_avg_speed, t_time, t_cube_mass, t_area_from_pressure, t_fuel, t_faster]
+    return _pick_t(plain)
 
 
 # ================================================================== 9.5 ======
 @skill("Y9.5.a", "Compound interest and repeated percentage change", S5)
 def _(d=1):
     d = _d(d)
-    P = random.randint(2, 20) * 100
-    r = pick([2, 3, 4, 5, 10])
-    n = random.randint(2, 3)
+    # easy: 5% or 10% over 2 years; hard: awkward rates over 3-5 years, comparing and finding the number of years
+    P = random.randint(*_by(d, (1, 10), (2, 20), (5, 50))) * 100
+    r = pick(_by(d, [5, 10], [2, 3, 4, 5, 10], [2, 3, 4, 6, 8]))
+    n = random.randint(*_by(d, (2, 2), (2, 3), (3, 5)))
 
     def t_compound():
         v = Decimal(P) * (1 + Decimal(r) / 100) ** n
@@ -301,7 +330,8 @@ def _(d=1):
     def t_multiplier():
         up = random.random() < 0.5
         return _tb("What single number do you multiply by to %s an amount by %d%% each year for %d years? (Give it to 4 decimal places.)"
-                   % ("increase" if up else "decrease", r, n), _ds(((1 + Decimal(r) / 100) if up else (1 - Decimal(r) / 100)) ** n),
+                   % ("increase" if up else "decrease", r, n),
+                   _ds((((1 + Decimal(r) / 100) if up else (1 - Decimal(r) / 100)) ** n).quantize(Decimal("0.0001"), rounding="ROUND_HALF_UP")),
                    "num", {}, ["(%s)^%d." % (_ds((1 + Decimal(r) / 100) if up else (1 - Decimal(r) / 100)), n)], tol=0.00005)
 
     def t_depreciation():
@@ -318,7 +348,7 @@ def _(d=1):
                    ["Simple: £%d. Compound: £%s." % (simple, format(comp, "f"))])
 
     def t_up_down():
-        p = pick([10, 20, 25, 50])
+        p = pick(_by(d, [10, 20, 50], [10, 20, 25, 50], [15, 25, 30, 40]))
         x = random.randint(2, 20) * 20
         res = Fraction(x) * Fraction(100 + p, 100) * Fraction(100 - p, 100)
         return _tb("A price of £%d goes up by %d%% and then down by %d%%. What is the final price, in pounds?" % (x, p, p), _ds(res), "num",
@@ -343,7 +373,7 @@ def _(d=1):
                    "int", {"unit": "%"}, ["%s = %s %s %s." % (_ds(mult), "1", "+" if up else "−", _ds(Decimal(k) / 100)), "That is %d%%." % k])
 
     def t_doubling():
-        start, hrs = pick([100, 200, 250, 500, 1000]), random.randint(3, 7)
+        start, hrs = pick([100, 200, 250, 500, 1000]), random.randint(*_by(d, (2, 4), (3, 7), (6, 10)))
         return _tb("A colony of %d bacteria doubles every hour. How many bacteria are there after %d hours?" % (start, hrs), start * 2 ** hrs,
                    "int", {}, ["%d × 2^%d = %s." % (start, hrs, _c(start * 2 ** hrs))])
 
@@ -369,24 +399,31 @@ def _(d=1):
         return _tb("£%d is saved at %d%% compound interest per year for %d years. How much INTEREST is earned? Give pounds to 2 decimal places."
                    % (P, r, n), _ds(v - P), "num", {"unit": "£"}, ["Final value £%s." % format(v, "f"), "£%s − £%d = £%s." % (format(v, "f"), P, format(v - P, "f"))])
 
-    return _pick_t([t_compound, t_multiplier, t_depreciation, t_simple_vs_compound, t_up_down, t_years, t_rate_from_multiplier, t_doubling,
-                    t_interest_only], [t_table, t_graph_rate])
+    plain = [t_compound, t_multiplier, t_depreciation, t_simple_vs_compound, t_up_down, t_years, t_rate_from_multiplier, t_doubling,
+             t_interest_only]
+    visual = [t_table, t_graph_rate]
+    if d == 0:
+        plain = [t_compound, t_up_down, t_rate_from_multiplier, t_doubling, t_interest_only]
+    elif d == 2:
+        plain, visual = [t_compound, t_multiplier, t_depreciation, t_simple_vs_compound, t_simple_vs_compound, t_years, t_years, t_interest_only], [t_table]
+    return _pick_t(plain, visual)
 
 
 @skill("Y9.5.b", "Reverse percentages and percentage change", S5)
 def _(d=1):
     d = _d(d)
 
+    # easy: friendly percentages and prices; hard: awkward percentages, explaining the classic mistake
     def t_reverse_up():
-        p = pick([10, 20, 25, 50, 5])
-        orig = random.randint(2, 40) * 20
+        p = pick(_by(d, [10, 20, 25, 50], [10, 20, 25, 50, 5], [5, 15, 35, 45]))
+        orig = random.randint(*_by(d, (1, 20), (2, 40), (10, 80))) * 20
         new = orig * (100 + p) // 100
         return _tb("After a %d%% increase, a price is £%d. What was the original price, in pounds?" % (p, new), orig, "int", {"unit": "£"},
                    ["%d%% of the original = £%d." % (100 + p, new), "£%d ÷ %s = £%d." % (new, _ds(Fraction(100 + p, 100)), orig)])
 
     def t_reverse_down():
-        p = pick([10, 20, 25, 30, 40])
-        orig = random.randint(2, 40) * 20
+        p = pick(_by(d, [10, 20, 25, 50], [10, 20, 25, 30, 40], [15, 30, 35, 45]))
+        orig = random.randint(*_by(d, (1, 20), (2, 40), (10, 80))) * 20
         new = orig * (100 - p) // 100
         return _tb("In a %d%% sale, a coat costs £%d. What was the price before the sale, in pounds?" % (p, new), orig, "int", {"unit": "£"},
                    ["%d%% = £%d." % (100 - p, new), "£%d ÷ %s = £%d." % (new, _ds(Fraction(100 - p, 100)), orig)])
@@ -397,8 +434,8 @@ def _(d=1):
                    ["£%d ÷ 1.2 = £%d." % (orig * 6 // 5, orig)])
 
     def t_change():
-        old = random.randint(2, 20) * 20
-        new = old + pick([-1, 1]) * old * pick([5, 10, 15, 20, 25, 40]) // 100
+        old = random.randint(*_by(d, (1, 10), (2, 20), (10, 60))) * 20
+        new = old + pick(_by(d, [1], [-1, 1], [-1, 1])) * old * pick(_by(d, [10, 20, 25, 50], [5, 10, 15, 20, 25, 40], [5, 15, 35, 45, 65])) // 100
         return _tb("A value changes from %d to %d. What is the percentage change? (Use a minus sign for a decrease.)" % (old, new),
                    _ds(Fraction((new - old) * 100, old)), "num", {}, ["(%d − %d) ÷ %d × 100." % (new, old, old)])
 
@@ -462,5 +499,10 @@ def _(d=1):
                       {"mode": "equal_parts", "parts": parts, "partLabel": "%d%%" % p, "total": new, "totalLabel": "%d g" % new},
                       orig, ["%d parts = %d g, so 1 part = %d g." % (parts, new, new // parts), "The original is %d parts: %d g." % (parts - 1, orig)])
 
-    return _pick_t([t_reverse_up, t_reverse_down, t_vat, t_change, t_profit, t_reverse_odd, t_new_as_pct, t_pay_rise, t_mistake, t_house,
-                    t_divide_by], [t_strip])
+    plain = [t_reverse_up, t_reverse_down, t_vat, t_change, t_profit, t_reverse_odd, t_new_as_pct, t_pay_rise, t_mistake, t_house, t_divide_by]
+    visual = [t_strip]
+    if d == 0:
+        plain = [t_reverse_up, t_reverse_down, t_vat, t_change, t_profit, t_new_as_pct]
+    elif d == 2:
+        plain, visual = [t_reverse_up, t_reverse_down, t_change, t_reverse_odd, t_pay_rise, t_mistake, t_mistake, t_house, t_divide_by], []
+    return _pick_t(plain, visual)

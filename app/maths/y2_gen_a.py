@@ -39,12 +39,27 @@ def _a(word):
     return ("an " if word[0] in "aeiou" else "a ") + word
 
 
+def _vals(d, lo, hi, k):
+    """k different numbers in [lo, hi): at least 3 apart when easy, bunched together when hard."""
+    if d == 0:
+        for _ in range(50):
+            v = random.sample(range(lo, hi), k)
+            s = sorted(v)
+            if all(b - a >= 3 for a, b in zip(s, s[1:])):
+                return v
+        return v
+    if d == 2 and hi - lo > 2 * k + 3:
+        base = random.randint(lo, hi - 2 * k - 3)
+        return random.sample(range(base, base + 2 * k + 3), k)
+    return random.sample(range(lo, hi), k)
+
+
 # ================================================================== 2.0 ======
 @skill("Y2.0.a", "Count in 2s, 3s, 5s and 10s", S0)
 def _(d=1):
     d = _d(d)
-    step = pick([2, 3, 5, 10])
-    k = random.randint(2, 8)
+    step = pick(_by(d, [2, 5, 10], [2, 3, 5, 10], [2, 3, 3, 5, 10]))   # 3s are the least familiar
+    k = random.randint(_by(d, 1, 2, 4), _by(d, 5, 8, 9))
 
     def t_next():
         s = [step * i for i in range(k, k + 3)]
@@ -55,12 +70,13 @@ def _(d=1):
         return _tb("Count back in %ss:  %s, ___" % (step, ", ".join(map(str, s))), s[-1] - step, "int", {}, ["Take away %d." % step])
 
     def t_tens_any():
-        start = random.randint(1, 9) + 10 * random.randint(0, 3)
+        start = random.randint(1, 9) + 10 * random.randint(0, _by(d, 1, 3, 5))
         s = [start + 10 * i for i in range(4)]
         return _tb("Count on in 10s:  %s, ___" % ", ".join(map(str, s)), s[-1] + 10, "int", {}, ["The ones digit stays the same."])
 
     def t_missing():
-        s = [step * i for i in range(1, 7)]
+        first = min(k, 100 // step - 5) if d == 2 else 1     # stretch: start part-way along, stay within 100
+        s = [step * i for i in range(first, first + 6)]
         j = random.randint(1, 4)
         return _tb("Find the missing number:  %s" % ", ".join("___" if i == j else str(v) for i, v in enumerate(s)), s[j], "int",
                    {}, ["Count in %ss." % step])
@@ -94,7 +110,7 @@ def _(d=1):
                    ["%d − %d = %d." % (top, k * step, top - k * step)], lo=0, hi=max(30, (top // 10 + 1) * 10))
 
     def t_missing_tens():
-        start = random.randint(1, 9) + 10 * random.randint(0, 4)
+        start = random.randint(1, 9) + 10 * random.randint(0, _by(d, 1, 4, 5))
         s = [start + 10 * i for i in range(5)]
         j = random.randint(1, 3)
         return _tb("Find the missing number:  %s" % ", ".join("___" if i == j else str(v) for i, v in enumerate(s)), s[j], "int", {},
@@ -105,14 +121,18 @@ def _(d=1):
         return _tb("%s has %s. How much money is that, in pence?" % (_kid(), _pn(k, "%dp coin" % c)), c * k, "int", {"unit": "p"},
                    ["Count in %ss: %d." % (c, c * k)])
 
-    return _pick_t([t_next, t_back, t_tens_any, t_missing, t_back_tens, t_threes, t_jumps, t_in_count, t_missing_tens, t_money],
-                   [t_line, t_line_back])
+    if d == 0:     # counting on from small multiples; no counting back past the start of the tables
+        return _pick_t([t_next, t_tens_any, t_missing, t_jumps, t_money], [t_line])
+    plain = [t_next, t_back, t_tens_any, t_missing, t_back_tens, t_threes, t_jumps, t_in_count, t_missing_tens, t_money]
+    if d == 2:     # stretch: more missing-number, counting-back and "do you say it?" reasoning
+        plain += [t_missing, t_back, t_in_count, t_missing_tens]
+    return _pick_t(plain, [t_line, t_line_back])
 
 
 @skill("Y2.0.b", "Tens and ones in two-digit numbers", S0)
 def _(d=1):
     d = _d(d)
-    n = random.randint(11, 99)
+    n = random.randint(_by(d, 11, 11, 21), _by(d, 59, 99, 99))
 
     def t_value():
         return _tb("In %d, what is the tens digit worth?" % n, (n // 10) * 10, "int", {},
@@ -163,7 +183,7 @@ def _(d=1):
         return _tb("%d = %d + ___" % (n, p), n - p, "int", {}, ["%d − %d = %d." % (n, p, n - p)])
 
     def t_coins():
-        t, o = random.randint(1, 9), random.randint(1, 9)
+        t, o = random.randint(1, _by(d, 5, 9, 9)), random.randint(1, _by(d, 5, 9, 9))
         return _tb("%s has %s and %s. How many pence is that?" % (_kid(), _pn(t, "10p coin"), _pn(o, "1p coin")), 10 * t + o, "int",
                    {"unit": "p"}, ["%s: %dp." % (_tn(t, o), 10 * t + o)])
 
@@ -176,27 +196,33 @@ def _(d=1):
     def t_line():
         return _nl("Put %d on the number line." % n, n, 1, 10, ["%d is %s." % (n, _tn(n // 10, n % 10))], lo=0, hi=100)
 
-    return _pick_t([t_value, t_partition, t_parts, t_other_way, t_ones_worth, t_how_many_tens, t_ten_more, t_ten_less, t_swap,
-                    t_split, t_coins, t_digit_place], [t_build, t_line])
+    if d == 0:     # read tens and ones straight off; no regrouping
+        return _pick_t([t_value, t_partition, t_parts, t_how_many_tens, t_ten_more, t_ten_less, t_coins, t_digit_place],
+                       [t_build, t_line])
+    plain = [t_value, t_partition, t_parts, t_other_way, t_ones_worth, t_how_many_tens, t_ten_more, t_ten_less, t_swap,
+             t_split, t_coins, t_digit_place]
+    if d == 2:     # stretch: regroup a ten, split in other ways, swap digits
+        plain += [t_other_way, t_other_way, t_split, t_split, t_swap]
+    return _pick_t(plain, [t_build, t_line])
 
 
 @skill("Y2.0.c", "Compare and order numbers to 100 with <, > and =", S0)
 def _(d=1):
     d = _d(d)
-    a, b = random.sample(range(1, 100), 2)
+    a, b = _vals(d, 1, _by(d, 50, 100, 100), 2)     # stretch: two numbers close together
 
     def t_symbol():
         return _wq("Write < or > :  %d ___ %d" % (a, b), "<" if a < b else ">", ["%d is %s than %d." % (a, "less" if a < b else "more", b)],
                    "< or >")
 
     def t_equal():
-        x, y = random.randint(10, 50), random.randint(10, 40)
+        x, y = random.randint(10, _by(d, 30, 50, 60)), random.randint(_by(d, 1, 10, 10), _by(d, 9, 40, 39))
         right = random.random() < 0.5
         return _wq("Is this true?  %d + %d = %d  (yes or no)" % (x, y, x + y if right else x + y + 1),
                    "yes" if right else "no", ["%d + %d = %d." % (x, y, x + y)], "yes / no")
 
     def t_order():
-        vals = random.sample(range(1, 100), 4)
+        vals = _vals(d, 1, _by(d, 50, 100, 100), 4)
         k = random.randint(1, 4)
         return _tb("Put these in order, smallest first. Which is number %d in the list?  %s" % (k, ", ".join(map(str, vals))),
                    sorted(vals)[k - 1], "int", {}, ["In order: %s." % ", ".join(map(str, sorted(vals)))])
@@ -219,6 +245,8 @@ def _(d=1):
     def t_compare_sums():
         x, y = random.randint(10, 40), random.randint(10, 40)
         p, q = random.randint(10, 40), random.randint(10, 40)
+        if d == 2 and 10 <= x + y - p + 1 <= 40:     # stretch: totals within 1 of each other
+            q = x + y - p + pick([-1, 0, 1])
         sym = "<" if x + y < p + q else (">" if x + y > p + q else "=")
         return _wq("Write <, > or = :  %d + %d ___ %d + %d" % (x, y, p, q), sym,
                    ["%d + %d = %d and %d + %d = %d." % (x, y, x + y, p, q, p + q)], "<, > or =")
@@ -229,7 +257,7 @@ def _(d=1):
                    ["Put the smaller digit in the tens place."])
 
     def t_order_down():
-        vals = random.sample(range(1, 100), 4)
+        vals = _vals(d, 1, _by(d, 50, 100, 100), 4)
         k = random.randint(1, 4)
         return _tb("Put these in order, largest first. Which is number %d in the list?  %s" % (k, ", ".join(map(str, vals))),
                    sorted(vals, reverse=True)[k - 1], "int", {}, ["In order: %s." % ", ".join(map(str, sorted(vals, reverse=True)))])
@@ -241,20 +269,29 @@ def _(d=1):
                    ["%d tens is %d." % (t, 10 * t)])
 
     def t_true():
-        x, y = random.sample(range(10, 100), 2)
+        x, y = _vals(d, 10, _by(d, 50, 100, 100), 2)
         sym = pick(["<", ">"])
         right = (x < y) if sym == "<" else (x > y)
         return _wq("Is this true?  %d %s %d  (yes or no)" % (x, sym, y), "yes" if right else "no",
                    ["%d is %s than %d." % (x, "less" if x < y else "more", y)], "yes / no")
 
-    return _pick_t([t_symbol, t_equal, t_order, t_biggest, t_sym3, t_compare_sums, t_smallest, t_order_down, t_tens_vs, t_true],
-                   [t_line])
+    if d == 0:     # compare and order plain numbers; no calculations either side
+        return _pick_t([t_symbol, t_order, t_biggest, t_smallest, t_order_down, t_tens_vs, t_true], [t_line])
+    plain = [t_symbol, t_equal, t_order, t_biggest, t_sym3, t_compare_sums, t_smallest, t_order_down, t_tens_vs, t_true]
+    if d == 2:     # stretch: work out one or both sides before comparing
+        plain += [t_sym3, t_compare_sums, t_compare_sums, t_equal]
+    return _pick_t(plain, [t_line])
 
 
 @skill("Y2.0.d", "Read and write numbers to 100 in numerals and words", S0)
 def _(d=1):
     d = _d(d)
-    n = random.randint(11, 100)
+    if d == 0:     # teens and whole tens
+        n = pick(list(range(11, 21)) + [30, 40, 50, 60, 70, 80, 90])
+    elif d == 2:   # hyphenated numbers, where most spelling and digit-order slips happen
+        n = pick([x for x in range(21, 100) if x % 10])
+    else:
+        n = random.randint(11, 100)
 
     def t_to_num():
         return _tb("Write in digits: %s" % n_words(n), n, "int", {}, ["%s = %d." % (n_words(n), n)])
@@ -263,13 +300,15 @@ def _(d=1):
         return _wq("Write %d in words." % n, n_words(n), ["%d = %s." % (n, n_words(n))], "words")
 
     def t_odd_even():
-        k = random.randint(1, 99)
+        k = random.randint(_by(d, 1, 1, 21), _by(d, 20, 99, 99))
         return _wq("Is %d odd or even?" % k, "even" if k % 2 == 0 else "odd", ["Look at the ones digit: %d." % (k % 10)], "odd / even")
 
     def t_estimate():
-        n2 = random.randint(10, 90)
+        n2 = 10 * random.randint(1, 9) if d == 0 else random.randint(10, 90)
         return _nl("Estimate where %d goes on a line from 0 to 100, and mark it." % n2, n2, 1, 10, ["About %d." % n2], lo=0, hi=100)
 
+    if d == 2:     # stretch: more writing in words
+        return _pick_t([t_to_num, t_to_word, t_to_word, t_odd_even], [t_estimate])
     return _pick_t([t_to_num, t_to_word, t_odd_even], [t_estimate])
 
 
@@ -340,18 +379,33 @@ def _(d=1):
 @skill("Y2.1.b", "Add and subtract two-digit numbers and ones or tens", S1)
 def _(d=1):
     d = _d(d)
-    n = random.randint(11, 89)
+    if d == 1:
+        n = random.randint(11, 89)
+    else:          # ones digit 1-8, so ones can always be added or taken without (easy) or with (stretch) crossing a ten
+        n = pick([x for x in range(_by(d, 11, 11, 21), 89) if 1 <= x % 10 <= 8])
+
+    def _ones(sub, lo=1):
+        """A one-digit number to add or take: easy never crosses a ten, stretch always does."""
+        o = n % 10
+        if d == 0:
+            return random.randint(1, o if sub else 9 - o)
+        if d == 2:
+            return random.randint(o + 1, 9) if sub else random.randint(10 - o, 9)
+        return random.randint(lo, 9)
+
+    def _tens():
+        return random.randint(1, min(_by(d, 2, 9, 9), (99 - n) // 10)) * 10 if n < 90 else 10
 
     def t_add_ones():
-        k = random.randint(1, 9)
+        k = _ones(False)
         return _tb("%d + %d = ___" % (n, k), n + k, "int", {}, ["Count on %d." % k])
 
     def t_sub_ones():
-        k = random.randint(1, 9)
+        k = _ones(True)
         return _tb("%d − %d = ___" % (n, k), n - k, "int", {}, ["Count back %d." % k])
 
     def t_add_tens():
-        k = random.randint(1, (99 - n) // 10) * 10 if n < 90 else 10
+        k = _tens()
         return _tb("%d + %d = ___" % (n, k), n + k, "int", {}, ["The tens digit goes up; the ones stay the same."])
 
     def t_sub_tens():
@@ -359,37 +413,40 @@ def _(d=1):
         return _tb("%d − %d = ___" % (n, k), n - k, "int", {}, ["The tens digit goes down; the ones stay the same."])
 
     def t_line():
-        k = random.randint(2, 9)
+        k = _ones(False, 2)
         return _nl("Start at %d and jump on %d. Where do you land?" % (n, k), n + k, 1, 10, ["%d + %d = %d." % (n, k, n + k)],
                    lo=(n // 10) * 10, hi=(n // 10) * 10 + 20)
 
     def t_bridge():
         o = n % 10
-        k = random.randint(max(1, 11 - o), 9) if o >= 2 and n < 90 else random.randint(1, 9)
+        if d == 2:     # stretch: always goes through the next ten (n's ones digit is 1-8)
+            k = random.randint(max(2, 11 - o), 9) if o >= 2 else 9
+        else:
+            k = random.randint(max(1, 11 - o), 9) if o >= 2 and n < 90 else random.randint(1, 9)
         return _tb("%d + %d = ___" % (n, k), n + k, "int", {}, ["%d + %d = %d, then + %d = %d." % (n, 10 - o, n + 10 - o, k - (10 - o), n + k)]
                    if o and k > 10 - o else ["Count on %d: %d." % (k, n + k)])
 
     def t_word_tens():
-        k = random.randint(1, (99 - n) // 10) * 10 if n < 90 else 10
+        k = _tens()
         return _tb("%s has %d stickers and gets %d more. How many stickers now?" % (_kid(), n, k), n + k, "int", {},
                    ["%d + %d = %d." % (n, k, n + k)])
 
     def t_word_ones():
-        k = random.randint(1, 9)
+        k = _ones(True)
         return _tb("A shop has %d apples. It sells %s. How many are left?" % (n, _pn(k, "apple")), n - k, "int", {},
                    ["%d − %d = %d." % (n, k, n - k)])
 
     def t_missing():
-        k = random.randint(1, (99 - n) // 10) * 10 if n < 90 else 10
+        k = _tens()
         return _tb("%d + ___ = %d" % (n, n + k), k, "int", {}, ["The tens digit went up by %d, so %d." % (k // 10, k)])
 
     def t_blocks():
-        k = random.randint(1, (99 - n) // 10) * 10 if n < 90 else 10
+        k = _tens()
         return {"prompt": "Work out %d + %d. Make the answer with the blocks." % (n, k), "component": "base_ten",
                 "spec": {"mode": "build", "max": 9}, "answer": n + k, "answer_type": "int", "solution": ["%d." % (n + k)]}
 
     def t_line_back():
-        k = random.randint(2, 9)
+        k = _ones(True, 2)
         return _nl("Start at %d and jump back %d. Where do you land?" % (n, k), n - k, 1, 10, ["%d − %d = %d." % (n, k, n - k)],
                    lo=max(0, (n // 10) * 10 - 10), hi=max(0, (n // 10) * 10 - 10) + 20)
 
@@ -399,14 +456,26 @@ def _(d=1):
         return _tb("%s has %dp and is given %dp more. How much now, in pence?" % (_kid(), m, k), m + k, "int", {"unit": "p"},
                    ["%d + %d = %d." % (m, k, m + k)])
 
-    return _pick_t([t_add_ones, t_sub_ones, t_add_tens, t_sub_tens, t_bridge, t_word_tens, t_word_ones, t_missing, t_money],
-                   [t_line, t_blocks, t_line_back])
+    plain = [t_add_ones, t_sub_ones, t_add_tens, t_sub_tens, t_bridge, t_word_tens, t_word_ones, t_missing, t_money]
+    if d == 0:     # no bridging through a ten
+        plain.remove(t_bridge)
+    elif d == 2:   # stretch: bridging and missing numbers
+        plain += [t_bridge, t_bridge, t_missing, t_sub_ones]
+    return _pick_t(plain, [t_line, t_blocks, t_line_back])
 
 
 @skill("Y2.1.c", "Add and subtract two two-digit numbers; add three one-digit numbers", S1)
 def _(d=1):
     d = _d(d)
     a, b = random.randint(11, 60), random.randint(11, 39)
+    for _ in range(200):
+        # easy: no carrying when adding and no exchange when subtracting; stretch: both every time
+        hi, lo = (a, b) if a >= b else (b, a)
+        carry, exch = a % 10 + b % 10 >= 10, hi % 10 < lo % 10
+        if d == 1 or (d == 0 and not carry and not exch) or (d == 2 and carry and exch and a != b):
+            break
+        a, b = random.randint(11, _by(d, 50, 60, 60)), random.randint(11, 39)
+    s1, s2 = _by(d, 1, 1, 4), _by(d, 5, 9, 9)     # three one-digit numbers: small, or all bigger
 
     def t_add():
         return _tb("%d + %d = ___" % (a, b), a + b, "int", {}, ["Add the tens, then the ones: %d." % (a + b)])
@@ -416,7 +485,7 @@ def _(d=1):
         return _tb("%d − %d = ___" % (x, y), x - y, "int", {}, ["%d − %d = %d." % (x, y, x - y)])
 
     def t_three():
-        x, y, z = random.randint(1, 9), random.randint(1, 9), random.randint(1, 9)
+        x, y, z = random.randint(s1, s2), random.randint(s1, s2), random.randint(s1, s2)
         return _tb("%d + %d + %d = ___" % (x, y, z), x + y + z, "int", {}, ["Look for a pair that makes 10."])
 
     def t_blocks():
@@ -438,20 +507,29 @@ def _(d=1):
                       x - y, ["%d − %d = %d." % (x, y, x - y)]) if x > y else t_add()
 
     def t_three_word():
-        x, y, z = random.randint(1, 9), random.randint(1, 9), random.randint(1, 9)
+        x, y, z = random.randint(s1, s2), random.randint(s1, s2), random.randint(s1, s2)
         return _tb("%s has %d red, %d blue and %d green pens. How many pens altogether?" % (_kid(), x, y, z), x + y + z, "int", {},
                    ["%d + %d + %d = %d." % (x, y, z, x + y + z)])
 
     def t_missing():
         return _tb("%d + ___ = %d" % (a, a + b), b, "int", {}, ["%d − %d = %d." % (a + b, a, b)])
 
-    return _pick_t([t_add, t_sub, t_three, t_word, t_three_word, t_missing], [t_blocks, t_bar])
+    plain = [t_add, t_sub, t_three, t_word, t_three_word, t_missing]
+    if d == 2:     # stretch: more subtraction with exchange and missing numbers
+        plain += [t_sub, t_missing]
+    return _pick_t(plain, [t_blocks, t_bar])
 
 
 @skill("Y2.1.d", "Any order for addition; inverse and missing numbers", S1)
 def _(d=1):
     d = _d(d)
-    a, b = random.randint(5, 50), random.randint(5, 40)
+    if d == 0:     # facts to 20
+        a, b = random.randint(2, 10), random.randint(2, 10)
+    elif d == 2:   # two two-digit numbers whose ones make more than 10
+        a = pick([x for x in range(21, 60) if x % 10])
+        b = 10 * random.randint(1, 3) + random.randint(10 - a % 10, 9)
+    else:
+        a, b = random.randint(5, 50), random.randint(5, 40)
 
     def t_commute():
         return _tb("%d + %d = %d. What is %d + %d?" % (a, b, a + b, b, a), a + b, "int", {}, ["You can add in any order."])
@@ -498,8 +576,11 @@ def _(d=1):
         return _wq("Sam says %d + %d = %d. Check it by subtracting. Is Sam right? (yes or no)" % (a, b, shown), "no" if wrong else "yes",
                    ["%d − %d = %d%s." % (shown, b, shown - b, "" if not wrong else ", not %d" % a)], "yes / no")
 
-    return _pick_t([t_commute, t_not_commute, t_missing_add, t_missing_sub, t_check, t_missing_first, t_sub_gap, t_true_commute,
-                    t_family, t_think, t_check_answer], [t_bar])
+    plain = [t_commute, t_not_commute, t_missing_add, t_missing_sub, t_check, t_missing_first, t_sub_gap, t_true_commute,
+             t_family, t_think, t_check_answer]
+    if d == 2:     # stretch: the missing number is the start or the amount taken away
+        plain += [t_missing_sub, t_sub_gap, t_think, t_check_answer]
+    return _pick_t(plain, [t_bar])
 
 
 @skill("Y2.1.e", "Addition and subtraction problems", S1)
@@ -508,7 +589,10 @@ def _(d=1):
     kid = _kid()
 
     def t_change():
-        cost, pay = random.randint(11, 90), pick([50, 100])
+        if d == 0:     # a multiple of 5 from 50p or £1
+            cost, pay = 5 * random.randint(1, 9), pick([50, 100])
+        else:
+            cost, pay = random.randint(_by(d, 11, 11, 21), _by(d, 90, 90, 97)), _by(d, 50, pick([50, 100]), 100)
         if cost >= pay:
             pay = 100
         return _tb("%s buys a toy for %dp and pays with %s. How much change, in pence?" % (kid, cost, "£1" if pay == 100 else "50p"),
@@ -516,25 +600,34 @@ def _(d=1):
                    ["%d − %d = %d." % (pay, cost, pay - cost)])
 
     def t_more():
-        a, b = random.randint(10, 50), random.randint(5, 40)
+        a, b = random.randint(10, _by(d, 30, 50, 59)), random.randint(5, _by(d, 9, 40, 39))
         return _tb("%s has %d stickers. Ben has %d more than %s. How many does Ben have?" % (kid, a, b, kid), a + b, "int", {},
                    ["%d + %d = %d." % (a, b, a + b)]) if kid != "Ben" else t_left()
 
     def t_left():
-        a, b = random.randint(30, 90), random.randint(5, 25)
+        a, b = random.randint(_by(d, 15, 30, 41), _by(d, 40, 90, 92)), random.randint(_by(d, 2, 5, 13), _by(d, 9, 25, 39))
         return _tb("A class had %d pencils. %d were lost. How many are left?" % (a, b), a - b, "int", {}, ["%d − %d = %d." % (a, b, a - b)])
 
     def t_two_step():
-        a, b, c = random.randint(20, 50), random.randint(5, 20), random.randint(5, 20)
+        a, b, c = random.randint(20, _by(d, 50, 50, 70)), random.randint(5, _by(d, 20, 20, 29)), random.randint(5, _by(d, 20, 20, 29))
         return _tb("There were %d people on a train. %d got off and %d got on. How many now?" % (a, b, c), a - b + c, "int", {},
                    ["%d − %d = %d; + %d = %d." % (a, b, a - b, c, a - b + c)])
 
     def t_bar():
-        whole, part = random.randint(30, 90), random.randint(10, 25)
+        whole, part = random.randint(_by(d, 20, 30, 50), _by(d, 50, 90, 99)), random.randint(10, _by(d, 15, 25, 39))
         return _strip("The bar shows %d altogether. One part is %d. What is the other part?" % (whole, part),
                       {"mode": "part_whole", "totalLabel": str(whole), "partLabel": str(part), "unknown": "part", "parts": 2},
                       whole - part, ["%d − %d = %d." % (whole, part, whole - part)])
 
+    def t_two_change():
+        x, y = random.randint(15, 45), random.randint(15, 45)
+        return _tb("%s buys a pen for %dp and a ruler for %dp, and pays with £1. How much change, in pence?" % (kid, x, y),
+                   100 - x - y, "int", {"unit": "p"}, ["%d + %d = %d; 100 − %d = %d." % (x, y, x + y, x + y, 100 - x - y)])
+
+    if d == 0:     # one step only
+        return _pick_t([t_change, t_more, t_left], [t_bar])
+    if d == 2:     # stretch: two steps, bigger numbers
+        return _pick_t([t_change, t_more, t_left, t_two_step, t_two_step, t_two_change, t_two_change], [t_bar])
     return _pick_t([t_change, t_more, t_left, t_two_step], [t_bar])
 
 
@@ -543,7 +636,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     t = pick([2, 5, 10])
-    k = random.randint(1, 12)
+    k = random.randint(_by(d, 1, 1, 6), _by(d, 6, 12, 12))     # stretch: the harder half of each table
 
     def t_mult():
         return _tb("%d × %d = ___" % (k, t), k * t, "int", {}, ["%s of %d." % (_pn(k, "lot"), t)])
@@ -555,13 +648,13 @@ def _(d=1):
         return _tb("___ × %d = %d" % (t, k * t), k, "int", {}, ["%d ÷ %d = %d." % (k * t, t, k)])
 
     def t_groups():
-        g = random.randint(2, 6)
+        g = random.randint(2, _by(d, 4, 6, 9))
         return {"prompt": "There are %d groups of %d. Write the total." % (g, t), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": g, "per": t}, "answer": g * t, "answer_type": "int",
                 "solution": ["%d × %d = %d." % (g, t, g * t)]}
 
     def t_array():
-        g = random.randint(2, 6)
+        g = random.randint(_by(d, 2, 2, 4), _by(d, 4, 6, 9))
         return {"prompt": "Build an array of %d rows of %d. How many altogether?" % (g, t), "component": "array",
                 "spec": {"mode": "build", "maxRows": 10, "maxCols": 10, "targetRows": g, "targetCols": t}, "answer": g * t,
                 "answer_type": "int", "solution": ["%d × %d = %d." % (g, t, g * t)]}
@@ -593,7 +686,12 @@ def _(d=1):
         return _wq("Is %d in the %d times table? (yes or no)" % (n, x), "yes" if n % x == 0 else "no",
                    ["%d %s in the %d times table." % (n, "is" if n % x == 0 else "is not", x)], "yes / no")
 
-    return _pick_t([t_mult, t_div, t_missing, t_missing_div, t_true, t_word, t_double, t_which_table], [t_groups, t_array, t_line])
+    plain = [t_mult, t_div, t_missing, t_missing_div, t_true, t_word, t_double, t_which_table]
+    if d == 0:     # mostly multiplying; no missing dividend
+        plain.remove(t_missing_div)
+    elif d == 2:   # stretch: division and missing numbers
+        plain += [t_div, t_missing, t_missing_div, t_which_table]
+    return _pick_t(plain, [t_groups, t_array, t_line])
 
 
 @skill("Y2.2.b", "Odd and even numbers", S2)
@@ -601,37 +699,37 @@ def _(d=1):
     d = _d(d)
 
     def t_is():
-        n = random.randint(1, 100)
+        n = random.randint(_by(d, 1, 1, 21), _by(d, 20, 100, 100))
         return _wq("Is %d odd or even?" % n, "even" if n % 2 == 0 else "odd", ["Even numbers end in 0, 2, 4, 6 or 8."], "odd / even")
 
     def t_next_even():
-        n = random.randint(1, 98)
+        n = random.randint(_by(d, 1, 1, 21), _by(d, 18, 98, 98))
         nxt = n + 1 if n % 2 else n + 2
         return _tb("What is the next even number after %d?" % n, nxt, "int", {}, ["%d." % nxt])
 
     def t_count():
-        lo = random.randint(1, 20)
-        hi = lo + random.randint(5, 10)
+        lo = random.randint(1, _by(d, 10, 20, 60))
+        hi = lo + random.randint(_by(d, 4, 5, 9), _by(d, 6, 10, 15))
         return _tb("How many odd numbers are there from %d to %d?" % (lo, hi), sum(1 for x in range(lo, hi + 1) if x % 2),
                    "int", {}, ["%s." % ", ".join(str(x) for x in range(lo, hi + 1) if x % 2)])
 
     def t_pairs():
-        n = random.randint(4, 30)
+        n = random.randint(4, _by(d, 12, 30, 50))
         return _wq("Can %d socks be put into pairs with none left over? (yes or no)" % n, "yes" if n % 2 == 0 else "no",
                    ["%d is %s." % (n, "even" if n % 2 == 0 else "odd")], "yes / no")
 
     def t_next_odd():
-        n = random.randint(1, 98)
+        n = random.randint(_by(d, 1, 1, 21), _by(d, 18, 98, 98))
         nxt = n + 1 if n % 2 == 0 else n + 2
         return _tb("What is the next odd number after %d?" % n, nxt, "int", {}, ["Odd numbers end in 1, 3, 5, 7 or 9: %d." % nxt])
 
     def t_prev_even():
-        n = random.randint(3, 100)
+        n = random.randint(_by(d, 3, 3, 21), _by(d, 20, 100, 100))
         prv = n - 1 if n % 2 else n - 2
         return _tb("What is the even number just before %d?" % n, prv, "int", {}, ["%d." % prv])
 
     def t_houses():
-        k = random.randint(3, 12)
+        k = random.randint(3, _by(d, 6, 12, 20))
         side = pick(["odd", "even"])
         first = 1 if side == "odd" else 2
         return _tb("The houses on one side of a street have %s numbers: %d, %d, %d, ... What is the number of house %d on that side?"
@@ -647,7 +745,7 @@ def _(d=1):
                    ["The ones digit must be even."])
 
     def t_groups():
-        n = random.randint(2, 10)
+        n = random.randint(2, _by(d, 6, 10, 10))
         extra = pick([0, 1])
         if extra:
             return _wq("%d counters are put into pairs. One counter is left without a partner. Is %d odd or even?" % (2 * n + 1, 2 * n + 1),
@@ -658,27 +756,32 @@ def _(d=1):
                 "answer_type": "str", "solution": ["%s" % ("One is left without a partner, so it is odd." if extra else "Every counter has a partner, so it is even.")]}
 
     def t_teams():
-        n = random.randint(6, 30)
+        n = random.randint(6, _by(d, 20, 30, 60))
         return _wq("%d children get into pairs. Is anyone left without a partner? (yes or no)" % n, "yes" if n % 2 else "no",
                    ["%d is %s." % (n, "odd" if n % 2 else "even")], "yes / no")
 
     def t_sum_odd():
-        x, y = random.randint(1, 20), random.randint(1, 20)
+        x, y = random.randint(1, _by(d, 10, 20, 50)), random.randint(1, _by(d, 10, 20, 50))
         return _wq("Is %d + %d odd or even?" % (x, y), "even" if (x + y) % 2 == 0 else "odd", ["%d + %d = %d." % (x, y, x + y)], "odd / even")
 
     def t_line_even():
-        n = random.randint(1, 48)
+        n = random.randint(1, _by(d, 18, 48, 98))
         nxt = n + 1 if n % 2 else n + 2
-        return _nl("Mark the first even number after %d on the number line." % n, nxt, 1, 10, ["%d is even." % nxt], lo=0, hi=50)
+        return _nl("Mark the first even number after %d on the number line." % n, nxt, 1, 10, ["%d is even." % nxt], lo=0,
+                   hi=_by(d, 20, 50, 100))
 
-    return _pick_t([t_is, t_next_even, t_count, t_pairs, t_next_odd, t_prev_even, t_houses, t_biggest_even, t_teams, t_sum_odd],
-                   [t_groups, t_line_even])
+    plain = [t_is, t_next_even, t_count, t_pairs, t_next_odd, t_prev_even, t_houses, t_biggest_even, t_teams, t_sum_odd]
+    if d == 0:     # spot odd and even; no counting or making numbers
+        plain = [t_is, t_next_even, t_pairs, t_next_odd, t_prev_even, t_teams]
+    elif d == 2:   # stretch: reasoning about odd and even
+        plain += [t_count, t_houses, t_biggest_even, t_sum_odd]
+    return _pick_t(plain, [t_groups, t_line_even])
 
 
 @skill("Y2.2.c", "Write and solve × and ÷ statements; any order for ×", S2)
 def _(d=1):
     d = _d(d)
-    a, b = pick([2, 5, 10]), random.randint(2, 10)
+    a, b = pick([2, 5, 10]), random.randint(_by(d, 2, 2, 5), _by(d, 5, 10, 12))
 
     def t_commute():
         return _tb("%d × %d = %d. What is %d × %d?" % (a, b, a * b, b, a), a * b, "int", {}, ["Multiplication can be done in any order."])
@@ -696,6 +799,17 @@ def _(d=1):
     def t_write():
         return _tb("What is %d groups of %d?" % (b, a), a * b, "int", {}, ["%d × %d = %d." % (b, a, a * b)])
 
+    def t_missing():
+        return _tb("%d × ___ = %d" % (a, a * b), b, "int", {}, ["%d ÷ %d = %d." % (a * b, a, b)])
+
+    def t_div_write():
+        return _tb("%d × %d = %d. Finish this division fact: %d ÷ %d = ___" % (b, a, a * b, a * b, a), b, "int", {},
+                   ["%d ÷ %d = %d and %d ÷ %d = %d." % (a * b, b, a, a * b, a, b)])
+
+    if d == 0:     # repeated addition and swapping the order
+        return _pick_t([t_commute, t_repeated, t_fact_family, t_write])
+    if d == 2:     # stretch: missing numbers and division facts, no repeated addition
+        return _pick_t([t_commute, t_div_not, t_fact_family, t_write, t_missing, t_missing, t_div_write, t_div_write])
     return _pick_t([t_commute, t_div_not, t_repeated, t_fact_family, t_write])
 
 
@@ -703,7 +817,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     t = pick([2, 5, 10])
-    k = random.randint(2, 10)
+    k = random.randint(_by(d, 2, 2, 5), _by(d, 5, 10, 10))
 
     def t_bags():
         return _tb("There are %d bags with %d apples in each. How many apples?" % (k, t), k * t, "int", {}, ["%d × %d = %d." % (k, t, k * t)])
@@ -754,22 +868,33 @@ def _(d=1):
         return _tb("A frog jumps %d cm each hop. How far does it go in %d hops, in cm?" % (t, k), k * t, "int", {"unit": "cm"},
                    ["%s = %d." % (" + ".join([str(t)] * k), k * t)])
 
-    return _pick_t([t_bags, t_share, t_coins, t_teams, t_fingers, t_price, t_how_many_bought, t_repeated],
-                   [t_bar, t_share_bar, t_groups, t_array])
+    def t_two_step():
+        g = random.randint(1, t)
+        return _tb("There are %d boxes with %d pens in each. %s are taken out. How many pens are left?" % (k, t, _pn(g, "pen")),
+                   k * t - g, "int", {}, ["%d × %d = %d; %d − %d = %d." % (k, t, k * t, k * t, g, k * t - g)])
+
+    plain = [t_bags, t_share, t_coins, t_teams, t_fingers, t_price, t_how_many_bought, t_repeated]
+    if d == 0:     # mostly multiplying
+        plain = [t_bags, t_coins, t_fingers, t_price, t_repeated, t_share]
+    elif d == 2:   # stretch: grouping and sharing, and a second step
+        plain += [t_share, t_teams, t_how_many_bought, t_two_step, t_two_step]
+    return _pick_t(plain, [t_bar, t_share_bar, t_groups, t_array])
 
 
 # ================================================================== 2.3 ======
 @skill("Y2.3.a", "Find 1/3, 1/4, 2/4 and 3/4 of a shape", S3)
 def _(d=1):
     d = _d(d)
+    # easy: unit fractions; stretch: mostly non-unit fractions (2/4, 3/4)
+    FR = _by(d, [(1, 2), (1, 4), (1, 3)], [(1, 3), (1, 4), (2, 4), (3, 4), (1, 2)], [(2, 4), (3, 4), (3, 4), (1, 3), (2, 4)])
 
     def t_shade():
-        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (1, 2)])
+        f = pick(FR)
         return {"prompt": "Shade %d/%d of the bar." % f, "component": "fraction_bar", "spec": {"parts": f[1], "mode": "shade"},
                 "answer": "%d/%d" % f, "answer_type": "frac", "solution": ["Shade %d of the %d equal parts." % f]}
 
     def t_read():
-        f = pick([(1, 3), (1, 4), (3, 4), (2, 4), (1, 2)])
+        f = pick(FR)
         return _area("What fraction of the shape is shaded?", {"mode": "fraction_read", "parts": f[1], "shaded": f[0]},
                      "%d/%d" % f, ["%d out of %d equal parts." % f], atype="frac")
 
@@ -781,19 +906,21 @@ def _(d=1):
         return _tb("How many %s make a whole?" % name, n, "int", {}, ["%d %s make 1 whole." % (n, name)])
 
     def t_left():
-        f = pick([(1, 4), (3, 4), (1, 3)])
+        f = pick(_by(d, [(1, 2), (3, 4)], [(1, 4), (3, 4), (1, 3)], [(1, 4), (3, 4), (2, 4)]))
         return _wq("A cake is cut into %d equal pieces and %d %s eaten. What fraction is left? (like 1/4)" % (f[1], f[0],
                                                                                                               "is" if f[0] == 1 else "are"),
                    "%d/%d" % (f[1] - f[0], f[1]), ["%d out of %d pieces are left." % (f[1] - f[0], f[1])], "e.g. 1/4")
 
     def t_grid():
-        f = pick([(1, 3), (1, 4), (2, 4), (3, 4), (1, 2)])
-        parts = f[1] * pick([1, 2, 3])
+        f = pick(FR)
+        parts = f[1] * pick(_by(d, [1], [1, 2, 3], [2, 3]))     # stretch: more squares than parts
         return _area("Shade %d/%d of the shape." % f, {"mode": "fraction", "parts": parts}, "%d/%d" % f,
                      ["%d/%d of %d squares is %s." % (f[0], f[1], parts, _pn(parts * f[0] // f[1], "square"))], atype="frac")
 
     def t_bigger():
-        a, b = pick([("1/3", "1/4"), ("1/2", "1/4"), ("1/2", "1/3"), ("3/4", "1/4"), ("2/4", "1/4"), ("3/4", "1/2")])
+        a, b = pick(_by(d, [("1/2", "1/4"), ("3/4", "1/4")],
+                        [("1/3", "1/4"), ("1/2", "1/4"), ("1/2", "1/3"), ("3/4", "1/4"), ("2/4", "1/4"), ("3/4", "1/2")],
+                        [("1/3", "1/4"), ("1/2", "1/3"), ("3/4", "1/2"), ("3/4", "2/4")]))
         x, y = (a, b) if random.random() < 0.5 else (b, a)
         return _fq("Which is bigger, %s or %s of the same cake?" % (x, y), Fraction(a), ["%s is bigger." % a])
 
@@ -814,15 +941,19 @@ def _(d=1):
                    ["Quarters must be 4 equal parts."], "yes / no")
 
     def t_how_many_more():
-        f = pick([(1, 4), (2, 4), (1, 3)])
+        f = pick(_by(d, [(1, 4), (2, 4)], [(1, 4), (2, 4), (1, 3)], [(1, 4), (3, 4), (1, 3)]))
         return _tb("%d/%d of a bar is shaded. How many more %s must be shaded to fill it?" % (f[0], f[1], "quarters" if f[1] == 4 else "thirds"),
                    f[1] - f[0], "int", {}, ["%d/%d + %d/%d = 1 whole." % (f[0], f[1], f[1] - f[0], f[1])])
 
     def t_half_quarters():
         return _tb("How many quarters are the same as one half?", 2, "int", {}, ["2/4 = 1/2."])
 
-    return _pick_t([t_equiv, t_parts, t_left, t_bigger, t_is_third, t_name, t_unequal, t_how_many_more, t_half_quarters],
-                   [t_shade, t_read, t_grid])
+    if d == 0:     # name and shade simple fractions
+        return _pick_t([t_parts, t_left, t_bigger, t_name, t_unequal, t_half_quarters], [t_shade, t_read])
+    plain = [t_equiv, t_parts, t_left, t_bigger, t_is_third, t_name, t_unequal, t_how_many_more, t_half_quarters]
+    if d == 2:     # stretch: compare, complete the whole, judge a claim; drop the bare facts
+        plain = [t_equiv, t_left, t_bigger, t_bigger, t_is_third, t_how_many_more, t_how_many_more, t_unequal]
+    return _pick_t(plain, [t_shade, t_read, t_grid])
 
 
 @skill("Y2.3.b", "Fractions of a set or quantity", S3)
@@ -830,19 +961,19 @@ def _(d=1):
     d = _d(d)
 
     def t_third():
-        n = 3 * random.randint(1, 10)
+        n = 3 * random.randint(_by(d, 1, 1, 4), _by(d, 5, 10, 12))
         return _tb("What is 1/3 of %d?" % n, n // 3, "int", {}, ["Share %d into 3 equal groups: %d." % (n, n // 3)])
 
     def t_quarter():
-        n = 4 * random.randint(1, 10)
+        n = 4 * random.randint(_by(d, 1, 1, 4), _by(d, 5, 10, 12))
         return _tb("What is 1/4 of %d?" % n, n // 4, "int", {}, ["Share %d into 4 equal groups: %d." % (n, n // 4)])
 
     def t_three_quarters():
-        n = 4 * random.randint(1, 8)
+        n = 4 * random.randint(_by(d, 1, 1, 3), _by(d, 4, 8, 10))
         return _tb("What is 3/4 of %d?" % n, 3 * n // 4, "int", {}, ["1/4 of %d is %d, so 3/4 is %d." % (n, n // 4, 3 * n // 4)])
 
     def t_half_of():
-        n = 2 * random.randint(2, 15)
+        n = 2 * random.randint(2, _by(d, 10, 15, 25))
         return _tb("1/2 of %d = ___" % n, n // 2, "int", {}, ["Half of %d is %d." % (n, n // 2)])
 
     def t_groups():
@@ -853,43 +984,47 @@ def _(d=1):
                 "solution": ["One group has %d." % k]}
 
     def t_length():
-        n = 4 * random.randint(2, 6)
+        n = 4 * random.randint(2, _by(d, 5, 6, 10))
         return _tb("A ribbon is %d cm long. %s cuts off 1/4 of it. How long is the piece cut off, in cm?" % (n, _kid()), n // 4,
                    "int", {"unit": "cm"}, ["%d ÷ 4 = %d." % (n, n // 4)])
 
     def t_two_quarters():
-        n = 4 * random.randint(1, 8)
+        n = 4 * random.randint(_by(d, 1, 1, 3), _by(d, 5, 8, 10))
         return _tb("What is 2/4 of %d?" % n, n // 2, "int", {}, ["2/4 is the same as 1/2: half of %d is %d." % (n, n // 2)])
 
     def t_word_third():
-        n = 3 * random.randint(2, 8)
+        n = 3 * random.randint(2, _by(d, 5, 8, 12))
         kid = _kid()
         return _tb("%s has %d marbles and gives 1/3 of them away. How many marbles are given away?" % (kid, n), n // 3, "int", {},
                    ["%d ÷ 3 = %d." % (n, n // 3)])
 
     def t_left():
-        n = 4 * random.randint(2, 6)
+        n = 4 * random.randint(2, _by(d, 5, 6, 10))
         return _tb("There are %d biscuits. 1/4 of them are eaten. How many are left?" % n, n - n // 4, "int", {},
                    ["1/4 of %d is %d; %d − %d = %d." % (n, n // 4, n, n // 4, n - n // 4)])
 
     def t_strip():
         g = pick([3, 4])
-        k = random.randint(2, 9)
+        k = random.randint(2, _by(d, 5, 9, 9))
         return _strip("What is 1/%d of %d?" % (g, g * k), {"mode": "equal_parts", "parts": g, "partLabel": "?", "totalLabel": str(g * k),
                                                          "unknown": "part"}, k, ["%d ÷ %d = %d." % (g * k, g, k)])
 
     def t_whole():
-        k = random.randint(2, 10)
+        k = random.randint(2, _by(d, 5, 10, 12))
         g = pick([2, 3, 4])
         return _tb("1/%d of a number is %d. What is the number?" % (g, k), g * k, "int", {}, ["%d × %d = %d." % (k, g, g * k)])
 
     def t_money():
-        n = pick([12, 20, 40, 60, 80, 100]) if random.random() < 0.5 else 4 * random.randint(2, 10)
+        n = (pick([12, 20, 40, 60, 80, 100]) if random.random() < 0.5 else 4 * random.randint(2, 10)) if d else 4 * random.randint(2, 5)
         return _tb("%s has %dp and spends 1/4 of it. How much is spent, in pence?" % (_kid(), n), n // 4, "int", {"unit": "p"},
                    ["%d ÷ 4 = %d." % (n, n // 4)])
 
-    return _pick_t([t_third, t_quarter, t_three_quarters, t_half_of, t_length, t_two_quarters, t_word_third, t_left, t_whole, t_money],
-                   [t_groups, t_strip])
+    plain = [t_third, t_quarter, t_three_quarters, t_half_of, t_length, t_two_quarters, t_word_third, t_left, t_whole, t_money]
+    if d == 0:     # unit fractions of small numbers
+        plain = [t_third, t_quarter, t_half_of, t_length, t_word_third, t_money]
+    elif d == 2:   # stretch: 3/4, what is left, and the whole from a part
+        plain += [t_three_quarters, t_three_quarters, t_left, t_whole, t_whole]
+    return _pick_t(plain, [t_groups, t_strip])
 
 
 # ================================================================== 2.4 ======
@@ -977,48 +1112,48 @@ def _(d=1):
 
     def t_symbol():
         unit = pick(["cm", "kg", "ml", "m", "g", "litres"])
-        a, b = random.sample(range(2, 99), 2)
+        a, b = _vals(d, 2, _by(d, 30, 99, 99), 2)
         return _wq("Write < or > :  %d %s ___ %d %s" % (a, unit, b, unit), "<" if a < b else ">", ["Compare the numbers."], "< or >")
 
     def t_longest():
         names = ["red", "blue", "green"]
-        v = random.sample(range(5, 60), 3)
+        v = _vals(d, 5, _by(d, 30, 60, 99), 3)
         return _wq("Ribbons: red %d cm, blue %d cm, green %d cm. Which is the longest?" % tuple(v), names[v.index(max(v))],
                    ["%d cm is the longest." % max(v)], "colour")
 
     def t_order():
-        v = random.sample(range(1, 40), 3)
+        v = _vals(d, 1, _by(d, 20, 40, 60), 3)
         return _tb("Put these masses in order, lightest first. Which is in the middle?  %s" % ", ".join("%d kg" % x for x in v),
                    sorted(v)[1], "int", {"unit": "kg"}, ["Order: %s." % ", ".join("%d kg" % x for x in sorted(v))])
 
     def t_difference():
-        a, b = random.sample(range(10, 90), 2)
+        a, b = [10 * x for x in random.sample(range(1, 10), 2)] if d == 0 else random.sample(range(_by(d, 10, 10, 21), 90), 2)
         return _tb("A jug holds %d ml. A cup holds %d ml. How much more does the bigger one hold, in ml?" % (max(a, b), min(a, b)),
                    abs(a - b), "int", {"unit": "ml"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
     def t_eq():
         unit = pick(["cm", "kg", "ml"])
-        a = random.randint(10, 60)
-        b = a + pick([-5, 0, 5])
+        a = random.randint(10, _by(d, 30, 60, 90))
+        b = a + pick(_by(d, [-10, 0, 10], [-5, 0, 5], [-1, 0, 1]))
         sym = "<" if a < b else (">" if a > b else "=")
         return _wq("Write <, > or = :  %d %s ___ %d %s" % (a, unit, b, unit), sym, ["Compare the numbers."], "<, > or =")
 
     def t_heaviest():
         names = ["red", "blue", "green"]
-        v = random.sample(range(2, 30), 3)
+        v = _vals(d, 2, _by(d, 20, 30, 50), 3)
         k = pick(["heaviest", "lightest"])
         ans = names[v.index(max(v))] if k == "heaviest" else names[v.index(min(v))]
         return _dt("The table shows the mass of three parcels. Which parcel is the %s?" % k, ["Parcel", "Mass (kg)"],
                    [[names[i], v[i]] for i in range(3)], ans, ["Compare the masses."], atype="str", placeholder="colour")
 
     def t_order_cap():
-        v = random.sample(range(1, 10), 3)
-        vals = [x * 100 for x in v]
+        v = _vals(d, 1, _by(d, 10, 10, 20), 3)
+        vals = [x * _by(d, 100, 100, 50) for x in v]
         return _tb("Put these in order, most first. Which comes first?  %s" % ", ".join("%d ml" % x for x in vals), max(vals), "int",
                    {"unit": "ml"}, ["Order: %s." % ", ".join("%d ml" % x for x in sorted(vals, reverse=True))])
 
     def t_taller():
-        a, b = random.sample(range(90, 140), 2)
+        a, b = [5 * x for x in random.sample(range(20, 27), 2)] if d == 0 else random.sample(range(90, 140), 2)
         kids = random.sample(KIDS, 2)
         return _tb("%s is %d cm tall. %s is %d cm tall. How much taller is the taller child, in cm?" % (kids[0], a, kids[1], b), abs(a - b),
                    "int", {"unit": "cm"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
@@ -1029,7 +1164,10 @@ def _(d=1):
         return _bar("The chart shows how many glasses each one fills. Which holds the most?", cats, vals, cats[vals.index(max(vals))],
                     ["%s has the tallest bar." % cats[vals.index(max(vals))]], atype="str")
 
-    return _pick_t([t_symbol, t_longest, t_order, t_difference, t_eq, t_order_cap, t_taller], [t_heaviest, t_bars])
+    plain = [t_symbol, t_longest, t_order, t_difference, t_eq, t_order_cap, t_taller]
+    if d == 2:     # stretch: more ordering and finding differences
+        plain += [t_order, t_difference, t_taller, t_order_cap]
+    return _pick_t(plain, [t_heaviest, t_bars])
 
 
 @skill("Y2.4.c", "Money: £ and p, making amounts and giving change", S4)
@@ -1114,7 +1252,12 @@ def _fewest(p):
 def _(d=1):
     d = _d(d)
     h = random.randint(1, 12)
-    m = 5 * random.randint(0, 11)
+    if d == 0:     # o'clock, quarter past, half past, quarter to
+        m = pick([0, 15, 30, 45])
+    elif d == 2:   # five-minute times that are not on a quarter
+        m = 5 * pick([1, 2, 4, 5, 7, 8, 10, 11])
+    else:
+        m = 5 * random.randint(0, 11)
 
     def t_set():
         return {"prompt": "Set the clock to %d:%02d." % (h, m), "component": "clock", "spec": {"mode": "set"},
@@ -1144,6 +1287,10 @@ def _(d=1):
     def t_type_time():
         mm = pick([5, 10, 20, 25])
         hh = random.randint(1, 12)
+        if d == 2 and random.random() < 0.5:     # stretch: minutes *to* the hour
+            ah, am = (hh - 2) % 12 + 1, 60 - mm
+            return _tb("Write %d minutes to %d as a time like 4:20." % (mm, hh), "%d:%02d" % (ah, am), "time",
+                       {"text": True, "placeholder": "e.g. 4:20"}, ["%d minutes to %d is %d:%02d." % (mm, hh, ah, am)])
         return _tb("Write %d minutes past %d as a time like 4:20." % (mm, hh), "%d:%02d" % (hh, mm), "time",
                    {"text": True, "placeholder": "e.g. 4:20"}, ["%d minutes past %d is %d:%02d." % (mm, hh, hh, mm)])
 
@@ -1157,13 +1304,20 @@ def _(d=1):
                    ["%d × 5 = %d minutes past; 60 − %d = %d." % (n, 5 * n, 5 * n, 60 - 5 * n)])
 
     def t_five_later():
+        if d == 2:     # stretch: the new time is in the next hour
+            k = pick([10, 15, 20, 25])
+            mm = 5 * random.randint((60 - k) // 5, 11)
+            nh, nm = h % 12 + 1, mm + k - 60
+            return {"prompt": "It is %d:%02d. Set the clock to %d minutes later." % (h, mm, k), "component": "clock", "spec": {"mode": "set"},
+                    "answer": "%d:%02d" % (nh, nm), "answer_type": "time",
+                    "solution": ["%d:%02d + %d minutes goes past the hour: %d:%02d." % (h, mm, k, nh, nm)]}
         k = pick([5, 10, 15])
         mm = 5 * random.randint(0, (55 - k) // 5)
         return {"prompt": "It is %d:%02d. Set the clock to %d minutes later." % (h, mm, k), "component": "clock", "spec": {"mode": "set"},
                 "answer": "%d:%02d" % (h, mm + k), "answer_type": "time", "solution": ["%d:%02d + %d minutes = %d:%02d." % (h, mm, k, h, mm + k)]}
 
     def t_digital():
-        mm = 5 * random.randint(1, 11)
+        mm = pick([15, 30, 45]) if d == 0 else 5 * random.randint(1, 11)
         return {"prompt": "A digital clock shows %d:%02d. Show the same time on this clock." % (h, mm), "component": "clock",
                 "spec": {"mode": "set"}, "answer": "%d:%02d" % (h, mm), "answer_type": "time",
                 "solution": ["The long hand points to %d." % (mm // 5)]}
@@ -1175,6 +1329,10 @@ def _(d=1):
         return _tb("A clock shows %d:%02d. Is it quarter past, half past or quarter to which hour? Type the hour." % (hh, mm), ans, "int", {},
                    ["%d:%02d is %s %d." % (hh, mm, word, ans)])
 
+    if d == 0:     # quarter and half hours only
+        return _pick_t([t_long_hand, t_quarter_hand, t_words_out], [t_set, t_quarter, t_digital])
+    if d == 2:     # stretch: minutes to the hour, crossing the hour
+        return _pick_t([t_long_hand, t_type_time, t_type_time, t_minutes_to, t_minutes_to], [t_set, t_words, t_five_later, t_digital])
     return _pick_t([t_long_hand, t_type_time, t_quarter_hand, t_minutes_to, t_words_out], [t_set, t_quarter, t_words, t_five_later, t_digital])
 
 
@@ -1188,27 +1346,43 @@ def _(d=1):
         return _tb(q, a, "int", {}, ["%d." % a])
 
     def t_later():
-        h = random.randint(1, 10)
-        k = random.randint(1, 3)
+        h = random.randint(_by(d, 1, 1, 9), _by(d, 8, 10, 12))
+        k = random.randint(_by(d, 1, 1, 3), _by(d, 2, 3, 6))     # stretch: goes past 12 o'clock
         return _tb("It is %d o'clock. What time will it be in %d hour%s? Type the hour." % (h, k, "" if k == 1 else "s"),
                    (h + k - 1) % 12 + 1, "int", {}, ["Count on %d." % k])
 
     def t_compare():
         a, b = random.sample([10, 15, 20, 30, 45, 50], 2)
         kids = random.sample(KIDS, 2)
+        if d == 2:     # stretch: one time given in words (half an hour / a quarter of an hour)
+            a, wa = pick([(30, "half an hour"), (15, "a quarter of an hour")])
+            b = a + pick([-10, -5, 5, 10])
+            return _wq("%s read for %s. %s read for %d minutes. Who read for longer?" % (kids[0], wa, kids[1], b),
+                       kids[0] if a > b else kids[1], ["%s is %d minutes; %d minutes is longer." % (wa.capitalize(), a, max(a, b))], "name")
         return _wq("%s read for %d minutes. %s read for %d minutes. Who read for longer?" % (kids[0], a, kids[1], b),
                    kids[0] if a > b else kids[1], ["%d minutes is longer." % max(a, b)], "name")
 
     def t_duration():
         start = random.randint(1, 10)
         k = random.randint(1, 2)
+        if d == 2:     # stretch: from o'clock to quarter past, half past or quarter to, in minutes
+            mins, word = pick([(15, "quarter past %d" % start), (30, "half past %d" % start), (45, "quarter to %d" % (start + 1))])
+            return _tb("A TV show starts at %d o'clock and ends at %s. How many minutes long is it?" % (start, word), mins, "int", {},
+                       ["From %d o'clock to %s is %d minutes." % (start, word, mins)])
         return _tb("A film starts at %d o'clock and ends at %d o'clock. How many hours long is it?" % (start, start + k), k, "int", {},
                    ["%d − %d = %d." % (start + k, start, k)])
 
     def t_half_hour():
         h = random.randint(1, 11)
+        if d == 2:     # stretch: start from quarter past
+            return _tb("It is quarter past %d. How many minutes until half past %d?" % (h, h), 15, "int", {},
+                       ["Quarter past is 15 minutes past; half past is 30 minutes past: 30 − 15 = 15."])
         return _tb("It is %d o'clock. How many minutes until half past %d?" % (h, h), 30, "int", {}, ["Half an hour is 30 minutes."])
 
+    if d == 0:     # minutes in an hour, hours in a day, an hour later
+        return _pick_t([t_facts, t_facts, t_later, t_compare, t_duration])
+    if d == 2:     # stretch: no bare facts
+        return _pick_t([t_later, t_compare, t_duration, t_half_hour])
     return _pick_t([t_facts, t_later, t_compare, t_duration, t_half_hour])
 
 
@@ -1216,22 +1390,27 @@ def _(d=1):
 @skill("Y2.6.a", "Properties of 2-D shapes", S6)
 def _(d=1):
     d = _d(d)
+    SIDES = {"triangle": 3, "square": 4, "rectangle": 4, "pentagon": 5, "hexagon": 6, "octagon": 8}
+    # easy: the everyday shapes; stretch: mostly the many-sided ones
+    SHAPES = _by(d, ["triangle", "square", "rectangle"], ["triangle", "square", "rectangle", "pentagon", "hexagon", "octagon"],
+                 ["pentagon", "hexagon", "octagon", "pentagon", "hexagon", "octagon", "rectangle"])
 
     def t_sides():
-        name = pick(["triangle", "square", "rectangle", "pentagon", "hexagon", "octagon"])
+        name = pick(SHAPES)
         return {"prompt": "How many sides does this shape have?", "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "sides"},
                 "answer": {"triangle": 3, "square": 4, "rectangle": 4, "pentagon": 5, "hexagon": 6, "octagon": 8}[name],
                 "answer_type": "int", "solution": ["Count the sides."]}
 
     def t_vertices():
-        name = pick(["triangle", "square", "pentagon", "hexagon"])
+        name = pick(_by(d, ["triangle", "square", "rectangle"], ["triangle", "square", "pentagon", "hexagon"],
+                        ["pentagon", "hexagon", "octagon"]))
         return {"prompt": "How many corners (vertices) does this shape have?", "component": "shape",
                 "spec": {"kind": "2d", "name": name, "ask": "vertices"},
-                "answer": {"triangle": 3, "square": 4, "pentagon": 5, "hexagon": 6}[name], "answer_type": "int",
+                "answer": SIDES[name], "answer_type": "int",
                 "solution": ["Count the corners."]}
 
     def t_name():
-        n, name = pick([(3, "triangle"), (5, "pentagon"), (6, "hexagon"), (8, "octagon")])
+        n, name = pick([(3, "triangle"), (5, "pentagon"), (6, "hexagon")] + ([] if d == 0 else [(8, "octagon")]))
         return _wq("Which shape has %d straight sides?" % n, name, ["%d sides: %s." % (n, name)], "shape name")
 
     def t_symmetry():
@@ -1255,11 +1434,15 @@ def _(d=1):
         return _wq(q, a, ["Count the sides."], "shape name")
 
     def t_name_pic():
-        name = pick(["triangle", "square", "rectangle", "pentagon", "hexagon", "octagon"])
+        name = pick(SHAPES)
         return {"prompt": "What is the name of this shape?", "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "name"},
                 "answer": name, "answer_type": "str", "solution": ["It is %s." % _a(name)]}
 
     def t_total_sides():
+        if d == 2:     # stretch: three shapes
+            sh = random.sample([("triangle", 3), ("square", 4), ("pentagon", 5), ("hexagon", 6), ("octagon", 8)], 3)
+            return _tb("How many sides do %s, %s and %s have altogether?" % tuple(_a(x[0]) for x in sh), sum(x[1] for x in sh), "int", {},
+                       ["%s = %d." % (" + ".join(str(x[1]) for x in sh), sum(x[1] for x in sh))])
         a, b = random.sample([("triangle", 3), ("square", 4), ("pentagon", 5), ("hexagon", 6)], 2)
         return _tb("How many sides do a %s and a %s have altogether?" % (a[0], b[0]), a[1] + b[1], "int", {},
                    ["%d + %d = %d." % (a[1], b[1], a[1] + b[1])])
@@ -1269,12 +1452,16 @@ def _(d=1):
                    ["A square has 4 sides the same length."], "square / rectangle")
 
     def t_same_sides():
-        n = random.randint(3, 8)
+        n = random.randint(_by(d, 3, 3, 5), _by(d, 5, 8, 10))
         return _tb("A shape has %d corners. How many sides does it have?" % n, n, "int", {},
                    ["A flat shape with straight sides has as many sides as corners."])
 
-    return _pick_t([t_name, t_symmetry, t_count_four, t_curved, t_total_sides, t_rect_vs_square, t_same_sides],
-                   [t_sides, t_vertices, t_name_pic])
+    plain = [t_name, t_symmetry, t_count_four, t_curved, t_total_sides, t_rect_vs_square, t_same_sides]
+    if d == 0:     # count and name; no sorting a list
+        plain = [t_name, t_symmetry, t_curved, t_rect_vs_square]
+    elif d == 2:   # stretch: counting across several shapes
+        plain += [t_count_four, t_total_sides, t_same_sides]
+    return _pick_t(plain, [t_sides, t_vertices, t_name_pic])
 
 
 @skill("Y2.6.b", "Properties of 3-D shapes", S6)
@@ -1283,17 +1470,25 @@ def _(d=1):
     SOL = {"cube": (6, 12, 8), "cuboid": (6, 12, 8), "square-based pyramid": (5, 8, 5), "triangular prism": (5, 9, 6)}
 
     def t_count():
-        name = pick(list(SOL))
-        what, i = pick([("faces", 0), ("edges", 1), ("vertices", 2)])
+        # easy: faces and corners of a cube or cuboid; stretch: mostly the pyramid and prism, often edges
+        name = pick(_by(d, ["cube", "cuboid"], list(SOL), ["square-based pyramid", "triangular prism", "cuboid"]))
+        what, i = pick(_by(d, [("faces", 0), ("vertices", 2)], [("faces", 0), ("edges", 1), ("vertices", 2)],
+                           [("faces", 0), ("edges", 1), ("edges", 1), ("vertices", 2)]))
         return {"prompt": "How many %s does this shape have?" % what, "component": "shape",
                 "spec": {"kind": "3d", "name": name, "ask": what}, "answer": SOL[name][i], "answer_type": "int",
                 "solution": ["A %s has %d %s." % (name, SOL[name][i], what)]}
 
     def t_face_shape():
-        q, a = pick([("What 2-D shape is the flat face of a cylinder?", "circle"),
-                     ("What 2-D shape are the faces of a cube?", "square"),
-                     ("What 2-D shape are the sloping faces of a pyramid?", "triangle"),
-                     ("What 2-D shape is the flat face of a cone?", "circle")])
+        qs = [("What 2-D shape is the flat face of a cylinder?", "circle"),
+              ("What 2-D shape are the faces of a cube?", "square"),
+              ("What 2-D shape are the sloping faces of a pyramid?", "triangle"),
+              ("What 2-D shape is the flat face of a cone?", "circle")]
+        if d == 2:     # stretch: faces that are easy to mix up
+            qs = [("What 2-D shape are the two end faces of a triangular prism?", "triangle"),
+                  ("What 2-D shape is the bottom face of a square-based pyramid?", "square"),
+                  ("What 2-D shape are the long side faces of a triangular prism?", "rectangle"),
+                  ("What 2-D shape are the sloping faces of a pyramid?", "triangle")]
+        q, a = pick(qs)
         return _wq(q, a, ["Look at the flat faces."], "shape name")
 
     def t_roll():
@@ -1302,11 +1497,24 @@ def _(d=1):
         return _wq(q, a, ["Curved surfaces roll."], "yes / no")
 
     def t_sort():
-        shapes = random.sample(["cube", "sphere", "cylinder", "cone", "cuboid", "pyramid"], 4)
+        shapes = random.sample(["cube", "sphere", "cylinder", "cone", "cuboid", "pyramid"], _by(d, 3, 4, 5))
         curved = sum(1 for s in shapes if s in ("sphere", "cylinder", "cone"))
         return _tb("How many of these have a curved surface?  %s" % ", ".join(shapes), curved, "int", {},
                    ["Sphere, cylinder and cone have curved surfaces."])
 
+    def t_compare():
+        a, b = random.sample(list(SOL), 2)
+        what, i = pick([("faces", 0), ("edges", 1), ("vertices", 2)])
+        if SOL[a][i] == SOL[b][i]:
+            return _wq("Do a %s and a %s have the same number of %s? (yes or no)" % (a, b, what), "yes",
+                       ["Both have %d %s." % (SOL[a][i], what)], "yes / no")
+        if SOL[a][i] < SOL[b][i]:
+            a, b = b, a
+        return _tb("How many more %s does a %s have than a %s?" % (what, a, b), SOL[a][i] - SOL[b][i], "int", {},
+                   ["%d − %d = %d." % (SOL[a][i], SOL[b][i], SOL[a][i] - SOL[b][i])])
+
+    if d == 2:     # stretch: compare two solids
+        return _pick_t([t_face_shape, t_sort, t_compare, t_compare], [t_count])
     return _pick_t([t_face_shape, t_roll, t_sort], [t_count])
 
 
@@ -1316,32 +1524,55 @@ def _(d=1):
     DIRS = ["north", "east", "south", "west"]
 
     def t_pattern():
-        unit = random.sample(["circle", "square", "triangle", "star"], pick([2, 3]))
-        k = random.randint(len(unit) * 2 + 1, 12)
+        unit = random.sample(["circle", "square", "triangle", "star"], pick(_by(d, [2], [2, 3], [3, 3, 4])))
+        k = random.randint(len(unit) * 2 + 1, _by(d, 8, 12, 20))     # stretch: further along the pattern
         seq = [unit[i % len(unit)] for i in range(len(unit) * 2)]
         return _wq("The pattern goes: %s, ... What is shape number %d?" % (", ".join(seq), k), unit[(k - 1) % len(unit)],
                    ["The pattern repeats every %d shapes." % len(unit)], "shape")
 
     def t_turn():
         s = random.randrange(4)
-        k = random.randint(1, 3)
+        k = random.randint(1, _by(d, 2, 3, 3))
         cw = random.random() < 0.5
+        if d == 2 and random.random() < 0.5:     # stretch: two turns, one each way
+            k2 = random.randint(1, 2)
+            name = {1: "a quarter", 2: "a half", 3: "a three-quarter"}
+            return _wq("You face %s. You make %s turn clockwise, then %s turn anticlockwise. Which way do you face now?"
+                       % (DIRS[s], name[k], name[k2]), DIRS[(s + k - k2) % 4],
+                       ["Do one turn, then the other. A quarter turn is one right angle."], "direction")
         return _wq("You face %s and make %s turn %s. Which way do you face now?"
                    % (DIRS[s], {1: "a quarter", 2: "a half", 3: "a three-quarter"}[k], "clockwise" if cw else "anticlockwise"),
                    DIRS[(s + (k if cw else -k)) % 4], ["A quarter turn is one right angle."], "direction")
 
     def t_right_angles():
-        k, name = pick([(1, "a quarter turn"), (2, "a half turn"), (3, "a three-quarter turn"), (4, "a whole turn")])
+        k, name = pick(_by(d, [(1, "a quarter turn"), (2, "a half turn")],
+                           [(1, "a quarter turn"), (2, "a half turn"), (3, "a three-quarter turn"), (4, "a whole turn")],
+                           [(3, "a three-quarter turn"), (4, "a whole turn"), (2, "a half turn")]))
         return _tb("How many right angles are in %s?" % name, k, "int", {}, ["%s = %d right angle%s." % (name.capitalize(), k, "" if k == 1 else "s")])
 
     def t_turn_pic():
-        deg, name = pick([(90, "quarter"), (180, "half"), (270, "three-quarter")])
+        deg, name = pick(_by(d, [(90, "quarter"), (180, "half")], [(90, "quarter"), (180, "half"), (270, "three-quarter")],
+                             [(90, "quarter"), (270, "three-quarter"), (270, "three-quarter")]))
         return {"prompt": "The arrow shows an anticlockwise turn. Is it a quarter, half or three-quarter turn?", "component": "angle",
                 "spec": {"mode": "turn", "degrees": deg}, "answer": name, "answer_type": "str", "solution": ["%s turn." % name.capitalize()]}
 
     def t_grid():
         x, y = random.randint(1, 4), random.randint(1, 4)
         r, u = random.randint(1, 4), random.randint(1, 4)
+        if d == 0:     # one direction only
+            r, u = pick([(r, 0), (0, u)])
+            move = "%s %s" % (_pn(r or u, "square"), "right" if r else "up")
+            return {"prompt": "Start at the dot. Move %s. Mark where you finish." % move,
+                    "component": "coordinate_grid", "spec": {"mode": "plot", "size": 8, "points": [[x, y, "Start"]]},
+                    "answer": "(%d,%d)" % (x + r, y + u), "answer_type": "coord", "solution": ["%s." % move.capitalize()]}
+        elif d == 2:   # stretch: left or down as well
+            x, y = random.randint(3, 5), random.randint(3, 5)
+            r, u = pick([-3, -2, -1, 1, 2, 3]), pick([-3, -2, -1, 1, 2, 3])
+            return {"prompt": "Start at the dot. Move %s %s and %s %s. Mark where you finish."
+                              % (_pn(abs(r), "square"), "right" if r > 0 else "left", _pn(abs(u), "square"), "up" if u > 0 else "down"),
+                    "component": "coordinate_grid", "spec": {"mode": "plot", "size": 8, "points": [[x, y, "Start"]]},
+                    "answer": "(%d,%d)" % (x + r, y + u), "answer_type": "coord",
+                    "solution": ["%d %s, %d %s." % (abs(r), "right" if r > 0 else "left", abs(u), "up" if u > 0 else "down")]}
         return {"prompt": "Start at the dot. Move %d square%s right and %d square%s up. Mark where you finish."
                           % (r, "" if r == 1 else "s", u, "" if u == 1 else "s"),
                 "component": "coordinate_grid", "spec": {"mode": "plot", "size": 8, "points": [[x, y, "Start"]]},
@@ -1439,7 +1670,7 @@ def _tally(v):
 def _(d=1):
     d = _d(d)
     cats = random.sample(["Red", "Blue", "Green", "Yellow"], 4)
-    vals = [random.randint(1, 12) for _ in cats]
+    vals = [random.randint(_by(d, 1, 1, 5), _by(d, 8, 12, 20)) for _ in cats]     # stretch: bigger totals and differences
 
     def t_read():
         k = random.randrange(4)
@@ -1470,4 +1701,16 @@ def _(d=1):
         return _bar("Which colour was chosen the least?", cats, vals, cats[vals.index(min(vals))],
                     ["%s has the shortest bar." % cats[vals.index(min(vals))]], atype="str")
 
+    def t_together():
+        i, j, k = random.sample(range(4), 3)
+        if vals[i] + vals[j] <= vals[k]:
+            return t_more()
+        return _bar("How many more chose %s and %s together than %s?" % (cats[i], cats[j], cats[k]), cats, vals,
+                    vals[i] + vals[j] - vals[k], ["%d + %d = %d; %d − %d = %d." % (vals[i], vals[j], vals[i] + vals[j], vals[i] + vals[j],
+                                                                                  vals[k], vals[i] + vals[j] - vals[k])])
+
+    if d == 0:     # read one bar, find the smallest, compare two
+        return _pick_t([], [t_read, t_read, t_least, t_more, t_total])
+    if d == 2:     # stretch: totals and comparisons that need two steps
+        return _pick_t([], [t_total, t_more, t_table, t_together, t_together])
     return _pick_t([], [t_read, t_total, t_more, t_table, t_least])

@@ -346,11 +346,30 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     who = _who()
+    # easy: 4-digit round hundreds, two steps; core: as reviewed; stretch: 5-6 digits and
+    # often a third step
+
+    def _rh(lo, hi):
+        """A round-hundreds number in [lo, hi] (easy tier)."""
+        return random.randint(lo // 100, hi // 100) * 100
 
     def t_bank():
-        start = random.randint(2000, 20000)
-        add = random.randint(500, 9000)
-        spend = random.randint(500, start + add - 100)
+        if d == 0:
+            start, add = _rh(2000, 9000), _rh(500, 3000)
+            spend = _rh(500, start + add - 100)
+        else:
+            start = random.randint(*_by(d, 0, (2000, 20000), (20000, 200000)))
+            add = random.randint(*_by(d, 0, (500, 9000), (5000, 90000)))
+            spend = random.randint(500, start + add - 100)
+        if d == 2:
+            spend2 = random.randint(100, start + add - spend - 1)
+            ans = start + add - spend - spend2
+            return _tb("A club has £%s. It raises £%s at a fair, then spends £%s on kit and £%s "
+                       "on travel. How much does it have now, in pounds?"
+                       % (_c(start), _c(add), _c(spend), _c(spend2)), ans, "int", {"unit": "£"},
+                       ["%s + %s = %s." % (_c(start), _c(add), _c(start + add)),
+                        "%s − %s = %s." % (_c(start + add), _c(spend), _c(start + add - spend)),
+                        "%s − %s = %s." % (_c(start + add - spend), _c(spend2), _c(ans))])
         return _tb("A club has £%s. It raises £%s at a fair and then spends £%s on kit. How much "
                    "does it have now, in pounds?" % (_c(start), _c(add), _c(spend)),
                    start + add - spend, "int", {"unit": "£"},
@@ -358,8 +377,20 @@ def _(d=1):
                     "%s − %s = %s." % (_c(start + add), _c(spend), _c(start + add - spend))])
 
     def t_three_days():
-        target = random.randint(30000, 90000)
-        a, b = random.randint(5000, target // 3), random.randint(5000, target // 3)
+        if d == 0:
+            target = random.randint(10, 30) * 1000
+            a, b = _rh(1000, target // 3), _rh(1000, target // 3)
+        else:
+            target = random.randint(*_by(d, 0, (30000, 90000), (100000, 500000)))
+            a, b = random.randint(5000, target // 3), random.randint(5000, target // 3)
+        if d == 2:
+            c = random.randint(5000, target // 4)
+            ans = target - a - b - c
+            return _tb("A school wants to collect %s bottle tops. It collects %s in the first week, "
+                       "%s in the second and %s in the third. How many more does it need?"
+                       % (_c(target), _c(a), _c(b), _c(c)), ans, "int", {},
+                       ["%s + %s + %s = %s collected." % (_c(a), _c(b), _c(c), _c(a + b + c)),
+                        "%s − %s = %s." % (_c(target), _c(a + b + c), _c(ans))])
         return _tb("A school wants to collect %s bottle tops. It collects %s in the first week and "
                    "%s in the second. How many more does it need?" % (_c(target), _c(a), _c(b)),
                    target - a - b, "int", {},
@@ -367,7 +398,13 @@ def _(d=1):
                     "%s − %s = %s." % (_c(target), _c(a + b), _c(target - a - b))])
 
     def t_compare_totals():
-        a1, a2, b1, b2 = [random.randint(10000, 60000) for _ in range(4)]
+        if d == 0:
+            a1, a2, b1, b2 = [_rh(1000, 6000) for _ in range(4)]
+            while a1 + a2 == b1 + b2:                # round hundreds can tie
+                b2 = _rh(1000, 6000)
+        else:
+            lo, hi = _by(d, 0, (10000, 60000), (100000, 400000))
+            a1, a2, b1, b2 = [random.randint(lo, hi) for _ in range(4)]
         diff = abs((a1 + a2) - (b1 + b2))
         return _tb("Team Red scored %s and %s points in two games. Team Blue scored %s and %s. "
                    "What is the difference between the two teams' totals?"
@@ -375,28 +412,47 @@ def _(d=1):
                    ["Red: %s. Blue: %s." % (_c(a1 + a2), _c(b1 + b2)), "Difference: %s." % _c(diff)])
 
     def t_journey():
-        total = random.randint(1000, 5000)
-        a = random.randint(200, total // 3)
-        b = random.randint(200, total // 3)
+        if d == 0:
+            total = _rh(1000, 3000)
+            a, b = random.randint(20, total // 30) * 10, random.randint(20, total // 30) * 10
+        else:
+            total = random.randint(*_by(d, 0, (1000, 5000), (5000, 12000)))
+            a = random.randint(200, total // 3)
+            b = random.randint(200, total // 3)
+        if d == 2:
+            c = random.randint(200, total // 4)
+            ans = total - a - b - c
+            return _tb("%s, a lorry driver, must drive %s km this month. %s drives %s km in week 1, "
+                       "%s km in week 2 and %s km in week 3. How far is left to drive, in km?"
+                       % (who, _c(total), who, _c(a), _c(b), _c(c)), ans, "int", {"unit": "km"},
+                       ["%s − %s − %s − %s = %s." % (_c(total), _c(a), _c(b), _c(c), _c(ans))])
         return _tb("A car journey is %s km. %s drives %s km on day 1 and %s km on day 2. How far "
                    "is left to drive, in km?" % (_c(total), who, _c(a), _c(b)), total - a - b, "int",
                    {"unit": "km"}, ["%s − %s − %s = %s." % (_c(total), _c(a), _c(b), _c(total - a - b))])
 
     def t_table():
-        months = ["Jan", "Feb", "Mar"]
-        sold = [random.randint(10000, 50000) for _ in months]
-        target = sum(sold) + random.randint(1000, 20000)
+        months = ["Jan", "Feb", "Mar"] + (["Apr"] if d == 2 else [])
+        if d == 0:
+            sold = [_rh(1000, 5000) for _ in months]
+            target = sum(sold) + _rh(500, 3000)
+        else:
+            lo, hi = _by(d, 0, (10000, 50000), (50000, 200000))
+            sold = [random.randint(lo, hi) for _ in months]
+            target = sum(sold) + random.randint(1000, 20000)
         rows = [[m, _c(v)] for m, v in zip(months, sold)]
-        return _dt("A factory's target was %s toys for these three months. The table shows how many "
-                   "it made. By how many did it miss the target?" % _c(target), ["Month", "Toys made"],
+        return _dt("A factory's target was %s toys for these %s months. The table shows how many "
+                   "it made. By how many did it miss the target?"
+                   % (_c(target), "four" if d == 2 else "three"), ["Month", "Toys made"],
                    rows, target - sum(sold),
                    ["Total made: %s." % _c(sum(sold)), "%s − %s = %s." % (_c(target), _c(sum(sold)),
                                                                           _c(target - sum(sold)))])
 
     def t_bar():
         cats = ["Mon", "Tue", "Wed", "Thu"]
-        vals = [random.randint(10, 90) * 100 for _ in cats]
-        target = sum(vals) + random.randint(5, 40) * 100
+        vals = [random.randint(*_by(d, (2, 9), (10, 90), (10, 90))) * _by(d, 1000, 100, 100)
+                for _ in cats]
+        # stretch: the target is not a round number, so the last subtraction needs exchanging
+        target = sum(vals) + random.randint(5, 40) * 100 + (random.randint(1, 99) if d == 2 else 0)
         return _bar("The chart shows how many people visited a museum each day. The museum hoped for "
                     "%s visitors over the four days. How many short of that target was it?"
                     % _c(target), cats, vals, target - sum(vals),
@@ -404,10 +460,26 @@ def _(d=1):
                      "%s − %s = %s." % (_c(target), _c(sum(vals)), _c(target - sum(vals)))])
 
     def t_train():
-        start = random.randint(150, 400)
-        off1, on1 = random.randint(20, 120), random.randint(20, 150)
-        off2 = random.randint(10, start - off1 + on1 - 10)
+        if d == 0:
+            start = random.randint(10, 20) * 10
+            off1, on1 = random.randint(2, 6) * 10, random.randint(2, 8) * 10
+            off2 = random.randint(1, (start - off1 + on1) // 10 - 1) * 10
+        else:
+            start = random.randint(150, 400)
+            off1, on1 = random.randint(20, 120), random.randint(20, 150)
+            off2 = random.randint(10, start - off1 + on1 - 10)
         end = start - off1 + on1 - off2
+        if d == 2:
+            on2 = random.randint(15, 140)
+            off3 = random.randint(10, end + on2 - 10)
+            fin = end + on2 - off3
+            return _tb("A train leaves with %d passengers. At the first stop %d get off and %d get "
+                       "on. At the second stop %d get off and %d get on. At the third stop %d get "
+                       "off. How many passengers are on the train now?"
+                       % (start, off1, on1, off2, on2, off3), fin, "int", {"unit": "passengers"},
+                       ["%d − %d + %d = %d." % (start, off1, on1, start - off1 + on1),
+                        "%d − %d + %d = %d." % (start - off1 + on1, off2, on2, end + on2),
+                        "%d − %d = %d." % (end + on2, off3, fin)])
         return _tb("A train leaves with %d passengers. At the first stop %d get off and %d get on. At the second stop "
                    "%d get off. How many passengers are on the train now?" % (start, off1, on1, off2), end, "int",
                    {"unit": "passengers"},
@@ -415,32 +487,70 @@ def _(d=1):
                     "%d − %d = %d." % (start - off1 + on1, off2, end)])
 
     def t_mountains():
-        a, b, c = random.sample(range(2100, 8848), 3)
-        names = ["Peak A", "Peak B", "Peak C"]
-        hi, lo = max(a, b, c), min(a, b, c)
+        if d == 0:
+            hs = [h * 100 for h in random.sample(range(21, 89), 3)]
+        else:
+            hs = random.sample(range(2100, 8848), 3 if d == 1 else 4)
+        names = ["Peak A", "Peak B", "Peak C", "Peak D"][:len(hs)]
+        hi, lo = max(hs), min(hs)
+        if d == 2:                                   # stretch: two sums, then a difference
+            hs_sorted = sorted(hs)
+            top, bot = hs_sorted[2] + hs_sorted[3], hs_sorted[0] + hs_sorted[1]
+            return _dt("The table shows the heights of four mountains. Add the heights of the two "
+                       "tallest, and add the heights of the two shortest. What is the difference "
+                       "between those two totals, in metres?",
+                       ["Mountain", "Height (m)"], [[n, _c(v)] for n, v in zip(names, hs)], top - bot,
+                       ["Two tallest: %s + %s = %s." % (_c(hs_sorted[3]), _c(hs_sorted[2]), _c(top)),
+                        "Two shortest: %s + %s = %s." % (_c(hs_sorted[0]), _c(hs_sorted[1]), _c(bot)),
+                        "%s − %s = %s." % (_c(top), _c(bot), _c(top - bot))])
         return _dt("The table shows the heights of three mountains. How much higher is the tallest than the shortest, "
-                   "in metres?", ["Mountain", "Height (m)"], [[n, _c(v)] for n, v in zip(names, (a, b, c))], hi - lo,
+                   "in metres?", ["Mountain", "Height (m)"], [[n, _c(v)] for n, v in zip(names, hs)], hi - lo,
                    ["%s − %s = %s." % (_c(hi), _c(lo), _c(hi - lo))])
 
     def t_savings():
-        goal = random.randint(30, 90) * 100
+        goal = random.randint(*_by(d, (10, 40), (30, 90), (30, 90))) * 100
         have = random.randint(5, goal // 200) * 100
-        gift = random.randint(2, 10) * 100
+        gift = random.randint(2, min(10, (goal - have) // 100 - 1)) * 100
+        if d == 2:                                   # stretch: any pounds, and a spend to undo
+            goal += random.randint(1, 99)
+            have += random.randint(1, 99)
+            gift += random.randint(1, 99)
+            spent = random.randint(15, 250)
+            ans = goal - (have + gift - spent)
+            return _tb("%s is saving £%s for a car. %s has £%s, is given £%s for a birthday, then "
+                       "spends £%s on a bike lock. How much more is needed, in pounds?"
+                       % (who, _c(goal), who, _c(have), _c(gift), _c(spent)), ans, "int",
+                       {"unit": "£"},
+                       ["%s + %s − %s = %s." % (_c(have), _c(gift), _c(spent),
+                                               _c(have + gift - spent)),
+                        "%s − %s = %s." % (_c(goal), _c(have + gift - spent), _c(ans))])
         return _tb("%s is saving £%s for a car. %s has £%s and is given £%s for a birthday. How much more is needed, in "
                    "pounds?" % (who, _c(goal), who, _c(have), _c(gift)), goal - have - gift, "int", {"unit": "£"},
                    ["%s + %s = %s." % (_c(have), _c(gift), _c(have + gift)),
                     "%s − %s = %s." % (_c(goal), _c(have + gift), _c(goal - have - gift))])
 
     def t_charity():
-        a, b = random.randint(10000, 40000), random.randint(10000, 40000)
-        total = a + b + random.randint(5000, 30000)
+        if d == 0:
+            a, b = _rh(1000, 4000), _rh(1000, 4000)
+            total = a + b + _rh(500, 3000)
+        else:
+            a, b = random.randint(10000, 40000), random.randint(10000, 40000)
+            total = a + b + random.randint(5000, 30000)
+        if d == 2:
+            c = random.randint(10000, 40000)
+            total += c
+            return _tb("A charity run raised £%s in four weeks. It raised £%s in week 1, £%s in "
+                       "week 2 and £%s in week 3. How much did it raise in week 4, in pounds?"
+                       % (_c(total), _c(a), _c(b), _c(c)), total - a - b - c, "int", {"unit": "£"},
+                       ["%s + %s + %s = %s." % (_c(a), _c(b), _c(c), _c(a + b + c)),
+                        "%s − %s = %s." % (_c(total), _c(a + b + c), _c(total - a - b - c))])
         return _tb("A charity run raised £%s in three weeks. It raised £%s in week 1 and £%s in week 2. How much did it "
                    "raise in week 3, in pounds?" % (_c(total), _c(a), _c(b)), total - a - b, "int", {"unit": "£"},
                    ["%s + %s = %s." % (_c(a), _c(b), _c(a + b)), "%s − %s = %s." % (_c(total), _c(a + b), _c(total - a - b))])
 
     def t_graph():
         yrs = ["2021", "2022", "2023", "2024", "2025"]
-        v = [random.randint(20, 90) * 100 for _ in yrs]
+        v = [random.randint(*_by(d, (4, 18), (20, 90), (20, 90))) * _by(d, 500, 100, 100) for _ in yrs]
         i, j = sorted(random.sample(range(5), 2))
         k = random.choice([x for x in range(5) if x not in (i, j)])
         ans = v[i] + v[j] - v[k]
@@ -1189,13 +1299,13 @@ def _(d=1):
     d = _d(d)
 
     def t_rows():
-        n = pick([24, 36, 48, 60, 72])
+        n = pick(_by(d, [12, 20, 24, 30], [24, 36, 48, 60, 72], [84, 96, 108, 120, 144]))
         k = pick([p for p in _pairs(n) if 2 < p[0]])
         return _tb("%d chairs are set out in equal rows of %d. How many rows are there?" % (n, k[0]),
                    k[1], "int", {"unit": "rows"}, ["%d ÷ %d = %d." % (n, k[0], k[1])])
 
     def t_buses():
-        a, b = random.sample([4, 5, 6, 8, 10, 12], 2)
+        a, b = random.sample(_by(d, [2, 3, 4, 5], [4, 5, 6, 8, 10, 12], [6, 8, 9, 10, 12, 15]), 2)
         lcm = a * b // _gcd(a, b)
         return _tb("One light flashes every %d seconds and another every %d seconds. They flash "
                    "together now. After how many seconds will they next flash together?" % (a, b), lcm,
@@ -1204,13 +1314,13 @@ def _(d=1):
                     "The first one in both lists is %d." % lcm])
 
     def t_square_garden():
-        k = random.randint(4, 12)
+        k = random.randint(*_by(d, (3, 6), (4, 12), (9, 15)))
         return _tb("A square patio is made of %d square tiles. How many tiles long is each side?"
                    % (k * k), k, "int", {"unit": "tiles"}, ["%d² = %d." % (k, k * k)])
 
     def t_think():
-        k = random.randint(2, 9)
-        clue = pick(["square", "cube"])
+        k = random.randint(*_by(d, (2, 6), (2, 9), (5, 10)))
+        clue = "square" if d == 0 else pick(["square", "cube"])
         f = (lambda x: x * x) if clue == "square" else (lambda x: x ** 3)
         v = f(k)
         lo = random.randint(f(k - 1) + 1, v - 1) if v - f(k - 1) > 1 else v - 1
@@ -1220,22 +1330,31 @@ def _(d=1):
                                                                         else "³", v, clue)])
 
     def t_mystery():
-        cands = [x for x in range(20, 60) if x % 3 == 0 and x % 4 == 0]
+        # stretch: 6 and 8 share a factor, so the common multiples go up in 24s, not 48s
+        p, q, top = _by(d, (2, 5, 60), (3, 4, 60), pick([(6, 8, 100), (4, 6, 60)]))
+        m = p * q // _gcd(p, q)
+        cands = [x for x in range(20, top) if x % m == 0]
         n = pick(cands)
-        return _tb("I am a multiple of 3 and of 4. I am between %d and %d. What am I?"
-                   % (n - random.randint(1, 5), n + random.randint(1, 5)), n, "int", {},
-                   ["Multiples of 12: 12, 24, 36, 48."]) if \
+        return _tb("I am a multiple of %d and of %d. I am between %d and %d. What am I?"
+                   % (p, q, n - random.randint(1, 5), n + random.randint(1, 5)), n, "int", {},
+                   ["Multiples of %d: %s." % (m, ", ".join(str(m * i) for i in range(1, top // m + 1)))]) if \
             sum(1 for x in cands if n - 5 <= x <= n + 5) == 1 else t_square_garden()
 
     def t_packs():
-        a, b = random.sample([6, 8, 9, 10, 12], 2)
+        a, b = random.sample(_by(d, [3, 4, 5, 6], [6, 8, 9, 10, 12], [8, 9, 10, 12, 15]), 2)
         lcm = a * b // _gcd(a, b)
+        if d == 2:                                  # stretch: one more step, how many packs
+            return _tb("Rolls come in packs of %d and sausages in packs of %d. You want exactly the same "
+                       "number of rolls as sausages, and as few as possible. How many packs of rolls do "
+                       "you buy?" % (a, b), lcm // a, "int", {"unit": "packs"},
+                       ["The first common multiple of %d and %d is %d." % (a, b, lcm),
+                        "%d ÷ %d = %d packs of rolls." % (lcm, a, lcm // a)])
         return _tb("Rolls come in packs of %d and sausages in packs of %d. You want exactly the same number of "
                    "rolls as sausages. What is the smallest number of rolls you can buy?"
                    % (a, b), lcm, "int", {}, ["The first common multiple of %d and %d is %d." % (a, b, lcm)])
 
     def t_prime_age():
-        lo = random.randint(20, 85)
+        lo = random.randint(*_by(d, (20, 50), (20, 85), (50, 94)))
         ps = [p for p in PRIMES if lo < p < lo + 6]
         if len(ps) != 1:
             return t_rows()
@@ -1244,34 +1363,51 @@ def _(d=1):
                    ["Check %s: only %d is prime." % (", ".join(map(str, range(lo + 1, lo + 6))), ps[0])])
 
     def t_class_size():
-        a, b = random.sample([3, 4, 5, 6, 8], 2)
-        lcm = a * b // _gcd(a, b)
-        k = random.randint(1, 3)
+        if d == 2:                                  # stretch: three row sizes to satisfy
+            a, b, c = pick([(2, 3, 4), (3, 4, 6), (2, 5, 6), (3, 5, 6), (4, 5, 6)])
+            lcm = a * b // _gcd(a, b)
+            lcm = lcm * c // _gcd(lcm, c)
+            k = random.randint(1, 3 if lcm <= 30 else 1)
+        else:
+            a, b = random.sample(_by(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], None), 2)
+            lcm = a * b // _gcd(a, b)
+            k = 1 if d == 0 else random.randint(1, 3)
         n = lcm * k
         lo, hi = n - random.randint(1, lcm - 1), n + random.randint(1, lcm - 1)
         if sum(1 for x in range(lo + 1, hi) if x % lcm == 0) != 1 or lo < 1:
             return t_buses()
+        if d == 2:
+            return _tb("A group of children can stand in equal rows of %d, of %d or of %d with nobody left "
+                       "over. There are more than %d and fewer than %d children. How many children are "
+                       "there?" % (a, b, c, lo, hi), n, "int", {},
+                       ["The number must be a common multiple of %d, %d and %d: a multiple of %d."
+                        % (a, b, c, lcm), "Between %d and %d that is %d." % (lo, hi, n)])
         return _tb("A group of children can stand in equal rows of %d or in equal rows of %d with nobody left over. There "
                    "are more than %d and fewer than %d children. How many children are there?" % (a, b, lo, hi), n,
                    "int", {}, ["The number must be a common multiple of %d and %d: a multiple of %d." % (a, b, lcm),
                                "Between %d and %d that is %d." % (lo, hi, n)])
 
     def t_cube_tower():
-        k = random.randint(3, 6)
+        if d == 0:                                  # easy: just count the cube
+            k = random.randint(2, 4)
+            return _tb("%s builds a cube from small cubes, %d along each edge. How many small cubes are "
+                       "used?" % (_who(), k), k ** 3, "int", {"unit": "cubes"},
+                       ["%d × %d × %d = %d³ = %d." % (k, k, k, k, k ** 3)])
+        k = random.randint(3, 6) if d == 1 else random.randint(5, 8)
         return _tb("%s builds a cube from small cubes, %d along each edge, then takes away one small cube from each "
                    "corner. How many small cubes are left?" % (_who(), k), k ** 3 - 8, "int", {"unit": "cubes"},
                    ["%d³ = %d." % (k, k ** 3), "A cube has 8 corners: %d − 8 = %d." % (k ** 3, k ** 3 - 8)])
 
     def t_square_and_prime():
-        sq = pick([4, 9, 16, 25, 36, 49])
-        p = pick(PRIMES[:8])                        # primes to 19, which Year 5 recall
+        sq = pick(_by(d, [4, 9, 16, 25], [4, 9, 16, 25, 36, 49], [64, 81, 100, 121, 144]))
+        p = pick(PRIMES[:_by(d, 5, 8, 8)])          # primes to 19, which Year 5 recall
         return _tb("I am the sum of a square number and a prime number. The square number is %d and the prime is the "
                    "%s prime number. What am I?" % (sq, _ordinal(PRIMES.index(p) + 1)), sq + p, "int", {},
                    ["The %s prime is %d." % (_ordinal(PRIMES.index(p) + 1), p), "%d + %d = %d." % (sq, p, sq + p)])
 
     def t_area_square():
-        k = random.randint(3, 12)
-        cost = random.randint(2, 9)
+        k = random.randint(*_by(d, (2, 6), (3, 12), (9, 15)))
+        cost = random.randint(*_by(d, (2, 5), (2, 9), (6, 12)))
         return _tb("A square patio is %d m long on each side. Paving costs £%d for each m². How much does it cost to pave, "
                    "in pounds?" % (k, cost), k * k * cost, "int", {"unit": "£"},
                    ["Area: %d² = %d m²." % (k, k * k), "%d × %d = %d." % (k * k, cost, k * k * cost)])

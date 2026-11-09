@@ -1930,7 +1930,7 @@ def _x36j(d):
 
 
 def _x36k(d):
-    n = random.randint(1, 9)
+    n = random.randint(_by(d, 1, 1, 2), _by(d, 5, 9, 9))
 
     def t_ribbon():
         return _fq("%d m of ribbon is shared equally between 10 children. What fraction of a metre does each child get?" % n,
@@ -1945,18 +1945,19 @@ def _x36k(d):
         return _tb("What is 1/10 of %d?" % m, m // 10, "int", {}, ["Finding 1/10 means dividing by 10.", "%d ÷ 10 = %d." % (m, m // 10)])
 
     def t_tenth_cm():
-        m = 10 * random.randint(2, 10)
+        m = 10 * random.randint(_by(d, 1, 2, 5), _by(d, 5, 10, 10))
         return _tb("A rope is %d cm long. It is cut into 10 equal pieces. How long is each piece, in cm?" % m, m // 10, "int",
                    {"unit": "cm"}, ["%d ÷ 10 = %d cm." % (m, m // 10)])
 
     def t_table():
-        ns = random.sample(range(1, 10), 3)
+        ns = random.sample(range(1, _by(d, 6, 10, 10)), 3)
         miss = random.randrange(3)
         return _dt("Complete the table: divide each number by 10 and write the answer as a fraction.", ["Number", "÷ 10"],
                    [[x, "%d/10" % x] for x in ns], "%d/10" % ns[miss], ["%d ÷ 10 = %d/10." % (ns[miss], ns[miss])], missing=(miss, 1),
                    atype="frac", placeholder="e.g. 3/10")
 
-    return [t_ribbon, t_reverse, t_tenth_of, t_tenth_cm, t_table, t_table]
+    return _by(d, [t_ribbon, t_tenth_of, t_tenth_cm, t_table, t_table], [t_ribbon, t_reverse, t_tenth_of, t_tenth_cm, t_table, t_table],
+               [t_ribbon, t_reverse, t_reverse, t_tenth_of, t_table, t_table])
 
 
 # ================================================================ 3.7 ======
@@ -2156,7 +2157,9 @@ def _x38e(d):
 
 def _x38j(d):
     def t_classify():
-        deg = pick([random.randint(20, 75), 90, random.randint(105, 165)])
+        # easy: far from a right angle; stretch: close to one
+        deg = pick(_by(d, [random.randint(20, 55), 90, random.randint(125, 165)], [random.randint(20, 75), 90, random.randint(105, 165)],
+                       [random.randint(70, 82), 90, random.randint(98, 110)]))
         word = "acute" if deg < 90 else ("right" if deg == 90 else "obtuse")
         return {"prompt": "Is this angle acute, right or obtuse? (type the word)", "component": "angle",
                 "spec": {"mode": "classify", "degrees": deg}, "answer": word, "answer_type": "str",
@@ -2165,20 +2168,22 @@ def _x38j(d):
                                             "obtuse": "bigger than a right angle, so obtuse"}[word]]}
 
     def t_turn():
-        k = random.randint(1, 4)
+        k = random.randint(_by(d, 1, 1, 2), _by(d, 2, 4, 4))
         return {"prompt": "How many right angles make this turn?", "component": "angle",
                 "spec": {"mode": "turn", "degrees": 90 * k}, "answer": k, "answer_type": "int",
                 "solution": ["A quarter turn is 1 right angle.", "This turn is %s." % _pl(k, "right angle")]}
 
     def t_shape():
-        name, obtuse = pick([("pentagon", 5), ("hexagon", 6), ("octagon", 8), ("square", 0), ("triangle", 0)])
+        name, obtuse = pick(_by(d, [("hexagon", 6), ("square", 0), ("triangle", 0)],
+                                [("pentagon", 5), ("hexagon", 6), ("octagon", 8), ("square", 0), ("triangle", 0)],
+                                [("pentagon", 5), ("hexagon", 6), ("octagon", 8), ("triangle", 0)]))
         return {"prompt": "This is a regular shape. How many of its angles are bigger than a right angle?", "component": "shape",
                 "spec": {"kind": "2d", "name": name, "ask": "vertices"}, "answer": obtuse, "answer_type": "int",
                 "solution": ["Compare each corner with a square corner.",
                              "%s." % ("All %d angles are obtuse" % obtuse if obtuse else "None of the angles is bigger than a right angle")]}
 
     def t_letters():
-        letter, n = pick([("L", 1), ("T", 2), ("E", 4), ("H", 4), ("F", 3)])
+        letter, n = pick(_by(d, [("L", 1), ("T", 2)], [("L", 1), ("T", 2), ("E", 4), ("H", 4), ("F", 3)], [("E", 4), ("H", 4), ("F", 3)]))
         return _tb("The capital letter %s is written with straight lines that meet at square corners. How many right angles does it have?" % letter,
                    n, "int", {}, ["Count the square corners where the lines meet.", "%s has %s." % (letter, _pl(n, "right angle"))])
 

@@ -48,35 +48,41 @@ def _plot(prompt, spec, x, y, solution):
 def _(d=1):
     d = _d(d)
 
+    pic_names = _by(d, ["triangle", "square", "hexagon", "rectangle"], list(_SIDES) + ["rectangle"],
+                    ["pentagon", "heptagon", "octagon", "rectangle"])
+
     def t_lines_pic():
-        name = pick(list(_SIDES) + ["rectangle"])
+        name = pick(pic_names)
         n = 2 if name == "rectangle" else _SIDES[name]
         return {"prompt": "How many lines of symmetry does this shape have? (All its sides are equal unless it is a rectangle.)",
                 "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "lines_of_symmetry"}, "answer": n,
                 "answer_type": "int", "solution": ["It has %d line%s of symmetry." % (n, "" if n == 1 else "s")]}
 
     def t_order_pic():
-        name = pick(list(_SIDES) + ["rectangle"])
+        name = pick(pic_names)
         n = 2 if name == "rectangle" else _SIDES[name]
         return {"prompt": "What is the order of rotational symmetry of this shape? (All its sides are equal unless it is a "
                           "rectangle.)", "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "sides"}, "answer": n,
                 "answer_type": "int", "solution": ["It looks the same %d times in a full turn." % n]}
 
     def t_named_lines():
-        name, n = pick([("kite", 1), ("parallelogram (not a rectangle or rhombus)", 0), ("rhombus (not a square)", 2),
-                        ("isosceles triangle (not equilateral)", 1), ("isosceles trapezium", 1), ("scalene triangle", 0),
-                        ("rectangle (not a square)", 2), ("square", 4), ("equilateral triangle", 3)])
+        easy = [("rectangle (not a square)", 2), ("square", 4), ("equilateral triangle", 3), ("isosceles triangle (not equilateral)", 1)]
+        hard = [("kite", 1), ("parallelogram (not a rectangle or rhombus)", 0), ("rhombus (not a square)", 2), ("isosceles trapezium", 1),
+                ("scalene triangle", 0)]
+        name, n = pick(_by(d, easy, hard + easy, hard))
         return _tb("How many lines of symmetry does %s have?" % _a(name), n, "int", {}, ["Fold it in your head: %d." % n])
 
     def t_named_order():
-        name, n = pick([("parallelogram (not a rectangle or rhombus)", 2), ("kite", 1), ("rhombus (not a square)", 2),
-                        ("square", 4), ("equilateral triangle", 3), ("isosceles trapezium", 1), ("regular hexagon", 6)])
+        easy = [("square", 4), ("equilateral triangle", 3), ("regular hexagon", 6)]
+        hard = [("parallelogram (not a rectangle or rhombus)", 2), ("kite", 1), ("rhombus (not a square)", 2), ("isosceles trapezium", 1)]
+        name, n = pick(_by(d, easy, hard + easy, hard))
         return _tb("What is the order of rotational symmetry of %s?" % _a(name), n, "int", {},
                    ["Count how many times it fits onto itself in one full turn: %d." % n])
 
     def t_letters():
-        letter, lines, order = pick([("H", 2, 2), ("A", 1, 1), ("N", 0, 2), ("E", 1, 1), ("Z", 0, 2), ("S", 0, 2), ("T", 1, 1),
-                                     ("M", 1, 1), ("X", 2, 2), ("I", 2, 2)])
+        easy = [("H", 2, 2), ("A", 1, 1), ("E", 1, 1), ("T", 1, 1), ("M", 1, 1)]
+        hard = [("N", 0, 2), ("Z", 0, 2), ("S", 0, 2), ("X", 2, 2), ("I", 2, 2), ("H", 2, 2)]   # rotation without reflection
+        letter, lines, order = pick(_by(d, easy, easy + hard, hard))
         if random.random() < 0.5:
             return _tb("How many lines of symmetry does the capital letter %s have (in a plain block font)?" % letter, lines, "int",
                        {}, ["%s has %d." % (letter, lines)])
@@ -96,8 +102,8 @@ def _(d=1):
                 "solution": ["This %s has %d line%s of symmetry." % (name, n, "" if n == 1 else "s")]}
 
     def t_complete():
-        k = random.randint(-2, 2)
-        x, y = k - random.randint(1, 4), random.randint(-5, 5)
+        k = random.randint(-2, 2) if d else 0            # easy: the mirror is the y-axis
+        x, y = k - random.randint(1, _by(d, 3, 4, 4)), random.randint(-5, 5)
         return _plot("The dashed line x = %d is a mirror line. Point A is at (%d,%d). Plot the point that makes the pattern "
                      "symmetrical about the mirror line." % (k, x, y),
                      _grid(points=[[x, y, "A"]], lines=[{"p1": [k, 0], "p2": [k, 1], "dashed": True}]),
@@ -105,17 +111,18 @@ def _(d=1):
                                     % (_pl(k - x, "square"), 2 * k - x, y)])
 
     def t_sides_from_lines():
-        n = random.randint(5, 12)
+        n = random.randint(*_by(d, (5, 8), (5, 12), (9, 20)))
         return _tb("A regular polygon has %d lines of symmetry. How many sides does it have?" % n, n, "int", {},
                    ["A regular polygon has as many lines of symmetry as sides."])
 
     def t_angle():
-        n = pick([3, 4, 5, 6, 8, 9, 10, 12])
+        n = pick(_by(d, [3, 4, 6, 8], [3, 4, 5, 6, 8, 9, 10, 12], [5, 9, 10, 12, 15, 18, 20, 36]))
         return _tb("What is the smallest angle you can turn a regular polygon with %d sides through so that it looks the same?"
                    % n, 360 // n, "int", {"unit": "°"}, ["360 ÷ %d = %d." % (n, 360 // n)])
 
     return _pick_t([t_named_lines, t_named_order, t_letters, t_sides_from_lines, t_angle],
-                   [t_lines_pic, t_order_pic, t_poly_grid, t_complete])
+                   _by(d, [t_lines_pic, t_order_pic, t_complete], [t_lines_pic, t_order_pic, t_poly_grid, t_complete],
+                       [t_lines_pic, t_order_pic, t_poly_grid, t_poly_grid, t_complete]))
 
 
 _SOLIDS = {"cube": (6, 12, 8), "cuboid": (6, 12, 8), "square-based pyramid": (5, 8, 5), "triangular prism": (5, 9, 6)}
@@ -128,7 +135,7 @@ def _(d=1):
     d = _d(d)
 
     def t_count_pic():
-        name = pick(list(_SOLIDS))
+        name = pick(_by(d, ["cube", "cuboid"], list(_SOLIDS), ["square-based pyramid", "triangular prism"]))
         ask = pick(["faces", "edges", "vertices"])
         n = _SOLIDS[name][("faces", "edges", "vertices").index(ask)]
         return {"prompt": "How many %s does this solid have? (Count the hidden ones too.)" % ask, "component": "shape",
@@ -146,20 +153,24 @@ def _(d=1):
                 "answer": _NETS[key], "answer_type": "str", "solution": ["It folds into a %s." % _NETS[key]]}
 
     def t_net_faces():
-        key = pick(["cube", "cuboid", "square_pyramid", "triangular_prism"])
+        key = pick(_by(d, ["cube", "cuboid"], ["cube", "cuboid", "square_pyramid", "triangular_prism"], ["square_pyramid", "triangular_prism"]))
         n = {"cube": 6, "cuboid": 6, "square_pyramid": 5, "triangular_prism": 5}[key]
         return {"prompt": "How many faces will the solid made from this net have?", "component": "net", "spec": {"solid": key},
                 "answer": n, "answer_type": "int", "solution": ["Each flat piece of the net is one face: %d." % n]}
 
     def t_prism():
-        n, nm = pick([(5, "pentagonal"), (6, "hexagonal"), (8, "octagonal"), (4, "square-based"), (3, "triangular")])
+        n, nm = pick(_by(d, [(4, "square-based"), (3, "triangular")],
+                         [(5, "pentagonal"), (6, "hexagonal"), (8, "octagonal"), (4, "square-based"), (3, "triangular")],
+                         [(5, "pentagonal"), (6, "hexagonal"), (7, "heptagonal"), (8, "octagonal"), (10, "decagonal")]))
         ask = pick(["faces", "edges", "vertices"])
         val = {"faces": n + 2, "edges": 3 * n, "vertices": 2 * n}[ask]
         return _tb("How many %s does %s prism have?" % (ask, _a(nm)), val, "int", {},
                    ["Its two ends have %d sides each." % n, "Faces = %d + 2, edges = 3 × %d, vertices = 2 × %d." % (n, n, n)])
 
     def t_pyramid():
-        n, nm = pick([(5, "pentagon-based"), (6, "hexagon-based"), (3, "triangle-based"), (8, "octagon-based")])
+        n, nm = pick(_by(d, [(3, "triangle-based"), (5, "pentagon-based")],
+                         [(5, "pentagon-based"), (6, "hexagon-based"), (3, "triangle-based"), (8, "octagon-based")],
+                         [(6, "hexagon-based"), (7, "heptagon-based"), (8, "octagon-based"), (10, "decagon-based")]))
         ask = pick(["faces", "edges", "vertices"])
         val = {"faces": n + 1, "edges": 2 * n, "vertices": n + 1}[ask]
         return _tb("How many %s does %s pyramid have?" % (ask, _a(nm)), val, "int", {},
@@ -167,6 +178,10 @@ def _(d=1):
 
     def t_euler():
         f, v = pick([(6, 8), (5, 6), (5, 5), (7, 10), (8, 12), (7, 7), (4, 4)])
+        if d == 2 and random.random() < 0.5:           # stretch: rearrange the formula to find the faces
+            e = f + v - 2
+            return _tb("A solid with flat faces has %d edges and %d vertices. Using faces + vertices − edges = 2, how many faces "
+                       "does it have?" % (e, v), f, "int", {}, ["faces = 2 + edges − vertices = 2 + %d − %d = %d." % (e, v, f)])
         return _tb("A solid with flat faces has %d faces and %d vertices. Using faces + vertices − edges = 2, how many edges "
                    "does it have?" % (f, v), f + v - 2, "int", {}, ["%d + %d − 2 = %d." % (f, v, f + v - 2)])
 
@@ -186,7 +201,10 @@ def _(d=1):
                        ("What 2-D shape are the sloping faces of a pyramid?", "triangle")])
         return _wq(q, ans, ["It is a %s." % ans], "shape name")
 
-    return _pick_t([t_prism, t_pyramid, t_euler, t_facts, t_face_shape], [t_count_pic, t_name_pic, t_net_name, t_net_faces])
+    return _pick_t(_by(d, [t_prism, t_facts, t_face_shape], [t_prism, t_pyramid, t_euler, t_facts, t_face_shape],
+                       [t_prism, t_pyramid, t_euler, t_facts]),
+                   _by(d, [t_count_pic, t_name_pic, t_net_name, t_net_faces], [t_count_pic, t_name_pic, t_net_name, t_net_faces],
+                       [t_count_pic, t_net_faces]))
 
 
 @skill("Y7.8.k", "Reflect and translate on a coordinate grid", S8)
@@ -218,7 +236,8 @@ def _(d=1):
                      ["The image is the same distance on the other side of y = %d: (%d,%d)." % (k, x, 2 * k - py)])
 
     def t_translate():
-        a, b = random.randint(-4, 4), random.randint(-4, 4)
+        m = _by(d, 3, 4, 6)
+        a, b = random.randint(-m, m), random.randint(-m, m)
         if a == 0 and b == 0:
             a = 2
         px = random.randint(max(-6, -6 - a), min(6, 6 - a))      # P and its image both stay on the grid
@@ -232,11 +251,14 @@ def _(d=1):
         a, b = random.randint(1, 5), random.randint(1, 5)
         px, py = random.randint(-6, 1), random.randint(-6, 1)
         ask = pick(["right", "up"])
+        if d == 2 and random.random() < 0.5:           # stretch: the move is left or down, so A′ is behind A
+            px, py, a, b, ask = px + a, py + b, -a, -b, {"right": "left", "up": "down"}[ask]
         return {"prompt": "Point A moves to A′ by a translation. How many squares %s does it move?" % ask,
                 "component": "coordinate_grid", "spec": _grid(points=[[px, py, "A"], [px + a, py + b, "A′"]], typed=True,
                                                                placeholder="squares"),
-                "answer": a if ask == "right" else b, "answer_type": "int",
-                "solution": ["A(%d,%d) to A′(%d,%d): %d right and %d up." % (px, py, px + a, py + b, a, b)]}
+                "answer": abs(a) if ask in ("right", "left") else abs(b), "answer_type": "int",
+                "solution": ["A(%d,%d) to A′(%d,%d): %d %s and %d %s." % (px, py, px + a, py + b, abs(a), "right" if a > 0 else "left",
+                                                                          abs(b), "up" if b > 0 else "down")]}
 
     def t_reverse():
         a, b = random.randint(1, 4), random.randint(1, 4)
@@ -268,8 +290,10 @@ def _(d=1):
                      _grid(points=[[px, py, "P"]]), px + a, -py,
                      ["After the translation: (%d,%d)." % (px + a, py), "After the reflection: (%d,%d)." % (px + a, -py)])
 
-    return _pick_t([t_reverse, t_invariant], [t_x_axis, t_y_axis, t_line_x, t_line_y, t_translate, t_describe, t_triangle,
-                                              t_two_steps])
+    return _pick_t(_by(d, [t_invariant], [t_reverse, t_invariant], [t_reverse]),
+                   _by(d, [t_x_axis, t_y_axis, t_translate, t_describe],
+                       [t_x_axis, t_y_axis, t_line_x, t_line_y, t_translate, t_describe, t_triangle, t_two_steps],
+                       [t_line_x, t_line_y, t_translate, t_describe, t_triangle, t_two_steps]))
 
 
 # ================================================================== 7.9 ======
@@ -291,7 +315,8 @@ def _pie_data(total_choices=(18, 20, 24, 30, 36, 40, 45, 60, 72, 90, 120)):
 def _(d=1):
     d = _d(d)
     topic, cats = pick(_TOPICS)
-    tot, counts = _pie_data()
+    # easy totals give 10°, 6°, 4° or 2° a person; stretch ones give awkward 15°, 9°, 8°, 5° or 3°
+    tot, counts = _pie_data(_by(d, (36, 60, 90, 180), (18, 20, 24, 30, 36, 40, 45, 60, 72, 90, 120), (24, 40, 45, 72, 120)))
     per = 360 // tot
     k = random.randrange(4)
 
@@ -319,15 +344,19 @@ def _(d=1):
                    ang[k], ["Angles add up to 360°: 360 − %d = %d." % (360 - ang[k], ang[k])], missing=[k, 1])
 
     def t_percent():
-        p = pick([10, 20, 25, 30, 40, 50])
-        n = pick([40, 60, 80, 120, 200, 300])
+        p = pick(_by(d, [10, 25, 50], [10, 20, 25, 30, 40, 50], [15, 30, 35, 40, 45]))
+        n = pick(_by(d, [40, 100, 200], [40, 60, 80, 120, 200, 300], [60, 80, 120, 140, 260, 300]))
         return {"prompt": "%d people answered a survey. The pie chart shows the percentages. How many people chose %s?" % (n, cats[0]),
                 "component": "pie_chart", "spec": {"slices": [[cats[0], p], [cats[1], 100 - p - 25], [cats[2], 25]],
                                                    "mode": "read", "highlight": 0, "showPercents": True},
                 "answer": n * p // 100, "answer_type": "int", "solution": ["%d%% of %d = %d." % (p, n, n * p // 100)]}
 
     def t_quarter():
-        f, ang = pick([("a quarter", 90), ("a half", 180), ("a third", 120), ("an eighth", 45), ("a sixth", 60), ("three quarters", 270)])
+        f, ang = pick(_by(d, [("a quarter", 90), ("a half", 180), ("three quarters", 270), ("a tenth", 36)],
+                          [("a quarter", 90), ("a half", 180), ("a third", 120), ("an eighth", 45), ("a sixth", 60),
+                           ("three quarters", 270)],
+                          [("two thirds", 240), ("five eighths", 225), ("three tenths", 108), ("five twelfths", 150),
+                           ("a fifth", 72), ("five sixths", 300)]))
         return _tb("A sector is %s of a pie chart. What is its angle?" % f, ang, "int", {"unit": "°"},
                    ["%s of 360° = %d°." % (f[0].upper() + f[1:], ang)])
 
@@ -339,6 +368,15 @@ def _(d=1):
 
     def t_compare_pies():
         a, b = random.sample([40, 60, 80, 120, 200], 2)
+        if d == 2:                                     # stretch: different angles, so the bigger total need not win
+            na = nb = 0
+            while na == nb:
+                ang_a, ang_b = random.sample([36, 54, 72, 90, 108, 144, 180], 2)   # multiples of 18°: whole pupils for every total
+                na, nb = a * ang_a // 360, b * ang_b // 360
+            return _wq("School A's pie chart shows %d pupils, with a football sector of %d°. School B's shows %d pupils, with a "
+                       "football sector of %d°. Which school has more pupils who chose football? (A or B)" % (a, ang_a, b, ang_b),
+                       "A" if na > nb else "B",
+                       ["A: %d/360 × %d = %d. B: %d/360 × %d = %d." % (ang_a, a, na, ang_b, b, nb)], "A or B")
         return _wq("School A's pie chart shows %d pupils and School B's shows %d. In both charts the football sector is 90°. "
                    "Which school has more pupils who chose football? (A or B)" % (a, b), "A" if a > b else "B",
                    ["A: %d ÷ 4 = %d. B: %d ÷ 4 = %d." % (a, a // 4, b, b // 4)], "A or B")
@@ -358,12 +396,16 @@ def _(d=1):
 
     def t_frequency_back():
         ang = counts[k] * per
-        return _tb("A pie chart of %d people has a %s sector of %d°. How many people does that sector stand for?"
-                   % (tot, cats[k], ang), counts[k], "int", {"unit": "people"},
+        return _tb("A pie chart of %d people has %s sector of %d°. How many people does that sector stand for?"
+                   % (tot, _a(cats[k]), ang), counts[k], "int", {"unit": "people"},
                    ["%d ÷ 360 × %d = %d." % (ang, tot, counts[k])])
 
-    return _pick_t([t_per_person, t_quarter, t_total_from_sector, t_compare_pies, t_frequency_back],
-                   [t_angle_from_table, t_count_from_angle, t_missing_angle, t_percent, t_fraction, t_largest_angle])
+    return _pick_t(_by(d, [t_per_person, t_quarter, t_frequency_back], [t_per_person, t_quarter, t_total_from_sector, t_compare_pies,
+                                                                       t_frequency_back],
+                       [t_quarter, t_total_from_sector, t_compare_pies, t_frequency_back]),
+                   _by(d, [t_angle_from_table, t_count_from_angle, t_missing_angle, t_largest_angle],
+                       [t_angle_from_table, t_count_from_angle, t_missing_angle, t_percent, t_fraction, t_largest_angle],
+                       [t_angle_from_table, t_count_from_angle, t_missing_angle, t_percent, t_fraction]))
 
 
 @skill("Y7.9.h", "Frequency tables, bar charts and line graphs", S9)
@@ -471,18 +513,18 @@ def _(d=1):
     d = _d(d)
 
     def t_not_frac():
-        den = pick([5, 7, 8, 9, 10, 12])
+        den = pick(_by(d, [4, 5, 10], [5, 7, 8, 9, 10, 12], [12, 15, 16, 20, 25]))
         num = random.randint(1, den - 1)
         return _fq("The probability that a bus is late is %d/%d. What is the probability that it is NOT late?" % (num, den),
                    Fraction(den - num, den), ["1 − %d/%d = %d/%d." % (num, den, den - num, den)])
 
     def t_not_dec():
-        p = Decimal(random.randint(1, 99)) / 100
+        p = Decimal(random.randint(1, _by(d, 9, 99, 999))) / _by(d, 10, 100, 1000)
         return _tb("The probability of winning a game is %s. What is the probability of not winning?" % _ds(p), _ds(1 - p), "num",
                    {}, ["1 − %s = %s." % (_ds(p), _ds(1 - p))])
 
     def t_not_pct():
-        p = random.randint(5, 95)
+        p = random.randint(1, 19) * 5 if d == 0 else random.randint(5, 95)
         return _tb("The chance of snow tomorrow is %d%%. What is the chance of no snow, as a percentage? Give the number only." % p,
                    100 - p, "int", {}, ["100 − %d = %d." % (p, 100 - p)])
 
@@ -493,8 +535,10 @@ def _(d=1):
                    "form." % (n, h), Fraction(h, n), ["%d out of %d = %s." % (h, n, _fs(Fraction(h, n)))])
 
     def t_expected():
-        p = pick([Fraction(1, 2), Fraction(1, 4), Fraction(1, 5), Fraction(3, 10), Fraction(2, 5), Fraction(1, 6)])
-        n = p.denominator * random.randint(5, 40)
+        p = pick(_by(d, [Fraction(1, 2), Fraction(1, 4), Fraction(1, 5), Fraction(1, 10)],
+                     [Fraction(1, 2), Fraction(1, 4), Fraction(1, 5), Fraction(3, 10), Fraction(2, 5), Fraction(1, 6)],
+                     [Fraction(3, 10), Fraction(2, 5), Fraction(3, 8), Fraction(5, 12), Fraction(7, 20), Fraction(3, 4)]))
+        n = p.denominator * random.randint(*_by(d, (2, 10), (5, 40), (10, 60)))
         shown = _ds(p) if p.denominator in (2, 4, 5, 10) and random.random() < 0.4 else _fs(p)
         return _tb("The probability a spinner lands on red is %s. It is spun %d times. How many times would you expect red?"
                    % (shown, n), int(p * n), "int", {},
@@ -533,7 +577,8 @@ def _(d=1):
                    ["Not red: %d + %d = %d out of %d." % (b, g, b + g, r + b + g)])
 
     def t_neither():
-        pa, pb = Decimal(random.randint(1, 4)) / 10, Decimal(random.randint(1, 4)) / 10 + Decimal(random.randint(0, 9)) / 100
+        pa = Decimal(random.randint(1, 4)) / 10 + (Decimal(random.randint(1, 9)) / 100 if d == 2 else 0)
+        pb = Decimal(random.randint(1, 4)) / 10 + (Decimal(random.randint(0, 9)) / 100 if d else 0)
         return _tb("A spinner can land on A, B or C only. P(A) = %s and P(B) = %s. What is P(C)?" % (_ds(pa), _ds(pb)),
                    _ds(1 - pa - pb), "num", {}, ["1 − %s − %s = %s." % (_ds(pa), _ds(pb), _ds(1 - pa - pb))])
 
@@ -555,8 +600,10 @@ def _(d=1):
                    [[i + 1, x] for i, x in enumerate(f)], 100,
                    ["P(6) = 1/6 and 1/6 × 600 = 100. (It actually landed on 6 %d times.)" % six])
 
-    return _pick_t([t_not_frac, t_not_dec, t_not_pct, t_rel_freq, t_expected, t_reliable, t_not_bag, t_neither, t_scale_up],
-                   [t_dice_table, t_bar_rel, t_fair])
+    return _pick_t(_by(d, [t_not_frac, t_not_dec, t_not_pct, t_expected, t_reliable, t_not_bag, t_neither],
+                       [t_not_frac, t_not_dec, t_not_pct, t_rel_freq, t_expected, t_reliable, t_not_bag, t_neither, t_scale_up],
+                       [t_not_frac, t_not_dec, t_rel_freq, t_expected, t_not_bag, t_neither, t_scale_up]),
+                   _by(d, [t_bar_rel], [t_dice_table, t_bar_rel, t_fair], [t_dice_table, t_bar_rel, t_fair]))
 
 
 def _gcd(a, b):

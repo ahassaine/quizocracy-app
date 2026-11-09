@@ -15,9 +15,11 @@ S9 = "9.9 Statistics"
 @skill("Y9.8.a", "Mutually exclusive events and probabilities summing to 1", S8)
 def _(d=1):
     d = _d(d)
-    ps = [Fraction(random.randint(1, 4), 20) for _ in range(3)]
+    # Easy: tenths, add or take from 1.  Stretch: hundredths, algebraic and reasoning forms.
+    den, top = _by(d, (10, 3), (20, 4), (100, 30))
+    ps = [Fraction(random.randint(1, top), den) for _ in range(3)]
     while sum(ps) >= 1:
-        ps = [Fraction(random.randint(1, 4), 20) for _ in range(3)]
+        ps = [Fraction(random.randint(1, top), den) for _ in range(3)]
 
     def t_missing():
         cols = ["Red", "Blue", "Green", "Yellow"]
@@ -30,7 +32,7 @@ def _(d=1):
                    _ds(ps[0] + ps[1]), "num", {}, ["Mutually exclusive: add them: %s." % _ds(ps[0] + ps[1])])
 
     def t_not():
-        p = Fraction(random.randint(1, 19), 20)
+        p = Fraction(random.randint(1, den - 1), den)
         return _tb("The probability that a train is late is %s. What is the probability it is NOT late?" % _ds(p), _ds(1 - p), "num", {},
                    ["1 − %s = %s." % (_ds(p), _ds(1 - p))])
 
@@ -71,7 +73,7 @@ def _(d=1):
                    _ds(sum(ps)), "num", {}, ["They are mutually exclusive, so add: %s." % _ds(sum(ps))])
 
     def t_frac_not():
-        q = random.randint(3, 12)
+        q = random.randint(3, _by(d, 8, 12, 12))
         p = Fraction(random.randint(1, q - 1), q)
         return _fq("The probability that it snows tomorrow is %s. What is the probability that it does not snow?" % _fs(p), 1 - p,
                    ["1 − %s = %s." % (_fs(p), _fs(1 - p))])
@@ -88,25 +90,30 @@ def _(d=1):
         return _bar("The bar chart shows the counters in a bag. One counter is taken at random. What is P(%s)? (fraction)" % cols[k].lower(),
                     cols, cnt, _fs(Fraction(cnt[k], sum(cnt))), ["%d out of %d counters." % (cnt[k], sum(cnt))], atype="frac")
 
-    return _pick_t([t_or, t_not, t_algebra, t_exclusive, t_how_many, t_three_or, t_frac_not, t_could_be], [t_missing, t_algebra_decimal, t_bar])
+    return _pick_t(*_by(d, ([t_or, t_not, t_exclusive, t_three_or, t_frac_not], [t_missing, t_bar]),
+                        ([t_or, t_not, t_algebra, t_exclusive, t_how_many, t_three_or, t_frac_not, t_could_be], [t_missing, t_algebra_decimal, t_bar]),
+                        ([t_algebra, t_how_many, t_could_be, t_three_or], [t_missing, t_algebra_decimal])))
 
 
 @skill("Y9.8.b", "Expected and relative frequency", S8)
 def _(d=1):
     d = _d(d)
 
+    # Easy: unit fractions, small trial counts.  Stretch: non-unit fractions, estimating from data, reliability and profit.
     def t_expected():
-        p = pick([Fraction(1, 2), Fraction(1, 4), Fraction(1, 6), Fraction(1, 5), Fraction(3, 10)])
-        n = p.denominator * random.randint(5, 40)
+        p = pick(_by(d, [Fraction(1, 2), Fraction(1, 4), Fraction(1, 5), Fraction(1, 10)],
+                     [Fraction(1, 2), Fraction(1, 4), Fraction(1, 6), Fraction(1, 5), Fraction(3, 10)],
+                     [Fraction(3, 10), Fraction(2, 5), Fraction(3, 8), Fraction(5, 6), Fraction(7, 20)]))
+        n = p.denominator * random.randint(5, _by(d, 10, 40, 60))
         return _tb("The probability of an event is %s. In %d trials, how many times would you expect it to happen?" % (_fs(p), n), int(p * n),
                    "int", {}, ["%s × %d = %d." % (_fs(p), n, int(p * n))])
 
     def t_dice():
-        n = 6 * random.randint(5, 50)
+        n = 6 * random.randint(5, _by(d, 10, 50, 50))
         return _tb("A fair dice is rolled %d times. About how many sixes would you expect?" % n, n // 6, "int", {}, ["%d ÷ 6 = %d." % (n, n // 6)])
 
     def t_relative():
-        n = random.choice([20, 25, 40, 50, 100, 200])
+        n = random.choice(_by(d, [10, 100], [20, 25, 40, 50, 100, 200], [20, 25, 40, 50, 100, 200]))
         k = random.randint(1, n - 1)
         return _tb("A drawing pin lands point up %d times in %d throws. What is the relative frequency of point up? (decimal)" % (k, n),
                    _ds(Fraction(k, n)), "num", {}, ["%d ÷ %d = %s." % (k, n, _ds(Fraction(k, n)))])
@@ -165,7 +172,7 @@ def _(d=1):
                     "Profit %dp." % profit])
 
     def t_even():
-        n = 2 * random.randint(10, 150)
+        n = 2 * random.randint(10, _by(d, 50, 150, 150))
         return _tb("A fair dice is rolled %d times. How many even numbers would you expect?" % n, n // 2, "int", {}, ["P(even) = 1/2; %d ÷ 2 = %d." % (n, n // 2)])
 
     def t_spinner_table():
@@ -177,13 +184,17 @@ def _(d=1):
         return _dt("A spinner has these probabilities. It is spun %d times. How many times would you expect %s?" % (n, cols[k].lower()),
                    ["Colour", "Probability"], [[c, _fs(p)] for c, p in zip(cols, ps)], int(ps[k] * n), ["%s × %d = %d." % (_fs(ps[k]), n, int(ps[k] * n))])
 
-    return _pick_t([t_expected, t_dice, t_relative, t_fair, t_estimate, t_rf_count, t_reliable, t_game, t_even], [t_table, t_settle, t_spinner_table])
+    return _pick_t(*_by(d, ([t_expected, t_dice, t_relative, t_even], [t_table, t_spinner_table]),
+                        ([t_expected, t_dice, t_relative, t_fair, t_estimate, t_rf_count, t_reliable, t_game, t_even], [t_table, t_settle, t_spinner_table]),
+                        ([t_expected, t_fair, t_estimate, t_rf_count, t_reliable, t_game], [t_settle])))
 
 
 @skill("Y9.8.c", "Probability from Venn diagrams and two-way tables", S8)
 def _(d=1):
     d = _d(d)
-    a_only, both, b_only, none = random.randint(2, 15), random.randint(1, 10), random.randint(2, 15), random.randint(0, 10)
+    # Easy: read one region or one cell, small counts.  Stretch: conditional ("of those who ...") and working back.
+    top = _by(d, 9, 15, 30)
+    a_only, both, b_only, none = random.randint(2, top), random.randint(1, top * 2 // 3), random.randint(2, top), random.randint(0, top * 2 // 3)
     tot = a_only + both + b_only + none
     A, B = pick([("play football", "play tennis"), ("have a cat", "have a dog"), ("like maths", "like art")])
 
@@ -205,21 +216,21 @@ def _(d=1):
                    ["Region", "Pupils"], rows, _fs(Fraction(both, a_only + both)), ["%d out of %d." % (both, a_only + both)], atype="frac")
 
     def t_two_way():
-        bl, bn, gl, gn = [random.randint(3, 20) for _ in range(4)]
+        bl, bn, gl, gn = [random.randint(3, _by(d, 12, 20, 40)) for _ in range(4)]
         rows = [["Boys", bl, bn], ["Girls", gl, gn]]
         return _dt("A pupil is chosen at random. What is the probability it is a girl who wears glasses? (simplest form)",
                    ["", "Glasses", "No glasses"], rows, _fs(Fraction(gl, bl + bn + gl + gn)),
                    ["%d out of %d." % (gl, bl + bn + gl + gn)], atype="frac")
 
     def t_two_way_missing():
-        bl, bn, gl, gn = [random.randint(3, 20) for _ in range(4)]
+        bl, bn, gl, gn = [random.randint(3, _by(d, 12, 20, 40)) for _ in range(4)]
         rows = [["Boys", bl, bn, bl + bn], ["Girls", gl, gn, gl + gn], ["Total", bl + gl, bn + gn, bl + bn + gl + gn]]
         r, c = random.choice([(0, 1), (0, 2), (1, 1), (1, 2), (2, 3)])
         return _dt("Complete the two-way table.", ["", "Glasses", "No glasses", "Total"], rows, rows[r][c],
                    ["Each row and each column adds up to its total."], missing=[r, c])
 
     def t_two_way_given():
-        bl, bn, gl, gn = [random.randint(3, 20) for _ in range(4)]
+        bl, bn, gl, gn = [random.randint(3, _by(d, 12, 20, 40)) for _ in range(4)]
         rows = [["Boys", bl, bn], ["Girls", gl, gn]]
         who, n, k = pick([("girls", gl + gn, gl), ("boys", bl + bn, bl)])
         return _dt("One of the %s is chosen at random. What is the probability they wear glasses? (simplest form)" % who,
@@ -242,12 +253,14 @@ def _(d=1):
                    ["%d + %d = %d out of %d." % (a_only, b_only, a_only + b_only, tot)], atype="frac")
 
     def t_col_given():
-        bl, bn, gl, gn = [random.randint(3, 20) for _ in range(4)]
+        bl, bn, gl, gn = [random.randint(3, _by(d, 12, 20, 40)) for _ in range(4)]
         rows = [["Boys", bl, bn], ["Girls", gl, gn]]
         return _dt("A pupil who wears glasses is chosen at random. What is the probability it is a boy? (simplest form)",
                    ["", "Glasses", "No glasses"], rows, _fs(Fraction(bl, bl + gl)), ["%d of the %d who wear glasses." % (bl, bl + gl)], atype="frac")
 
-    return _pick_t([t_count_both], [t_both, t_either, t_given, t_two_way, t_two_way_missing, t_two_way_given, t_not_a, t_only, t_col_given])
+    return _pick_t(*_by(d, ([], [t_both, t_either, t_two_way, t_two_way_missing, t_not_a]),
+                        ([t_count_both], [t_both, t_either, t_given, t_two_way, t_two_way_missing, t_two_way_given, t_not_a, t_only, t_col_given]),
+                        ([t_count_both], [t_given, t_two_way_given, t_only, t_col_given, t_not_a])))
 
 
 @skill("Y9.8.d", "Independent events and sample spaces", S8)
@@ -272,7 +285,7 @@ def _(d=1):
                    ["Multiply: %s." % _fs(p * q)])
 
     def t_count():
-        a, b, c = random.randint(2, 4), random.randint(2, 5), random.randint(2, 3)
+        a, b, c = random.randint(2, _by(d, 3, 4, 4)), random.randint(2, _by(d, 4, 5, 5)), random.randint(2, 3)
         return _tb("A meal has %d starters, %d mains and %d desserts. How many different three-course meals are there?" % (a, b, c), a * b * c,
                    "int", {}, ["%d × %d × %d = %d." % (a, b, c, a * b * c)])
 
@@ -319,8 +332,11 @@ def _(d=1):
         return _fq("Three fair coins are flipped. What is P(%s)? (simplest form)" % what,
                    Fraction(ways, 8), ["%d of the 8 outcomes (HHH, HHT, …)." % ways])
 
-    return _pick_t([t_coin_dice, t_two_dice, t_double, t_product, t_count, t_at_least, t_two_spinners, t_outcomes, t_not_both, t_grid_event,
-                    t_independent, t_three_coins])
+    # Easy: one coin/dice sample space, counting meals.  Stretch: multiply general probabilities, "not both", events from a grid.
+    return _pick_t(_by(d, [t_coin_dice, t_two_dice, t_double, t_count, t_at_least, t_independent],
+                       [t_coin_dice, t_two_dice, t_double, t_product, t_count, t_at_least, t_two_spinners, t_outcomes, t_not_both, t_grid_event,
+                        t_independent, t_three_coins],
+                       [t_product, t_two_spinners, t_outcomes, t_not_both, t_grid_event, t_three_coins]))
 
 
 
@@ -336,7 +352,8 @@ def _(d=1):
     d = _d(d)
     head, noun, people, desc = pick(_FREQ_CTX)
     vals = [0, 1, 2, 3, 4]
-    f = [random.randint(1, 12) for _ in vals]
+    # Easy: small frequencies, read-off answers (mode, total, range).  Stretch: larger tables, median, Σfx and the missing frequency.
+    f = [random.randint(1, _by(d, 8, 12, 25)) for _ in vals]
     n = sum(f)
     tot = sum(v * x for v, x in zip(vals, f))
     rows = [[v, x] for v, x in zip(vals, f)]
@@ -406,7 +423,9 @@ def _(d=1):
                             "k = %d." % ff[j]])
         return t_total()
 
-    return _pick_t([], [t_mean, t_mode, t_total, t_median, t_range, t_sum, t_more_than, t_bar, t_fx, t_missing_freq])
+    return _pick_t([], _by(d, [t_mean, t_mode, t_total, t_range, t_bar, t_fx],
+                           [t_mean, t_mode, t_total, t_median, t_range, t_sum, t_more_than, t_bar, t_fx, t_missing_freq],
+                           [t_mean, t_median, t_sum, t_more_than, t_missing_freq]))
 
 
 _GROUP_CTX = [("Time (min)", "t", "times in minutes", 0, (5, 10)),
@@ -420,8 +439,9 @@ def _(d=1):
     d = _d(d)
     head, v, desc, base, widths = pick(_GROUP_CTX)
     w = pick(widths)
-    groups = [(base + i * w, base + (i + 1) * w) for i in range(4)]
-    f = [random.randint(2, 15) for _ in groups]
+    # Easy: four classes, read-off answers.  Stretch: five classes, larger frequencies, estimated mean/total and median class.
+    groups = [(base + i * w, base + (i + 1) * w) for i in range(_by(d, 4, 4, 5))]
+    f = [random.randint(2, _by(d, 10, 15, 25)) for _ in groups]
     rows = [["%d < %s ≤ %d" % (g[0], v, g[1]), x] for g, x in zip(groups, f)]
     hdr = [head, "Frequency"]
 
@@ -436,7 +456,7 @@ def _(d=1):
         return _dt("The table shows %s. How many values are in the table?" % desc, hdr, rows, sum(f), ["%s = %d." % (" + ".join(map(str, f)), sum(f))])
 
     def t_midpoint():
-        k = random.randrange(4)
+        k = random.randrange(len(groups))
         return _dt("What is the midpoint of the class %d < %s ≤ %d?" % (groups[k][0], v, groups[k][1]), hdr, rows,
                    _ds(Fraction(sum(groups[k]), 2)), ["(%d + %d) ÷ 2." % groups[k]], atype="num")
 
@@ -486,7 +506,9 @@ def _(d=1):
         return _bar("The bar chart shows grouped %s. Type the lower end of the modal class." % desc, cats, f, groups[f.index(max(f))][0],
                     ["The tallest bar is %s." % cats[f.index(max(f))]])
 
-    return _pick_t([t_why_estimate], [t_modal, t_total, t_midpoint, t_est_mean, t_median_class, t_more_than, t_range_max, t_total_est, t_bar])
+    return _pick_t(*_by(d, ([t_why_estimate], [t_modal, t_total, t_midpoint, t_more_than, t_bar]),
+                        ([t_why_estimate], [t_modal, t_total, t_midpoint, t_est_mean, t_median_class, t_more_than, t_range_max, t_total_est, t_bar]),
+                        ([], [t_est_mean, t_median_class, t_more_than, t_range_max, t_total_est])))
 
 
 @skill("Y9.9.c", "Compare distributions", S9)
@@ -574,8 +596,11 @@ def _(d=1):
         return _wq("Class A: mean %d, range %d. Class B: mean %d, range %d. Which class's results are more consistent? (A or B)" % (m1, r1, m2, r2),
                    "A" if r1 < r2 else "B", ["The smaller range is more consistent."], "A / B")
 
-    return _pick_t([t_outlier, t_statement, t_combined, t_new_mean, t_missing_value, t_compare_text],
-                   [t_mean, t_range, t_median_diff, t_range_value])
+    # Easy: compare by range or a given summary.  Stretch: medians, combined and updated means, working back from a mean.
+    return _pick_t(*_by(d, ([t_outlier, t_statement, t_compare_text], [t_range, t_range_value]),
+                        ([t_outlier, t_statement, t_combined, t_new_mean, t_missing_value, t_compare_text],
+                         [t_mean, t_range, t_median_diff, t_range_value]),
+                        ([t_combined, t_new_mean, t_missing_value], [t_mean, t_median_diff])))
 
 
 @skill("Y9.9.d", "Choose and criticise charts", S9)
@@ -649,7 +674,7 @@ def _(d=1):
                     % (cats[i].lower(), cats[j].lower()), cats, vals, vals[i] - vals[j], ["%d − %d = %d." % (vals[i], vals[j], vals[i] - vals[j])])
 
     def t_pie_fraction():
-        a1 = pick([90, 120, 60, 180, 45])
+        a1 = pick([90, 180, 120] if d == 0 else [90, 120, 60, 180, 45])
         slices = [["Bus", a1], ["Walk", (360 - a1) // 2], ["Car", 360 - a1 - (360 - a1) // 2]]
         return {"prompt": "In this pie chart the Bus sector is %d°. What fraction of the pupils come by bus? (simplest form)" % a1,
                 "component": "pie_chart", "spec": {"slices": slices, "mode": "read", "highlight": 0}, "answer": _fs(Fraction(a1, 360)),
@@ -665,4 +690,7 @@ def _(d=1):
                    % (years[i - 1], years[i]), list(zip(years, v)), v[i] - v[i - 1], ["%d − %d = %d." % (v[i], v[i - 1], v[i] - v[i - 1])],
                    "Members", "Year")
 
-    return _pick_t([t_choose, t_misleading, t_pie_angle], [t_pie_read, t_scatter, t_bar_compare, t_pie_fraction, t_line_change])
+    # Easy: choose a chart, read a bar or a simple pie sector.  Stretch: criticise misleading charts, build and read pie angles.
+    return _pick_t(*_by(d, ([t_choose], [t_scatter, t_bar_compare, t_pie_fraction]),
+                        ([t_choose, t_misleading, t_pie_angle], [t_pie_read, t_scatter, t_bar_compare, t_pie_fraction, t_line_change]),
+                        ([t_misleading, t_pie_angle], [t_pie_read, t_line_change, t_scatter])))

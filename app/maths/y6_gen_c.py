@@ -1672,8 +1672,11 @@ def _(d=1):
     if t == 0:                       # how many can be bought (round down)
         who = pick(NAMES)
         item = pick(_SHOP)
-        price = random.randint(85, 445)
-        budget = random.randint(price * 3, price * 12)
+        if d == 0:                   # easy: prices in 50p steps
+            price = pick([50, 100, 150, 200, 250])
+        else:
+            price = random.randint(85, 445) if d == 1 else random.randint(185, 999)
+        budget = random.randint(price * 3, price * _by_d(d, 8, 12, 20))
         while budget % price == 0:
             budget += 7
         n = budget // price
@@ -1688,8 +1691,8 @@ def _(d=1):
                              % (_plural(item), n)])
 
     if t == 1:                       # how many containers (round up)
-        cap = _mk(1, 15, 45)
-        total = _mk(1, 200, 900)
+        cap = _by_d(d, _D(pick(["1.5", "2.5", "0.5", "2", "3"])), _mk(1, 15, 45), _mk(2, 105, 495))
+        total = _by_d(d, _D(random.randint(10, 60)), _mk(1, 200, 900), _mk(2, 2005, 9995))
         n = -((-total) // cap)
         n = int(n)
         while _D(n - 1) * cap >= total:
@@ -1707,10 +1710,11 @@ def _(d=1):
                              % (n - 1, _txt(cap * (n - 1)), n)])
 
     if t == 2:                       # cost per unit, nearest penny
-        n = random.randint(3, 12)
-        total = random.randint(200, 4500)
+        n = pick(_by_d(d, [2, 4, 5], list(range(3, 13)), list(range(7, 20))))
+        lo, hi = _by_d(d, (200, 1500), (200, 4500), (1000, 9999))
+        total = random.randint(lo, hi)
         while total % n == 0:
-            total = random.randint(200, 4500)
+            total = random.randint(lo, hi)
         each = int(_rnd(_D(total) / n, 0))
         return _iq("%d identical tickets cost %s altogether. To the nearest "
                    "penny, how much does one ticket cost? Give your answer in "
@@ -1720,8 +1724,8 @@ def _(d=1):
                              "To the nearest penny that is %dp." % each])
 
     if t == 3:                       # total cost, nearest pound
-        n = random.randint(4, 14)
-        price = random.randint(115, 685)
+        n = random.randint(*_by_d(d, (2, 5), (4, 14), (12, 29)))
+        price = random.randint(*_by_d(d, (23, 137), (115, 685), (115, 985))) * (5 if d == 0 else 1)
         total = n * price
         return _iq("A shop sells notebooks at %s each. What is the cost of %d "
                    "notebooks, rounded to the nearest pound?" % (_lb(price), n),
@@ -1731,8 +1735,10 @@ def _(d=1):
                              % _txt(_rnd(_D(total) / 100, 0))])
 
     if t == 4:                       # mean rounded to one decimal place
-        n = pick([4, 6, 7])
-        vals = [_mk(1, 105, 195) for _ in range(n)]
+        n = pick(_by_d(d, [4], [4, 6, 7], [7, 8, 9]))
+        # easy: whole-number heights; stretch: two decimal places
+        vals = [_by_d(d, _D(random.randint(10, 30)), _mk(1, 105, 195), _mk(2, 1005, 1995))
+                for _ in range(n)]
         tot = sum(vals, _D(0))
         mean = _rnd(_D(tot) / n, 1)
         return _nq("The heights of %d plants, in centimetres, are %s. What is "
@@ -1743,8 +1749,10 @@ def _(d=1):
                              % (_txt(tot), n, format(mean, "f"))])
 
     if t == 5:                       # cutting lengths (round down) or leftover
-        piece = _mk(2, 25, 95)
-        total = random.randint(3, 9)
+        # easy: tenths, leaving out 0.2 and 0.5, which always fit whole metres exactly
+        piece = _by_d(d, _D(pick(["0.3", "0.4", "0.6", "0.7", "0.8", "0.9"])), _mk(2, 25, 95),
+                      _mk(2, 105, 295))
+        total = random.randint(*_by_d(d, (3, 9), (3, 9), (10, 25)))
         n = int(_D(total) / piece)
         while _D(n + 1) * piece <= total:
             n += 1
@@ -1766,9 +1774,11 @@ def _(d=1):
                              % (total, _txt(piece * n), _txt(left))])
 
     if t == 6:                       # data table, round the total
-        items = random.sample(_FOOD, 4)
-        prices = [random.randint(45, 225) for _ in range(4)]
-        rows = [[items[k].capitalize(), _lb(prices[k])] for k in range(4)]
+        k_items = _by_d(d, 3, 4, 5)
+        items = random.sample(_FOOD, k_items)
+        prices = [_by_d(d, random.randint(9, 45) * 5, random.randint(45, 225), random.randint(45, 995))
+                  for _ in range(k_items)]
+        rows = [[items[k].capitalize(), _lb(prices[k])] for k in range(k_items)]
         total = sum(prices)
         return _tableq("Use the table. What is the total cost, rounded to the "
                        "nearest pound?", ["Item", "Price"], rows,
@@ -1779,8 +1789,8 @@ def _(d=1):
 
     if t == 7:                       # rate rounded to one decimal place
         who = pick(NAMES)
-        km = random.randint(85, 480)
-        litres = random.randint(7, 39)
+        km = random.randint(*_by_d(d, (45, 160), (85, 480), (300, 900)))
+        litres = pick(_by_d(d, [4, 5, 8], list(range(7, 40)), list(range(23, 60))))
         while km % litres == 0:
             km += 1
         rate = _rnd(_D(km) / litres, 1)
@@ -1793,8 +1803,8 @@ def _(d=1):
                              % format(rate, "f")])
 
     if t == 8:                       # estimate by rounding, then the real value
-        a = _mk(2, 205, 895)
-        n = random.randint(3, 9)
+        a = _by_d(d, _mk(1, 25, 95), _mk(2, 205, 895), _mk(2, 1005, 9995))
+        n = random.randint(*_by_d(d, (2, 5), (3, 9), (6, 12)))
         est = int(_rnd(a, 0)) * n
         return _iq("Estimate %s × %d by first rounding %s to the nearest whole "
                    "number. What is your estimate?" % (_txt(a), n, _txt(a)),
@@ -1803,9 +1813,10 @@ def _(d=1):
                              "%s × %d = %d." % (_txt(_rnd(a, 0)), n, est)])
 
     # journey table: total distance rounded
-    who = _names(3)
-    legs = [_mk(2, 105, 895) for _ in range(3)]
-    rows = [[who[k], _txt(legs[k])] for k in range(3)]
+    k_legs = _by_d(d, 2, 3, 4)
+    who = _names(k_legs)
+    legs = [_by_d(d, _mk(2, 105, 495), _mk(2, 105, 895), _mk(2, 105, 1995)) for _ in range(k_legs)]
+    rows = [[who[k], _txt(legs[k])] for k in range(k_legs)]
     tot = sum(legs, _D(0))
     return _tableq("The table shows how far each pupil cycled, in kilometres. "
                    "What is the total distance, rounded to one decimal place?",

@@ -325,14 +325,16 @@ def _(d=1):
                    ["After 1/4: £%d." % (x * 3 // 4), "2/5 of that is £%d; left £%d." % (x * 3 // 4 * 2 // 5, x * 3 // 4 * 3 // 5)])
 
     def t_whole_from_part():
-        den = pick([3, 4, 5, 8])
-        num = random.randint(1, den - 1)
-        part = num * random.randint(3, 20)
+        den = pick(_by(d, [2, 3, 4, 5], [3, 4, 5, 8], [5, 6, 7, 8, 9, 12]))
+        num = 1 if d == 0 else pick([k for k in range(1, den) if Fraction(k, den).denominator == den])   # easy: a unit fraction
+        part = num * random.randint(3, _by(d, 12, 20, 30))
         return _tb("%d/%d of a number is %d. What is the number?" % (num, den, part), part // num * den, "int", {},
                    ["%d ÷ %d = %d is 1/%d." % (part, num, part // num, den), "× %d = %d." % (den, part // num * den)])
 
     def t_compare():
-        a, b = random.sample([Fraction(2, 3), Fraction(3, 5), Fraction(5, 8), Fraction(7, 12), Fraction(4, 7)], 2)
+        a, b = random.sample(_by(d, [Fraction(1, 2), Fraction(1, 3), Fraction(3, 4), Fraction(2, 5)],
+                                 [Fraction(2, 3), Fraction(3, 5), Fraction(5, 8), Fraction(7, 12), Fraction(4, 7)],
+                                 [Fraction(5, 8), Fraction(7, 12), Fraction(4, 7), Fraction(3, 5), Fraction(5, 9), Fraction(11, 20)]), 2)
         return _wq("Which is larger, %s or %s?" % (_fs(a), _fs(b)), _fs(max(a, b)),
                    ["%s ≈ %.3f, %s ≈ %.3f." % (_fs(a), float(a), _fs(b), float(b))], "e.g. 3/5")
 
@@ -343,8 +345,9 @@ def _(d=1):
                    _mixed(m * k), ["%d × 3/4 = %s." % (k, _mixed(m * k))], "e.g. 2 1/4")
 
     def t_price_rise():
-        f = pick([Fraction(1, 4), Fraction(1, 5), Fraction(1, 3), Fraction(2, 5)])
-        x = f.denominator * random.randint(4, 30)
+        f = pick(_by(d, [Fraction(1, 2), Fraction(1, 4), Fraction(1, 10)], [Fraction(1, 4), Fraction(1, 5), Fraction(1, 3), Fraction(2, 5)],
+                     [Fraction(2, 5), Fraction(3, 8), Fraction(2, 3), Fraction(3, 4), Fraction(3, 10)]))
+        x = f.denominator * random.randint(4, _by(d, 12, 30, 40))
         up = random.random() < 0.5
         new = x + f * x if up else x - f * x
         return _tb("A price of £%d %s by %s. What is the new price, in pounds?" % (x, "rises" if up else "falls", _fs(f)), int(new),
@@ -378,16 +381,20 @@ def _(d=1):
                    ["%d km is %s of the journey." % (int((1 - f) * tot), _fs(1 - f)), "Whole journey = %d km." % tot])
 
     def t_strip():
-        den = pick([3, 4, 5, 6])
+        den = pick(_by(d, [2, 3, 4], [3, 4, 5, 6], [5, 6, 8]))
         num = random.randint(1, den - 1)
-        part = random.randint(3, 15)
+        part = random.randint(3, _by(d, 10, 15, 25))
         return _strip("%d/%d of the pupils in a club are girls. The bar shows all %d pupils split into %d equal parts. How many "
                       "girls are there?" % (num, den, den * part, den),
                       {"mode": "equal_parts", "parts": den, "partLabel": "?", "totalLabel": str(den * part), "unknown": "part"},
                       num * part, ["One part: %d ÷ %d = %d." % (den * part, den, part), "%d part%s: %d." % (num, "" if num == 1 else "s", num * part)])
 
-    return _pick_t([t_remaining, t_of_remainder, t_whole_from_part, t_compare, t_recipe, t_price_rise, t_ages, t_tank, t_votes,
-                    t_journey], [t_strip])
+    # easy: one-step problems with friendly fractions; hard: remainders, working back to the whole, several steps
+    return _pick_t(_by(d, [t_whole_from_part, t_compare, t_recipe, t_price_rise, t_ages],
+                       [t_remaining, t_of_remainder, t_whole_from_part, t_compare, t_recipe, t_price_rise, t_ages, t_tank,
+                        t_votes, t_journey],
+                       [t_remaining, t_of_remainder, t_whole_from_part, t_compare, t_price_rise, t_tank, t_votes, t_journey]),
+                   [t_strip])
 
 
 # ================================================================== 7.8 ======
@@ -396,7 +403,11 @@ def _(d=1):
     d = _d(d)
 
     def t_type():
-        deg = random.choice([x for x in range(5, 356) if x not in (90, 180)])
+        if d == 2:                                   # hard: within a few degrees of 90° or 180°
+            deg = pick([90, 180]) + pick([-1, 1]) * random.randint(1, 12)
+        else:
+            deg = random.choice([x for x in range(_by(d, 10, 5, 5), 356, _by(d, 10, 1, 1))
+                                 if x not in (90, 180) and (d or not (80 <= x <= 100 or 170 <= x <= 190))])
         return _wq("Is an angle of %d° acute, obtuse or reflex?" % deg,
                    "acute" if deg < 90 else "obtuse" if deg < 180 else "reflex", ["Compare with 90° and 180°."],
                    "acute / obtuse / reflex")
@@ -407,20 +418,25 @@ def _(d=1):
                    ["The middle letter is the vertex."], "one letter")
 
     def t_picture():
-        deg = pick([random.randint(15, 80), random.randint(100, 170), random.randint(190, 340)])
+        deg = pick(_by(d, [random.randint(20, 70), random.randint(110, 160), random.randint(200, 330)],
+                       [random.randint(15, 80), random.randint(100, 170), random.randint(190, 340)],
+                       [random.randint(60, 80), random.randint(100, 130), random.randint(190, 220)]))
         return {"prompt": "Is this angle acute, obtuse or reflex?", "component": "angle",
                 "spec": {"mode": "classify", "degrees": deg},
                 "answer": "acute" if deg < 90 else "obtuse" if deg < 180 else "reflex", "answer_type": "str",
                 "solution": ["It is about %d°." % deg]}
 
     def t_measure():
-        deg = random.randint(2, 34) * 5
+        deg = _by(d, random.randint(1, 17) * 10, random.randint(2, 34) * 5, random.randint(10, 170))
         return {"prompt": "Measure this angle. How many degrees is it?", "component": "angle",
                 "spec": {"mode": "measure", "degrees": deg, "protractor": True}, "answer": deg, "answer_type": "num",
                 "tolerance": 2, "solution": ["Read from 0 on the scale along the first arm: %d°." % deg]}
 
     def t_reflex():
-        a = random.choice([v for v in range(20, 171) if v != 90])
+        a = random.choice([v for v in range(20, 171, _by(d, 10, 1, 1)) if v != 90])
+        if d == 2 and random.random() < 0.5:         # hard: work back from the reflex angle
+            return _tb("The reflex angle between two arms is %d°. What is the other angle between them?" % (360 - a), a, "int",
+                       {"unit": "°"}, ["360 − %d = %d." % (360 - a, a)])
         return _tb("The acute or obtuse angle between two arms is %d°. What is the reflex angle?" % a, 360 - a, "int",
                    {"unit": "°"}, ["360 − %d = %d." % (a, 360 - a)])
 
@@ -428,7 +444,8 @@ def _(d=1):
         return _wq("On a diagram, what does a small square in a corner tell you about the angle? (one word: the angle is ...)",
                    "right", ["It marks a right angle (90°)."], "one word")
 
-    return _pick_t([t_type, t_vertex, t_reflex, t_right_symbol], [t_picture, t_measure])
+    return _pick_t(_by(d, [t_type, t_vertex, t_reflex, t_right_symbol], [t_type, t_vertex, t_reflex, t_right_symbol],
+                       [t_type, t_reflex]), [t_picture, t_measure])
 
 
 @skill("Y7.8.b", "Angles at a point, on a line and vertically opposite", S8)
@@ -516,8 +533,12 @@ def _(d=1):
 @skill("Y7.8.c", "Angles in triangles", S8)
 def _(d=1):
     d = _d(d)
-    a = random.randint(20, 100)
-    b = random.randint(20, 160 - a)
+    if d == 0:                                       # easy: multiples of 10
+        a = random.randint(2, 10) * 10
+        b = random.randint(2, (160 - a) // 10) * 10
+    else:
+        a = random.randint(20, 100)
+        b = random.randint(20, 160 - a)
 
     def t_third():
         return _tb("Two angles of a triangle are %d° and %d°. Find the third angle." % (a, b), 180 - a - b, "int",
@@ -529,12 +550,12 @@ def _(d=1):
                    % apex, (180 - apex) // 2, "int", {"unit": "°"}, ["(180 − %d) ÷ 2 = %d." % (apex, (180 - apex) // 2)])
 
     def t_isos_apex():
-        base = random.randint(20, 85)
+        base = random.randint(20, 85) if d else random.randint(4, 8) * 10
         return _tb("An isosceles triangle has two equal angles of %d°. Find the third angle." % base, 180 - 2 * base, "int",
                    {"unit": "°"}, ["180 − 2 × %d = %d." % (base, 180 - 2 * base)])
 
     def t_right():
-        x = random.randint(10, 80)
+        x = random.randint(10, 80) if d else random.randint(2, 16) * 5
         return _tb("A right-angled triangle has an angle of %d°. Find the third angle." % x, 90 - x, "int", {"unit": "°"},
                    ["180 − 90 − %d = %d." % (x, 90 - x)])
 
@@ -579,7 +600,7 @@ def _(d=1):
                    ["The exterior angle equals the sum of the two opposite interior angles: %d − %d = %d." % (ext, a, ext - a)])
 
     def t_isos_from_base():
-        base = random.randint(30, 80)
+        base = random.randint(30, 80) if d else random.randint(6, 16) * 5
         return _tb("In an isosceles triangle one of the two equal angles is %d°. What is the angle between the two equal sides?"
                    % base, 180 - 2 * base, "int", {"unit": "°"}, ["180 − 2 × %d = %d." % (base, 180 - 2 * base)])
 
@@ -590,8 +611,12 @@ def _(d=1):
                 "component": "angle", "spec": {"mode": "classify", "degrees": a, "numeric": True}, "answer": 180 - a - b,
                 "answer_type": "int", "solution": ["180 − %d − %d = %d." % (a, b, 180 - a - b)]}
 
-    return _pick_t([t_third, t_isos_base, t_isos_apex, t_right, t_equilateral, t_exterior, t_possible, t_algebra, t_type,
-                    t_right_isos, t_ext_interior, t_isos_from_base], [t_pic])
+    # easy: find the third angle directly; hard: isosceles from the apex, exterior angles, algebra, classifying
+    return _pick_t(_by(d, [t_third, t_isos_apex, t_right, t_equilateral, t_possible, t_isos_from_base],
+                       [t_third, t_isos_base, t_isos_apex, t_right, t_equilateral, t_exterior, t_possible, t_algebra, t_type,
+                        t_right_isos, t_ext_interior, t_isos_from_base],
+                       [t_third, t_isos_base, t_exterior, t_algebra, t_type, t_right_isos, t_ext_interior, t_isos_from_base]),
+                   [t_pic])
 
 
 @skill("Y7.8.d", "Angles and properties of quadrilaterals", S8)
@@ -599,14 +624,17 @@ def _(d=1):
     d = _d(d)
 
     def t_fourth():
-        a, b, c = random.randint(50, 130), random.randint(50, 130), random.randint(40, 120)
+        if d == 0:                                   # easy: multiples of 10
+            a, b, c = random.randint(5, 13) * 10, random.randint(5, 13) * 10, random.randint(4, 12) * 10
+        else:
+            a, b, c = random.randint(50, 130), random.randint(50, 130), random.randint(40, 120)
         if a + b + c >= 350:
             c = 60
         return _tb("Three angles of a quadrilateral are %d°, %d° and %d°. Find the fourth." % (a, b, c), 360 - a - b - c,
                    "int", {"unit": "°"}, ["Angles in a quadrilateral add to 360°.", "360 − %d = %d." % (a + b + c, 360 - a - b - c)])
 
     def t_parallelogram():
-        a = random.randint(40, 140)
+        a = random.randint(40, 140) if d else random.randint(4, 14) * 10
         return _tb("A parallelogram has one angle of %d°. What size is the angle next to it?" % a, 180 - a, "int",
                    {"unit": "°"}, ["Neighbouring angles in a parallelogram add to 180°."])
 
@@ -634,13 +662,22 @@ def _(d=1):
                        ("Are the diagonals of a rectangle equal in length? (yes or no)", "yes")])
         return _wq(q, ans, ["Think of the shape's symmetry."], "yes / no")
 
-    return _pick_t([t_fourth, t_parallelogram, t_kite, t_property, t_diagonals])
+    def t_algebra():
+        x, c = random.randint(45, 60), random.randint(10, 40)
+        rest = 360 - 4 * x - c                       # 80 to 170
+        return _tb("The angles of a quadrilateral are x°, 2x°, (x + %d)° and %d°. What is x?" % (c, rest), x, "int", {"unit": "°"},
+                   ["4x + %d + %d = 360." % (c, rest), "4x = %d, x = %d." % (4 * x, x)])
+
+    # easy: missing angle with round numbers, names; hard: kites, diagonals and an algebraic angle sum
+    return _pick_t(_by(d, [t_fourth, t_parallelogram, t_property],
+                       [t_fourth, t_parallelogram, t_kite, t_property, t_diagonals],
+                       [t_fourth, t_parallelogram, t_kite, t_diagonals, t_algebra]))
 
 
 @skill("Y7.8.e", "Angles in polygons", S8)
 def _(d=1):
     d = _d(d)
-    n = random.randint(5, 12)
+    n = pick([5, 6, 8]) if d == 0 else random.randint(5, 12)      # easy: familiar shapes, all with whole regular angles
     name = {5: "pentagon", 6: "hexagon", 7: "heptagon", 8: "octagon", 9: "nonagon", 10: "decagon", 11: "hendecagon",
             12: "dodecagon"}[n]
 
@@ -665,17 +702,36 @@ def _(d=1):
                    "int", {}, ["Always 2 fewer than the number of sides."])
 
     def t_missing():
-        k = 5
-        angles = [random.randint(95, 130) for _ in range(k - 1)]
-        return _tb("Four angles of a pentagon are %s. Find the fifth." % ", ".join("%d°" % a for a in angles), 540 - sum(angles),
-                   "int", {"unit": "°"}, ["Pentagon total = 540°.", "540 − %d = %d." % (sum(angles), 540 - sum(angles))])
+        if d == 2:                                   # hard: a hexagon, five angles given
+            k, shape, lo, hi = 6, "hexagon", 110, 130
+        else:
+            k, shape, lo, hi = 5, "pentagon", 95, 130
+        tot = (k - 2) * 180
+        angles = [random.randint(lo, hi) for _ in range(k - 1)]
+        return _tb("%s angles of %s are %s. Find the %s." % (("Four", "Five")[k - 5], _a(shape), ", ".join("%d°" % a for a in angles),
+                                                         ("fifth", "sixth")[k - 5]), tot - sum(angles),
+                   "int", {"unit": "°"}, ["%s total = %d°." % (shape.capitalize(), tot),
+                                          "%d − %d = %d." % (tot, sum(angles), tot - sum(angles))])
 
     def t_sides_from_ext():
-        n2 = pick([3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20])
+        n2 = pick(_by(d, [3, 4, 5, 6, 8, 10], [3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20], [9, 12, 15, 18, 20, 24, 30, 36, 40]))
         return _tb("A regular polygon has exterior angles of %d°. How many sides does it have?" % (360 // n2), n2, "int", {},
                    ["360 ÷ %d = %d." % (360 // n2, n2)])
 
-    return _pick_t([t_sum, t_regular, t_exterior, t_triangles, t_missing, t_sides_from_ext])
+    def t_sides_from_int():
+        n2 = pick([5, 6, 8, 9, 10, 12, 15, 18, 20])
+        ext = 360 // n2
+        return _tb("Each interior angle of a regular polygon is %d°. How many sides does it have?" % (180 - ext), n2, "int", {},
+                   ["Exterior angle = 180 − %d = %d." % (180 - ext, ext), "360 ÷ %d = %d." % (ext, n2)])
+
+    def t_sides_from_sum():
+        return _tb("The interior angles of a polygon add up to %s°. How many sides does it have?" % _c((n - 2) * 180), n, "int", {},
+                   ["%s ÷ 180 = %d triangles." % (_c((n - 2) * 180), n - 2), "Sides = %d + 2 = %d." % (n - 2, n)])
+
+    # hard: work backwards from an angle or an angle sum to the number of sides
+    return _pick_t(_by(d, [t_sum, t_regular, t_exterior, t_triangles, t_sides_from_ext],
+                       [t_sum, t_regular, t_exterior, t_triangles, t_missing, t_sides_from_ext],
+                       [t_sum, t_regular, t_missing, t_sides_from_ext, t_sides_from_int, t_sides_from_sum]))
 
 
 @skill("Y7.8.f", "Parallel and perpendicular lines and constructions", S8)
@@ -690,12 +746,12 @@ def _(d=1):
         return _wq(q + " (one word)", ans, ["Key vocabulary."], "one word")
 
     def t_bisect_angle():
-        a = random.randint(10, 85) * 2
+        a = random.randint(*_by(d, (2, 17), (10, 85), (10, 89))) * _by(d, 10, 2, 2)
         return _tb("An angle of %d° is bisected. What size are the two new angles?" % a, a // 2, "int", {"unit": "°"},
                    ["Bisect means cut in half: %d ÷ 2 = %d." % (a, a // 2)])
 
     def t_bisect_line():
-        L = random.randint(4, 30) * 2
+        L = random.randint(*_by(d, (2, 10), (4, 30), (15, 60))) * 2
         return _tb("A line segment %d cm long has its perpendicular bisector drawn. How far is the crossing point from each "
                    "end, in cm?" % L, L // 2, "int", {"unit": "cm"}, ["%d ÷ 2 = %d." % (L, L // 2)])
 
@@ -707,6 +763,13 @@ def _(d=1):
     def t_grid():
         x, y = random.randint(1, 4), random.randint(2, 6)
         k = random.randint(2, 4)
+        if d == 2:                                   # hard: AB is vertical, so C goes sideways
+            return {"prompt": "A line goes from A(%d,%d) to B(%d,%d). Plot point C so that AC is perpendicular to AB and %d squares "
+                              "long, going right." % (x, y, x, y + 4, k), "component": "coordinate_grid",
+                    "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "points": [[x, y, "A"], [x, y + 4, "B"]],
+                             "lines": [{"p1": [x, y], "p2": [x, y + 4]}]},
+                    "answer": "(%d,%d)" % (x + k, y), "answer_type": "coord",
+                    "solution": ["AB is vertical, so AC must be horizontal: (%d,%d)." % (x + k, y)]}
         return {"prompt": "A line goes from A(%d,%d) to B(%d,%d). Plot point C so that AC is perpendicular to AB and %d squares "
                           "long, going up." % (x, y, x + 4, y, k), "component": "coordinate_grid",
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "points": [[x, y, "A"], [x + 4, y, "B"]],
@@ -717,6 +780,8 @@ def _(d=1):
     def t_parallel_grid():
         x, y = random.randint(1, 3), random.randint(1, 3)
         dx, dy = random.randint(1, 3), random.randint(1, 3)
+        if d == 2 and random.random() < 0.5:         # hard: a line sloping down
+            y, dy = y + 3, -dy
         x2 = random.randint(4, 6)
         return {"prompt": "Line AB goes from (%d,%d) to (%d,%d). Starting at C(%d,%d), plot point D so that CD is parallel to AB "
                           "and the same length." % (x, y, x + dx, y + dy, x2, y), "component": "coordinate_grid",
@@ -724,7 +789,7 @@ def _(d=1):
                          "points": [[x, y, "A"], [x + dx, y + dy, "B"], [x2, y, "C"]],
                          "lines": [{"p1": [x, y], "p2": [x + dx, y + dy]}]},
                 "answer": "(%d,%d)" % (x2 + dx, y + dy), "answer_type": "coord",
-                "solution": ["Make the same move: %d right and %d up." % (dx, dy)]}
+                "solution": ["Make the same move: %d right and %d %s." % (dx, abs(dy), "up" if dy > 0 else "down")]}
 
     def t_pairs():
         q, ans = pick([("How many pairs of parallel sides does a rectangle have?", 2),
@@ -764,8 +829,11 @@ def _(d=1):
         return _tb("An equilateral triangle is constructed with compasses on a line segment %d cm long. How long is each of its "
                    "other two sides, in cm?" % a, a, "int", {"unit": "cm"}, ["All three sides of an equilateral triangle are equal."])
 
-    return _pick_t([t_vocab, t_bisect_angle, t_bisect_line, t_shortest, t_pairs, t_perp_angle, t_construct],
-                   [t_grid, t_parallel_grid, t_is_parallel])
+    # easy: vocabulary, halving and plotting a perpendicular; hard: shortest distance, counting pairs, parallel slopes
+    return _pick_t(_by(d, [t_vocab, t_bisect_angle, t_bisect_line, t_perp_angle, t_construct],
+                       [t_vocab, t_bisect_angle, t_bisect_line, t_shortest, t_pairs, t_perp_angle, t_construct],
+                       [t_vocab, t_bisect_angle, t_bisect_line, t_shortest, t_pairs]),
+                   _by(d, [t_grid], [t_grid, t_parallel_grid, t_is_parallel], [t_grid, t_parallel_grid, t_is_parallel]))
 
 
 @skill("Y7.8.g", "Area of triangles, parallelograms and trapezia", S8)
@@ -773,24 +841,30 @@ def _(d=1):
     d = _d(d)
 
     def t_triangle():
-        b, h = random.randint(2, 20), random.randint(2, 20)
+        if d == 2:                                   # hard: a base to 1 d.p.
+            b, h = Decimal(random.randint(25, 199)) / 10, random.randint(4, 30)
+            return _tb("A triangle has base %s cm and perpendicular height %d cm. Find its area, in cm²." % (_ds(b), h),
+                       _ds(b * h / 2), "num", {"unit": "cm²"}, ["½ × %s × %d = %s." % (_ds(b), h, _ds(b * h / 2))])
+        b, h = random.randint(1, 10) * 2 if d == 0 else random.randint(2, 20), random.randint(2, _by(d, 12, 20, 20))   # easy: even base
         return _tb("A triangle has base %d cm and perpendicular height %d cm. Find its area, in cm²." % (b, h), _ds(Fraction(b * h, 2)),
                    "num", {"unit": "cm²"}, ["½ × %d × %d = %s." % (b, h, _ds(Fraction(b * h, 2)))])
 
     def t_parallelogram():
-        b, h = random.randint(2, 20), random.randint(2, 15)
+        b, h = random.randint(2, _by(d, 12, 20, 40)), random.randint(2, _by(d, 10, 15, 30))
         return _tb("A parallelogram has base %d m and perpendicular height %d m. Find its area, in m²." % (b, h), b * h, "int",
                    {"unit": "m²"}, ["base × height = %d." % (b * h)])
 
     def t_trapezium():
-        a, b, h = random.randint(2, 15), random.randint(2, 15), random.randint(2, 12)
+        a, b, h = random.randint(2, _by(d, 10, 15, 30)), random.randint(2, _by(d, 10, 15, 30)), random.randint(2, _by(d, 10, 12, 25))
+        if d == 0 and (a + b) % 2:                   # easy: whole-number area
+            b += 1
         return _tb("A trapezium has parallel sides %d cm and %d cm, and height %d cm. Find its area, in cm²." % (a, b, h),
                    _ds(Fraction((a + b) * h, 2)), "num", {"unit": "cm²"},
                    ["½ × (%d + %d) × %d = %s." % (a, b, h, _ds(Fraction((a + b) * h, 2)))])
 
     def t_reverse():
-        b = random.randint(2, 16)
-        h = random.randint(2, 16)
+        b = random.randint(2, _by(d, 10, 16, 30))
+        h = random.randint(2, _by(d, 10, 16, 30))
         return _tb("A triangle has area %s cm² and base %d cm. What is its perpendicular height, in cm?" % (_ds(Fraction(b * h, 2)), b),
                    h, "int", {"unit": "cm"}, ["Area × 2 ÷ base = %d." % h])
 
@@ -808,7 +882,8 @@ def _(d=1):
 
     def t_grid_triangle():
         x0, y0 = random.randint(0, 2), random.randint(0, 2)
-        b, h = random.randint(2, 7), random.randint(2, 7)
+        b = _by(d, random.randint(1, 3) * 2, random.randint(2, 7), random.randint(5, 8))     # easy: even base, whole area
+        h = random.randint(*_by(d, (2, 5), (2, 7), (5, 8)))
         apex = x0 + random.randint(0, b)
         return {"prompt": "Find the area of the triangle drawn on the grid. Each square is 1 cm². Give your answer in cm².",
                 "component": "coordinate_grid",
@@ -819,7 +894,8 @@ def _(d=1):
 
     def t_grid_parallelogram():
         x0, y0 = random.randint(0, 2), random.randint(0, 2)
-        b, h, s = random.randint(2, 5), random.randint(2, 6), random.randint(1, 3)
+        b, h, s = (random.randint(*_by(d, (2, 4), (2, 5), (4, 6))), random.randint(*_by(d, (2, 4), (2, 6), (5, 8))),
+                   random.randint(1, _by(d, 2, 3, 2)))
         return {"prompt": "Find the area of the parallelogram drawn on the grid. Each square is 1 cm². Give your answer in cm².",
                 "component": "coordinate_grid",
                 "spec": {"xmin": 0, "xmax": 10, "ymin": 0, "ymax": 10, "typed": True, "placeholder": "cm²",
@@ -856,5 +932,9 @@ def _(d=1):
                    ["Triangle %s cm², parallelogram %d cm²: the triangle is half." % (_ds(Fraction(b * h, 2)), b * h)],
                    "triangle / parallelogram")
 
-    return _pick_t([t_triangle, t_parallelogram, t_trapezium, t_reverse, t_slant_trap, t_compound, t_trap_reverse, t_cut_out,
-                    t_mixed_units, t_compare], [t_grid_triangle, t_grid_parallelogram])
+    # easy: one formula with whole numbers; hard: working back to a length, compound shapes, mixed units
+    return _pick_t(_by(d, [t_triangle, t_parallelogram, t_trapezium, t_slant_trap, t_compare],
+                       [t_triangle, t_parallelogram, t_trapezium, t_reverse, t_slant_trap, t_compound, t_trap_reverse,
+                        t_cut_out, t_mixed_units, t_compare],
+                       [t_triangle, t_trapezium, t_reverse, t_slant_trap, t_compound, t_trap_reverse, t_cut_out, t_mixed_units]),
+                   [t_grid_triangle, t_grid_parallelogram])
