@@ -96,16 +96,7 @@ def _(d=1):
         return _wq("A %s stands on a table. What 2-D shape do you see when you look at it %s?" % (name, view), ans,
                    ["Looking %s at a %s shows a %s." % (view, name, ans)], "2-D shape name")
 
-    def t_euler():
-        name = pick(_by(d, EASY3, list(SOLIDS), HARD3))
-        f, e, v = SOLIDS[name]
-        if d == 2:                                     # hard: the vertices from faces and edges
-            return _tb("A %s has %d faces and %d edges. How many vertices does it have?" % (name, f, e), v, "int", {},
-                       ["Edges − faces + 2 = vertices: %d − %d + 2 = %d." % (e, f, v)])
-        return _tb("A %s has %d faces and %d vertices. How many edges does it have?" % (name, f, v), e, "int", {},
-                   ["Faces + vertices − 2 = edges: %d + %d − 2 = %d." % (f, v, e)])
-
-    return _pick_t([t_describe, t_view, t_euler], [t_net, t_faces_net, t_name, t_count])
+    return _pick_t([t_describe, t_view], [t_net, t_faces_net, t_name, t_count])
 
 
 @skill("Y5.8.b", "Estimate and classify acute, obtuse and reflex angles", S8)
@@ -384,6 +375,8 @@ def _(d=1):
 
     def t_three():
         a, b = _ang(20, 80), _ang(20, _by(d, 80, 80, 95))
+        while 180 - a - b < 10:                        # the third angle is never a sliver
+            b = _ang(20, _by(d, 80, 80, 95))
         return _tb("Three angles sit on a straight line. Two are %d° and %d°. How big is the third, in degrees?"
                    % (a, b), 180 - a - b, "int", {"unit": "°"}, ["180 − %d − %d = %d." % (a, b, 180 - a - b)])
 
@@ -393,7 +386,11 @@ def _(d=1):
                    "int", {"unit": "°"}, ["180 ÷ %d = %d." % (k, 180 // k)])
 
     def t_half_turn():
-        start, opp = pick([("north", "south"), ("east", "west"), ("south", "north"), ("west", "east")])
+        pairs = [("north", "south"), ("east", "west"), ("south", "north"), ("west", "east")]
+        if d == 2:                                     # hard: the in-between compass points
+            pairs = [("north-east", "south-west"), ("south-east", "north-west"), ("south-west", "north-east"),
+                     ("north-west", "south-east")]
+        start, opp = pick(pairs)
         return _wq("You face %s and make a half turn. Which way do you face now?" % start, opp,
                    ["A half turn is 180°."], "direction")
 
@@ -405,14 +402,14 @@ def _(d=1):
                        % (180 - 4 * a, 4 * a), a, "int", {"unit": "°"},
                        ["180 − %d = %d." % (180 - 4 * a, 4 * a), "%d ÷ 4 = %d." % (4 * a, a)]) if 180 - 4 * a > 0 \
                 else t_missing()
-        a = random.randint(2, 5) * 10 if d == 0 else random.randint(20, 70)
+        a = random.randint(2, 5) * 10 if d == 0 else random.randint(20, 56)   # third angle 180 − 3a ≥ 12°
         return _tb("On a straight line, one angle is twice another and there is a third angle of %d°. "
                    "How big is the smallest of the other two, in degrees? (Hint: 3 equal parts share %d°.)"
                    % (180 - 3 * a, 3 * a), a, "int", {"unit": "°"},
                    ["180 − %d = %d." % (180 - 3 * a, 3 * a), "%d ÷ 3 = %d." % (3 * a, a)]) if 180 - 3 * a > 0 else t_missing()
 
     def t_pic():
-        deg = random.randint(*_by(d, (3, 15), (3, 15), (5, 31))) * _by(d, 10, 10, 5)
+        deg = random.randint(*_by(d, (3, 15), (3, 15), (2, 15))) * 10 + _by(d, 0, 0, 5)   # hard: odd fives
         return {"prompt": "The angle shown is %d°. Together with another angle it makes a straight line. How big is "
                           "the other angle, in degrees?" % deg, "component": "angle",
                 "spec": {"mode": "classify", "degrees": deg, "numeric": True}, "answer": 180 - deg, "answer_type": "int",

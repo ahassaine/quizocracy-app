@@ -483,6 +483,8 @@ def _(d=1):
         if unit == "kg":
             return _tb("Convert %s kg to grams." % _ds(x), _ds(x * 1000), "num", {"unit": "g"},
                        ["× 1000: %s g." % _ds(x * 1000)])
+        if unit == "m":                                   # whole metres, so km stays within 3 d.p.
+            x = Decimal(random.randint(11, _by(d, 999, 9999, 99999)))
         return _tb("Convert %s %s to %s." % (_ds(x), unit, big), _ds(x / f), "num", {"unit": big},
                    ["÷ %d: %s %s." % (f, _ds(x / f), big)])
 
@@ -831,18 +833,6 @@ def _(d=1):
                    "altogether?" % (r, c, extra), r * c + extra, "int", {"unit": "chairs"},
                    ["%d × %d = %d." % (r, c, r * c), "%d + %d = %d." % (r * c, extra, r * c + extra)])
 
-    def t_order():
-        a = random.randint(*_by(d, (2, 10), (2, 20), (20, 99)))
-        b, c = [random.randint(*_by(d, (2, 5), (2, 9), (6, 12))) for _ in range(2)]
-        return _tb("Work out %d + %d × %d. (Multiply before adding.)" % (a, b, c), a + b * c, "int", {},
-                   ["%d × %d = %d first." % (b, c, b * c), "%d + %d = %d." % (a, b * c, a + b * c)])
-
-    def t_brackets():
-        a, b = [random.randint(*_by(d, (2, 10), (2, 20), (10, 50))) for _ in range(2)]
-        c = random.randint(*_by(d, (2, 5), (2, 9), (6, 9)))
-        return _tb("Work out (%d + %d) × %d." % (a, b, c), (a + b) * c, "int", {},
-                   ["Brackets first: %d." % (a + b), "%d × %d = %d." % (a + b, c, (a + b) * c)])
-
     def t_two_step_div():
         k = random.randint(*_by(d, (2, 3), (2, 6), (4, 9)))
         per = random.randint(*_by(d, (2, 6), (6, 12), (12, 25)))
@@ -856,7 +846,6 @@ def _(d=1):
         cats = ["Mon", "Tue", "Wed", "Thu"]
         vals = [random.randint(*_by(d, (2, 10), (4, 20), (10, 40))) for _ in cats]
         price = pick(_by(d, [2, 5], [2, 3, 4, 5], [3, 4, 6, 7]))
-        i = random.randrange(4)
         return _bar("The chart shows how many cakes were sold each day. Cakes cost £%d each. How much "
                     "money was taken over all four days, in pounds?" % price, cats, vals,
                     sum(vals) * price, ["%d cakes in total." % sum(vals),
@@ -911,17 +900,8 @@ def _(d=1):
                                                    "totalLabel": "?", "unknown": "total"}, small * (k + 1),
                       ["Raj has %d × %d = %d." % (small, k, small * k), "%d + %d = %d." % (small, small * k, small * (k + 1))])
 
-    def t_order_mix():
-        a = random.randint(*_by(d, (20, 40), (20, 60), (50, 150)))
-        b, c = [random.randint(*_by(d, (2, 5), (2, 9), (6, 12))) for _ in range(2)]
-        e = random.randint(*_by(d, (2, 9), (2, 9), (10, 50)))
-        if a < b * c:
-            a += b * c
-        return _tb("Work out %d − %d × %d + %d." % (a, b, c, e), a - b * c + e, "int", {},
-                   ["%d × %d = %d first." % (b, c, b * c), "%d − %d + %d = %d." % (a, b * c, e, a - b * c + e)])
-
-    return _pick_t([t_shop, t_share_after, t_rows_plus, t_order, t_brackets, t_two_step_div, t_think, t_tickets,
-                    t_order_mix], [t_bar, t_menu, t_strip_compare])
+    return _pick_t([t_shop, t_share_after, t_rows_plus, t_two_step_div, t_think, t_tickets],
+                   [t_bar, t_menu, t_strip_compare])
 
 
 # ================================================================== 5.5 ======

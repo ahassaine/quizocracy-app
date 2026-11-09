@@ -240,7 +240,6 @@ def _(d=1):
                    "int", {}, ["The difference is %s." % _c(step)])
 
     def t_word():
-        who = _who()
         ans = n + step if more else n - step
         return _tb("A town had %s people. %s years later it had %s %s. How many people did it have "
                    "then?" % (_c(n), pick(["Ten", "Twenty", "Fifty"]), _c(step),
@@ -301,8 +300,8 @@ def _(d=1):
         towns = random.sample(["Leeds", "York", "Perth", "Dover", "Bath", "Hull"], len(temps))
         rows = [[t, "%d °C" % v] for t, v in zip(towns, temps)]
         k = temps.index(min(temps))
-        return _dt("The table shows night temperatures. Which town was the coldest? Type its "
-                   "temperature.", ["Town", "Temperature"], rows, min(temps),
+        return _dt("The table shows night temperatures. What was the temperature in the "
+                   "coldest town, in °C?", ["Town", "Temperature"], rows, min(temps),
                    ["The lowest number is the coldest: %d °C in %s." % (min(temps), towns[k])])
 
     def t_sea():

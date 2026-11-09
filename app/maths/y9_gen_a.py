@@ -42,7 +42,7 @@ def _bracket(p, var="x"):
 @skill("Y9.0.a", "Zero and negative indices", S0)
 def _(d=1):
     d = _d(d)
-    b = random.randint(2, _by(d, 5, 10, 10))
+    b = random.randint(_by(d, 2, 2, 3), _by(d, 5, 7, 10))
     n = random.randint(_by(d, 1, 1, 2), _by(d, 2, 3, 3))      # hard: never a plain reciprocal
 
     def t_zero():
@@ -250,8 +250,9 @@ def _(d=1):
                    ["As ordinary numbers: %s − %s = %s." % (_c(int(x)), _c(int(y)), _c(int(x - y)))], "e.g. 4.3x10^5")
 
     def t_times_bigger():
-        e1 = random.randint(_by(d, 4, 5, 5), _by(d, 6, 9, 9))
-        e2 = random.randint(_by(d, 1, 1, max(-2, e1 - 9)), _by(d, 3, 4, 4))   # stretch: the smaller one may have a negative power
+        e1 = random.randint(_by(d, 4, 5, 4), _by(d, 6, 9, 8))
+        # at most 10^6 apart, so the answer stays typeable in full; stretch: the smaller one may have a negative power
+        e2 = random.randint(max(_by(d, 1, 1, -2), e1 - 6), min(_by(d, 3, 4, 4), e1 - 1))
         big, small = a * b, b
         return _tb("How many times bigger is %dx10^%d than %dx10^%d?" % (big, e1, small, e2) if big < 10 else
                    "How many times bigger is %s than %dx10^%d?" % (_sf(Decimal(big) * 10 ** e1)[0], small, e2),

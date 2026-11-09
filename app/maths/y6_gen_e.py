@@ -1353,7 +1353,8 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     # stretch: fewer of the fixed-fact framings (equilateral = 60°)
-    t = _pick_t([2, 1, 1, 1, 0 if d == 2 else 1, 1, 1, 1, 1, 1, 4, 3, 1 if d == 2 else 2, 3, 3])
+    # rotational symmetry (13, 14) is KS3, not Year 6: switched off
+    t = _pick_t([2, 1, 1, 1, 0 if d == 2 else 1, 1, 1, 1, 1, 1, 4, 3, 1 if d == 2 else 2, 0, 0])
 
     if t == 13:                                       # rotational symmetry: amount of rotation
         shapes = [("equilateral triangle", 3), ("square", 4),
@@ -3908,6 +3909,12 @@ def _(d=1):
     st = _by_d(d, 15, 5, 1)
     cst = _by_d(d, 15, 5, 5)                          # the clock face keeps 5-minute marks
 
+    def _dur(lo, hi):
+        # easy: friendly durations (5s under an hour, then whole hours and quarters)
+        if d == 0:
+            return pick([m for m in list(range(15, 60, 5)) + list(range(60, 301, 15)) if lo <= m <= hi])
+        return random.randint(lo, hi)
+
     if t == 12:                                       # find start and end times (words)
         who = pick(NAMES)
         event, place = pick([("swimming lesson", "the pool"),
@@ -3915,7 +3922,7 @@ def _(d=1):
                              ("science club", "the lab"),
                              ("football match", "the park"),
                              ("art workshop", "the studio")])
-        mins = random.randint(_by_d(d, 20, 35, 45), _by_d(d, 75, 140, 220))
+        mins = _dur(_by_d(d, 20, 35, 45), _by_d(d, 75, 140, 220))
         h1 = random.randint(8, 18)
         m1 = random.randrange(0, 60, st)
         start = h1 * 60 + m1
@@ -3972,7 +3979,7 @@ def _(d=1):
     if t == 0:                                        # journey length in minutes
         h1 = random.randint(6, 18)
         m1 = random.randrange(0, 60, st)
-        mins = random.randint(_by_d(d, 20, 40, 70), _by_d(d, 90, 180, 300))
+        mins = _dur(_by_d(d, 20, 40, 70), _by_d(d, 90, 180, 300))
         start = h1 * 60 + m1
         end = start + mins
         return _num_q("A train leaves at %s and arrives at %s (24-hour clock). "
@@ -3981,8 +3988,9 @@ def _(d=1):
                       mins, "int", unit="minutes",
                       solution=["From %s to %s." % (_hm24(h1, m1),
                                                     _hm24((end // 60) % 24, end % 60)),
-                                "That is %s and %s = %d minutes."
-                                % (_pl(mins // 60, "hour"), _pl(mins % 60, "minute"), mins)])
+                                ("That is %s and %s = %d minutes."
+                                 % (_pl(mins // 60, "hour"), _pl(mins % 60, "minute"), mins)) if mins >= 60
+                                else "That is %d minutes." % mins])
 
     if t == 1:                                        # 12h -> 24h
         h = random.randint(1, 11)
@@ -4011,7 +4019,7 @@ def _(d=1):
     if t == 3:                                        # finish time
         h1 = random.randint(7, 20)
         m1 = random.randrange(0, 60, st)
-        mins = random.randint(_by_d(d, 15, 35, 55), _by_d(d, 80, 150, 260))
+        mins = _dur(_by_d(d, 15, 35, 55), _by_d(d, 80, 150, 260))
         end = h1 * 60 + m1 + mins
         return _num_q("A film starts at %s and lasts %d minutes. At what time does it "
                       "finish? Write the answer as a 24-hour clock time, in the form "
@@ -4027,7 +4035,7 @@ def _(d=1):
     if t == 4:                                        # start time (inverse)
         h2 = random.randint(9, 22)
         m2 = random.randrange(0, 60, st)
-        mins = random.randint(20, _by_d(d, 60, 120, 200))
+        mins = _dur(20, _by_d(d, 60, 120, 200))
         start = h2 * 60 + m2 - mins
         while start < 0:
             mins = random.randint(20, 60)
@@ -4124,7 +4132,8 @@ def _(d=1):
     # total time across several activities
     who = pick(NAMES)
     n = random.randint(*_by_d(d, (2, 3), (3, 5), (4, 6)))
-    mins = [random.randint(*_by_d(d, (10, 45), (15, 75), (25, 95))) for _ in range(n)]
+    mins = [5 * random.randint(2, 9) if d == 0 else random.randint(*_by_d(d, (10, 45), (15, 75), (25, 95)))
+            for _ in range(n)]
     total = sum(mins)
     return _num_q("%s does %d activities lasting %s minutes. What is the total time, in "
                   "hours and minutes? Write only the number of MINUTES left over after "

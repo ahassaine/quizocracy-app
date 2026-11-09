@@ -2166,9 +2166,8 @@ def _(d=1):
     d = _t(d)
 
     def _bounds(v):
-        lo = min(v - 3, -1)
-        hi = max(v + 3, 1)
-        return lo, hi
+        # centred on the boundary, 8 units wide: −15 gives −19 … −11, not −18 … 1
+        return v - 4, v + 4
 
     def write_inequality():
         op = pick(["<", "<=", ">", ">="])

@@ -1419,20 +1419,24 @@ def _(d=1):
     d = _t(d)
 
     def pct_to_decimal():
-        pct = pick([5, 12, 25, 40, 7, 60, 90, 15, 35, 48, 8])
+        pct = pick(_by_d(d, [10, 25, 40, 50, 60, 90], [5, 12, 15, 35, 48, 7],
+                         [8, 3, 125, 4, 150, 2]))
         return _decq("Write %d%% as a decimal." % pct, _dstr(Decimal(pct) / 100),
                      ["%d%% means %d out of 100." % (pct, pct),
                       "%d ÷ 100 = %s." % (pct, _dstr(Decimal(pct) / 100))])
 
     def decimal_to_pct():
-        dec = pick(["0.3", "0.45", "0.7", "0.08", "0.62", "0.9", "0.25", "0.14"])
+        dec = pick(_by_d(d, ["0.3", "0.7", "0.9", "0.25", "0.5"],
+                         ["0.45", "0.08", "0.62", "0.14", "0.05"],
+                         ["1.2", "0.07", "1.45", "0.03", "2.5"]))
         pct = int(Decimal(dec) * 100)
         return _numq("Write %s as a percentage." % dec, pct,
                      ["Multiply by 100: %s × 100 = %d%%." % (dec, pct)],
                      unit="%")
 
     def pct_to_fraction():
-        pct = pick([10, 20, 25, 40, 50, 60, 75, 80, 5, 15])
+        pct = pick(_by_d(d, [10, 20, 25, 50, 75], [40, 60, 80, 5, 15, 30],
+                         [12, 35, 45, 65, 8, 24]))
         return _fracq("Write %d%% as a fraction in its simplest form." % pct,
                       *_simp(pct, 100),
                       ["%d%% = %d/100." % (pct, pct),
@@ -1440,8 +1444,9 @@ def _(d=1):
                        % (pct, *_simp(pct, 100))])
 
     def fraction_to_pct():
-        num, den = pick([(1, 2), (1, 4), (3, 4), (1, 5), (2, 5), (3, 5), (1, 10),
-                         (7, 10), (1, 20), (13, 20), (1, 25)])
+        num, den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (1, 10), (7, 10)],
+                              [(1, 5), (2, 5), (3, 5), (1, 20), (13, 20), (1, 25)],
+                              [(7, 25), (9, 20), (3, 50), (17, 20), (11, 25), (5, 4)]))
         pct = num * 100 // den
         return _numq("Write the fraction %d/%d as a percentage." % (num, den),
                      pct,
@@ -1450,17 +1455,21 @@ def _(d=1):
                       "So %d/%d = %d%%." % (num, den, pct)], unit="%")
 
     def fraction_to_decimal():
-        num, den = pick([(1, 2), (1, 4), (3, 4), (1, 5), (3, 5), (1, 10),
-                         (7, 10), (1, 20), (1, 8), (3, 8)])
+        num, den = pick(_by_d(d, [(1, 2), (1, 4), (3, 4), (1, 10), (7, 10)],
+                              [(1, 5), (3, 5), (1, 20), (1, 8), (3, 8)],
+                              [(5, 8), (7, 8), (3, 20), (9, 25), (7, 40)]))
         return _decq("Write the fraction %d/%d as a decimal." % (num, den),
                      _dstr(Decimal(num) / Decimal(den)),
                      ["%d ÷ %d = %s." % (num, den,
                                          _dstr(Decimal(num) / Decimal(den)))])
 
     def decimal_to_fraction():
-        dec, num, den = pick([("0.5", 1, 2), ("0.25", 1, 4), ("0.75", 3, 4),
-                              ("0.2", 1, 5), ("0.4", 2, 5), ("0.1", 1, 10),
-                              ("0.3", 3, 10), ("0.05", 1, 20)])
+        dec, num, den = pick(_by_d(d, [("0.5", 1, 2), ("0.25", 1, 4), ("0.1", 1, 10),
+                                       ("0.3", 3, 10)],
+                                   [("0.75", 3, 4), ("0.2", 1, 5), ("0.4", 2, 5),
+                                    ("0.05", 1, 20)],
+                                   [("0.125", 1, 8), ("0.35", 7, 20), ("0.04", 1, 25),
+                                    ("0.625", 5, 8), ("0.85", 17, 20)]))
         return _fracq("Write the decimal %s as a fraction in its simplest form."
                       % dec, num, den,
                       ["%s = %s." % (dec, "%d/%d" % (num, den))])
@@ -1484,9 +1493,12 @@ def _(d=1):
                       placeholder="one of the three")
 
     def complete_triple():
-        pct, dec, num, den = pick([(50, "0.5", 1, 2), (25, "0.25", 1, 4),
-                                   (20, "0.2", 1, 5), (10, "0.1", 1, 10),
-                                   (75, "0.75", 3, 4), (40, "0.4", 2, 5)])
+        pct, dec, num, den = pick(_by_d(d, [(50, "0.5", 1, 2), (25, "0.25", 1, 4),
+                                            (10, "0.1", 1, 10), (75, "0.75", 3, 4)],
+                                        [(20, "0.2", 1, 5), (40, "0.4", 2, 5),
+                                         (5, "0.05", 1, 20), (60, "0.6", 3, 5)],
+                                        [(35, "0.35", 7, 20), (12, "0.12", 3, 25),
+                                         (85, "0.85", 17, 20), (4, "0.04", 1, 25)]))
         return _numq("%s = ___%% . What percentage goes in the blank?"
                      % ("%d/%d" % (num, den)), pct,
                      ["%d/%d = %s = %d%%." % (num, den, dec, pct)], unit="%")
@@ -1721,7 +1733,8 @@ def _(d=1):
     d = _t(d)
 
     def basic():
-        pct = pick([10, 20, 25, 40, 50, 5, 75, 80])
+        pct = pick(_by_d(d, [10, 20, 25, 50, 75], [5, 40, 80, 15, 30, 60],
+                         [12, 35, 45, 8, 65, 24]))
         g = _hcf(pct, 100)
         whole = (100 // g) * random.randint(2, _by_d(d, 6, 12, 25))
         part = whole * pct // 100
@@ -1731,27 +1744,28 @@ def _(d=1):
                       "× 100 = %d%%." % pct], unit="%")
 
     def test_score():
-        pct = pick([50, 60, 70, 80, 40, 25, 75, 90])
+        pct = pick(_by_d(d, [50, 25, 75, 80, 90], [60, 70, 40, 85, 35],
+                         [64, 72, 88, 36, 92]))
         g = _hcf(pct, 100)
-        total = (100 // g) * random.randint(1, 5)
+        total = (100 // g) * random.randint(1, 5 if g >= 5 else 2)
         score = total * pct // 100
         return _numq("%s scored %d out of %d in a test. What percentage is that?"
                      % (pick(NAMES), score, total), pct,
                      ["%d ÷ %d × 100 = %d%%." % (score, total, pct)], unit="%")
 
     def attendance():
-        pct = pick([80, 90, 75, 60, 50, 95])
+        pct = pick(_by_d(d, [50, 75, 80, 90], [60, 95, 85, 70], [96, 92, 88, 84]))
         g = _hcf(pct, 100)
-        total = (100 // g) * random.randint(1, 4)
+        total = (100 // g) * random.randint(1, 4 if g >= 5 else 2)
         present = total * pct // 100
         return _numq("Out of %d days, a pupil attended %d. What percentage of the "
                      "days did the pupil attend?" % (total, present), pct,
                      ["%d ÷ %d × 100 = %d%%." % (present, total, pct)], unit="%")
 
     def money_pct():
-        pct = pick([10, 20, 25, 50, 40])
+        pct = pick(_by_d(d, [10, 25, 50], [20, 40, 30, 75], [15, 35, 45, 60, 70]))
         g = _hcf(pct, 100)
-        whole = (100 // g) * random.randint(2, 10)
+        whole = (100 // g) * (random.randint(2, 10) if g >= 10 else random.randint(1, 2))
         part = whole * pct // 100
         return _numq("%s saves %s out of pocket money of %s each week. What "
                      "percentage of the pocket money is saved?"
@@ -1771,16 +1785,16 @@ def _(d=1):
                     caption="Quality check", answer_type="int")
 
     def part_of_larger():
-        pct = pick([5, 10, 15, 20, 25])
+        pct = pick(_by_d(d, [10, 20, 25], [5, 15, 30, 40], [12, 35, 8, 45]))
         g = _hcf(pct, 100)
-        whole = (100 // g) * random.randint(3, 12)
+        whole = (100 // g) * random.randint(3, 12 if g >= 5 else 6)
         part = whole * pct // 100
         return _numq("In a car park there are %d spaces and %d are empty. What "
                      "percentage of the spaces are empty?" % (whole, part), pct,
                      ["%d ÷ %d × 100 = %d%%." % (part, whole, pct)], unit="%")
 
     def what_pct_left():
-        pct = pick([20, 25, 40, 50, 60])
+        pct = pick(_by_d(d, [25, 50, 20], [40, 60, 30, 75], [35, 45, 15, 65, 12]))
         g = _hcf(pct, 100)
         whole = (100 // g) * random.randint(2, 8)
         used = whole * pct // 100
@@ -1806,7 +1820,7 @@ def _(d=1):
     d = _t(d)
 
     def increase():
-        pct = pick([10, 20, 25, 50, 5, 30])
+        pct = pick(_by_d(d, [10, 20, 25, 50], [5, 30, 40, 15, 75], [12, 35, 45, 8, 65]))
         g = _hcf(pct, 100)
         base = (100 // g) * random.randint(2, _by_d(d, 8, 15, 30))
         ans = base + base * pct // 100
@@ -1815,7 +1829,7 @@ def _(d=1):
                       "%d + %d = %d." % (base, base * pct // 100, ans)])
 
     def decrease():
-        pct = pick([10, 20, 25, 50, 40, 5])
+        pct = pick(_by_d(d, [10, 20, 25, 50], [40, 5, 30, 15, 60], [12, 35, 45, 8, 65]))
         g = _hcf(pct, 100)
         base = (100 // g) * random.randint(2, _by_d(d, 8, 15, 30))
         ans = base - base * pct // 100
@@ -1824,9 +1838,9 @@ def _(d=1):
                       "%d − %d = %d." % (base, base * pct // 100, ans)])
 
     def pay_rise():
-        pct = pick([5, 10, 20, 25])
+        pct = pick(_by_d(d, [10, 20, 25], [5, 15, 30], [3, 4, 6, 12]))
         g = _hcf(pct, 100)
-        pay = (100 // g) * random.randint(10, 40)
+        pay = (100 // g) * random.randint(*_by_d(d, (10, 40), (10, 40), (4, 16)))
         ans = pay + pay * pct // 100
         nm = pick(NAMES)
         return _numq("%s earns %s a week. %s gets a %d%% pay rise. What is the new "
@@ -1837,7 +1851,7 @@ def _(d=1):
                       "New pay = %s." % _pounds(ans)], unit="£")
 
     def population():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_by_d(d, [10, 20, 25, 50], [5, 15, 30, 40], [12, 35, 8, 4]))
         g = _hcf(pct, 100)
         start = (100 // g) * random.randint(20, 80)
         ans = start + start * pct // 100
@@ -1859,7 +1873,7 @@ def _(d=1):
                                          _pounds(ans))], unit="£")
 
     def find_new_pct():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_by_d(d, [10, 20, 25, 50], [5, 15, 30, 40], [12, 35, 8, 65]))
         base = 100
         ans = base + base * pct // 100
         return _numq("A price is increased by %d%%. If the original price counts "

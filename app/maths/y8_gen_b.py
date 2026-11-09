@@ -687,6 +687,14 @@ def _(d=1):
     d = _t(d)
     pows = _by_d(d, [10, 100], [10, 100, 1000], [10, 100, 1000])
 
+    def _mk(dp, lo, hi):
+        """Like the module's _mk, but the last decimal digit is never 0, so a 3 d.p.
+        number really shows 3 d.p. (2.537, never 2.5 from 2.500)."""
+        n = random.randint(int(lo), int(hi))
+        while dp and n % 10 == 0:
+            n = random.randint(int(lo), int(hi))
+        return _D(n).scaleb(-int(dp))
+
     def mul():
         k = pick(pows)
         a = _mk(_by_d(d, 1, 2, 3), *_by_d(d, (12, 98), (105, 985), (1005, 9985)))
@@ -1806,8 +1814,8 @@ def _(d=1):
         return _sq("Is %d/%d less than or more than one half? Type 'less than' "
                    "or 'more than'." % (n, dd), sym,
                    placeholder="less than / more than",
-                   solution=["Half of %d is %.1f; the numerator is %d."
-                             % (dd, dd / 2, n),
+                   solution=["Half of %d is %s; the numerator is %d."
+                             % (dd, _txt(_D(dd) / 2), n),
                              "So %d/%d is %s one half." % (n, dd, sym)])
 
     def line_place():
@@ -2271,6 +2279,9 @@ def _(d=1):
     def nonunit_of():
         dd = pick([3, 4, 5, 6, 8])
         n = random.randint(2, dd - 1)
+        while _hcf(n, dd) > 1:                        # show the fraction in its simplest form
+            dd = pick([3, 4, 5, 6, 8])
+            n = random.randint(2, dd - 1)
         whole = dd * random.randint(*_by_d(d, (2, 6), (3, 12), (4, 20)))
         val = whole // dd * n
         return _iq("Work out %d/%d of %d." % (n, dd, whole), val,
@@ -2280,6 +2291,8 @@ def _(d=1):
     def money_of():
         dd = pick([2, 4, 5])
         n = random.randint(1, dd - 1)
+        while _hcf(n, dd) > 1:                        # no 2/4
+            n = random.randint(1, dd - 1)
         pounds = dd * random.randint(4, 20)
         val = pounds // dd * n
         return _iq("Work out %d/%d of £%d." % (n, dd, pounds), val, unit="£",
@@ -2309,6 +2322,8 @@ def _(d=1):
     def scale_up():
         dd = pick([2, 3, 4, 5])
         n = dd + random.randint(1, 4)  # improper -> enlarges
+        while _hcf(n, dd) > 1:                        # no 6/4 or 6/3
+            n = dd + random.randint(1, 4)
         base = dd * random.randint(4, 12)
         val = base // dd * n
         return _iq("A length of %d cm is scaled by %d/%d. What is the new "
@@ -2319,6 +2334,8 @@ def _(d=1):
     def scale_down():
         dd = pick([3, 4, 5])
         n = random.randint(1, dd - 1)
+        while _hcf(n, dd) > 1:
+            n = random.randint(1, dd - 1)
         base = dd * random.randint(4, 15)
         val = base // dd * n
         return _iq("A recipe for %d g is scaled by %d/%d. What is the new "
@@ -2344,6 +2361,8 @@ def _(d=1):
     def word_class():
         dd = pick([3, 4, 5])
         n = random.randint(1, dd - 1)
+        while _hcf(n, dd) > 1:
+            n = random.randint(1, dd - 1)
         total = dd * random.randint(5, 9)
         val = total // dd * n
         return _iq("A school has %d pupils in Year 8. %d/%d of them walk to "

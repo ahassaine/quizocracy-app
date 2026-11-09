@@ -99,3 +99,21 @@ def test_pie_answer_hidden_from_the_legend():
     spec = {"slices": [["A", 12], ["B", 30]], "highlight": 1}
     assert e.hide_pie_answer(spec, 30).get("hideValue") is True
     assert "hideValue" not in e.hide_pie_answer(spec, 90)            # the angle is asked, the value may show
+
+
+def test_answer_shown_after_a_wrong_try():
+    t = lambda a, p="Work it out.", at="num": e.answer_text({"answer": a, "prompt": p, "answer_type": at})
+    assert t(26.0) == 26 and t(0.3333333333333333) == "1/3" and t(2.666667) == "2 2/3" and t(-0.5) == -0.5
+    assert t(0.03156) == 0.03156 and t(0.30000000000000004) == 0.3 and t(7) == 7
+    assert t(6.0, "Round 5.95 to one decimal place.") == "6.0"
+    assert t(21.9, "Give your answer to 2 decimal places.") == "21.90"
+    assert t(2.85, "It rounds to 2.9 to 1 decimal place. What is the smallest it could be?") == 2.85
+    assert t(26.0, at="str") == 26.0          # only numbers are reformatted
+    for key, fn in e.GENERATORS.items():      # the shown answer is always the stored one, re-marked
+        for d in (0, 2):
+            random.seed(f"{key}/{d}")
+            q = e.call_generator(fn, d)
+            shown = str(e.answer_text(q))
+            if "/" not in shown:
+                assert e.check_answer(q.get("answer_type", "num"), q["answer"], shown, q.get("tolerance", 0),
+                                      (q.get("spec") or {}).get("unit")), (key, q["answer"], shown)

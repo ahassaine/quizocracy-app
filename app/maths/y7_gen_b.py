@@ -180,6 +180,8 @@ def _(d=1):
 
     def t_think():
         n, k, c = random.randint(3, _by(d, 12, 20, 40)), random.randint(2, _by(d, 4, 5, 9)), random.randint(1, _by(d, 10, 15, 40))
+        if d == 0:                                  # easy: the stated answer stays positive
+            c = min(c, k * n - 1)
         return _tb("I think of a number, multiply it by %d and subtract %d. The answer is %d. What was my number?"
                    % (k, c, k * n - c), n, "int", {}, ["%dn − %d = %d." % (k, c, k * n - c), "%dn = %d, n = %d." % (k, k * n, n)])
 
@@ -692,11 +694,13 @@ def _(d=1):
                    ["%s × %s = %s." % (_ds(ea), _ds(eb), _ds(ea * eb))])
 
     def t_estimate_div():
-        a = random.randint(_by(d, 110, 110, 1100), _by(d, 990, 990, 9900))
-        b = random.randint(11, _by(d, 29, 49, 89))
+        # built from the rounded pair, so the estimate always divides exactly
+        unit = _by(d, 100, 100, 1000)
+        ea, eb = pick([(m * unit, t * 10) for m in range(2, 10) for t in range(1, _by(d, 3, 5, 9) + 1)
+                       if (m * unit) % (t * 10) == 0])
+        a = pick([v for v in range(ea - unit // 2, ea + unit // 2) if v != ea])
+        b = pick([v for v in range(max(11, eb - 5), eb + 5) if v != eb])
         ea, eb = _sf1(a), _sf1(b)
-        if ea % eb:
-            return t_estimate_mult()
         return _tb("Estimate %d ÷ %d by rounding each number to 1 significant figure." % (a, b), int(ea / eb), "int", {},
                    ["%s ÷ %s = %s." % (_ds(ea), _ds(eb), _ds(ea / eb))])
 

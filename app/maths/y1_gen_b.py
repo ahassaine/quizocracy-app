@@ -25,11 +25,12 @@ def _(d=1):
                 "spec": {"mode": "mass", "value": kg, "max": top, "unit": "kg"}, "answer": kg, "answer_type": "num",
                 "tolerance": 0.5, "solution": ["The pointer is on %d kg." % kg]}
 
-    def t_jug():
-        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 ml lines
-        return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": _by(d, 50, 50, 20), "solution": ["The water is level with %d ml." % v]}
+    def t_jug():                                        # non-standard units: the jug is marked in cups
+        top = _by(d, 5, 10, 20)
+        v = 2 * random.randint(1, 9) if d == 2 else random.randint(1, top - 1)     # hard: a 20-cup jug marked in 2s
+        return {"prompt": "The jug is marked in cups. How many cups of water are in it?", "component": "ruler",
+                "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"}, "answer": v, "answer_type": "num",
+                "tolerance": 0, "solution": ["The water is level with %d cups." % v]}
 
     def t_cubes():
         a = random.randint(_by(d, 3, 3, 10), _by(d, 8, 12, 20))

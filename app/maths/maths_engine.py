@@ -132,7 +132,7 @@ def check_answer(answer_type, expected, value, tolerance=0, unit=None):
         v, e = _num(value), _num(expected)
         if v is None or e is None:
             return False
-        if abs(v - e) <= (tolerance or 0) + 1e-9:
+        if abs(v - e) <= (tolerance or 0) + 1e-9 * max(abs(e), 1e-6):   # float noise only, even for 4.81 × 10⁻⁷
             return True
         # an answer asked in pence typed in pounds: "£1.86" for 186p (only where the box says "p")
         return unit == "p" and "£" in str(value) and abs(v * 100 - e) <= (tolerance or 0) + 1e-6
@@ -202,6 +202,30 @@ def difficulty_for(score):
     if score < 80:
         return 1
     return 2
+
+
+_DP_WORDS = {"one": 1, "two": 2, "three": 3}
+_DP_ASKED = re.compile(r"\bto (\d|one|two|three) (?:decimal place|d\.?p\b)", re.I)
+
+
+def answer_text(q):
+    """The answer as it is shown after a wrong try. Generators compute with floats, so a whole number
+    comes out as 26.0 and a third as 0.3333333333333333: show 26, 1/3 or 2 1/3 instead. When the prompt
+    asks for decimal places, show that many (6.0, 21.90)."""
+    a = q.get("answer")
+    if not isinstance(a, float) or q.get("answer_type", "num") not in ("num", "int"):
+        return a
+    m = _DP_ASKED.search(q.get("prompt", ""))
+    n = m and (_DP_WORDS.get(m.group(1).lower()) or int(m.group(1)))
+    if n and abs(round(a, n) - a) < 1e-9:      # not a bound such as 2.85 for "rounds to 2.9 to 1 d.p."
+        return f"{a:.{n}f}"
+    if a.is_integer():
+        return int(a)
+    f = Fraction(a).limit_denominator(24)
+    if f.denominator > 1 and abs(float(f) - a) < 1e-6 and len(f"{a:.10g}".split(".")[-1]) >= 5:
+        w, r = divmod(abs(f.numerator), f.denominator)
+        return ("-" if a < 0 else "") + (f"{w} {r}/{f.denominator}" if w else f"{r}/{f.denominator}")
+    return float(f"{a:.10g}")
 
 
 def call_generator(fn, difficulty=1):
@@ -277,6 +301,7 @@ async def new_question(skill_key, difficulty=1, pupil=None):
             "skill": skill_key,
             "prompt": q["prompt"],
             "answer": q["answer"],
+            "display": answer_text(q),
             "answer_type": q.get("answer_type", "num"),
             "tolerance": q.get("tolerance", 0),
             "unit": (q.get("spec") or {}).get("unit"),
@@ -298,7 +323,7 @@ async def check(token, value, pupil):
         return {"ok": False, "error": "expired"}
     correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0), doc.get("unit"))
     return {"ok": True, "correct": bool(correct),
-            "expected": doc["answer"], "solution": doc.get("solution", []),
+            "expected": doc.get("display", doc["answer"]), "solution": doc.get("solution", []),
             "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}
 
 # ------------------------------------------------ register Y3 generators ------

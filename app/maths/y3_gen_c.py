@@ -2492,14 +2492,18 @@ def _(d=1):
                       ans, "str", text=True, placeholder="parallel / perpendicular",
                       solution=["%s are %s." % (case.capitalize(), ans)])
 
-    if t == 3:                                          # counting in a shape (visual)
-        name, pairs = pick([("square", 2), ("rectangle", 2), ("hexagon", 3)])
-        return {"prompt": "How many sides does this shape have? "
-                          "(In this shape, opposite sides are parallel.)",
+    if t == 3:                                          # parallel sides in a drawn shape (visual)
+        # the shape component draws these regular (the rectangle aside); odd-sided ones have no parallel sides
+        name, pairs = pick(_by_d(d, [("square", 2), ("rectangle", 2), ("triangle", 0)],
+                                 [("square", 2), ("rectangle", 2), ("hexagon", 3), ("triangle", 0)],
+                                 [("hexagon", 3), ("octagon", 4), ("pentagon", 0), ("rectangle", 2)]))
+        return {"prompt": "How many pairs of parallel sides does this shape have?",
                 "component": "shape", "spec": {"kind": "2d", "name": name, "ask": "sides"},
-                "answer": pairs * 2, "answer_type": "int",
-                "solution": ["It has %d pairs of parallel sides." % pairs,
-                             "%d × 2 = %d sides." % (pairs, pairs * 2)]}
+                "answer": pairs, "answer_type": "int",
+                "solution": ["Parallel sides go in the same direction and never meet."
+                             + (" In this shape each side is parallel to the side opposite it."
+                                if pairs else " No side of this shape is parallel to another."),
+                             "It has %s of parallel sides." % _pl(pairs, "pair")]}
 
     if t == 5:                    # NEW: attributes of quadrilaterals
         mode = random.randrange(2)
@@ -3127,7 +3131,14 @@ def _(d=1):
                                 budget - prices[i] - prices[j])]}
 
     if t == 1:                                          # how many can you buy
-        price = pick([20, 25, 50, 100])
+        # easy: round prices into £1/£2; hard: 30p/40p/80p into an uneven budget (a 3, 4 or 8 times-table fact)
+        if d == 0:
+            price, budget = pick([10, 20, 50]), pick([100, 200])
+        elif d == 1:
+            price, budget = pick([20, 25, 50]), pick([200, 500])
+        else:
+            price = pick([30, 40, 80])
+            budget = price * random.randint(6, 12)
         count = budget // price
         return _num_q("Stickers cost %s each. How many can you buy with %s?"
                       % (money(price), money(budget)),

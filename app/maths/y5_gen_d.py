@@ -439,8 +439,11 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     dp = _by(d, 1, 2, 3)
-    a = Decimal(random.randint(10, 999)) / 10 ** dp * pick([1, 10])
+    a = Decimal(random.randint(10, 999)) / 10 ** dp * pick([1, 10] if d else [1])
     b = Decimal(random.randint(10, 999)) / 10 ** random.randint(1, dp)
+    while a % 1 == 0 or b % 1 == 0:                       # both parts are true decimals, never whole
+        a = Decimal(random.randint(10, 999)) / 10 ** dp * pick([1, 10] if d else [1])
+        b = Decimal(random.randint(10, 999)) / 10 ** random.randint(1, dp)
 
     def t_add():
         return _tb("Work out %s + %s." % (_ds(a), _ds(b)), _ds(a + b), "num", {},
@@ -1374,8 +1377,12 @@ def _(d=1):
                    ["%d + %d = %d." % (a * b, c * e, a * b + c * e)])
 
     def t_unit():
-        what, ans = pick([("a football pitch", "m"), ("a postage stamp", "cm"), ("a classroom floor", "m"),
-                          ("a playing card", "cm"), ("a garden", "m"), ("a page of a book", "cm")])
+        # easy: very big or very small things; hard: things nearer the middle, where it takes more thought
+        easy = [("a football pitch", "m"), ("a postage stamp", "cm"), ("a classroom floor", "m"),
+                ("a playing card", "cm"), ("a garden", "m"), ("a page of a book", "cm")]
+        hard = [("a front door", "m"), ("a dinner plate", "cm"), ("a bedroom wall", "m"), ("a tablet screen", "cm"),
+                ("a kitchen table top", "m"), ("a computer keyboard", "cm")]
+        what, ans = pick(_by(d, easy, easy + hard, hard))
         return _wq("Would you measure the area of %s in square centimetres (cm²) or square metres (m²)? Type cm or m."
                    % what, ans, ["Small things use cm²; large things use m²."], "cm or m")
 
@@ -1745,8 +1752,9 @@ def _(d=1):
                    _ds(n * x), "num", {"unit": "m"}, ["%d × %s = %s." % (n, _ds(x), _ds(n * x))])
 
     def t_share():
-        n = random.randint(*_by(d, (2, 4), (2, 8), (6, 9)))
-        each = Decimal(random.randint(*_by(d, (1, 9), (11, 99), (11, 99)))) / _by(d, 10, 100, 100)
+        # Y5 division of decimals: ÷ 2, 4, 5 with exact simple answers, or ÷ 10, 100, 1000
+        n = pick(_by(d, [2, 5, 10], [2, 4, 5, 10], [10, 100, 1000]))
+        each = Decimal(random.randint(*_by(d, (1, 9), (11, 99), (11, 99)))) / _by(d, 10, 10, 100)
         tot = each * n
         return _tb("%s %s of juice is shared equally into %d bottles. How much is in each bottle, in "
                    "litres?" % (_ds(tot), "litre" if tot == 1 else "litres", n), _ds(each), "num", {"unit": "litres"},

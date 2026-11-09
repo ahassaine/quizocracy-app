@@ -961,11 +961,17 @@ def _(d=1):
         return _tb("One tower is %d cubes tall. Another is %d cubes tall. How many cubes taller is the bigger one?" % (a, b),
                    abs(a - b), "int", {}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
 
-    def t_jug():
-        v = random.randint(1, 9) * 100
-        return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": 1000, "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": 50, "solution": ["The water reaches %d ml." % v]}
+    def t_jug():                                        # non-standard units: the jug is marked in cups
+        top = _by(d, 5, 5, 10)
+        v = random.randint(1, top - 1)
+        if d == 2 and random.random() < 0.5:            # hard: how many more cups to fill it
+            return {"prompt": "The jug is marked in cups. It holds %d cups when full. How many more cups of water will fill it?" % top,
+                    "component": "ruler", "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"},
+                    "answer": top - v, "answer_type": "num", "tolerance": 0,
+                    "solution": ["It has %d cups. %d − %d = %d more cups." % (v, top, v, top - v)]}
+        return {"prompt": "The jug is marked in cups. How many cups of water are in it?", "component": "ruler",
+                "spec": {"mode": "capacity", "value": v, "max": top, "unit": "cups"}, "answer": v, "answer_type": "num",
+                "tolerance": 0, "solution": ["The water reaches %d cups." % v]}
 
     def t_quicker():
         a, b = random.sample(range(5, 60), 2)
@@ -1176,9 +1182,9 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
-    flat = _by(d, ["triangle", "square", "rectangle"], ["triangle", "square", "rectangle", "pentagon", "hexagon"],
-               ["rectangle", "square", "pentagon", "hexagon"])         # hard: more sides, square or rectangle?
-    edges = {"triangle": 3, "square": 4, "rectangle": 4, "pentagon": 5, "hexagon": 6}
+    flat = _by(d, ["triangle", "square", "rectangle"], ["triangle", "square", "rectangle"],
+               ["rectangle", "square", "rectangle", "square", "triangle"])   # hard: square or rectangle?
+    edges = {"triangle": 3, "square": 4, "rectangle": 4}
 
     def t_2d():
         name = pick(flat)
@@ -1192,8 +1198,8 @@ def _(d=1):
 
     def t_sides():
         name, n = pick(_by(d, [("triangle", 3), ("square", 4)], [("triangle", 3), ("square", 4), ("rectangle", 4)],
-                           [("rectangle", 4), ("pentagon", 5), ("hexagon", 6)]))
-        return _tb("How many sides does a %s have?" % name, n, "int", {}, ["A %s has %d sides." % (name, n)])
+                           [("rectangle", 4), ("circle", 0), ("triangle", 3)]))     # hard: a circle has no straight sides
+        return _tb("How many straight sides does a %s have?" % name, n, "int", {}, ["A %s has %d straight sides." % (name, n)])
 
     def t_object():
         q, a = pick(_by(d, [("A ball is the shape of a ...", "sphere"), ("A dice is the shape of a ...", "cube"),
@@ -1222,17 +1228,15 @@ def _(d=1):
 
     def t_corners():
         name, n = pick(_by(d, [("triangle", 3), ("square", 4)], [("triangle", 3), ("square", 4), ("rectangle", 4)],
-                           [("rectangle", 4), ("pentagon", 5), ("hexagon", 6)]))
+                           [("rectangle", 4), ("circle", 0), ("triangle", 3)]))     # hard: a circle has no corners
         return _tb("How many corners does a %s have?" % name, n, "int", {}, ["A %s has %d corners." % (name, n)])
 
     def t_which():
         n, name = pick(_by(d, [(3, "triangle"), (0, "circle")], [(3, "triangle"), (4, "square"), (0, "circle")],
-                           [(4, "square"), (4, "rectangle"), (5, "pentagon"), (6, "hexagon")]))
+                           [(4, "square"), (4, "rectangle"), (4, "rectangle"), (3, "triangle")]))
         if name == "rectangle":                         # hard: tell a rectangle from a square
             return _wq("Which shape has 4 square corners, 2 long sides and 2 short sides? (one word)", "rectangle",
                        ["A rectangle has 2 long sides and 2 short sides."], "shape name")
-        if n > 4:
-            return _wq("Which flat shape has %d straight sides? (one word)" % n, name, ["A %s has %d sides." % (name, n)], "shape name")
         if n == 0:
             return _wq("Which flat shape is perfectly round?", "circle", ["A circle is round."], "shape name")
         if n == 4:
@@ -1243,7 +1247,7 @@ def _(d=1):
         name, a = pick(_by(d, [("cube", "solid"), ("circle", "flat"), ("sphere", "solid"), ("square", "flat")],
                            [("cube", "solid"), ("circle", "flat"), ("sphere", "solid"), ("triangle", "flat"), ("cuboid", "solid"),
                             ("square", "flat"), ("cylinder", "solid"), ("rectangle", "flat")],
-                           [("pyramid", "solid"), ("hexagon", "flat"), ("cylinder", "solid"), ("pentagon", "flat"), ("cone", "solid"),
+                           [("pyramid", "solid"), ("triangle", "flat"), ("cylinder", "solid"), ("circle", "flat"), ("cone", "solid"),
                             ("rectangle", "flat"), ("cuboid", "solid")]))
         return _wq("Is a %s a flat shape or a solid shape? (flat or solid)" % name, a,
                    ["Flat shapes are 2-D; solid shapes are 3-D."], "flat / solid")
@@ -1260,7 +1264,7 @@ def _(d=1):
 
     def t_how_many():
         shapes = [pick(_by(d, ["triangle", "square", "circle"], ["triangle", "square", "circle", "rectangle"],
-                           ["triangle", "square", "circle", "rectangle", "hexagon"])) for _ in range(_by(d, 4, 6, 8))]
+                           ["triangle", "square", "circle", "rectangle", "cube"])) for _ in range(_by(d, 4, 6, 8))]
         what = pick(sorted(set(shapes)))
         return _tb("How many %ss are in this list?  %s" % (what, ", ".join(shapes)), shapes.count(what), "int", {},
                    ["Count each %s: %d." % (what, shapes.count(what))])

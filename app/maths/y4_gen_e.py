@@ -465,34 +465,33 @@ def _(d=1):
                                 "2 equal sides, scalene means no equal sides.",
                                 "This triangle is %s." % kind])
 
-    if t == 1:                                        # classify by angles
-        kind = pick(["acute", "right", "obtuse"])
-        if kind == "right":
-            a = random.randint(20, 70)
-            angles = (90, a, 90 - a)
-        elif kind == "obtuse":
-            a = random.choice(_by_d(d, [120, 130, 140], [100, 110, 120, 130, 140],
-                                    [92, 95, 98, 102, 105]))   # stretch: only just obtuse
-            b = random.randint(10, 180 - a - 10)
-            angles = (a, b, 180 - a - b)
-        else:
-            a = random.randint(50, 80)
-            b = random.randint(max(20, 100 - a), 85)
-            c = 180 - a - b
-            while not (0 < c < 90):
-                a = random.randint(50, 80)
-                b = random.randint(max(20, 100 - a), 85)
-                c = 180 - a - b
-            angles = (a, b, c)
-        if d == 2:                                    # stretch: the big angle is not listed first
-            angles = tuple(random.sample(angles, 3))
-        return _num_q("A triangle has angles of %d°, %d° and %d°. Is it an acute, right "
-                      "or obtuse triangle? (type one word)" % angles,
+    if t == 1:                                        # classify by angles: test with a page corner
+        test, kind = pick(_by_d(d, [
+            ("the corner fits exactly into one of the angles", "right"),
+            ("one angle is wider than the corner, so a gap is left beside it", "obtuse"),
+            ("the corner is too wide to fit into any of the angles", "acute"),
+        ], [
+            ("the corner fits exactly into one of the angles", "right"),
+            ("one angle opens wider than the corner", "obtuse"),
+            ("every angle is narrower than the corner", "acute"),
+            ("the corner is too wide to fit into any of the angles", "acute"),
+        ], [                                          # stretch: the deciding angle comes last
+            ("two angles are narrower than the corner and the third matches it exactly",
+             "right"),
+            ("two angles are narrower than the corner, but the third leaves a gap when the "
+             "corner is fitted into it", "obtuse"),
+            ("even the widest angle is narrower than the corner", "acute"),
+            ("the corner fits exactly into the largest angle", "right"),
+        ]))
+        return _num_q("%s tests each angle of a triangle with the square corner of a page: "
+                      "%s. Is it an acute, right or obtuse triangle? (type one word)"
+                      % (pick(NAMES), test),
                       kind, "str", text=True, placeholder="acute / right / obtuse",
-                      solution=["A right triangle has a 90° angle; an obtuse triangle has "
-                                "an angle over 90°; an acute triangle has all angles under 90°.",
-                                "The largest angle here is %d°, so it is %s."
-                                % (max(angles), kind)])
+                      solution=["The corner of a page is a right angle.",
+                                "A right triangle has a right angle; an obtuse triangle has an "
+                                "angle bigger than a right angle; in an acute triangle every "
+                                "angle is smaller than a right angle.",
+                                "So this triangle is %s." % kind])
 
     if t == 2:                                        # name -> equal sides
         kind, eq = pick([("equilateral", 3), ("isosceles", 2), ("scalene", 0)][:2 if d == 0 else 3])
@@ -507,21 +506,38 @@ def _(d=1):
                       solution=["%s triangle has %s of equal length."
                                 % (_a(kind).capitalize(), _pl(eq, "side"))])
 
-    if t == 3:                                        # missing angle
-        a = random.randint(20, _by_d(d, 60, 80, 110))
-        b = random.randint(20, 170 - a)
-        c = 180 - a - b
-        return _num_q("Two angles of a triangle are %d° and %d°. What is the third angle, "
-                      "in degrees?" % (a, b),
-                      c, "int", unit="degrees",
-                      solution=["The angles of a triangle add up to 180°.",
-                                "%d + %d = %d, and 180 − %d = %d°." % (a, b, a + b, a + b, c)])
+    if t == 3:                                        # described angles -> acute / right / obtuse
+        desc, kind = pick(_by_d(d, [
+            ("one angle that is a right angle", "right"),
+            ("one angle that is bigger than a right angle", "obtuse"),
+            ("three angles that are all smaller than a right angle", "acute"),
+        ], [
+            ("one square corner, like the corner of a page", "right"),
+            ("one angle that is wider than the corner of a book", "obtuse"),
+            ("three angles that are all narrower than a square corner", "acute"),
+            ("one angle that is bigger than a right angle", "obtuse"),
+        ], [                                          # stretch: the deciding angle is hidden in the list
+            ("two angles smaller than a right angle and one angle bigger than a right "
+             "angle", "obtuse"),
+            ("two angles smaller than a right angle and one angle that is exactly a "
+             "quarter turn", "right"),
+            ("a largest angle that is smaller than a right angle", "acute"),
+            ("three equal sides, so three equal angles that are each smaller than a right "
+             "angle", "acute"),
+        ]))
+        return _num_q("A triangle has %s. Is it an acute, right or obtuse triangle? "
+                      "(type one word)" % desc,
+                      kind, "str", text=True, placeholder="acute / right / obtuse",
+                      solution=["A right triangle has a right angle; an obtuse triangle has an "
+                                "angle bigger than a right angle; in an acute triangle every "
+                                "angle is smaller than a right angle.",
+                                "So this triangle is %s." % kind])
 
     if t == 4:                                        # description -> name
         descs = [("all three sides the same length", "equilateral"),
                  ("exactly two sides the same length", "isosceles"),
                  ("no two sides the same length", "scalene"),
-                 ("all three angles equal to 60°", "equilateral"),
+                 ("all three angles equal", "equilateral"),
                  ("two equal angles at its base", "isosceles"),
                  ("three different angles", "scalene")]
         desc, kind = pick(_by_d(d, descs[:3], descs[:5], descs[3:]))
@@ -530,7 +546,7 @@ def _(d=1):
                       placeholder="scalene / isosceles / equilateral",
                       solution=["A triangle with %s is %s." % (desc, _a(kind))])
 
-    if t == 5:                                        # equilateral angle size
+    if t == 5:                                        # sort triangles by their sides
         if d == 2:                                    # stretch: use the two equal sides
             a = random.randint(5, 15)
             b = random.randint(2, 2 * a - 1)
@@ -541,11 +557,22 @@ def _(d=1):
                           2 * a + b, "int", unit="cm",
                           solution=["The two equal sides are %d cm each." % a,
                                     "%d + %d + %d = %d cm." % (a, a, b, 2 * a + b)])
-        return _num_q("All three angles of an equilateral triangle are equal. "
-                      "How many degrees is each angle?",
-                      60, "int", unit="degrees",
-                      solution=["The angles of a triangle add up to 180°.",
-                                "180 ÷ 3 = 60°."])
+        tris = [(5, 5, 5), (4, 6, 7), (6, 6, 3), (8, 8, 8), (3, 5, 6), (7, 4, 7),
+                (9, 9, 5), (5, 7, 9)]
+        chosen = random.sample(tris, _by_d(d, 3, 4, 4))
+        want = pick(["equilateral", "isosceles", "scalene"])
+
+        def _kind(s):
+            n = len(set(s))
+            return "equilateral" if n == 1 else ("isosceles" if n == 2 else "scalene")
+        cnt = sum(1 for s in chosen if _kind(s) == want)
+        return _num_q("Here are the side lengths of some triangles, in cm: %s. How many of "
+                      "them are %s? (type 0 if none)"
+                      % ("; ".join("%d, %d, %d" % s for s in chosen), want),
+                      cnt, "int", unit="triangles",
+                      solution=["%s." % "; ".join("%d, %d, %d is %s" % (s + (_kind(s),))
+                                                 for s in chosen),
+                                "%d of them %s %s." % (cnt, "is" if cnt == 1 else "are", want)])
 
     if t == 6:                                        # visual (the drawn triangle is regular)
         ask = _by_d(d, "classify", pick(["classify", "symmetry"]), "symmetry")
@@ -565,23 +592,25 @@ def _(d=1):
                              "matches the two halves.",
                              "An equilateral triangle has 3 lines of symmetry."]}
 
-    if t == 7:                                        # isosceles: find the equal angles
-        apex = random.choice(_by_d(d, [20, 40, 60, 80, 100], [20, 30, 40, 50, 70, 80, 100],
-                                   [24, 36, 48, 54, 66, 72, 108, 116]))
-        base = (180 - apex) // 2
-        apex = 180 - 2 * base
-        if d == 2 and random.random() < 0.5:          # stretch: the other way round
-            return _num_q("An isosceles triangle has two equal base angles of %d° each. "
-                          "How many degrees is the angle at the top?" % base,
-                          apex, "int", unit="degrees",
-                          solution=["%d + %d = %d°." % (base, base, 2 * base),
-                                    "180 − %d = %d°." % (2 * base, apex)])
-        return _num_q("An isosceles triangle has an angle of %d° at the top and two equal "
-                      "angles at the base. How many degrees is each base angle?" % apex,
-                      base, "int", unit="degrees",
-                      solution=["180 − %d = %d° is shared by the two equal angles."
-                                % (apex, 180 - apex),
-                                "%d ÷ 2 = %d°." % (180 - apex, base)])
+    if t == 7:                                        # isosceles: a missing side from the perimeter
+        a = random.randint(*_by_d(d, (3, 9), (6, 20), (8, 40)))
+        b = random.randint(2, 2 * a - 1)
+        while b == a:
+            b = random.randint(2, 2 * a - 1)
+        per = 2 * a + b
+        if d == 2:                                    # stretch: find the two equal sides
+            return _num_q("An isosceles triangle has a perimeter of %d cm. One side is %d cm "
+                          "and the other two sides are equal to each other. How long is each of the "
+                          "equal sides?" % (per, b),
+                          a, "int", unit="cm",
+                          solution=["%d − %d = %d cm is shared by the two equal sides."
+                                    % (per, b, 2 * a),
+                                    "%d ÷ 2 = %d cm." % (2 * a, a)])
+        return _num_q("An isosceles triangle has two equal sides of %d cm and a perimeter "
+                      "of %d cm. How long is the third side?" % (a, per),
+                      b, "int", unit="cm",
+                      solution=["The two equal sides make %d + %d = %d cm." % (a, a, 2 * a),
+                                "%d − %d = %d cm." % (per, 2 * a, b)])
 
     if t == 8:                                        # perimeter of an equilateral triangle
         s = random.randint(3, _by_d(d, 9, 15, 25))
@@ -591,19 +620,23 @@ def _(d=1):
                                 "3 × %d = %d cm." % (s, 3 * s)])
 
     # reasoning: can a triangle be both?
-    kind, ans = pick(_by_d(d, [("three 60° angles", "equilateral"),
+    kind, ans = pick(_by_d(d, [("three equal angles", "equilateral"),
                                ("a right angle and two equal sides", "isosceles")],
                            [("a right angle and two equal sides", "isosceles"),
-                            ("one angle of 120° and no equal sides", "scalene"),
-                            ("three 60° angles", "equilateral")],
-                           [("angles of 50°, 50° and 80°", "isosceles"),
-                            ("angles of 30°, 60° and 90°", "scalene"),
-                            ("a right angle and two 45° angles", "isosceles"),
-                            ("one angle of 120° and no equal sides", "scalene")]))
+                            ("one angle bigger than a right angle and no equal sides",
+                             "scalene"),
+                            ("three equal angles", "equilateral")],
+                           [("two equal angles and a third angle that is larger", "isosceles"),
+                            ("a right angle and two other angles that are different from "
+                             "each other", "scalene"),
+                            ("a right angle and two equal angles", "isosceles"),
+                            ("one angle bigger than a right angle and no equal sides",
+                             "scalene")]))
     return _num_q("A triangle has %s. Classify it by its sides: scalene, isosceles or "
                   "equilateral? (type one word)" % kind,
                   ans, "str", text=True, placeholder="scalene / isosceles / equilateral",
-                  solution=["Classifying by sides means counting equal sides.",
+                  solution=["Classifying by sides means counting equal sides. Equal angles "
+                            "sit opposite equal sides, so equal angles count too.",
                             "This triangle is %s." % ans])
 
 
@@ -762,33 +795,53 @@ def _(d=1):
                       ans, "str", text=True, placeholder="yes / no",
                       solution=[why, "So the answer is %s." % ans])
 
-    if d == 0:                                        # easy: same idea with friendlier angles
-        a = 90
-        b = 90
-        c = random.randint(5, 13) * 10
-        rest = 360 - a - b - c
-        return _num_q("Three angles of a quadrilateral are %d°, %d° and %d°. What is the "
-                      "fourth angle, in degrees?" % (a, b, c),
-                      rest, "int", unit="degrees",
-                      solution=["The angles of a quadrilateral add up to 360°.",
-                                "%d + %d + %d = %d, and 360 − %d = %d°."
-                                % (a, b, c, a + b + c, a + b + c, rest)])
-
-    # angles of a quadrilateral
-    a = random.randint(50, 120)
-    b = random.randint(50, 120)
-    c = random.randint(40, max(41, 350 - a - b - 20))
-    rest = 360 - a - b - c
-    while not (20 <= rest <= 170):
-        a, b = random.randint(50, 120), random.randint(50, 120)
-        c = random.randint(40, 130)
-        rest = 360 - a - b - c
-    return _num_q("Three angles of a quadrilateral are %d°, %d° and %d°. What is the "
-                  "fourth angle, in degrees?" % (a, b, c),
-                  rest, "int", unit="degrees",
-                  solution=["The angles of a quadrilateral add up to 360°.",
-                            "%d + %d + %d = %d, and 360 − %d = %d°."
-                            % (a, b, c, a + b + c, a + b + c, rest)])
+    # perimeter from the properties: the equal sides need not all be given
+    if d == 0:                                        # easy: a square or rectangle
+        if random.random() < 0.5:
+            s = random.randint(3, 12)
+            return _num_q("A square has sides of %d cm. What is its perimeter?" % s,
+                          4 * s, "int", unit="cm",
+                          solution=["All 4 sides of a square are equal.",
+                                    "4 × %d = %d cm." % (s, 4 * s)])
+        w, h = random.sample(range(2, 13), 2)
+        return _num_q("A rectangle is %d cm long and %d cm wide. What is its perimeter?"
+                      % (w, h), 2 * (w + h), "int", unit="cm",
+                      solution=["Opposite sides of a rectangle are equal.",
+                                "%d + %d + %d + %d = %d cm." % (w, h, w, h, 2 * (w + h))])
+    if d == 1:                                        # the shapes pupils mix up
+        quad = pick(["rhombus", "parallelogram", "kite"])
+        if quad == "rhombus":
+            s = random.randint(4, 15)
+            return _num_q("A rhombus has one side of %d cm. What is its perimeter?" % s,
+                          4 * s, "int", unit="cm",
+                          solution=["All 4 sides of a rhombus are equal.",
+                                    "4 × %d = %d cm." % (s, 4 * s)])
+        a, b = random.sample(range(3, 16), 2)
+        how = ("Opposite sides of a parallelogram are equal." if quad == "parallelogram"
+               else "A kite has two pairs of equal sides next to each other.")
+        return _num_q("%s has two sides next to each other of %d cm and %d cm. What is its "
+                      "perimeter?" % (_a(quad).capitalize(), a, b),
+                      2 * (a + b), "int", unit="cm",
+                      solution=[how, "%d + %d + %d + %d = %d cm." % (a, b, a, b, 2 * (a + b))])
+    # stretch: work back from the perimeter
+    if random.random() < 0.5:
+        quad = pick(["square", "rhombus"])
+        s = random.randint(6, 25)
+        return _num_q("%s has a perimeter of %d cm. How long is each side?"
+                      % (_a(quad).capitalize(), 4 * s),
+                      s, "int", unit="cm",
+                      solution=["All 4 sides of %s are equal." % _a(quad),
+                                "%d ÷ 4 = %d cm." % (4 * s, s)])
+    quad = pick(["rectangle", "parallelogram"])
+    a, b = random.sample(range(4, 20), 2)
+    return _num_q("%s has a perimeter of %d cm. One of its sides is %d cm. How long is "
+                  "each side next to that one?"
+                  % (_a(quad).capitalize(), 2 * (a + b), a),
+                  b, "int", unit="cm",
+                  solution=["Opposite sides are equal, so %d cm and the side next to it "
+                            "make half the perimeter." % a,
+                            "%d ÷ 2 = %d, and %d − %d = %d cm."
+                            % (2 * (a + b), a + b, a + b, a, b)])
 
 
 @skill("Y4.8.e", "Lines, line segments, rays and their relationships", S8)
@@ -861,7 +914,7 @@ def _(d=1):
         descs = [("never meet, however far they are extended", "parallel"),
                  ("cross at a right angle", "perpendicular"),
                  ("stay exactly the same distance apart", "parallel"),
-                 ("make a 90° angle where they meet", "perpendicular"),
+                 ("make a right angle where they meet", "perpendicular"),
                  ("meet to make a square corner, a quarter turn", "perpendicular"),
                  ("are like the opposite sides of a rectangle", "parallel")]
         desc, ans = pick(_by_d(d, descs[:2], descs[:4], descs[2:]))
@@ -922,11 +975,11 @@ def _(d=1):
         h, ans = pick([(3, "perpendicular"), (9, "perpendicular"), (6, "neither")][:2 if d == 0 else 3])
         if ans == "neither":
             return _num_q("At 6 o'clock the two hands of a clock point in exactly opposite "
-                          "directions, making a straight line. How many degrees is the "
-                          "angle between them?",
-                          180, "int", unit="degrees",
+                          "directions, making a straight line. How many right angles make "
+                          "the angle between them?",
+                          2, "int", unit="right angles",
                           solution=["A straight line is a half turn.",
-                                    "A half turn is 180°."])
+                                    "A half turn is two right angles."])
         return _num_q("At %d o'clock, the hands of a clock meet at a right angle. Are the "
                       "hands parallel or perpendicular? (type one word)" % h,
                       "perpendicular", "str", text=True,
@@ -969,6 +1022,30 @@ def _(d=1):
                             "They are parallel."])
 
 
+# Year 4 angles are compared with a right angle, not measured in degrees.
+# Each described angle carries its size in sixths of a right angle, only to compare them.
+_ANG_EASY = [("half a right angle", 3), ("a right angle", 6), ("a quarter turn", 6),
+             ("one and a half right angles", 9), ("two right angles", 12),
+             ("a half turn", 12)]
+
+
+def _clock_ang(h):
+    """The smaller angle between the hands at h o'clock, as (words, size)."""
+    return ("the smaller angle between the hands of a clock at %d o'clock" % h,
+            2 * min(h, 12 - h))
+
+
+def _ang_kind(size):
+    return ("acute" if size < 6 else "right" if size == 6 else
+            "obtuse" if size < 12 else "straight")
+
+
+def _ang_pool(d):
+    """Described angles: easy in right angles, stretch read off a clock face."""
+    clock = [_clock_ang(h) for h in range(1, 12)]
+    return _by_d(d, _ANG_EASY, _ANG_EASY + clock[:6], clock)
+
+
 @skill("Y4.8.f", "Compare and classify angles", S8)
 def _(d=1):
     d = _tier(d)
@@ -977,164 +1054,170 @@ def _(d=1):
     if t == 0:                                        # angle: classify (visual)
         choices = _by_d(d, ["acute", "right", "obtuse"],
                         ["acute", "right", "obtuse", "straight"],
-                        ["acute", "right", "obtuse", "straight", "reflex"])
+                        ["acute", "right", "obtuse", "straight"])
         kind = pick(choices)
-        deg = {"acute": lambda: random.choice([20, 30, 35, 45, 55, 65, 75, 80]),
+        near = d == 2                                 # stretch: close to a right angle
+        deg = {"acute": lambda: random.choice([70, 75, 80, 85] if near
+                                              else [20, 30, 35, 45, 55, 65, 75, 80]),
                "right": lambda: 90,
-               "obtuse": lambda: random.choice([100, 110, 120, 135, 150, 160, 170]),
-               "straight": lambda: 180,
-               "reflex": lambda: random.choice([200, 225, 250, 270, 300, 330])}[kind]()
-        return {"prompt": "Look at the angle. Is it acute, right, obtuse, straight or "
-                          "reflex? (type one word)",
+               "obtuse": lambda: random.choice([95, 100, 105, 110] if near
+                                               else [100, 110, 120, 135, 150, 160, 170]),
+               "straight": lambda: 180}[kind]()
+        return {"prompt": "Look at the angle. Is it acute, right, obtuse or straight? "
+                          "(type one word)",
                 "component": "angle", "spec": {"mode": "classify", "degrees": deg},
                 "answer": kind, "answer_type": "str",
-                "solution": ["Acute is under 90°, right is exactly 90°, obtuse is between "
-                             "90° and 180°, straight is 180° and reflex is over 180°.",
-                             "This angle is %d°, so it is %s." % (deg, kind)]}
+                "solution": ["Acute is smaller than a right angle, right is exactly a square "
+                             "corner, obtuse is bigger than a right angle but smaller than two, "
+                             "and straight is two right angles.",
+                             "This angle is %s, so it is %s."
+                             % ({"acute": "smaller than a right angle",
+                                 "right": "a square corner",
+                                 "obtuse": "bigger than a right angle but not a straight line",
+                                 "straight": "a straight line"}[kind], kind)]}
 
-    if t == 1:                                        # angle: measure with a protractor
-        deg = random.choice(_by_d(d, [30, 40, 50, 60, 70, 80, 90],
-                                  [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130],
-                                  [15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125,
-                                   135, 145, 155, 165]))
-        return {"prompt": "Use the protractor to measure this angle. "
-                          "How many degrees is it?",
-                "component": "angle",
-                "spec": {"mode": "measure", "degrees": deg, "protractor": True},
-                "answer": deg, "answer_type": "int", "tolerance": 2,
-                "solution": ["Line the protractor up with the first ray and read the scale "
-                             "where the second ray crosses it.",
-                             "The angle measures %d°." % deg]}
+    if t == 1:                                        # drawn angle against a right angle
+        deg = random.choice(_by_d(d, [25, 35, 145, 155],
+                                  [40, 55, 65, 115, 125, 140],
+                                  [75, 80, 84, 96, 100, 105]))   # stretch: close to a right angle
+        kind = "acute" if deg < 90 else "obtuse"
+        return {"prompt": "Imagine the corner of a page fitted into this angle. If the angle is "
+                          "smaller than the corner, type acute; if it is bigger, type obtuse.",
+                "component": "angle", "spec": {"mode": "classify", "degrees": deg},
+                "answer": kind, "answer_type": "str",
+                "solution": ["The corner of a page is a right angle.",
+                             "This angle is %s than a right angle, so it is %s."
+                             % ("smaller" if kind == "acute" else "bigger", kind)]}
 
     if t == 2:                                        # angle: turn (visual)
         deg = pick(_by_d(d, [90, 180], [90, 180, 270, 360], [180, 270, 360]))
-        ask = pick(["degrees", "turn"])
-        if ask == "degrees":
-            return {"prompt": "The arrow shows a turn. How many degrees is the turn?",
+        quarters = deg // 90
+        word = {1: "quarter", 2: "half", 3: "three-quarter", 4: "full"}[quarters]
+        if random.random() < 0.5:
+            return {"prompt": "The arrow shows a turn. How many right angles does it turn "
+                              "through?",
                     "component": "angle", "spec": {"mode": "turn", "degrees": deg},
-                    "answer": deg, "answer_type": "int",
-                    "solution": ["A quarter turn is 90°, a half turn is 180°, a "
-                                 "three-quarter turn is 270° and a full turn is 360°.",
-                                 "This turn is %d°." % deg]}
-        word = {90: "quarter", 180: "half", 270: "three-quarter", 360: "full"}[deg]
-        return {"prompt": "The arrow shows a turn of %d°. Is that a quarter, half, "
-                          "three-quarter or full turn? (type one word)" % deg,
+                    "answer": quarters, "answer_type": "int",
+                    "solution": ["Each quarter turn is one right angle.",
+                                 "This is a %s turn, so it is %s."
+                                 % (word, _pl(quarters, "right angle"))]}
+        return {"prompt": "The arrow shows a turn. Is it a quarter, half, three-quarter or "
+                          "full turn? (type one word)",
                 "component": "angle", "spec": {"mode": "turn", "degrees": deg},
                 "answer": word, "answer_type": "str",
-                "solution": ["A full turn is 360°.",
-                             "%d° is %s of 360°, so it is a %s turn."
-                             % (deg, {90: "a quarter", 180: "a half",
-                                      270: "three quarters", 360: "all"}[deg], word)]}
+                "solution": ["Count the right angles: 1 is a quarter turn, 2 a half turn, "
+                             "3 a three-quarter turn and 4 a full turn.",
+                             "This turn is %s, so it is a %s turn."
+                             % (_pl(quarters, "right angle"), word)]}
 
-    if t == 3:                                        # degrees in a turn (typed)
-        word, deg = pick(_by_d(d, [("a quarter turn", 90), ("a half turn", 180),
-                                   ("a right angle", 90)],
-                               [("a quarter turn", 90), ("a half turn", 180),
-                                ("a three-quarter turn", 270), ("a full turn", 360),
-                                ("a right angle", 90), ("a straight angle", 180)],
-                               [("two right angles", 180), ("three right angles", 270),
-                                ("four right angles", 360), ("half a right angle", 45),
-                                ("a three-quarter turn", 270)]))
-        return _num_q("How many degrees are there in %s?" % word,
-                      deg, "int", unit="degrees",
-                      solution=["A full turn is 360°.", "%s is %d°." % (word.capitalize(), deg)])
+    if t == 3:                                        # right angles in a turn (typed)
+        word, ra = pick(_by_d(d, [("a quarter turn", 1), ("a half turn", 2),
+                                  ("a straight angle", 2)],
+                              [("a quarter turn", 1), ("a half turn", 2),
+                               ("a three-quarter turn", 3), ("a full turn", 4),
+                               ("a straight angle", 2)],
+                              [("two half turns", 4), ("a half turn and a quarter turn", 3),
+                               ("one and a half full turns", 6), ("two full turns", 8),
+                               ("three quarter turns", 3)]))
+        return _num_q("How many right angles make %s?" % word,
+                      ra, "int", unit="right angles",
+                      solution=["A quarter turn is 1 right angle and a full turn is 4.",
+                                "%s is %s." % (word.capitalize(), _pl(ra, "right angle"))])
 
-    if t == 4:                                        # classify by size (typed)
-        deg = random.choice(_by_d(d, [15, 35, 55, 75, 90, 120, 145],
-                                  [15, 35, 55, 75, 89, 90, 95, 120, 145, 179, 180,
-                                   200, 260, 300],
-                                  [85, 89, 90, 91, 95, 175, 179, 180, 181, 185]))  # stretch: near the boundaries
-        if deg < 90:
-            kind = "acute"
-        elif deg == 90:
-            kind = "right"
-        elif deg < 180:
-            kind = "obtuse"
-        elif deg == 180:
-            kind = "straight"
-        else:
-            kind = "reflex"
-        if d == 0 and kind in ("straight", "reflex"):
-            deg, kind = 45, "acute"
-        return _num_q("An angle measures %d°. Is it acute, right, obtuse, straight or "
-                      "reflex? (type one word)" % deg,
+    if t == 4:                                        # classify a described angle (typed)
+        descs = [("smaller than a right angle", "acute"),
+                 ("exactly a quarter turn", "right"),
+                 ("bigger than a right angle but smaller than a straight line", "obtuse"),
+                 ("exactly a half turn", "straight")]
+        desc, kind = pick(_by_d(d, descs[:3], descs + [(w, _ang_kind(s)) for w, s in _ANG_EASY
+                                         if w != "a right angle"],
+                                [(w, _ang_kind(s)) for w, s in _ang_pool(2)]))
+        return _num_q("An angle is %s. Is it acute, right, obtuse or straight? "
+                      "(type one word)" % desc,
                       kind, "str", text=True,
-                      placeholder="acute / right / obtuse / straight / reflex",
-                      solution=["Acute < 90°, right = 90°, obtuse is between 90° and 180°, "
-                                "straight = 180°, reflex > 180°.",
-                                "%d° is %s." % (deg, kind)])
+                      placeholder="acute / right / obtuse / straight",
+                      solution=["Acute is smaller than a right angle, obtuse is between one and "
+                                "two right angles, and straight is two right angles.",
+                                "%s is %s." % (desc[0].upper() + desc[1:], kind)])
 
     if t == 5:                                        # compare two angles
-        a, b = random.sample([25, 40, 55, 70, 85, 95, 110, 130, 150, 165], 2)
-        if d == 0:                                    # far apart
-            a, b = random.choice([25, 30, 40, 45]), random.choice([120, 135, 150, 160])
-        elif d == 2:                                  # stretch: close together
-            a = random.randint(30, 160)
-            b = a + pick([-1, 1]) * random.randint(3, 12)
-        ask_diff = random.random() < 0.5
-        if ask_diff:
-            return _num_q("One angle is %d° and another is %d°. How many degrees BIGGER is "
-                          "the larger angle?" % (a, b),
-                          abs(a - b), "int", unit="degrees",
-                          solution=["%d − %d = %d°." % (max(a, b), min(a, b), abs(a - b))])
-        return _num_q("Which is the larger angle: %d° or %d°? Write its size in degrees."
-                      % (a, b),
-                      max(a, b), "int", unit="degrees",
-                      solution=["%d° is larger than %d°." % (max(a, b), min(a, b))])
+        while True:
+            (wa, sa), (wb, sb) = random.sample(_ang_pool(d), 2)
+            if sa != sb and (d > 0 or _ang_kind(sa) != _ang_kind(sb)):
+                break
+        ans = "A" if sa > sb else "B"
+        return _num_q("Angle A is %s. Angle B is %s. Which angle is larger? (type A or B)"
+                      % (wa, wb),
+                      ans, "str", text=True, placeholder="A / B",
+                      solution=["Compare each angle with a right angle."
+                                + (" On a clock the gap from one hour to the next is a third of a right angle."
+                                   if "clock" in wa + wb else ""),
+                                "Angle %s is larger." % ans])
 
-    if t == 6:                                        # angles on a straight line
-        a = random.randint(2, 16) * 10 if d == 0 else random.randint(20, 160)
-        if d == 2:                                    # stretch: three angles on the line
-            a = random.randint(20, 90)
-            b = random.randint(20, 160 - a)
-            return _num_q("Three angles sit side by side on a straight line. Two of them are "
-                          "%d° and %d°. How many degrees is the third?" % (a, b),
-                          180 - a - b, "int", unit="degrees",
-                          solution=["Angles on a straight line add up to 180°.",
-                                    "%d + %d = %d, and 180 − %d = %d°."
-                                    % (a, b, a + b, a + b, 180 - a - b)])
-        return _num_q("Two angles sit side by side on a straight line. One of them is %d°. "
-                      "How many degrees is the other?" % a,
-                      180 - a, "int", unit="degrees",
-                      solution=["Angles on a straight line add up to 180°.",
-                                "180 − %d = %d°." % (a, 180 - a)])
+    if t == 6:                                        # order angles by size
+        n = _by_d(d, 3, 4, 4)
+        while True:
+            angs = random.sample(_ang_pool(d), n)
+            if len(set(s for _, s in angs)) == n:
+                break
+        labels = "ABCD"[:n]
+        order = sorted(range(n), key=lambda i: angs[i][1])
+        if d == 0:
+            ask, pos = pick([("smallest", 0), ("largest", n - 1)])
+            q = "Which angle is the %s?" % ask
+        else:
+            pos = random.randrange(1, n - 1)
+            q = ("Put them in order from smallest to largest. Which angle comes %s?"
+                 % ["1st", "2nd", "3rd", "4th"][pos])
+        return _num_q("%s %s (type the letter)"
+                      % (" ".join("Angle %s is %s." % (labels[i], angs[i][0]) for i in range(n)), q),
+                      labels[order[pos]], "str", text=True, placeholder="A, B, C or D",
+                      solution=["Smallest to largest: %s." % ", ".join(labels[i] for i in order),
+                                "So the answer is %s." % labels[order[pos]]])
 
-    if t == 7:                                        # angles round a point
-        parts = _by_d(d, 2, 3, 3)
-        angs = [random.randint(40, 140) for _ in range(parts)]
-        while sum(angs) > 320 or sum(angs) < 100:
-            angs = [random.randint(40, 140) for _ in range(parts)]
-        rest = 360 - sum(angs)
-        return _num_q("Angles round a point add up to 360°. %s meet at a point. "
-                      "How many degrees is the last angle?"
-                      % ("Angles of " + ", ".join("%d°" % v for v in angs) +
-                         " and one more angle"),
-                      rest, "int", unit="degrees",
-                      solution=["%s = %d°." % (" + ".join("%d" % v for v in angs), sum(angs)),
-                                "360 − %d = %d°." % (sum(angs), rest)])
+    if t == 7:                                        # count the acute or obtuse angles
+        hours = _by_d(d, [1, 2, 4, 5, 6], [1, 2, 3, 4, 5, 6, 7, 8, 10, 11],
+                      [2, 3, 4, 8, 9, 10, 6, 5, 7])   # stretch: near a right angle, both sides
+        hs = sorted(random.sample(hours, _by_d(d, 3, 4, 5)))
+        want = pick(["acute", "obtuse"])
+        hit = [h for h in hs if _ang_kind(_clock_ang(h)[1]) == want]
+        return _num_q("Look at the smaller angle between the hands of a clock at each of these "
+                      "times: %s. How many of the angles are %s? (type 0 if none)"
+                      % (", ".join("%d o'clock" % h for h in hs), want),
+                      len(hit), "int", unit="angles",
+                      solution=["At 3 o'clock and 9 o'clock the hands make a right angle. "
+                                "Closer to 12 the angle is acute; further from 12 (but not 6) "
+                                "it is obtuse.",
+                                ("The %s ones are at %s, so there %s %d."
+                                 % (want, ", ".join("%d o'clock" % h for h in hit),
+                                    "is" if len(hit) == 1 else "are", len(hit))) if hit else
+                                "None of them is %s, so the answer is 0." % want])
 
-    if t == 8:                                        # minute hand turn
-        mins = pick(_by_d(d, [15, 30, 45], [5, 10, 15, 20, 30, 45], [7, 12, 25, 35, 40, 50]))
-        return _num_q("The minute hand of a clock turns all the way round in 60 minutes. "
-                      "How many degrees does it turn in %d minutes?" % mins,
-                      6 * mins, "int", unit="degrees",
-                      solution=["360 ÷ 60 = 6°, so the minute hand turns 6° each minute.",
-                                "6 × %d = %d°." % (mins, 6 * mins)])
+    if t == 8:                                        # minute hand turn in right angles
+        mins = pick(_by_d(d, [15, 30], [15, 30, 45, 60], [45, 75, 90, 120]))
+        ra = mins // 15
+        return _num_q("The minute hand of a clock turns a full turn every hour. How many right "
+                      "angles does it turn through in %d minutes?" % mins,
+                      ra, "int", unit="right angles",
+                      solution=["15 minutes is a quarter turn: 1 right angle.",
+                                "%d minutes is %s of 15 minutes, so %s."
+                                % (mins, _pl(ra, "lot"), _pl(ra, "right angle"))])
 
-    # compass turn in degrees
+    # compass turn in right angles
     dirs = ["North", "East", "South", "West"]
     i = random.randrange(4)
     j = (i + random.randint(1, 2 if d == 0 else 3)) % 4
-    deg = 90 * ((j - i) % 4)
+    ra = (j - i) % 4
     who = pick(NAMES)
     way = "clockwise"
     if d == 2 and random.random() < 0.5:              # stretch: anticlockwise
-        way, deg = "anticlockwise", 360 - deg
-    return _num_q("%s faces %s and turns %s to face %s. How many degrees has %s "
-                  "turned?" % (who, dirs[i], way, dirs[j], who),
-                  deg, "int", unit="degrees",
-                  solution=["Each quarter turn between compass points is 90°.",
-                            "%s to %s %s is %d°." % (dirs[i], dirs[j], way, deg)])
+        way, ra = "anticlockwise", 4 - ra
+    return _num_q("%s faces %s and turns %s to face %s. How many right angles has %s "
+                  "turned through?" % (who, dirs[i], way, dirs[j], who),
+                  ra, "int", unit="right angles",
+                  solution=["Each quarter turn between compass points is 1 right angle.",
+                            "%s to %s %s is %s." % (dirs[i], dirs[j], way,
+                                                    _pl(ra, "right angle"))])
 
 
 @skill("Y4.8.g", "Lines of symmetry and symmetric figures", S8)
@@ -2150,14 +2233,16 @@ def _(d=1):
 
     if t == 7:                                        # nets and traced faces
         if random.random() < 0.5:
-            solid, part, traced = pick([
-                ("cube", "one face", "square"),
-                ("cuboid", "the flat base", "rectangle"),
-                ("square-based pyramid", "the base", "square"),
-                ("triangular prism", "one end face", "triangle"),
-                ("cylinder", "one flat end", "circle"),
-                ("cone", "the flat end", "circle"),
-            ])
+            traces = [("cube", "one face", "square"),
+                      ("cuboid", "the flat base", "rectangle"),
+                      ("cylinder", "one flat end", "circle"),
+                      ("square-based pyramid", "the base", "square"),
+                      ("triangular prism", "one end face", "triangle"),
+                      ("cone", "the flat end", "circle"),
+                      ("square-based pyramid", "one sloping face", "triangle"),
+                      ("triangular prism", "one long side face", "rectangle")]
+            solid, part, traced = pick(_by_d(d, traces[:3], traces[:6],
+                                             traces[3:]))   # stretch: less familiar faces
             return _num_q("A pencil is drawn round %s of %s to trace it onto paper. Which "
                           "2-D shape is traced? (type the shape)" % (part, _a(solid)),
                           traced, "str", text=True, placeholder="shape name",

@@ -294,8 +294,9 @@ def _(d):
 @_more("Y8.1.f", 8)
 def _(d):
     a, b = random.sample(_by(d, [4, 6, 8, 10], [6, 8, 10, 12, 20], [8, 12, 15, 18, 20, 24]), 2)
-    while d == 2 and max(a, b) % min(a, b) == 0:      # stretch: never one pack size a multiple of the other
-        a, b = random.sample([8, 12, 15, 18, 20, 24], 2)
+    # never one pack size a multiple of the other (easy lets an occasional one through)
+    while max(a, b) % min(a, b) == 0 and (d or random.random() < 0.8):
+        a, b = random.sample(_by(d, [4, 6, 8, 10], [6, 8, 10, 12, 20], [8, 12, 15, 18, 20, 24]), 2)
     l = _lcm(a, b)
     return _int("Sausages come in packs of %d and rolls in packs of %d. What is the smallest number of packs of "
                 "sausages to buy so that there are exactly as many sausages as rolls?" % (a, b), l // a,
@@ -332,8 +333,8 @@ def _(d):
 @_more("Y8.1.f", 8)
 def _(d):
     a, b = random.sample(_by(d, [8, 10, 12, 16], [8, 10, 12, 15, 16, 18, 20, 24], [14, 15, 18, 21, 24, 32, 36]), 2)
-    while d == 2 and max(a, b) % min(a, b) == 0:
-        a, b = random.sample([14, 15, 18, 21, 24, 32, 36], 2)
+    while max(a, b) % min(a, b) == 0 and (d or random.random() < 0.8):
+        a, b = random.sample(_by(d, [8, 10, 12, 16], [8, 10, 12, 15, 16, 18, 20, 24], [14, 15, 18, 21, 24, 32, 36]), 2)
     l = _lcm(a, b)
     return _int("Gear A has %d teeth and gear B has %d teeth. They turn together. How many full turns does gear A "
                 "make before both gears are back in their starting positions for the first time?" % (a, b), l // a,
@@ -358,7 +359,7 @@ def _(d):
 
 @_more("Y8.1.f", 8)
 def _(d):
-    p, q = pick(_by(d, [(10, 15), (10, 20), (15, 30), (20, 30)],
+    p, q = pick(_by(d, [(10, 15), (10, 20), (15, 20), (20, 30), (6, 10), (12, 15)],
                     [(10, 15), (12, 18), (15, 20), (20, 30), (9, 12), (6, 8), (12, 20), (18, 24)],
                     [(14, 21), (16, 24), (18, 24), (24, 36), (8, 14), (16, 20)]))
     l = _lcm(p, q)
@@ -425,7 +426,7 @@ def _(d):
                ["%d^%d = %d." % (ns[i], p, ns[i] ** p)], rule="n^%d" % p)
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     a = random.randint(2, _by(d, 4, 6, 9))
     return _int("Work out (−%d)^3." % a, -a ** 3,
@@ -433,7 +434,7 @@ def _(d):
                  "An odd power of a negative number is negative."])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     a = random.randint(_by(d, 2, 2, 6), _by(d, 5, 9, 15))
     if random.random() < 0.5:
@@ -443,14 +444,14 @@ def _(d):
                 ["(−%d) × (−%d): negative × negative is positive." % (a, a), "(−%d)^2 = %d." % (a, a * a)])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     x = pick(_by(d, ["0.1", "0.2", "0.3"], ["0.1", "0.2", "0.3", "0.4", "0.5"], ["0.6", "0.7", "0.05", "1.1", "1.2"]))
     v = Decimal(x) ** 3
     return _num("Work out %s^3." % x, v, ["%s × %s × %s = %s." % (x, x, x, _ds(v))])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     x = pick(_by(d, ["0.2", "0.3", "0.5", "1.5", "2.5"], ["1.1", "1.2", "1.5", "2.5", "0.6", "0.9", "1.3", "3.5"],
                  ["1.4", "1.7", "2.3", "4.5", "0.35", "0.12", "6.5"]))
@@ -461,7 +462,7 @@ def _(d):
     return _num("Work out %s^2." % x, v, ["%s × %s = %s." % (x, x, _ds(v))])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     n = random.randint(_by(d, 2, 11, 100), _by(d, 9, 99, 999))
     return _int("Work out (−1)^%d." % n, -1 if n % 2 else 1,
@@ -469,7 +470,7 @@ def _(d):
                  "%d is %s, so (−1)^%d = %d." % (n, "odd" if n % 2 else "even", n, -1 if n % 2 else 1)])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     a = random.randint(2, 3)
     p, q = random.sample(_by(d, [2, 3], range(2, 6 if a == 2 else 5), [3, 4, 5] if a == 2 else [2, 3, 4, 5]), 2)
@@ -479,7 +480,7 @@ def _(d):
                  "%d + %s = %d." % ((-a) ** p, ("(%d)" if (-a) ** q < 0 else "%d") % (-a) ** q, v)])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     a = pick(_by(d, [2], [2, 3], [3, 4, 5]))
     ns = [1, 2, 3, 4, 5] if a == 2 else ([1, 2, 3, 4] if d < 2 else [1, 2, 3, 4, 5])
@@ -490,7 +491,7 @@ def _(d):
                                "(−%d)^%d = %d." % (a, ns[i], (-a) ** ns[i])], missing=(i, 1))
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     x = pick(_by(d, ["0.2", "0.3", "0.4", "0.5"], ["0.7", "0.4", "0.9", "1.1", "1.2", "0.3", "0.8", "1.5"],
                  ["1.3", "1.4", "1.6", "0.06", "0.11", "2.5"]))
@@ -498,12 +499,38 @@ def _(d):
     return _num("x^2 = %s and x is positive. What is x?" % _ds(v), x, ["%s × %s = %s, so x = %s." % (x, x, _ds(v), x)])
 
 
-@_more("Y8.1.h", 4)
+@_more("Y8.1.h", 8)
 def _(d):
     x = pick(_by(d, ["0.1", "0.2"], ["0.2", "0.1", "0.3", "0.5"], ["0.4", "0.6", "0.7", "1.2"]))
     v = -Decimal(x) ** 3
     return _num("Work out (−%s)^3." % x, v,
                 ["%s^3 = %s." % (x, _ds(-v)), "An odd power of a negative is negative: %s." % _ds(v)])
+
+
+@_more("Y8.1.h", 8)
+def _(d):
+    a, x = random.randint(2, _by(d, 3, 5, 9)), -random.randint(_by(d, 1, 2, 4), _by(d, 4, 6, 12))
+    return _int("Work out %dx² when x = %d." % (a, x), a * x * x,
+                ["Square first: (%d)² = %d." % (x, x * x), "%d × %d = %d." % (a, x * x, a * x * x)])
+
+
+@_more("Y8.1.h", 8)
+def _(d):
+    e = pick(_by(d, ["0.1", "0.2", "0.3"], ["0.1", "0.2", "0.3", "0.4", "0.5", "1.1", "1.2"], ["0.6", "0.7", "1.1", "1.2", "1.5"]))
+    v = Decimal(e) ** 3
+    return _num("A cube has edges of %s m. What is its volume, in m³?" % e, v, ["Volume = %s³ = %s × %s × %s = %s m³." % (e, e, e, e, _ds(v))], "m³")
+
+
+@_more("Y8.1.h", 8)
+def _(d):
+    a = random.randint(2, _by(d, 3, 4, 4))
+    ps = random.sample(_by(d, range(1, 4), range(1, 6), range(2, 7)), 3)
+    vals = [(-a) ** p for p in ps]
+    if len(set(vals)) < 3:
+        ps = [1, 2, 3]
+        vals = [(-a) ** p for p in ps]
+    return _int("Which of (−%d)^%d, (−%d)^%d and (−%d)^%d is the smallest? Type its value." % (a, ps[0], a, ps[1], a, ps[2]), min(vals),
+                ["The values are %s." % ", ".join(str(v) for v in vals), "The smallest is %d." % min(vals)])
 
 
 @_more("Y8.1.i", 10)
@@ -1310,15 +1337,23 @@ def _(d):
 def _(d):
     lo, hi, k = _by(d, (2, 5, 2), (2, 6, 4), (4, 9, 4))
     s1, s2 = random.randint(lo, hi) * k, random.randint(lo, hi) * k
-    pts = [("0", 0), ("1", s1), ("2", 2 * s1), ("3", 2 * s1), ("4", 2 * s1 + s2)]
+    # ride r1 hours, stop for `st` hours, then ride r2 more hours (core/stretch vary every leg)
+    r1 = pick(_by(d, [2], [1, 2, 3], [2, 3]))
+    st = pick(_by(d, [1, 2], [1, 2, 3], [1, 2, 3]))
+    r2 = pick(_by(d, [1], [1, 2], [2]))
+    pts = [(str(h), s1 * min(h, r1) + s2 * max(0, h - r1 - st)) for h in range(r1 + st + r2 + 1)]
     ask = random.randrange(3)
-    q = ["What was the cyclist's speed in the first 2 hours, in km/h?", "For how many hours did the cyclist stop?",
-         "What was the cyclist's speed in the last hour, in km/h?"][ask]
-    ans = [s1, 1, s2][ask]
+    q = ["What was the cyclist's speed in the first %s, in km/h?" % _pl(r1, "hour"),
+         "For how many hours did the cyclist stop?",
+         "What was the cyclist's speed in the last %s, in km/h?" % _pl(r2, "hour")][ask]
+    q = q.replace("first 1 hour", "first hour").replace("last 1 hour", "last hour")
+    ans = [s1, st, s2][ask]
     return _lg("The distance–time graph shows a cycle ride. %s" % q, pts, ans,
                ["A flat part of the graph means no distance is covered (stopped).",
-                ["%d km in 2 hours = %d km/h." % (2 * s1, s1), "From hour 2 to hour 3 the line is flat: 1 hour.",
-                 "%d − %d = %d km in 1 hour = %d km/h." % (2 * s1 + s2, 2 * s1, s2, s2)][ask]], "km", "Time (hours)")
+                ["%d km in %s = %d km/h." % (r1 * s1, _pl(r1, "hour"), s1),
+                 "From hour %d to hour %d the line is flat: %s." % (r1, r1 + st, _pl(st, "hour")),
+                 "%d − %d = %d km in %s = %d km/h." % (r1 * s1 + r2 * s2, r1 * s1, r2 * s2, _pl(r2, "hour"), s2)][ask]],
+               "km", "Time (hours)")
 
 
 @_more("Y8.4.e", 9)
@@ -1606,12 +1641,14 @@ def _(d):
 
 @_more("Y8.4.i", 6)
 def _(d):
+    win_a = random.random() < 0.5                     # either plan can win
+    gap = _by(d, 20, 12, 8)                           # the totals are within gap% of each other
     while True:
         fa, ra = _by(d, random.randint(1, 4) * 5, random.randint(2, 20), random.randint(2, 20)), random.randint(5, 15)
         fb, rb = random.randint(10, _by(d, 40, 40, 80)), random.randint(2, ra - 1) if ra > 3 else 1
         h = random.randint(*_by(d, (2, 5), (2, 10), (6, 20)))
         ca, cb = fa + ra * h, fb + rb * h
-        if ca != cb and fa < fb:
+        if ca != cb and fa < fb and (ca < cb) == win_a and abs(ca - cb) * 100 <= gap * min(ca, cb):
             break
     return _wq("Plan A charges £%d plus £%d per hour. Plan B charges £%d plus £%d per hour. Which is cheaper for %d hours? "
                "Type A or B." % (fa, ra, fb, rb, h), "A" if ca < cb else "B",
@@ -2732,7 +2769,7 @@ def _shoelace(pts):
 def _(d):
     big = random.random() < 0.5
     # easy: x, x, 2x, 2x; core: x, 2x, 3x, 4x; stretch: less friendly multipliers
-    m = pick(_by(d, [(1, 1, 2, 2), (1, 1, 1, 3)], [(1, 2, 3, 4)], [(2, 3, 5, 8), (1, 3, 5, 6), (2, 4, 5, 7), (3, 4, 5, 8)]))
+    m = pick(_by(d, [(1, 1, 2, 2), (1, 1, 1, 2)], [(1, 2, 3, 4)], [(2, 3, 5, 8), (1, 3, 5, 6), (2, 4, 5, 7), (3, 4, 5, 8)]))
     x = 360 // sum(m)
     ans = x * (m[-1] if big else m[0])
     terms = ["%sx°" % ("" if k == 1 else k) for k in m]
@@ -3663,32 +3700,6 @@ def _(d):
     last3 = n % 1000
     return _yn("A number is divisible by 8 if its last three digits make a multiple of 8. Is %s divisible by 8?" % _c(n), yes,
                ["The last three digits are %03d." % last3, "%d ÷ 8 %s." % (last3, "is exact" if last3 % 8 == 0 else "is not exact")])
-
-
-@_more("Y8.1.h", 10)
-def _(d):
-    a, x = random.randint(2, _by(d, 3, 5, 9)), -random.randint(_by(d, 1, 2, 4), _by(d, 4, 6, 12))
-    return _int("Work out %dx² when x = %d." % (a, x), a * x * x,
-                ["Square first: (%d)² = %d." % (x, x * x), "%d × %d = %d." % (a, x * x, a * x * x)])
-
-
-@_more("Y8.1.h", 10)
-def _(d):
-    e = pick(_by(d, ["0.1", "0.2", "0.3"], ["0.1", "0.2", "0.3", "0.4", "0.5", "1.1", "1.2"], ["0.6", "0.7", "1.1", "1.2", "1.5"]))
-    v = Decimal(e) ** 3
-    return _num("A cube has edges of %s m. What is its volume, in m³?" % e, v, ["Volume = %s³ = %s × %s × %s = %s m³." % (e, e, e, e, _ds(v))], "m³")
-
-
-@_more("Y8.1.h", 10)
-def _(d):
-    a = random.randint(2, _by(d, 3, 4, 4))
-    ps = random.sample(_by(d, range(1, 4), range(1, 6), range(2, 7)), 3)
-    vals = [(-a) ** p for p in ps]
-    if len(set(vals)) < 3:
-        ps = [1, 2, 3]
-        vals = [(-a) ** p for p in ps]
-    return _int("Which of (−%d)^%d, (−%d)^%d and (−%d)^%d is the smallest? Type its value." % (a, ps[0], a, ps[1], a, ps[2]), min(vals),
-                ["The values are %s." % ", ".join(str(v) for v in vals), "The smallest is %d." % min(vals)])
 
 
 @_more("Y8.3.i", 13)

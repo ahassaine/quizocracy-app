@@ -1240,7 +1240,7 @@ def _(d=1):
         if d == 0:                                    # easy: 2-digit numbers
             a, b = random.randint(40, 90), random.randint(10, 34)
         elif d == 1:
-            a, b = random.randint(400, 900), random.randint(100, 350)
+            a, b = random.randint(400, 900), random.randint(100, 349)   # 350 would round to 400: 400 − 400 = 0
         else:                                         # stretch: 4-digit numbers
             a, b = random.randint(4000, 9000), random.randint(1000, 3400)
         A, B = _r1sf(a), _r1sf(b)
@@ -1297,10 +1297,14 @@ def _(d=1):
         b = random.randint(18, 62)
         A, B = _r1sf(a), _r1sf(b)
         good = A * B
-        opts = [good, _r1sf(a) * b, a * B, good * 10]
-        opts = list(dict.fromkeys(opts))
-        while len(opts) < 4:
-            opts.append(good + random.randint(1, 5) * 1000)
+        # decoys are real slips: rounding only one number, a place-value slip, or rounding the wrong way
+        sa, sb = 10 ** (len(str(A)) - 1), 10 ** (len(str(B)) - 1)
+        slips = [_r1sf(a) * b, a * B, good * 10, good // 10, (A + sa) * B, A * (B + sb),
+                 (A - sa) * B, A * (B - sb)]
+        opts = [good]
+        for v in random.sample(slips, len(slips)):
+            if v > 0 and v not in opts and len(opts) < 4:
+                opts.append(v)
         show = opts[:]
         random.shuffle(show)
         return _tb("Round each number to 1 significant figure to estimate %d × %d. "
@@ -1896,13 +1900,19 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
 
+    def _apart(*ns):
+        """No two equal, and neither of a pair a multiple of the other (easy lets one in five through)."""
+        if len(set(ns)) < len(ns):
+            return False
+        mult = any(max(x, y) % min(x, y) == 0 for i, x in enumerate(ns) for y in ns[i + 1:])
+        return not mult or (d == 0 and random.random() < 0.2)
+
     def _pair():
         lo, hi = (2, 6) if d == 0 else ((4, 12) if d == 1 else (12, 30))
-        a = random.randint(lo, hi)
-        b = random.randint(lo, hi)
-        while a == b or (d == 2 and max(a, b) % min(a, b) == 0):   # stretch: no easy multiples
-            b = random.randint(lo, hi)
-        return a, b
+        while True:
+            a, b = random.randint(lo, hi), random.randint(lo, hi)
+            if _apart(a, b):
+                return a, b
 
     def _h():
         """Common factor and the multipliers for the HCF framings."""
@@ -1920,8 +1930,9 @@ def _(d=1):
     def t_slabs():
         h, m0, m1 = _h()
         h = h or random.randint(3, 9)
-        a = h * random.randint(m0, m1)
-        b = h * random.randint(m0, m1)
+        a, b = h * random.randint(m0, m1), h * random.randint(m0, m1)
+        while not _apart(a, b):
+            a, b = h * random.randint(m0, m1), h * random.randint(m0, m1)
         return _tb("A rectangular floor is %d cm by %d cm. It is to be tiled with "
                    "identical square tiles, using whole tiles only. What is the largest "
                    "side length (in cm) each square tile can have?" % (a, b),
@@ -1931,9 +1942,9 @@ def _(d=1):
 
     def t_hampers():
         h = random.randint(4, 10) if d == 1 else (random.randint(2, 5) if d == 0 else random.randint(6, 15))
-        a = h * random.randint(2, 6 if d < 2 else 9)
-        b = h * random.randint(2, 6 if d < 2 else 9)
-        c = h * random.randint(2, 6 if d < 2 else 9)
+        a, b, c = (h * random.randint(2, 6 if d < 2 else 9) for _ in range(3))
+        while not _apart(a, b, c):
+            a, b, c = (h * random.randint(2, 6 if d < 2 else 9) for _ in range(3))
         g = math.gcd(math.gcd(a, b), c)
         if d == 2:                                    # stretch: one more step after the HCF
             return _tb("A shop makes the greatest possible number of identical hampers using "
@@ -1950,10 +1961,9 @@ def _(d=1):
     def t_lighthouse():
         A, B = ([2, 3, 4, 6], [3, 5, 10]) if d == 0 else \
                (([6, 8, 9, 10, 12], [4, 5, 6, 15]) if d == 1 else ([14, 15, 18, 20, 24], [16, 21, 25, 27, 35]))
-        a = pick(A)
-        b = pick(B)
-        while a == b:
-            b = pick(B)
+        a, b = pick(A), pick(B)
+        while not _apart(a, b):
+            a, b = pick(A), pick(B)
         return _tb("Two lighthouses flash: one every %d seconds, the other every %d "
                    "seconds. They flash together now. After how many seconds do they "
                    "next flash together?" % (a, b), _lcm(a, b), "int", {},
@@ -1962,8 +1972,9 @@ def _(d=1):
     def t_ribbon():
         h, m0, m1 = _h()
         h = h or random.randint(4, 12)
-        a = h * random.randint(m0, m1)
-        b = h * random.randint(m0, m1)
+        a, b = h * random.randint(m0, m1), h * random.randint(m0, m1)
+        while not _apart(a, b):
+            a, b = h * random.randint(m0, m1), h * random.randint(m0, m1)
         return _tb("Two ribbons of length %d cm and %d cm are cut into equal pieces as "
                    "long as possible, with none wasted. How long (in cm) is each piece?"
                    % (a, b), math.gcd(a, b), "int", {},
@@ -1971,12 +1982,11 @@ def _(d=1):
                     "Longest = HCF = %d cm." % math.gcd(a, b)])
 
     def t_buses():
-        A, B = ([5, 10, 15], [10, 20, 30]) if d == 0 else \
+        A, B = ([4, 5, 6, 10], [6, 8, 15]) if d == 0 else \
                (([12, 15, 18, 20, 24], [10, 15, 20, 25, 30]) if d == 1 else ([16, 18, 24, 27], [20, 30, 36, 40, 45]))
-        a = pick(A)
-        b = pick(B)
-        while a == b:
-            b = pick(B)
+        a, b = pick(A), pick(B)
+        while not _apart(a, b):
+            a, b = pick(A), pick(B)
         return _tb("Bus A comes every %d minutes and bus B every %d minutes. Both are "
                    "at the stop at 08:00. At how many minutes past 08:00 are they both "
                    "at the stop together again?" % (a, b), _lcm(a, b), "int", {},
@@ -1984,16 +1994,19 @@ def _(d=1):
 
     def t_which_op():
         if random.random() < 0.5:
-            a, b = random.sample([4, 6, 8, 10] if d == 0 else
-                                 ([6, 8, 9, 10, 12, 15] if d == 1 else [12, 15, 16, 18, 20, 24]), 2)
+            a = b = 0
+            while not _apart(a, b):
+                a, b = random.sample([4, 6, 8, 10] if d == 0 else
+                                     ([6, 8, 9, 10, 12, 15] if d == 1 else [12, 15, 16, 18, 20, 24]), 2)
             return _wq("Buns come in packs of %d and rolls in packs of %d. To buy the same "
                        "number of buns and rolls, using the fewest packs, do you need the "
                        "HCF or the LCM? (type 'HCF' or 'LCM')" % (a, b), "LCM",
                        ["'Smallest number both pack sizes go into' means the lowest "
                         "common multiple.", "You need the LCM."], "HCF or LCM")
         h = random.randint(4, 9) if d == 1 else (random.randint(2, 5) if d == 0 else random.randint(8, 16))
-        a = h * random.randint(3, 6)
-        b = h * random.randint(3, 6)
+        a, b = h * random.randint(3, 6), h * random.randint(3, 6)
+        while not _apart(a, b):
+            a, b = h * random.randint(3, 6), h * random.randint(3, 6)
         return _wq("To pack %d red and %d blue pens into identical boxes (single colour "
                    "per box) with the greatest box size, do you need the HCF or the "
                    "LCM? (type 'HCF' or 'LCM')" % (a, b), "HCF",
@@ -2002,8 +2015,9 @@ def _(d=1):
 
     def t_greatest_people():
         h = random.randint(5, 12) if d == 1 else (random.randint(2, 6) if d == 0 else random.randint(8, 20))
-        a = h * random.randint(2, 6 if d < 2 else 9)
-        b = h * random.randint(2, 6 if d < 2 else 9)
+        a, b = h * random.randint(2, 6 if d < 2 else 9), h * random.randint(2, 6 if d < 2 else 9)
+        while not _apart(a, b):
+            a, b = h * random.randint(2, 6 if d < 2 else 9), h * random.randint(2, 6 if d < 2 else 9)
         if d == 2:                                    # stretch: one more step after the HCF
             g = math.gcd(a, b)
             return _tb("%d biscuits and %d sweets are shared equally among as many children "
@@ -2154,10 +2168,10 @@ def _(d=1):
     def t_neg_even():
         if d == 2:                                    # stretch: higher even powers
             e = pick([4, 6])
-            b = random.randint(2, 6 if e == 4 else 3)
-        else:
-            b = random.randint(2, 9 if d else 5)
+            b = random.randint(5, 7) if e == 4 else random.randint(2, 3)
+        else:                                         # core: squares, or 4th powers of 2–4 (≤ 256)
             e = pick([2, 4] if d else [2])
+            b = random.randint(2, (9 if e == 2 else 4) if d else 5)
         val = (-b) ** e
         return _tb("Work out (−%d)^%d." % (b, e), val, "int", {},
                    ["A negative number to an even power is positive.",
@@ -2166,10 +2180,10 @@ def _(d=1):
     def t_neg_odd():
         if d == 2:                                    # stretch: fifth powers or bigger cubes
             e = pick([3, 5])
-            b = random.randint(6, 12) if e == 3 else random.randint(2, 4)
-        else:
-            b = random.randint(2, 9 if d else 5)
+            b = random.randint(7, 12) if e == 3 else random.randint(2, 4)
+        else:                                         # core: cubes of 2–6, or 5th powers of 2–3 (≤ 243)
             e = pick([3, 5] if d else [3])
+            b = random.randint(2, (6 if e == 3 else 3) if d else 5)
         val = (-b) ** e
         return _tb("Work out (−%d)^%d." % (b, e), val, "int", {},
                    ["A negative number to an odd power stays negative.",

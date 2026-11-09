@@ -528,7 +528,6 @@ def _(d=1):
 
     def t_blocks_1000_less():
         n = _thousands(d)
-        ans = n % 1000 + 1000 * 0
         ans = n - (n // 1000) * 1000
         if ans == 0:
             ans = random.randint(101, 999)
@@ -834,7 +833,7 @@ def _(d=1):
         elif a == 100:
             base = random.randint(1, 8) * 1000 + 950 + random.randint(0, 9)
         else:
-            base = random.randint(1, 8) * 1000 + random.randint(0, 9) * 100 + random.randint(0, 9)
+            base = random.randint(1, 8) * 1000 + random.randint(1, 9) * 100 + random.randint(0, 9)
         up = random.random() < 0.5 or base - a < 0
         ans = base + a if up else base - a
         return _tb("What is %s %s than %s?" % (_c(a), "more" if up else "less", _c(base)),
@@ -917,7 +916,7 @@ def _(d=1):
                    ["%s − %s = %s." % (_c(b), _c(a), _c(gap))])
 
     def t_line():
-        base = random.randint(2, 18) * 500
+        base = random.randint(3, 18) * 500   # never 1,000, so "1,000 less" is not 0
         a = pick([100, 1000])
         step, major = 100, 500
         if d == 0:
@@ -2959,6 +2958,17 @@ def _(d=1):
                    [t_line, t_build])
 
 
+def _repeat_step(k, size, item):
+    """Explain where position k lands in a pattern that repeats every `size` items."""
+    full, left = divmod(k, size)
+    if left == 0:
+        return ("%d ÷ %d = %d exactly, so %d full repeats end at position %d: it is the "
+                "LAST %s of the pattern." % (k, size, full, full, k, item))
+    return ("%d ÷ %d = %d remainder %d: after %d full repeats (%d %ss), count on %d more, "
+            "so it is %s %d of the pattern."
+            % (k, size, full, left, full, full * size, item, left, item, left))
+
+
 @skill("Y4.1.h", "Shape and growing patterns", S1)
 def _(d=1):
     d = _d(d)
@@ -3052,8 +3062,8 @@ def _(d=1):
                    "Which shape is in position %d? (type the word)"
                    % (seq[0], seq[1], seq[2], seq[0], seq[1], seq[2], k), ans,
                    ["The pattern repeats every 3 shapes.",
-                    "%d ÷ 3 leaves a remainder of %d, so it is the %s."
-                    % (k, k % 3, ans)], "a shape name")
+                    _repeat_step(k, 3, "shape"),
+                    "So position %d is the %s." % (k, ans)], "a shape name")
 
     def t_repeating_colour():
         seq = random.sample(["red", "blue", "green", "yellow"], 4)
@@ -3063,8 +3073,8 @@ def _(d=1):
                    "What colour is bead number %d? (type the word)"
                    % (seq[0], seq[1], seq[2], seq[3], seq[0], k), ans,
                    ["The pattern repeats every 4 beads.",
-                    "%d ÷ 4 leaves a remainder of %d, so the bead is %s."
-                    % (k, k % 4, ans)], "a colour")
+                    _repeat_step(k, 4, "bead"),
+                    "So bead number %d is %s." % (k, ans)], "a colour")
 
     def t_tiles():
         who = pick(NAMES)

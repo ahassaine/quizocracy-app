@@ -949,7 +949,19 @@ def _column_set(kind, d=1):
     def t_bars():
         cats = random.sample(["Year 3", "Year 4", "Year 5", "Year 6"], 2)
         a, b = pair()
-        a, b = 10 * (a // 10), 10 * (b // 10)
+        a, b = 10 * (a // 10), 10 * (b // 10)                 # rounding keeps the no-regrouping kinds regroup-free
+        while kind == "sub" and a == b:                        # re-pick: bumping 290 to 300 would need an exchange
+            a, b = pair()
+            a, b = 10 * (a // 10), 10 * (b // 10)
+        if kind in ("carry", "exchange"):
+            # tens values whose tens column really regroups into or out of the hundreds (70 + 50, 130 − 80)
+            hi = _by(d, 49, 79, 99)
+            while True:
+                a, b = 10 * random.randint(_by(d, 4, 6, 20), hi), 10 * random.randint(_by(d, 4, 6, 15), hi)
+                if kind == "carry" and a // 10 % 10 + b // 10 % 10 >= 10 and a + b < 1000:
+                    break
+                if kind == "exchange" and a > b and a // 10 % 10 < b // 10 % 10:
+                    break
         if add:
             return _bar("The chart shows how many raffle tickets two year groups sold. How many did they sell altogether?",
                         cats, [a, b], a + b, ["%d + %d = %d." % (a, b, a + b)])
@@ -997,12 +1009,18 @@ def _column_set(kind, d=1):
                 xs = [random.randint((101, 101, 180)[d], (299, 399, 330)[d]) for _ in range(3)]
                 s = sum(xs)
                 no_c = all(sum(int(("%03d" % x)[i]) for x in xs) < 10 for i in range(3))
-                if s < 1000 and (no_c if kind == "add" else not no_c):
+                ones = sum(x % 10 for x in xs)
+                one_c = ones < 20 and (ones >= 10) + (sum(x // 10 % 10 for x in xs) + ones // 10 >= 10) == 1
+                if s < 1000 and (no_c if kind == "add" else not no_c and (d > 0 or one_c)):   # easy: one carry only
                     break
             return _tb("Work out %s." % " + ".join(str(x) for x in xs), s, "int", {},
                        ["Add the columns from the ones.", "= %d." % s])
         a, b = pair()
         c = random.randint(1, a - b) if a - b > 1 else 1
+        if kind == "sub" or d == 0:                            # no extra exchange in the second subtraction (easy: one in all)
+            while not all(int(x) >= int(y) for x, y in zip("%03d" % (a - b), "%03d" % c)) or c == a - b:
+                a, b = pair()
+                c = random.randint(1, a - b - 1) if a - b > 2 else 1
         return _tb("Work out %d − %d − %d." % (a, b, c), a - b - c, "int", {},
                    ["%d − %d = %d." % (a, b, a - b), "%d − %d = %d." % (a - b, c, a - b - c)])
 
@@ -1431,8 +1449,11 @@ def _x34i(d):
                    ["%d × %d = %d first." % (a, c, a * c), "%d × %d = %d." % (a * c, b, a * b * c)])
 
     def t_commute():
-        hi = _by(d, 6, 12, 12)
-        a, b = random.randint(2, hi), random.randint(2, hi)
+        # one factor from the Year 3 tables (2, 3, 4, 5, 8, 10), the other up to 12
+        a = pick(_by(d, [2, 5, 10], [2, 3, 4, 5, 8, 10], [3, 4, 8]))
+        b = random.randint(2, _by(d, 6, 12, 12))
+        if random.random() < 0.5:
+            a, b = b, a
         if d == 2:
             # stretch: three factors in a new order
             c = random.randint(2, 5)
@@ -2083,15 +2104,19 @@ def _x36k(d):
     n = random.randint(_by(d, 1, 1, 2), _by(d, 5, 9, 9))
 
     def t_ribbon():
-        return _fq("%d m of ribbon is shared equally between 10 children. What fraction of a metre does each child get?" % n,
-                   Fraction(n, 10), ["%d ÷ 10 = %d/10." % (n, n)], "e.g. 3/10")
+        return _tb("%d m of ribbon is shared equally between 10 children. What fraction of a metre does each child get?" % n,
+                   "%d/10" % n, "frac", {"text": True, "placeholder": "e.g. 3/10"}, ["%d ÷ 10 = %d/10." % (n, n)])
 
     def t_reverse():
         return _tb("Some pizzas are shared equally between 10 people and each person gets %d/10 of a pizza. How many pizzas were "
                    "shared?" % n, n, "int", {}, ["10 people × %d/10 = %d/10 = %d." % (n, 10 * n, n)])
 
     def t_tenth_of():
-        m = 10 * random.randint(2, 9 if d < 2 else 99)
+        m = 10 * random.randint(2, _by(d, 5, 10, 10))           # Year 3: tens up to 100, no 3-digit ÷ 10
+        if d == 2:                                              # stretch: a non-unit number of tenths
+            k = pick([2, 3, 4, 5, 8])                           # a Year 3 table, so k × (m ÷ 10) is a known fact
+            return _tb("What is %d/10 of %d?" % (k, m), k * m // 10, "int", {},
+                       ["1/10 of %d is %d ÷ 10 = %d." % (m, m, m // 10), "So %d/10 is %d × %d = %d." % (k, k, m // 10, k * m // 10)])
         return _tb("What is 1/10 of %d?" % m, m // 10, "int", {}, ["Finding 1/10 means dividing by 10.", "%d ÷ 10 = %d." % (m, m // 10)])
 
     def t_tenth_cm():

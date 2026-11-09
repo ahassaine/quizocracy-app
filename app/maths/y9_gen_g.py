@@ -93,9 +93,12 @@ def _(d=1):
                    ["%s ÷ %d = %d." % (_c(words), wpm, mins)])
 
     def t_table():
-        rows = [["Euro (€)", "1.15"], ["US dollar ($)", "1.25"], ["Japanese yen (¥)", "190"], ["Swiss franc (CHF)", "1.10"]]
-        plural = ["euros", "US dollars", "Japanese yen", "Swiss francs"]
-        i = random.randrange(4)
+        rows = [["Euro (€)", "1.15"], ["US dollar ($)", "1.25"], ["Swiss franc (CHF)", "1.10"]]
+        plural = ["euros", "US dollars", "Swiss francs"]
+        if d == 2:                                  # hard only: yen, whose large rate gives answers in the tens of thousands
+            rows.insert(2, ["Japanese yen (¥)", "190"])
+            plural.insert(2, "Japanese yen")
+        i = random.randrange(len(rows))
         amt = random.randint(2, 20) * 10
         r = Decimal(rows[i][1])
         return _dt("The table shows exchange rates for one pound. How many %s do you get for £%d?" % (plural[i], amt), ["Currency", "Per pound"],
@@ -540,7 +543,17 @@ def _(d=1):
         return _bar("The bar chart shows grouped %s. What is the class width?" % desc, cats, f, w, ["%d − %d = %d." % (groups[0][1], groups[0][0], w)])
 
     def t_difference():
-        i, j = random.sample(range(k), 2)
+        if d == 0:                                  # easy: the larger bar minus the smaller, so the answer is positive
+            pairs = [(i, j) for i in range(k) for j in range(k) if f[i] > f[j]]
+            if not pairs:
+                return t_read()
+            i, j = pick(pairs)
+            return _bar("The bar chart shows grouped %s. How many more values are in %s than in %s?" % (desc, cats[i], cats[j]),
+                        cats, f, f[i] - f[j], ["%d − %d = %d." % (f[i], f[j], f[i] - f[j])])
+        pairs = [(i, j) for i in range(k) for j in range(k) if f[i] != f[j]]   # two bars that differ: never an answer of 0
+        if not pairs:
+            return t_read()
+        i, j = pick(pairs)
         return _bar("The bar chart shows grouped %s. How many more values are in %s than in %s? (Use a minus sign if fewer.)" % (desc, cats[i], cats[j]),
                     cats, f, f[i] - f[j], ["%d − %d = %d." % (f[i], f[j], f[i] - f[j])])
 

@@ -469,15 +469,21 @@ def _(d=1):
         return q
 
     def t_median_class():
-        n = sum(f)
+        def _cls(ff, k):                            # index of the class holding the k-th value
+            cum = 0
+            for i, x in enumerate(ff):
+                cum += x
+                if cum >= k:
+                    return i
+        ff = list(f)
+        if _cls(ff, (sum(ff) + 1) // 2) != _cls(ff, sum(ff) // 2 + 1):
+            ff[-1] += 1                             # the two middle values straddle a boundary: an odd total has one middle value
+        rr = [["%d < %s ≤ %d" % (g[0], v, g[1]), x] for g, x in zip(groups, ff)]
+        n = sum(ff)
         pos = Fraction(n + 1, 2)
-        cum = 0
-        for g, x in zip(groups, f):
-            cum += x
-            if cum >= pos:
-                return _dt("The table shows %s. Which class contains the median? Type its lower end." % desc, hdr, rows, g[0],
-                           ["The median is the %s value, in %d < %s ≤ %d." % (_ds(pos), g[0], v, g[1])])
-        return t_total()
+        g = groups[_cls(ff, pos)]
+        return _dt("The table shows %s. Which class contains the median? Type its lower end." % desc, hdr, rr, g[0],
+                   ["The median is the %s value, in %d < %s ≤ %d." % (_ds(pos), g[0], v, g[1])])
 
     def t_why_estimate():
         return _wq("Why can the mean of grouped data only be estimated? (one word: we do not know the exact ...)", "values",

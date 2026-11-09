@@ -3271,10 +3271,10 @@ def _(d=1):
         k = random.randrange(3)
         end, leg, sh, sm = ends[k]
         return _table_q("Complete the timetable. %s leaves at %s and the journey "
-                        "takes %d minutes. What time does it arrive? Write the time "
-                        "as h:mm." % (rows[k][0], rows[k][1], leg),
+                        "takes %d minutes. What time does it arrive? Write it as a "
+                        "24-hour time, like the timetable (hh:mm)." % (rows[k][0], rows[k][1], leg),
                         ["Train", "Leaves", "Arrives", "Journey"], rows,
-                        _hm(end // 60, end % 60), "time",
+                        _hm24(end // 60, end % 60), "time",
                         ["%s plus %d minutes." % (rows[k][1], leg),
                          "It arrives at %s." % _hm24(end // 60, end % 60)],
                         missing=(k, 2))

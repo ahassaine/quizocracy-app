@@ -1687,35 +1687,51 @@ def _(d=1):
                    ["%s + %s = %s." % (_c(n), _c(amt), _c(n + amt))])
 
     def t_which_digit_changes():
-        if d == 0:
-            n = random.randint(100000, 899999)
-            amt = pick([100, 1000, 10000])
-            place = {100: "hundreds", 1000: "thousands", 10000: "ten thousands"}[amt]
-            return _wq("When %s is added to %s, which place-value column changes first? "
-                       "(type 'hundreds', 'thousands' or 'ten thousands')"
-                       % (_c(amt), _c(n)), place,
-                       ["%s is 1 in the %s column." % (_c(amt), place)],
-                       "hundreds / thousands / ten thousands")
+        cols = {100: "hundreds", 1000: "thousands", 10000: "ten thousands",
+                100000: "hundred thousands", 1000000: "millions"}
+        if d < 2:                                 # highest column that changes: a 9 there carries on
+            if d == 0:
+                n = random.randint(100000, 899999)
+                amt = pick([100, 1000, 10000])
+                nines = pick([0, 1])
+            else:
+                n = random.randint(1000000, 8999999)
+                amt = pick([1000, 10000, 100000])
+                nines = pick([0, 1, 2] if amt <= 10000 else [0, 1])
+            for k in range(nines):                # put 9s in the column added to and the next ones up
+                p = amt * 10 ** k
+                n = n - (n // p % 10) * p + 9 * p
+            p = amt * 10 ** nines                 # the column above the 9s must not be a 9 too
+            if n // p % 10 == 9:
+                n -= p
+            top = amt * 10 ** nines
+            place = cols[top]
+            opts = [cols[amt * 10 ** k] for k in range(3 if d == 0 else 4) if amt * 10 ** k in cols]
+            return _wq("When %s is added to %s, which is the HIGHEST place-value column whose digit "
+                       "changes? (type %s)" % (_c(amt), _c(n), ", ".join("'%s'" % o for o in opts)),
+                       place,
+                       ["%s + %s = %s." % (_c(n), _c(amt), _c(n + amt)),
+                        ("The %s digit was not 9, so only that column changes."
+                         % cols[amt]) if nines == 0 else
+                        ("The %s digit%s 9, so 1 is carried and the %s digit changes too."
+                         % (" and ".join(cols[amt * 10 ** k] for k in range(nines)),
+                            " was" if nines == 1 else "s were", place))],
+                       " / ".join(opts))
         n = random.randint(1000000, 8999999)
         amt = pick([1000, 10000, 100000])
         place = {1000: "thousands", 10000: "ten thousands",
                  100000: "hundred thousands"}[amt]
-        if d == 2:                                # the new digit, carrying if it was 9
-            if random.random() < 0.5:
-                n = n - (n // amt % 10) * amt + 9 * amt
-            new = (n + amt) // amt % 10
-            return _tb("%s is added to %s. What is the %s digit of the answer?"
-                       % (_c(amt), _c(n), place), new, "int", {},
-                       ["%s + %s = %s." % (_c(amt), _c(n), _c(n + amt)),
-                        "The %s digit was %d%s." % (place, n // amt % 10,
-                                                    ", so it becomes 0 and 1 is carried"
-                                                    if n // amt % 10 == 9 else
-                                                    " and becomes %d" % new)])
-        return _wq("When %s is added to %s, which place-value column changes first? "
-                   "(type 'thousands', 'ten thousands' or 'hundred thousands')"
-                   % (_c(amt), _c(n)), place,
-                   ["%s is 1 in the %s column." % (_c(amt), place)],
-                   "thousands / ten thousands / hundred thousands")
+        # stretch: the new digit, carrying if it was 9
+        if random.random() < 0.5:
+            n = n - (n // amt % 10) * amt + 9 * amt
+        new = (n + amt) // amt % 10
+        return _tb("%s is added to %s. What is the %s digit of the answer?"
+                   % (_c(amt), _c(n), place), new, "int", {},
+                   ["%s + %s = %s." % (_c(amt), _c(n), _c(n + amt)),
+                    "The %s digit was %d%s." % (place, n // amt % 10,
+                                                ", so it becomes 0 and 1 is carried"
+                                                if n // amt % 10 == 9 else
+                                                " and becomes %d" % new)])
 
     def t_io():
         amt = pick({0: [10, 100, 1000], 1: [100, 1000, 10000], 2: [1000, 10000, 100000]}[d])
@@ -2525,7 +2541,8 @@ def _(d=1):
     def _pair(exact=False):
         b = {0: random.randint(3, 6), 1: random.randint(3, 9),
              2: random.randint(6, 9)}[d]
-        q = random.randint(1000 // b + 1, (9999 - b) // b)
+        top = 999 if d == 0 else 9999             # easy: a 3-digit dividend, then 4-digit
+        q = random.randint((top + 1) // 10 // b + 1, (top - b) // b)
         if exact:
             return q * b, b
         return q * b + random.randint(1, b - 1), b
@@ -2710,7 +2727,8 @@ def _(d=1):
     def _pair(exact=False):
         b = {0: random.randint(11, 20), 1: random.randint(12, 35),
              2: random.randint(15, 49)}[d]
-        q = random.randint(1000 // b + 1, (9999 - b) // b)
+        top = 999 if d == 0 else 9999             # easy: a 3-digit dividend, then 4-digit
+        q = random.randint((top + 1) // 10 // b + 1, (top - b) // b)
         if exact:
             return q * b, b
         return q * b + random.randint(1, b - 1), b
@@ -2794,7 +2812,7 @@ def _(d=1):
 
     def t_price():
         b = random.randint(*{0: (11, 20), 1: (12, 48), 2: (25, 49)}[d])
-        each = random.randint(*{0: (15, 99), 1: (15, 300), 2: (101, 399)}[d])
+        each = random.randint(*{0: (15, 49), 1: (15, 300), 2: (101, 399)}[d])
         total = b * each
         return _tb("%d identical chairs cost £%s altogether. How much does one chair "
                    "cost?" % (b, _c(total)), each, "int", {"unit": "£"},
@@ -2810,7 +2828,7 @@ def _(d=1):
 
     def t_table():
         b = _b()
-        ins = sorted(random.sample(range(1000, 9999), 4))
+        ins = sorted(random.sample(range(100, 999) if d == 0 else range(1000, 9999), 4))
         rows = [[_c(i), _c(i // b), str(i % b)] for i in ins]
         r = random.randint(0, 3)
         col = pick([1, 2])
@@ -3785,11 +3803,12 @@ def _(d=1):
         q = R((2, 10), (10, 90), (50, 150))
         r = random.randint(1, n - 1)
         total = q * n + r
-        return _tb("%d cakes are shared equally between %d people. The cakes left "
-                   "over are cut up and shared equally too. Each person gets %d whole "
+        return _tb("%s cakes are shared equally between %d people. %s left "
+                   "over %s cut up and shared equally too. Each person gets %d whole "
                    "cakes and a fraction of a cake more. Type that fraction, for "
                    "example 3/8."
-                   % (total, n, q), "%d/%d" % (r, n), "frac",
+                   % (_c(total), n, "The cake" if r == 1 else "The cakes", "is" if r == 1 else "are", q),
+                   "%d/%d" % (r, n), "frac",
                    {"text": True, "placeholder": "e.g. 3/8"},
                    ["%d ÷ %d = %d remainder %d." % (total, n, q, r),
                     "Sharing %s between %d people gives %d/%d each."

@@ -193,6 +193,9 @@ def _pair_add_carry(d=1):
         ah, at, ao = _digits(a)
         bh, bt, bo = _digits(b)
         if (ao + bo >= 10 or at + bt >= 10) and a + b < 1000:
+            # easy: exactly one carry (a carried ten must not make the tens 10 again)
+            if d == 0 and not ((ao + bo >= 10 and at + bt <= 8) or (ao + bo < 10 and at + bt >= 10)):
+                continue
             if d == 2 and not (ao + bo >= 10 and at + bt >= 9):
                 continue
             return a, b
@@ -221,6 +224,9 @@ def _pair_sub_exchange(d=1):
         ah, at, ao = _digits(a)
         bh, bt, bo = _digits(b)
         if ao < bo or at < bt:
+            # easy: exactly one exchange (the tens digit left after an exchange still covers the bottom one)
+            if d == 0 and not ((ao < bo and at > bt) or (ao >= bo and at < bt)):
+                continue
             if d == 2 and not (ao < bo and at <= bt):
                 continue
             return a, b
@@ -1564,14 +1570,19 @@ def _(d=1):
     d = _lvl(d)
 
     def commutative():
-        hi = 6 if d == 0 else 9
-        a = random.randint(2, hi); b = random.randint(2, hi)
+        # one factor from the Year 3 tables (2, 3, 4, 5, 8, 10), the other up to 12
+        a = pick([2, 5, 10] if d == 0 else [2, 3, 4, 5, 8, 10])
+        b = random.randint(2, (6, 9, 12)[d])
+        if random.random() < 0.5:
+            a, b = b, a
         return _numq("%d × %d = %d. So what is %d × %d?" % (a, b, a * b, b, a), a * b,
                      ["Multiplication can be done in any order: %d × %d = %d."
                       % (b, a, a * b)])
 
     def comm_array():
         a = random.randint(2, (4, 6, 8)[d]); b = random.randint(3, (6, 9, 10)[d])
+        while a not in (2, 3, 4, 5, 8) and b not in (3, 4, 5, 8, 10):   # keep one Year 3 table
+            a = random.randint(2, (4, 6, 8)[d]); b = random.randint(3, (6, 9, 10)[d])
         return _arrayq("Show that %d × %d = %d × %d: build an array of %d rows of "
                        "%d and type the total." % (a, b, b, a, b, a), b, a,
                        ["Turning the array does not change the total.",

@@ -66,7 +66,7 @@ def _(d=1):
                    ["%s ≤ x < %s." % (_ds(v - h), _ds(v + h))])
 
     def t_sf():
-        v = random.randint(11, 99) * 100
+        v = pick([k for k in range(11, 100) if k % 10]) * 100     # never 8,000: a round thousand reads oddly at 2 s.f.
         return _tb("A town's population is %s, correct to 2 significant figures. What is the lower bound?" % _c(v), v - 50, "int", {},
                    ["The second significant figure is the hundreds, so ±50.", "%s ≤ P < %s." % (_c(v - 50), _c(v + 50))])
 

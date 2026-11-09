@@ -8,6 +8,11 @@ from .y5_common import *  # noqa: F401,F403
 S6 = "3.6 Fractions"
 S8 = "3.8 Time & geometry"
 
+def _tenths_q(prompt, n, solution):
+    """A fraction answer kept in tenths (4/10, not 2/5); 2/5 is still marked right by value."""
+    return _tb(prompt, "%d/10" % n, "frac", {"text": True, "placeholder": "e.g. 3/10"}, solution)
+
+
 MONTHS = [("January", 31), ("February", 28), ("March", 31), ("April", 30), ("May", 31), ("June", 30),
           ("July", 31), ("August", 31), ("September", 30), ("October", 31), ("November", 30), ("December", 31)]
 
@@ -18,17 +23,17 @@ def _(d=1):
     n = random.randint(_by(d, 1, 1, 2), _by(d, 5, 9, 9))
 
     def t_divide():
-        return _fq("Work out %d ÷ 10. Write the answer as a fraction." % n, Fraction(n, 10),
-                   ["Dividing by 10 makes tenths: %d ÷ 10 = %d/10." % (n, n)], "e.g. 3/10")
+        return _tenths_q("Work out %d ÷ 10. Write the answer as a fraction." % n, n,
+                         ["Dividing by 10 makes tenths: %d ÷ 10 = %d/10." % (n, n)])
 
     def t_object():
         return _tb("A ribbon is cut into 10 equal pieces. How many pieces make %d/10 of it?" % n, n, "int", {},
                    ["Each piece is 1/10, so %d/10 is %s." % (n, "1 piece" if n == 1 else "%d pieces" % n)])
 
     def t_share():
-        return _fq("%s shared equally between 10 people. What fraction of a pizza does each person get?"
-                   % ("1 pizza is" if n == 1 else "%d pizzas are" % n),
-                   Fraction(n, 10), ["%d ÷ 10 = %d/10." % (n, n)], "e.g. 3/10")
+        return _tenths_q("%s shared equally between 10 people. What fraction of a pizza does each person get?"
+                         % ("1 pizza is" if n == 1 else "%d pizzas are" % n),
+                         n, ["%d ÷ 10 = %d/10." % (n, n)])
 
     def t_how_many_tenths():
         w = random.randint(1, _by(d, 1, 3, 5))
@@ -44,8 +49,8 @@ def _(d=1):
 
     def t_compare():                                    # stretch: which share is bigger
         a, b = random.sample(range(1, 10), 2)
-        return _fq("Which is bigger: %d ÷ 10 or %d ÷ 10? Write the bigger answer as a fraction." % (a, b), Fraction(max(a, b), 10),
-                   ["%d ÷ 10 = %d/10 and %d ÷ 10 = %d/10." % (a, a, b, b), "%d/10 is bigger." % max(a, b)], "e.g. 3/10")
+        return _tenths_q("Which is bigger: %d ÷ 10 or %d ÷ 10? Write the bigger answer as a fraction." % (a, b), max(a, b),
+                         ["%d ÷ 10 = %d/10 and %d ÷ 10 = %d/10." % (a, a, b, b), "%d/10 is bigger." % max(a, b)])
 
     def t_bar():
         return {"prompt": "Shade the bar to show %d ÷ 10. The bar is one whole split into tenths." % n,

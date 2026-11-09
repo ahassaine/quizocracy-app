@@ -492,7 +492,7 @@ def _(d=1):
                    ["Use %s multiplication: %s." % ("short" if b < 10 else "long", _c(a * b))])
 
     def t_dec_mult():
-        a = Decimal(random.randint(11, _by(d, 99, 999, 999))) / 10
+        a = Decimal(pick([v for v in range(11, _by(d, 99, 999, 999) + 1) if v % 10])) / 10
         b = random.randint(2, _by(d, 5, 9, 9)) if d < 2 else Decimal(random.randint(2, 9)) / 10
         return _tb("Work out %s × %s." % (_ds(a), _ds(b)), _ds(a * b), "num", {}, ["= %s." % _ds(a * b)])
 
@@ -524,7 +524,8 @@ def _(d=1):
                      "The numbers are ÷ 100 and ÷ 10, so the answer is ÷ 1000.")])
 
     def t_area():
-        a = Decimal(random.randint(11, _by(d, 49, 99, 999))) / _by(d, 10, 10, 100)
+        den = _by(d, 10, 10, 100)
+        a = Decimal(pick([v for v in range(11, _by(d, 49, 99, 999) + 1) if v % den])) / den   # never a whole number
         b = random.randint(2, _by(d, 5, 12, 12)) if d < 2 else Decimal(random.randint(11, 99)) / 10
         return _tb("A rectangle is %s m by %s m. What is its area, in m²?" % (_ds(a), _ds(b)), _ds(a * b), "num",
                    {"unit": "m²"}, ["%s × %s = %s." % (_ds(a), _ds(b), _ds(a * b))])

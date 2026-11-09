@@ -194,12 +194,14 @@ def _(d=1):
     def t_type():
         k, t = _kind()
         if k in ("square", "triangular", "fibonacci"):
-            return t_next_special()
+            return _next_q(k, t)                         # the type already drawn, not a fresh draw
         return _wq("Is the sequence %s, ... linear or geometric?" % ", ".join(map(str, t)), k,
                    ["Linear: add the same each time. Geometric: multiply by the same each time."], "linear / geometric")
 
     def t_next_special():
-        k, t = _kind()
+        return _next_q(*_kind())
+
+    def _next_q(k, t):
         if k == "linear":
             nxt = 2 * t[-1] - t[-2]
         elif k == "geometric":
@@ -767,9 +769,31 @@ def _(d=1):
         return _tb("What is the constant term in  %dx + %d ?" % (m, c), c, "int", {}, ["The term with no letter: %d." % c])
 
     def t_like():
-        a, b = random.sample(_by(d, ["3x", "4y", "5x", "7", "2y"], ["3x", "4y", "x²", "5x", "2xy", "7"],
-                                 ["3x", "x²", "5x²", "2xy", "4xy", "x²y", "3xy²"]), 2)
-        like = a.lstrip("0123456789") == b.lstrip("0123456789")
+        # each group lists the spellings of one letter part; a "yes" takes both terms from one group (about half the time)
+        groups = _by(d, [["x"], ["y"], [""]], [["x"], ["y"], ["x²"], ["xy"], [""]],
+                     [["x"], ["x²"], ["xy", "yx"], ["x²y", "yx²"], ["xy²", "y²x"]])
+        g = pick(groups)
+        if random.random() < 0.45:                  # like terms; at hard mostly the reordered letters (xy and yx)
+            if d == 2 and random.random() < 0.7:
+                g = pick([gg for gg in groups if len(gg) > 1])
+            pa, pb = random.sample(g, 2) if len(g) > 1 else (g[0], g[0])
+        else:
+            pa, pb = g[0], pick(pick([gg for gg in groups if gg is not g]))
+        ca, cb = random.sample(range(2, 10), 2)
+        a = "%s%s" % ("" if pa and random.random() < 0.2 else ca, pa)     # sometimes a bare letter part: x, yx
+        b = "%d%s" % (cb, pb)
+        if random.random() < 0.5:
+            a, b = b, a
+
+        def _letters(t):                            # "x²y" -> {"x": 2, "y": 1}, so xy and yx compare equal
+            out, last = {}, None
+            for ch in t.lstrip("0123456789"):
+                if ch == "²":
+                    out[last] += 1
+                else:
+                    out[ch], last = out.get(ch, 0) + 1, ch
+            return sorted(out.items())
+        like = _letters(a) == _letters(b)
         return _wq("Are %s and %s like terms? (yes or no)" % (a, b), "yes" if like else "no",
                    ["Like terms have exactly the same letters and powers."], "yes / no")
 

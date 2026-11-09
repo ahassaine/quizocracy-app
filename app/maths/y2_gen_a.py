@@ -60,13 +60,14 @@ def _(d=1):
     d = _d(d)
     step = pick(_by(d, [2, 5, 10], [2, 3, 5, 10], [2, 3, 3, 5, 10]))   # 3s are the least familiar
     k = random.randint(_by(d, 1, 2, 4), _by(d, 5, 8, 9))
+    kn = min(k, 100 // step - 3)                        # runs of four multiples that stay within 100
 
     def t_next():
-        s = [step * i for i in range(k, k + 3)]
+        s = [step * i for i in range(kn, kn + 3)]
         return _tb("Count in %ss:  %s, ___" % (step, ", ".join(map(str, s))), s[-1] + step, "int", {}, ["Add %d." % step])
 
     def t_back():
-        s = [step * i for i in range(k + 3, k, -1)]
+        s = [step * i for i in range(kn + 3, kn, -1)]
         return _tb("Count back in %ss:  %s, ___" % (step, ", ".join(map(str, s))), s[-1] - step, "int", {}, ["Take away %d." % step])
 
     def t_tens_any():
@@ -83,7 +84,7 @@ def _(d=1):
 
     def t_line():
         return _nl("Start at 0 and make %d jumps of %d. Where do you land?" % (k, step), k * step, step, 10,
-                   ["%d jumps of %d = %d." % (k, step, k * step)], lo=0, hi=max(30, (k * step // 10 + 1) * 10))
+                   ["%d jumps of %d = %d." % (k, step, k * step)], lo=0, hi=min(100, max(30, (k * step // 10 + 1) * 10)))
 
     def t_back_tens():
         start = random.randint(1, 9) + 10 * random.randint(5, 9)
@@ -100,14 +101,14 @@ def _(d=1):
                    ["%s: %d jumps." % (", ".join(str(step * i) for i in range(1, k + 1)), k)])
 
     def t_in_count():
-        n = step * random.randint(2, 10) + pick([0, 0, 1, 2 if step > 2 else 1])
+        n = step * random.randint(2, min(10, 98 // step)) + pick([0, 0, 1, 2 if step > 2 else 1])
         return _wq("Do you say %d when you count in %ss from 0? (yes or no)" % (n, step), "yes" if n % step == 0 else "no",
                    ["Counting in %ss: %s." % (step, ", ".join(str(step * i) for i in range(1, 11)))], "yes / no")
 
     def t_line_back():
-        top = step * random.randint(k + 1, k + 4)
+        top = step * random.randint(k + 1, min(k + 4, 100 // step))
         return _nl("Start at %d and make %d jumps back of %d. Where do you land?" % (top, k, step), top - k * step, step, 10,
-                   ["%d − %d = %d." % (top, k * step, top - k * step)], lo=0, hi=max(30, (top // 10 + 1) * 10))
+                   ["%d − %d = %d." % (top, k * step, top - k * step)], lo=0, hi=min(100, max(30, (top // 10 + 1) * 10)))
 
     def t_missing_tens():
         start = random.randint(1, 9) + 10 * random.randint(0, _by(d, 1, 4, 5))
@@ -585,7 +586,7 @@ def _(d=1):
 
     def t_check_answer():
         wrong = random.random() < 0.5
-        shown = a + b + (pick([-1, 1, 10]) if wrong else 0)
+        shown = a + b + (pick([o for o in (-1, 1, 10) if a + b + o <= 100]) if wrong else 0)    # shown sum stays within 100
         return _wq("Sam says %d + %d = %d. Check it by subtracting. Is Sam right? (yes or no)" % (a, b, shown), "no" if wrong else "yes",
                    ["%d − %d = %d%s." % (shown, b, shown - b, "" if not wrong else ", not %d" % a)], "yes / no")
 
@@ -650,6 +651,7 @@ def _(d=1):
     d = _d(d)
     t = pick([2, 5, 10])
     k = random.randint(_by(d, 1, 1, 6), _by(d, 6, 12, 12))     # stretch: the harder half of each table
+    k = min(k, 100 // t)                                # products stay within 100 (10 × 10 at most)
 
     def t_mult():
         return _tb("%d × %d = ___" % (k, t), k * t, "int", {}, ["%s of %d." % (_pn(k, "lot"), t)])
@@ -677,7 +679,7 @@ def _(d=1):
 
     def t_true():
         right = random.random() < 0.5
-        shown = k * t if right else k * t + pick([-t, t, 1])
+        shown = k * t if right else k * t + pick([o for o in (-t, t, 1) if k * t + o <= 100])
         return _wq("Is this true?  %d × %d = %d  (yes or no)" % (k, t, shown), "yes" if right else "no",
                    ["%d × %d = %d." % (k, t, k * t)], "yes / no")
 
@@ -688,14 +690,14 @@ def _(d=1):
 
     def t_line():
         return _nl("Count in %ds. Mark %d × %d on the number line." % (t, k, t), k * t, t, 10, ["%d × %d = %d." % (k, t, k * t)],
-                   lo=0, hi=max(30, (k * t // 10 + 1) * 10))
+                   lo=0, hi=min(100, max(30, (k * t // 10 + 1) * 10)))
 
     def t_double():
         return _tb("Double %d = ___" % k, 2 * k, "int", {}, ["Double means × 2: %d × 2 = %d." % (k, 2 * k)])
 
     def t_which_table():
         x = pick([2, 5, 10])
-        n = x * random.randint(1, 12) if random.random() < 0.5 else pick([v for v in range(3, 12 * x + 1) if v % x])
+        n = x * random.randint(1, min(12, 100 // x)) if random.random() < 0.5 else pick([v for v in range(3, min(12 * x, 100) + 1) if v % x])
         return _wq("Is %d in the %d times table? (yes or no)" % (n, x), "yes" if n % x == 0 else "no",
                    ["%d %s in the %d times table." % (n, "is" if n % x == 0 else "is not", x)], "yes / no")
 
@@ -795,11 +797,15 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, b = pick([2, 5, 10]), random.randint(_by(d, 2, 2, 5), _by(d, 5, 10, 12))
+    b = min(b, 100 // a)                                # products stay within 100
 
     def t_commute():
         return _tb("%d × %d = %d. What is %d × %d?" % (a, b, a * b, b, a), a * b, "int", {}, ["Multiplication can be done in any order."])
 
-    def t_div_not():
+    def t_div_not():                                    # × can be swapped (yes), ÷ cannot (no)
+        if random.random() < 0.5:
+            return _wq("Is %d × %d the same as %d × %d? (yes or no)" % (a, b, b, a), "yes",
+                       ["Multiplication can be done in any order: both are %d." % (a * b)], "yes / no")
         return _wq("Is %d ÷ %d the same as %d ÷ %d? (yes or no)" % (a * b, a, a, a * b), "no", ["Division cannot be done in any order."],
                    "yes / no")
 
@@ -919,10 +925,10 @@ def _(d=1):
         return _tb("How many %s make a whole?" % name, n, "int", {}, ["%d %s make 1 whole." % (n, name)])
 
     def t_left():
-        f = pick(_by(d, [(1, 2), (3, 4)], [(1, 4), (3, 4), (1, 3)], [(1, 4), (3, 4), (2, 4)]))
-        return _wq("A cake is cut into %d equal pieces and %d %s eaten. What fraction is left? (like 1/4)" % (f[1], f[0],
+        f = pick(_by(d, [(1, 2), (3, 4)], [(1, 4), (3, 4), (2, 3)], [(1, 4), (3, 4), (2, 4)]))     # 2 of 3 eaten leaves 1/3
+        return _fq("A cake is cut into %d equal pieces and %d %s eaten. What fraction is left? (like 1/4)" % (f[1], f[0],
                                                                                                               "is" if f[0] == 1 else "are"),
-                   "%d/%d" % (f[1] - f[0], f[1]), ["%d out of %d pieces are left." % (f[1] - f[0], f[1])], "e.g. 1/4")
+                   Fraction(f[1] - f[0], f[1]), ["%d out of %d pieces are left." % (f[1] - f[0], f[1])], "e.g. 1/4")   # 2/4 = 1/2 both count
 
     def t_grid():
         f = pick(FR)
@@ -1075,11 +1081,11 @@ def _(d=1):
         return {"prompt": "Read the scale. How many kg?", "component": "ruler", "spec": {"mode": "mass", "value": v, "max": mx, "unit": "kg"},
                 "answer": v, "answer_type": "num", "tolerance": 0.5, "solution": ["%d kg." % v]}
 
-    def t_jug():
-        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 ml lines
+    def t_jug():                                        # readings stay within 100
+        v = random.randint(1, 19) * 5 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 10     # hard: 5 ml lines
         return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
-                "spec": {"mode": "capacity", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": _by(d, 50, 50, 20), "solution": ["%d ml." % v]}
+                "spec": {"mode": "capacity", "value": v, "max": _by(d, 50, 100, 100), "unit": "ml"}, "answer": v, "answer_type": "num",
+                "tolerance": _by(d, 5, 5, 2), "solution": ["%d ml." % v]}
 
     def t_thermo():
         t = random.randint(_by(d, 0, 0, 12), _by(d, 10, 30, 35))
@@ -1123,10 +1129,10 @@ def _(d=1):
         return _wq(q, a, ["Think about how big the real thing is."], "type it")
 
     def t_grams():
-        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 100     # hard: 50 g marks
+        v = random.randint(1, 19) * 5 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 10     # hard: 5 g marks
         return {"prompt": "Read the scale. How many grams?", "component": "ruler",
-                "spec": {"mode": "mass", "value": v, "max": _by(d, 500, 1000, 1000), "unit": "g"},
-                "answer": v, "answer_type": "num", "tolerance": _by(d, 50, 50, 20), "solution": ["%d g." % v]}
+                "spec": {"mode": "mass", "value": v, "max": _by(d, 50, 100, 100), "unit": "g"},
+                "answer": v, "answer_type": "num", "tolerance": _by(d, 5, 5, 2), "solution": ["%d g." % v]}
 
     def t_long_ruler():
         cm = random.randint(_by(d, 5, 5, 15), _by(d, 15, 29, 29))
@@ -1149,8 +1155,8 @@ def _(d=1):
                    ["%d + %d = %d." % (v, v, 2 * v)])
 
     def t_jug_more():
-        top = _by(d, 500, 1000, 1000)                  # easy: a 500 ml jug; hard: 50 ml steps
-        v = random.randint(1, 19) * 50 if d == 2 else random.randint(1, top // 100 - 1) * 100
+        top = _by(d, 50, 100, 100)                     # easy: a 50 ml jug; hard: 5 ml steps
+        v = random.randint(1, 19) * 5 if d == 2 else random.randint(1, top // 10 - 1) * 10
         return {"prompt": "How much more water is needed to make %d ml?" % top, "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": top, "unit": "ml"}, "answer": top - v, "answer_type": "num",
                 "tolerance": 0, "solution": ["The jug shows %d ml; %d − %d = %d." % (v, top, v, top - v)]}
@@ -1200,7 +1206,7 @@ def _(d=1):
 
     def t_order_cap():
         v = _vals(d, 1, _by(d, 10, 10, 20), 3)
-        vals = [x * _by(d, 100, 100, 50) for x in v]
+        vals = [x * _by(d, 10, 10, 5) for x in v]       # within 100 ml; hard: 5 ml steps
         return _tb("Put these in order, most first. Which comes first?  %s" % ", ".join("%d ml" % x for x in vals), max(vals), "int",
                    {"unit": "ml"}, ["Order: %s." % ", ".join("%d ml" % x for x in sorted(vals, reverse=True))])
 
@@ -1235,10 +1241,10 @@ def _(d=1):
         return _tb("What is the total of %s, in pence?" % " + ".join("%dp" % c for c in cs), sum(cs), "int", {"unit": "p"},
                    ["%s = %dp." % (" + ".join(map(str, cs)), sum(cs))])
 
-    def t_pounds():
-        a = random.randint(1, _by(d, 3, 5, 9))
-        b = random.randint(5, 95) if d == 2 else pick(_by(d, [10, 50], [10, 20, 50], None))   # hard: any pence
-        return _tb("How many pence is £%d and %dp?" % (a, b), 100 * a + b, "int", {"unit": "p"}, ["£1 = 100p, so %dp." % (100 * a + b)])
+    def t_pounds():                                     # make £1 = 100p; stays within 100
+        a = random.randint(5, 95) if d == 2 else _by(d, 10, 5, None) * random.randint(1, _by(d, 9, 19, None))   # hard: any pence
+        return _tb("£1 = 100p. %dp + ___p = £1. How many pence are missing?" % a, 100 - a, "int", {"unit": "p"},
+                   ["100 − %d = %d, so %dp." % (a, 100 - a, 100 - a)])
 
     def t_make():
         target = pick(_by(d, [15, 25, 30, 60, 70], [15, 25, 30, 35, 60, 70, 80], [45, 75, 80, 90, 95, 38, 67]))
@@ -1302,10 +1308,14 @@ def _(d=1):
         return _wq("Mia has %s. Ben has %dp. Do they have the same amount? (yes or no)" % (" + ".join("%dp" % x for x in a), b),
                    "yes" if sum(a) == b else "no", ["%s = %dp." % (" + ".join(map(str, a)), sum(a))], "yes / no")
 
-    def t_whole_pounds():
-        p = random.randint(1, _by(d, 5, 9, 9)) * 100 + (random.randint(1, 99) if d == 2 else pick(_by(d, [0, 50], [0, 0, 20, 50], None)))
-        return _tb("%dp is how many whole pounds and some pence? Type the number of whole pounds." % p, p // 100, "int", {},
-                   ["100p = £1, so %dp = £%d and %dp." % (p, p // 100, p % 100)])
+    def t_whole_pounds():                               # combine coins, then how far short of £1 (all within 100p)
+        cs = random.sample(_by(d, [10, 20, 50], [5, 10, 20, 50], [1, 2, 5, 10, 20, 50]), _by(d, 2, 2, 3))
+        while sum(cs) >= 100:
+            cs = random.sample(_by(d, [10, 20, 50], [5, 10, 20, 50], [1, 2, 5, 10, 20, 50]), _by(d, 2, 2, 3))
+        kid = _kid()
+        return _tb("%s has %s. How many more pence does %s need to make £1?" % (kid, " + ".join("%dp" % c for c in cs), kid),
+                   100 - sum(cs), "int", {"unit": "p"},
+                   ["%s = %dp; 100 − %d = %dp." % (" + ".join(map(str, cs)), sum(cs), sum(cs), 100 - sum(cs))])
 
     def t_notes():
         a, b = random.sample([5, 10, 20], 2)

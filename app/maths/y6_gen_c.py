@@ -1795,13 +1795,15 @@ def _(d=1):
 
     if t == 5:                       # cutting lengths (round down) or leftover
         # easy: tenths, leaving out 0.2 and 0.5, which always fit whole metres exactly
-        piece = _by_d(d, _D(pick(["0.3", "0.4", "0.6", "0.7", "0.8", "0.9"])), _mk(2, 25, 95),
-                      _mk(2, 105, 295))
-        total = random.randint(*_by_d(d, (3, 9), (3, 9), (10, 25)))
-        n = int(_D(total) / piece)
-        while _D(n + 1) * piece <= total:
-            n += 1
-        left = _D(total) - piece * n
+        left = _D(0)
+        while left == 0:             # the pieces must not fit exactly, so something is left over
+            piece = _by_d(d, _D(pick(["0.3", "0.4", "0.6", "0.7", "0.8", "0.9"])), _mk(2, 25, 95),
+                          _mk(2, 105, 295))
+            total = random.randint(*_by_d(d, (3, 9), (3, 9), (10, 25)))
+            n = int(_D(total) / piece)
+            while _D(n + 1) * piece <= total:
+                n += 1
+            left = _D(total) - piece * n
         if random.random() < 0.5:
             return _iq("A rope %d metres long is cut into pieces %s metres "
                        "long. How many whole pieces can be cut?"
@@ -2688,6 +2690,32 @@ def _(d=1):
                         % (who[idx], "largest" if want_max else "smallest")])
 
     if t == 7:                       # place the greater on a number line
+        if d == 2:                   # stretch: thousandths on a line that does not start at 0
+            lo = _D(random.randint(1, 8)) / 10
+            hi = lo + _D("0.1")
+            ms = random.sample([x for x in range(1, 100) if x % 10], 2)
+            items = []
+            for m in ms:
+                m += int(lo * 1000)
+                v = _D(m) / 1000
+                kind = pick(["frac", "dec", "pct"])
+                if kind == "frac":
+                    fr = Fraction(m, 1000)
+                    text = "%d/%d" % (fr.numerator, fr.denominator)
+                elif kind == "dec":
+                    text = _txt(v)
+                else:
+                    text = "%s%%" % _txt(v * 100)
+                items.append((text, v))
+            (ta, va), (tb, vb) = items
+            big = max(va, vb)
+            return _lineq("Which is greater, %s or %s? Place the greater amount on "
+                          "this number line, which runs from %s to %s."
+                          % (ta, tb, _txt(lo), _txt(hi)), big, lo, hi, _D("0.001"), _D("0.01"),
+                          ["%s = %s and %s = %s."
+                           % (ta, _txt(va), tb, _txt(vb)),
+                           "The greater amount is %s, which is %d small steps on from %s."
+                           % (_txt(big), int((big - lo) * 1000), _txt(lo))])
         items = _items(2, hundredths=True)
         (ta, va), (tb, vb) = items
         big = max(va, vb)
@@ -2699,9 +2727,11 @@ def _(d=1):
                        "The greater amount is %s." % _txt(max(va, vb))])
 
     if t == 8:                       # how many are greater than a half
-        items = _items(5)
         cut = _D("0.5")
-        n_more = len([v for _t, v in items if v > cut])
+        n_more = 0
+        while n_more == 0:           # at least one is greater, so the answer is never 0
+            items = _items(5)
+            n_more = len([v for _t, v in items if v > cut])
         return _iq("How many of these amounts are greater than 0.5? %s"
                    % ", ".join(t_ for t_, _v in items), n_more,
                    solution=["Change each amount into a decimal and compare "

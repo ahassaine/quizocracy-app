@@ -177,7 +177,8 @@ def _(d=1):
                      [("a dice", 6), ("an 8-sided spinner", 8), ("a 5-colour spinner", 5)]))
         b = pick(_by(d, [("a coin", 2), ("a 3-colour spinner", 3)], [("a coin", 2), ("a dice", 6), ("a 3-colour spinner", 3)],
                      [("a coin", 2), ("a dice", 6), ("a 4-sided spinner", 4)]))
-        who = ("Two coins" if a[0] == "a coin" else "Two dice") if a[0] == b[0] else "%s and %s" % (a[0].capitalize(), b[0])
+        noun = a[0].split(" ", 1)[1]                # "a 4-sided spinner" -> "4-sided spinner"
+        who = ("Two %s" % (noun if noun == "dice" else noun + "s")) if a[0] == b[0] else "%s and %s" % (a[0].capitalize(), b[0])
         return _tb("%s are used together. How many possible outcomes are there?" % who, a[1] * b[1],
                    "int", {}, ["%d × %d = %d." % (a[1], b[1], a[1] * b[1])])
 
@@ -308,15 +309,15 @@ def _(d=1):
     n = random.randint(_by(d, 3, 4, 5), _by(d, 5, 7, 9))
     m = random.randint(_by(d, 5, 8, 20), _by(d, 20, 40, 99))
     sp = _by(d, 3, 6, 10)
-    vals = [m + random.randint(-sp, sp) for _ in range(n - 1)]
-    vals.append(m * n - sum(vals))
-    if vals[-1] < 0:
-        vals[-1] = m
+    vals = [0]
+    while vals[-1] < 1:                             # redraw until the balancing value is positive: the mean stays m
+        vals = [m + random.randint(-sp, sp) for _ in range(n - 1)]
+        vals.append(m * n - sum(vals))
 
     def t_mean():
         tot = sum(vals)
         return _tb("Find the mean of: %s" % ", ".join(map(str, vals)), _ds(Fraction(tot, len(vals))), "num", {},
-                   ["%d ÷ %d = %s." % (tot, len(vals), _ds(Fraction(tot, len(vals))))]) if Fraction(tot, len(vals)).denominator in (1, 2, 4, 5) else t_missing()
+                   ["%d ÷ %d = %s." % (tot, len(vals), _ds(Fraction(tot, len(vals))))])
 
     def t_missing():
         mm = random.randint(_by(d, 3, 5, 10), _by(d, 15, 30, 60))

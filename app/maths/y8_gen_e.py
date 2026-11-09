@@ -436,16 +436,18 @@ def _(d=1):
                       % (c, k), x, "int", unit="degrees",
                       solution=["Let the smaller angle be x. Then x + (%dx + %d) = 180°." % (k, c),
                                 "%dx = %d, so x = %d°." % (k + 1, 180 - c, x)])
-    # x and k*x supplementary: x + kx = 180 -> x=180/(k+1)
+    # x and k*x supplementary: x + kx = 180 -> x=180/(k+1); k+1 always divides 180
+    k = pick(_by_d(d, [2, 3, 4, 5], [3, 4, 5, 8, 9, 11], [2]))
     x = 180 // (k + 1)
-    while (k + 1) * x != 180:
-        k = pick([2, 3, 5])
-        x = 180 // (k + 1)
+    big = random.random() < 0.5                       # ask for the larger angle half the time
+    ans = k * x if big else x
     return _num_q("One angle is %d times the size of another, and the two are "
-                  "supplementary. What is the size of the SMALLER angle, in degrees?" % k,
-                  x, "int", unit="degrees",
+                  "supplementary. What is the size of the %s angle, in degrees?"
+                  % (k, "LARGER" if big else "SMALLER"),
+                  ans, "int", unit="degrees",
                   solution=["Let the smaller angle be x. Then x + %dx = 180°." % k,
-                            "%dx = 180, so x = %d°." % (k + 1, x)])
+                            "%dx = 180, so x = %d°." % (k + 1, x)] +
+                           (["The larger angle is %d × %d = %d°." % (k, x, k * x)] if big else []))
 
 
 @skill("Y8.8.c", "Angles in parallel lines", S8)
@@ -799,18 +801,17 @@ def _(d=1):
                                 "180 − 2 × %d = %d°." % (base, apex)])
 
     if t == 3:                                        # fourth angle of a quadrilateral
-        if d == 0:                                    # easy: multiples of 10
-            a, b, c = (random.randint(7, 11) * 10 for _ in range(3))
-        elif d == 2:                                  # stretch: awkward sizes, wider spread
-            a, b, c = (random.randint(35, 165) for _ in range(3))
-        else:
-            a = random.randint(50, 120)
-            b = random.randint(50, 120)
-            c = random.randint(50, 120)
-        while a + b + c >= 350:
-            a, b, c = (random.randint(50, 110), random.randint(50, 110),
-                       random.randint(50, 110))
-        e = 360 - a - b - c
+        # the prompt does not say reflex, so keep it convex: every angle, the fourth too, under 180°
+        while True:
+            if d == 0:                                # easy: multiples of 10
+                a, b, c = (random.randint(7, 11) * 10 for _ in range(3))
+            elif d == 2:                              # stretch: awkward sizes, wider spread
+                a, b, c = (random.randint(35, 165) for _ in range(3))
+            else:
+                a, b, c = (random.randint(50, 120) for _ in range(3))
+            e = 360 - a - b - c
+            if 20 <= e < 180:
+                break
         return _num_q("Three angles of a quadrilateral are %d°, %d° and %d°. "
                       "How many degrees is the fourth angle?" % (a, b, c),
                       e, "int", unit="degrees",
@@ -2565,7 +2566,7 @@ def _(d=1):
                       tolerance=0,
                       solution=["Look at the digit after the %s decimal place."
                                 % ("first" if dp == 1 else "second"),
-                                "%s rounds to %s." % (_f(v), _f(res))])
+                                "%s rounds to %.*f." % (_f(v), dp, res)])
 
     if t == 6:                                        # round to significant figures
         sf = pick(_by_d(d, [1, 2], [1, 2, 3], [2, 3]))
@@ -2927,15 +2928,32 @@ def _(d=1):
                                 "Cut-out = %d × %d = %d cm²." % (w, h, w * h),
                                 "%d − %d = %d cm²." % (W * H, w * h, area)])
 
-    if t == 1:                                        # L-shape perimeter (unchanged)
+    if t == 1:                                        # L-shape perimeter, two edges unmarked
         W = random.randint(_by_d(d, 5, 8, 18), _by_d(d, 12, 20, 45))
         H = random.randint(_by_d(d, 4, 6, 14), _by_d(d, 10, 16, 38))
-        return _num_q("An L-shape is made by cutting a small rectangle out of one corner "
-                      "of %s cm by %d cm rectangle. The perimeter of an L-shape like "
-                      "this equals the perimeter of the whole rectangle. What is the "
-                      "perimeter, in cm?" % (_an(W), H), 2 * (W + H), "int", unit="cm",
-                      solution=["Perimeter = 2 × (%d + %d)." % (W, H),
-                                "= %d cm." % (2 * (W + H))])
+        if d == 2 and random.random() < 0.5:          # stretch: a notch cut from the middle of the top
+            n = random.randint(2, W - 4)
+            dp = random.randint(2, H - 3)
+            per = 2 * (W + H) + 2 * dp
+            return _num_q("A shape is made by cutting %s cm wide, %d cm deep rectangular "
+                          "notch out of the middle of the top edge of %s cm by %d cm "
+                          "rectangle. What is the perimeter of the new shape, in cm?"
+                          % (_an(n), dp, _an(W), H), per, "int", unit="cm",
+                          solution=["The top edges still add up to %d cm (the notch's "
+                                    "bottom replaces the %d cm removed)." % (W, n),
+                                    "But the notch adds two new sides of %d cm each." % dp,
+                                    "2 × (%d + %d) + 2 × %d = %d cm." % (W, H, dp, per)])
+        a = random.randint(2, W - 2)                  # top edge of the L
+        b = random.randint(2, H - 2)                  # right-hand edge of the L
+        per = 2 * (W + H)
+        return _num_q("An L-shape has a bottom edge of %d cm and a left edge of %d cm. Its "
+                      "top edge is %d cm and its right-hand edge is %d cm. The two edges of "
+                      "the step are not marked. What is the perimeter of the L-shape, in cm?"
+                      % (W, H, a, b), per, "int", unit="cm",
+                      solution=["Step across = %d − %d = %d cm; step down = %d − %d = %d cm."
+                                % (W, a, W - a, H, b, H - b),
+                                "%d + %d + %d + %d + %d + %d = %d cm."
+                                % (W, H, a, b, W - a, H - b, per)])
 
     if t == 2:                                        # two rectangles joined - area
         a1, b1 = random.randint(_by_d(d, 2, 3, 9), _by_d(d, 8, 10, 24)), random.randint(_by_d(d, 2, 3, 6), _by_d(d, 6, 8, 16))
@@ -3388,7 +3406,9 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     t = _pick_t([3, 3, 2, 2, 2, 2, 2, 1])
-    stems = sorted(random.sample(range(1, 9), _by_d(d, 3, 3, 5)))
+    n_st = _by_d(d, 3, 3, 5)                          # consecutive stems: no missing rows
+    s0 = random.randint(1, 9 - n_st)
+    stems = list(range(s0, s0 + n_st))
     leaves = [sorted(random.sample(range(0, 10), random.randint(_by_d(d, 1, 2, 3), _by_d(d, 3, 4, 6))))
               for _ in stems]
     values = sorted([s * 10 + lf for s, lvs in zip(stems, leaves) for lf in lvs])
@@ -3770,6 +3790,18 @@ def _(d=1):
                            "The outlier is %d." % outlier])
 
     if t == 1:                                        # population vs sample vocab
+        if d == 2:                                    # stretch: spot it inside a real survey
+            n_all, n_s = pick([(900, 50), (1200, 80), (650, 40)])
+            whole = random.random() < 0.5
+            ans = "population" if whole else "sample"
+            return _num_q("A head teacher wants to know what all %d pupils think of school "
+                          "lunches, so %d pupils are asked. In statistics, what are the %d "
+                          "pupils called? (type one word)"
+                          % (n_all, n_s, n_all if whole else n_s),
+                          ans, "str", text=True, placeholder="population / sample",
+                          solution=["The whole group of %d is the population; the %d "
+                                    "asked are the sample." % (n_all, n_s),
+                                    "The answer is %s." % ans])
         desc, ans = pick([
             ("every single member of the group you want to study", "population"),
             ("a smaller part of the group, chosen to represent it", "sample"),
@@ -3800,16 +3832,19 @@ def _(d=1):
         base = [random.randint(10, 20) for _ in range(4)]
         outlier = random.randint(80, 100)
         vals = base + [outlier]
-        mean_with = sum(vals) / 5.0
-        mean_without = sum(base) / 4.0
-        ans = "mean" if True else "median"
+        mean_with = ("%.2f" % (sum(vals) / 5.0)).rstrip("0").rstrip(".")
+        mean_without = ("%.2f" % (sum(base) / 4.0)).rstrip("0").rstrip(".")
+        more = random.random() < 0.5                  # ask which is affected MORE or LESS
+        ans = "mean" if more else "median"
         return _num_q("A data set is %s. One value is a very high outlier. Which average "
-                      "is affected MORE by this outlier — the mean or the median? "
-                      "(type one word)" % ", ".join(str(v) for v in vals),
-                      "mean", "str", text=True, placeholder="mean / median",
-                      solution=["The mean uses every value, so a large outlier pulls it "
-                                "up; the median (middle value) barely changes.",
-                                "The mean is affected more."])
+                      "is affected %s by this outlier — the mean or the median? "
+                      "(type one word)" % (", ".join(str(v) for v in vals),
+                                           "MORE" if more else "LESS"),
+                      ans, "str", text=True, placeholder="mean / median",
+                      solution=["The mean uses every value: with the outlier it is %s, "
+                                "without it %s. The median (middle value) barely changes."
+                                % (mean_with, mean_without),
+                                "The %s is affected %s." % (ans, "more" if more else "less")])
 
     if t == 4:                                        # median resistant - compute both roughly
         base = sorted([random.randint(10, _by_d(d, 20, 20, 40))
@@ -4041,12 +4076,18 @@ def _(d=1):
                              "The y-value is %d." % pts[k][1]]}
 
     # strength/type reasoning (typed)
-    return _num_q("On a scatter graph, the points lie almost exactly along a straight "
-                  "line sloping upwards. Is the correlation positive or negative? "
-                  "(type one word)", "positive", "str", text=True,
-                  placeholder="positive / negative",
-                  solution=["Points sloping upwards show positive correlation.",
-                            "The answer is positive."])
+    desc, ans, why = pick([
+        ("lie almost exactly along a straight line sloping upwards", "positive",
+         "Points sloping upwards show positive correlation."),
+        ("lie close to a straight line sloping downwards", "negative",
+         "Points sloping downwards show negative correlation."),
+        ("are scattered all over the graph with no pattern", "none",
+         "Points with no pattern show no correlation."),
+    ])
+    return _num_q("On a scatter graph, the points %s. Is the correlation positive, "
+                  "negative or none? (type one word)" % desc, ans, "str", text=True,
+                  placeholder="positive / negative / none",
+                  solution=[why, "The answer is %s." % ans])
 
 
 _DICE = [(1, "landing on a 6", 6, 1), ]
@@ -4386,9 +4427,20 @@ def _(d=1):
                                 % (k, k, n_out, ways, target),
                                 "P = %d/%d." % (ways, n_out)])
 
-    # mutually exclusive: are they? P(A)+P(B) not exceeding 1 reasoning
-    return _num_q("Rolling a fair dice, are the events 'rolling a 2' and 'rolling an odd "
-                  "number' mutually exclusive (they cannot happen at the same time)? "
-                  "(type yes or no)", "yes", "str", text=True, placeholder="yes / no",
-                  solution=["2 is an even number, so it cannot also be odd.",
-                            "The events cannot happen together, so yes."])
+    # mutually exclusive: are they? (dice events as sets of faces; yes when no face is shared)
+    _EV = [("rolling a 2", {2}), ("rolling an odd number", {1, 3, 5}),
+           ("rolling an even number", {2, 4, 6}), ("rolling a 6", {6}),
+           ("rolling a number greater than 4", {5, 6}), ("rolling a prime number", {2, 3, 5}),
+           ("rolling a number less than 3", {1, 2}), ("rolling a square number", {1, 4}),
+           ("rolling a multiple of 3", {3, 6})]
+    (na, sa), (nb, sb) = random.sample(_EV, 2)
+    both = sorted(sa & sb)
+    return _num_q("Rolling a fair dice, are the events '%s' and '%s' mutually exclusive "
+                  "(they cannot happen at the same time)? (type yes or no)" % (na, nb),
+                  "no" if both else "yes", "str", text=True, placeholder="yes / no",
+                  solution=["'%s' means scoring %s; '%s' means scoring %s."
+                            % (na, " or ".join(map(str, sorted(sa))),
+                               nb, " or ".join(map(str, sorted(sb)))),
+                            ("Both happen if you roll %s, so no." % " or ".join(map(str, both)))
+                            if both else
+                            "No score is in both, so they cannot happen together: yes."])
