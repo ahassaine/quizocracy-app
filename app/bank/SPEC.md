@@ -25,6 +25,10 @@ SKILLS = [
 * Order within a year matters: the child meets skills in key order, so put foundations first. A skill added
   later can take its place in the order with `"after": "GP6.01"` (it is taught straight after that skill), so
   published keys never need renumbering.
+* A skill can also be filed under other topics for "working on this at school" with `"also": ["Apostrophes"]`:
+  the focus menu offers each such topic, and a focus on it (or on a strand named there) practises the skill.
+  For a Year 8 or 9 child the menu also offers the earlier KS3 science strands that year has not got, marked
+  "(Year 7–8 topic)", and a focus on one practises that year's skills (engine.focus_skills).
 * The child works up to three skills side by side, at most two from one strand, and never more than three
   questions in a row from one strand unless a grown-up chose it as the "working on this at school" focus.
 * Each skill has **at least 20 questions** (aim for 22–25) and **at least 3 question types**: this is a
@@ -55,9 +59,18 @@ teaches the point; the child sees it after a wrong answer, under the right answe
 | `write` | rewrites a sentence | `s`: the sentence to fix; `a`: list of exactly-correct versions. Marking is exact (capitals and punctuation count); only spaces and curly/straight quotes are normalised |
 | `num` | types a number | `a`: the number; optional `tol` (allowed error, default 0) and `unit` (shown next to the box, e.g. `"m/s"`) |
 
+Science answers go through one unit normaliser (`engine.sci_unit`): a unit typed the keyboard way counts
+("cm3", "cm^3", "m/s2", "m s-2", "metres per second"), and so does a name with its symbol in brackets ("watt (W)").
+So a text answer lists each unit once (`["kg/m³"]`), not every way of typing it. A number typed with a different
+unit from the question's (`"4 kg"` for 4 g) is wrong.
+
+An answer right but for an apostrophe (`"cant you"` for "can't you") gets "Nearly — check the apostrophe" and one
+free retry, then a correction about the apostrophe, except in skills about apostrophes or possession.
+
 Two optional fields teach after a wrong answer:
 
-* `"no"` (mcq only): `{"wrong option": "why it is wrong"}` for options built on a common misconception. The
+* `"no"` (mcq and text): `{"wrong option": "why it is wrong"}`; for a text question, the key is a wrong answer a
+  child may type (`{"fronting": "Fronting only moves a word to the front; ..."}`) for options built on a common misconception. The
   child who picks that option reads why it is wrong first ("'and' joins two main clauses, so neither one is
   subordinate."), then the `why`. Use the option's exact text.
 * `"why2"`: a different explanation (another example, another angle), shown instead of `why` when the child

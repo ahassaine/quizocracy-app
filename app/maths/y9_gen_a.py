@@ -38,6 +38,29 @@ def _bracket(p, var="x"):
     return "(%s%s%d)" % (var, "+" if p >= 0 else "-", abs(p))
 
 
+def _neg_steps(b, n):
+    """The working for b^-n, and why the usual slips are wrong: 2^-3 = 1/2^3 = 1/8, not 1/6 (2 × 3) and not −8."""
+    v = b ** n
+    out = ["A negative power means 1 over the positive power: %d^-%d = 1/%d^%d." % (b, n, b, n)]
+    if n > 1:
+        out.append("%d^%d = %s = %d, so %d^-%d = 1/%d." % (b, n, " × ".join([str(b)] * n), v, b, n, v))
+    else:
+        out.append("%d^1 = %d, so %d^-1 = 1/%d." % (b, b, b, b))
+    no = {"-%d" % v: "Not −%d: a negative power never makes a negative number. It means 1 over %d^%d." % (v, b, n)}
+    if n > 1 and b * n != v:
+        out.append("Not 1/%d: the power %d means %s %ds multiplied together (%s), not %d × %d."
+                   % (b * n, n, {2: "two", 3: "three", 4: "four"}.get(n, str(n)), b, " × ".join([str(b)] * n), b, n))
+        no["1/%d" % (b * n)] = ("You worked out %d × %d = %d. The power %d means %s = %d, so it is 1/%d."
+                                % (b, n, b * n, n, " × ".join([str(b)] * n), v, v))
+    return out, no
+
+
+def _with_no(q, no):
+    """Lines for the wrong answers a child is likely to give (maths_engine.check shows the matching one first)."""
+    q["no"] = no
+    return q
+
+
 # ================================================================== 9.0 ======
 @skill("Y9.0.a", "Zero and negative indices", S0)
 def _(d=1):
@@ -49,10 +72,16 @@ def _(d=1):
         if d == 2:      # hard: a zero power beside a first power
             k = random.randint(2, 30)
             return _tb("Work out %d^0 + %d^1." % (k, k), 1 + k, "int", {}, ["%d^0 = 1 and %d^1 = %d." % (k, k, k), "1 + %d = %d." % (k, 1 + k)])
-        return _tb("Work out %d^0." % random.randint(2, _by(d, 20, 999, 999)), 1, "int", {}, ["Any non-zero number to the power 0 is 1."])
+        k = random.randint(2, _by(d, 20, 999, 999))
+        return _with_no(_tb("Work out %d^0." % k, 1, "int", {},
+                            ["Any non-zero number to the power 0 is 1: %d^1 ÷ %d^1 = %d^0, and a number divided by "
+                             "itself is 1." % (k, k, k)]),
+                        {"0": "Not 0: the power 0 does not mean times 0. %d^0 = %d ÷ %d = 1." % (k, k, k),
+                         str(k): "Not %d: that is %d^1. %d^0 = %d^1 ÷ %d^1 = 1." % (k, k, k, k, k)})
 
     def t_neg():
-        return _fq("Work out %d^-%d as a fraction." % (b, n), Fraction(1, b ** n), ["%d^-%d = 1/%d^%d = 1/%d." % (b, n, b, n, b ** n)])
+        steps, no = _neg_steps(b, n)
+        return _with_no(_fq("Work out %d^-%d as a fraction." % (b, n), Fraction(1, b ** n), steps), no)
 
     def t_neg_decimal():
         k = pick(_by(d, [1, 2], [1, 2, 3], [2, 3, 4]))
@@ -61,7 +90,9 @@ def _(d=1):
             v = m * Decimal(1) / 10 ** k
             return _tb("Write %d × 10^-%d as a decimal." % (m, k), _ds(v), "num", {},
                        ["10^-%d = %s." % (k, _ds(Decimal(1) / 10 ** k)), "%d × %s = %s." % (m, _ds(Decimal(1) / 10 ** k), _ds(v))])
-        return _tb("Write 10^-%d as a decimal." % k, _ds(Decimal(1) / 10 ** k), "num", {}, ["1/%d = %s." % (10 ** k, _ds(Decimal(1) / 10 ** k))])
+        steps, no = _neg_steps(10, k)
+        return _with_no(_tb("Write 10^-%d as a decimal." % k, _ds(Decimal(1) / 10 ** k), "num", {},
+                            steps + ["1/%d = %s." % (10 ** k, _ds(Decimal(1) / 10 ** k))]), no)
 
     def t_frac_neg():
         if d == 0:      # easy: a unit fraction flips to a whole number
@@ -76,7 +107,10 @@ def _(d=1):
         return _fq("Work out (%d/%d)^-1." % (p, q), Fraction(q, p), ["A power of −1 flips the fraction: %d/%d." % (q, p)])
 
     def t_which_power():
-        return _tb("%d^? = 1/%d. What is the power?" % (b, b ** n), -n, "int", {}, ["1/%d = %d^-%d." % (b ** n, b, n)])
+        return _with_no(_tb("%d^? = 1/%d. What is the power?" % (b, b ** n), -n, "int", {},
+                            ["%d = %d^%d, and 1 over a power is a negative power: 1/%d = 1/%d^%d = %d^-%d."
+                             % (b ** n, b, n, b ** n, b, n, b, n)]),
+                        {str(n): "Not %d: that is %d^%d = %d. One over it needs the negative power, −%d." % (n, b, n, b ** n, n)})
 
     def t_laws():
         if d == 0:      # easy: one negative power, multiplying
@@ -116,27 +150,31 @@ def _(d=1):
         bb, e = pick(_by(d, [(2, 1), (4, 1), (5, 1), (10, 1)], [(2, 1), (4, 1), (5, 1), (8, 1)],
                          [(2, 2), (2, 3), (4, 2), (5, 2), (20, 2), (5, 3)]))
         v = Fraction(1, bb ** e)
-        return _tb("Work out %d^-%d as a decimal." % (bb, e), _ds(v), "num", {},
-                   ["1/%d = %s." % (bb ** e, _ds(v))] if e == 1 else
-                   ["%d^-%d = 1/%d^%d = 1/%d." % (bb, e, bb, e, bb ** e), "= %s." % _ds(v)])
+        steps, no = _neg_steps(bb, e)
+        return _with_no(_tb("Work out %d^-%d as a decimal." % (bb, e), _ds(v), "num", {},
+                            steps + ["1/%d = %s." % (bb ** e, _ds(v))]), no)
 
     def t_spot():
-        return _fq("Sam says %d^-%d = −%d. What is the correct value, as a fraction?" % (b, n, b ** n), Fraction(1, b ** n),
-                   ["A negative power means a reciprocal, not a negative number.", "%d^-%d = 1/%d." % (b, n, b ** n)])
+        steps, no = _neg_steps(b, n)
+        return _with_no(_fq("Sam says %d^-%d = −%d. What is the correct value, as a fraction?" % (b, n, b ** n),
+                            Fraction(1, b ** n), ["Sam made it negative, but a negative power means a reciprocal, "
+                                                  "not a negative number."] + steps), no)
 
     def t_mixed_laws():
         bb = pick(_by(d, [2, 10], [2, 3, 5], [2, 3, 5]))
         p, q = random.randint(*_by(d, (-2, -1), (-4, -1), (-6, -3))), random.randint(*_by(d, (2, 4), (2, 5), (1, 4)))
         v = Fraction(bb) ** (p + q)
+        last = (_neg_steps(bb, -(p + q))[0] + ["= %s." % _fs(v)] if p + q < 0 else
+                ["Any non-zero number to the power 0 is 1."] if p + q == 0 else ["%d^%d = %s." % (bb, p + q, _fs(v))])
         return _fq("Work out %d^%d × %d^%d. Give a whole number or a fraction." % (bb, p, bb, q), v,
-                   ["Add the powers: %d + %d = %d." % (p, q, p + q), "%d^%d = %s." % (bb, p + q, _fs(v))])
+                   ["Add the powers: %d + %d = %d." % (p, q, p + q)] + last)
 
     def t_divide_powers():
         bb = pick(_by(d, [2, 10], [2, 3, 10], [2, 3, 5]))
         # easy: small positive powers; hard: the first power can be zero or negative
         p, q = random.randint(*_by(d, (1, 2), (1, 4), (-2, 2))), random.randint(*_by(d, (3, 4), (5, 7), (3, 5)))
         return _fq("Work out %d^%d ÷ %d^%d as a fraction." % (bb, p, bb, q), Fraction(1, bb ** (q - p)),
-                   ["Subtract the powers: %d − %d = %d." % (p, q, p - q), "%d^%d = 1/%d." % (bb, p - q, bb ** (q - p))])
+                   ["Subtract the powers: %d − %d = %d." % (p, q, p - q)] + _neg_steps(bb, q - p)[0])
 
     def t_pattern():
         bb = pick(_by(d, [2, 10], [2, 3, 10], [3, 4, 5]))
@@ -205,6 +243,15 @@ def _(d=1):
     return _pick_t([t_small_to_sf, t_sf_to_small, t_order, t_power, t_context])
 
 
+def _renorm(coef, pw, unit=""):
+    """The last step of a standard-form product: 45x10^-11 is not standard form, as 45 is 10 or more."""
+    sf = _sf(Decimal(coef) * Decimal(10) ** pw)[0]
+    if coef < 10:
+        return ["So the answer is %s%s." % (sf, unit)]
+    return ["%dx10^%d is not standard form, as %d is 10 or more: %d = %s × 10, so add 1 to the power: %s%s."
+            % (coef, pw, coef, coef, _ds(Decimal(coef) / 10), sf, unit)]
+
+
 @skill("Y9.0.c", "Calculate with numbers in standard form", S0)
 def _(d=1):
     d = _d(d)
@@ -219,7 +266,8 @@ def _(d=1):
     def t_mult():
         p = Decimal(a * b) * Decimal(10) ** (m + n)
         return _wq("Work out (%dx10^%d) × (%dx10^%d). Give your answer in standard form." % (a, m, b, n), _sf(p)[0],
-                   ["%d × %d = %d; powers %d + %d = %d." % (a, b, a * b, m, n, m + n), "= %s." % _sf(p)[0]], "e.g. 1.2x10^5")
+                   ["Multiply the numbers and add the powers: %d × %d = %d; %d + (%d) = %d."
+                    % (a, b, a * b, m, n, m + n)] + _renorm(a * b, m + n), "e.g. 1.2x10^5")
 
     def t_div():
         top = Decimal(a * b) * Decimal(10) ** m
@@ -241,8 +289,9 @@ def _(d=1):
         k = random.randint(_by(d, 1, 2, 4), _by(d, 3, 4, 9))
         e = pick(_by(d, [1, 2, 3], [2, 3, 4, 5], [-4, -3, -2, 3, 4, 5, 6]))
         p = Decimal(k * k) * Decimal(10) ** (2 * e)
-        return _wq("Work out (%dx10^%d)². Give your answer in standard form." % (k, e), _sf(p)[0], ["%d² = %d; power × 2." % (k, k * k)],
-                   "e.g. 2.5x10^7")
+        return _wq("Work out (%dx10^%d)². Give your answer in standard form." % (k, e), _sf(p)[0],
+                   ["Square the number and double the power: %d² = %d; (10^%d)² = 10^%d." % (k, k * k, e, 2 * e)]
+                   + _renorm(k * k, 2 * e), "e.g. 2.5x10^7")
 
     def t_subtract():
         e = random.randint(3, _by(d, 6, 6, 8))
@@ -260,7 +309,11 @@ def _(d=1):
         big, small = a * b, b
         return _tb("How many times bigger is %dx10^%d than %dx10^%d?" % (big, e1, small, e2) if big < 10 else
                    "How many times bigger is %s than %dx10^%d?" % (_sf(Decimal(big) * 10 ** e1)[0], small, e2),
-                   a * 10 ** (e1 - e2), "int", {}, ["Divide: %d × 10^%d = %s." % (a, e1 - e2, _c(a * 10 ** (e1 - e2)))])
+                   a * 10 ** (e1 - e2), "int", {},
+                   ([] if big < 10 else ["%s = %dx10^%d." % (_sf(Decimal(big) * 10 ** e1)[0], big, e1)])
+                   + ["Divide the numbers and subtract the powers: %d ÷ %d = %d; %d − (%d) = %d."
+                      % (big, small, a, e1, e2, e1 - e2),
+                      "%d × 10^%d = %s." % (a, e1 - e2, _c(a * 10 ** (e1 - e2)))])
 
     def t_power_n():
         p = Decimal(a * b) * Decimal(10) ** (m + n)
@@ -272,8 +325,9 @@ def _(d=1):
         pm, pc = _by(d, -2, -4, -random.randint(5, 7)), _by(d, 4, 6, random.randint(7, 9))
         p = Decimal(mass * cnt) * Decimal(10) ** (pm + pc)
         return _wq("A grain of rice has a mass of %dx10^%d kg. What is the mass of %dx10^%d grains, in kg? Give your answer in standard form."
-                   % (mass, pm, cnt, pc), _sf(p)[0], ["%d × %d = %d; powers %d + %d = %d." % (mass, cnt, mass * cnt, pm, pc, pm + pc),
-                                                      "= %s kg." % _sf(p)[0]],
+                   % (mass, pm, cnt, pc), _sf(p)[0],
+                   ["Multiply the numbers and add the powers: %d × %d = %d; %d + %d = %d."
+                    % (mass, cnt, mass * cnt, pm, pc, pm + pc)] + _renorm(mass * cnt, pm + pc, " kg"),
                    "e.g. 1.2x10^3")
 
     def t_light():
@@ -461,18 +515,25 @@ def _(d=1):
                 "spec": {"text": True, "placeholder": "e.g. -3, 2"}, "answer": "%d, %d" % tuple(roots), "answer_type": "set",
                 "solution": ["%s%s = 0." % (_bracket(lo), _bracket(hi)), "x = %d or x = %d." % tuple(roots)]}
 
-    return _pick_t([t_factorise, t_pair, t_dots, t_solve, _common2])
+    return _pick_t([t_factorise, t_pair, t_dots, t_solve, lambda: _common2(d)])
 
 
-def _common2():
+def _common2(d=0):
+    """A common factor first. Easy tier: a number (12x+54 = 6(2x+9), Year 8 work); from the core tier a quadratic
+    with no constant, where the factor is a number and x (6x^2+15x = 3x(2x+5))."""
     while True:
         a, b = random.randint(1, 9), random.randint(1, 9)
         if _g(a, b) == 1:
             break
     k = random.randint(2, 8)
     inner = ("x" if a == 1 else "%dx" % a) + "+%d" % b
-    return _wq("Factorise %dx+%d fully (like 3(2x+5))." % (k * a, k * b), "%d(%s)" % (k, inner),
-               ["The highest common factor is %d." % k, "%d(%s)." % (k, inner)], "e.g. 3(2x+5)")
+    if d == 0:
+        return _wq("Factorise %dx+%d fully (like 3(2x+5))." % (k * a, k * b), "%d(%s)" % (k, inner),
+                   ["The highest common factor is %d." % k, "%d(%s)." % (k, inner)], "e.g. 3(2x+5)")
+    return _wq("Factorise %dx^2+%dx fully (like 2x(4x+3))." % (k * a, k * b), "%dx(%s)" % (k, inner),
+               ["Both terms have a factor %d and a factor x, so the highest common factor is %dx." % (k, k),
+                "%dx^2 ÷ %dx = %s and %dx ÷ %dx = %d, so %dx^2+%dx = %dx(%s)."
+                % (k * a, k, "x" if a == 1 else "%dx" % a, k * b, k, b, k * a, k * b, k, inner)], "e.g. 2x(4x+3)")
 
 
 @skill("Y9.1.c", "Rearrange formulae to change the subject", S1)

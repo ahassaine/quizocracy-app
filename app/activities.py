@@ -43,7 +43,7 @@ def new_family_plan() -> str:
 # (see minutes()). Anything else the parent can switch on.
 YEAR_DEFAULTS = {
     1: {"maths": 8, "spelling": 5},       # 5 right: within reach of a child just learning to sound words out
-    2: {"maths": 6, "tables": 15, "spelling": 6},
+    2: {"maths": 6, "tables": 10, "spelling": 6},     # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty
     3: {"maths": 8, "tables": 20, "spelling": 8},
     4: {"maths": 8, "tables": 20, "spelling": 8},
     5: {"maths": 10, "tables": 20, "spelling": 8},
@@ -58,12 +58,21 @@ SECONDS = {"maths": 50, "tables": 8, "spelling": 25, "grammar": 40, "science": 3
 
 
 def year_pace(year: int) -> float:
-    return 1.5 if year <= 2 else 1.2 if year <= 4 else 1.0 if year <= 6 else 0.85
+    # Years 1-2: a 6- or 7-year-old reads, listens and types slowly (the wave-5 Year 2 day took about twice the
+    # Year 5 time per answer)
+    return 2.0 if year <= 2 else 1.2 if year <= 4 else 1.0 if year <= 6 else 0.85
 
 
-def minutes(plan: list, year: int) -> int:
-    """About how long a day of this plan ([{key, target}]) takes, in minutes."""
-    return round(sum(SECONDS[a["key"]] * a["target"] for a in plan) * year_pace(year) / 60)
+CHECK_SECONDS = 240       # a Year 4 check: 25 questions of up to 6 seconds, with a 3-second "Get ready" between
+# Years 1-2: an activity also ends after this many times its target in answers, right or wrong (progress.day_status),
+# so a child who finds it hard is not kept going for the longest day of all
+YOUNG_CAP = 2
+
+
+def minutes(plan: list, year: int, check: bool = False) -> int:
+    """About how long a day of this plan ([{key, target}]) takes, in minutes; check: with a Year 4 check."""
+    return round(sum(SECONDS[a["key"]] * a["target"] for a in plan) * year_pace(year) / 60
+                 + (CHECK_SECONDS / 60 if check else 0))
 
 
 def default_activities(year: int) -> dict:
@@ -181,7 +190,8 @@ SCIENCE_AREAS = {
                 "Inheritance and variation", "Ecosystems"],
     "Chemistry": ["Everyday materials", "Uses of everyday materials", "Rocks", "States of matter",
                   "Properties and changes of materials", "Particles", "Mixtures and separation", "Acids and alkalis",
-                  "Atoms, elements and compounds", "The periodic table", "Chemical reactions", "Materials",
+                  "Atoms, elements and compounds", "The periodic table", "Atoms and the periodic table",
+                  "Chemical reactions", "Materials",
                   "Earth and atmosphere"],
     "Physics": ["Seasonal changes", "Light", "Forces and magnets", "Sound", "Electricity", "Earth and space", "Forces",
                 "Space physics", "Magnetism", "Energy", "Motion and forces", "Matter", "Waves"],

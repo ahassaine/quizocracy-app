@@ -107,6 +107,43 @@ def bank_year(subject: str, year: int) -> int:
     return max(ys)
 
 
+def _earlier(subject: str, year: int) -> list:
+    """KS3 science skills of the years before this one (Year 7 and 8 for a Year 9 child) whose strand this year
+    has not got: a class doing atoms or the periodic table in Year 9 can still pick it as its school topic."""
+    year = int(year or 1)
+    if subject != "science" or year < 8:
+        return []
+    have = {s["strand"] for s in skills(subject, year)}
+    return [s for y in range(7, year) for s in load()[subject].get(y, []) if s["strand"] not in have]
+
+
+def focus_strands(subject: str, year: int) -> list:
+    """What a grown-up can pick as "working on this at school": the year's strands, the extra topics its skills
+    are also filed under ("also": ["Apostrophes"]), then earlier KS3 strands (see _earlier)."""
+    out = []
+    for s in skills(subject, year):
+        out += [s["strand"], *s.get("also", [])]
+    out += [s["strand"] for s in _earlier(subject, year)]
+    return list(dict.fromkeys(out))
+
+
+def earlier_note(subject: str, year: int) -> dict:
+    """{strand: " (Year 7–8 topic)"} for the focus menu's earlier-year strands."""
+    year = int(year or 1)
+    label = " (Year 7 topic)" if year == 8 else " (Year 7–8 topic)"
+    return {s["strand"]: label for s in _earlier(subject, year)}
+
+
+def focus_skills(subject: str, year: int, strands: list) -> list:
+    """The skills a focus on these strands practises: the year's skills of those strands or filed under them
+    too, and for an earlier-year strand, that year's skills (in teaching order)."""
+    if not strands:
+        return []
+    want = set(strands)
+    out = [s for s in skills(subject, year) if s["strand"] in want or want & set(s.get("also", []))]
+    return out + [s for s in _earlier(subject, year) if s["strand"] in want]
+
+
 def skill(key: str) -> dict | None:
     load()
     return _BY_KEY.get(key)
@@ -149,6 +186,8 @@ def serve(q: dict) -> tuple[dict, dict]:
     elif t == "num":
         pub["unit"] = q.get("unit", "")
         key["a"], key["tol"] = q["a"], q.get("tol", 0)
+        if q.get("unit"):                # "4 g/cm3" typed with its unit is marked against the unit (parse_num)
+            key["unit"] = q["unit"]
     return pub, key
 
 
@@ -205,16 +244,82 @@ _WORD_NUM = {w: float(i) for i, w in enumerate(
     "seventeen eighteen nineteen twenty".split())}
 
 
-def parse_num(s) -> float | None:
+def parse_num(s, unit: str = "") -> float | None:
     """One number, with digit-group commas or spaces and a unit if the child likes ("10 000 kJ", "6 m").
-    A hedge or a range is not one number: "25 or 30", "6-9", "6/7", "1.4.9" give None."""
+    A hedge or a range is not one number: "25 or 30", "6-9", "6/7", "1.4.9" give None. With the question's unit,
+    that unit typed any usual way counts ("4 g/cm3", "9.8 m s^-2", "6 metres"); another unit is a wrong answer
+    ("4 kg/m3" for g/cm³), since the quantity is then wrong."""
     s = _quotes("" if s is None else str(s)).strip().replace("−", "-")
     if s.lower() in _WORD_NUM:                       # "two" for 2: the number is the answer, not how it is written
         return _WORD_NUM[s.lower()]
     m = re.match(r"^[-+]?(?:\d{1,3}(?:[, ]\d{3})+(?!\d)|\d+)(?:\.\d+)?|^[-+]?\.\d+", s)
-    if not m or re.search(r"\d", s[m.end():]):
+    if not m:
         return None
+    rest = s[m.end():].strip()
+    same = lambda u: _SAME_UNIT.get(sci_unit(u), sci_unit(u))      # noqa: E731
+    if rest and unit and same(rest) == same(unit):
+        pass                                         # the question's own unit: "cm3" for cm³
+    elif re.search(r"\d", rest):
+        return None
+    elif rest and unit and sci_unit(rest) in _KNOWN_UNITS and sci_unit(unit) in _KNOWN_UNITS:
+        return None                                  # a different unit: "4 kg" when the answer is 4 g
     return float(re.sub(r"[, ]", "", m.group(0)))
+
+
+# Science answers written the way a keyboard allows: "cm3" and "cm^3" for cm³, "m/s2" and "m s-2" for m/s²,
+# "metres per second" for m/s, "watt (W)" for watt. One normaliser (sci_unit) serves text and number answers,
+# so the same unit is accepted the same way everywhere. It only rewrites how a unit is written; a number is
+# never changed by it.
+_SUPERSCRIPT = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉", "0123456789-0123456789")
+_UNIT_NAMES = [(re.compile(r"\b(?:%s)\b" % pat), sym) for pat, sym in [
+    (r"kilowatt[- ]?hours?", "kwh"), (r"kilojoules?", "kj"), (r"megajoules?", "mj"), (r"joules?", "j"),
+    (r"kilowatts?", "kw"), (r"megawatts?", "mw"), (r"watts?", "w"),
+    (r"newton[- ]?metres?|newton[- ]?meters?", "nm"), (r"newtons?", "n"),
+    (r"milligrams?", "mg"), (r"kilograms?|kilogrammes?|kilos?", "kg"), (r"grams?|grammes?", "g"),
+    (r"kilometres?|kilometers?", "km"), (r"centimetres?|centimeters?", "cm"), (r"millimetres?|millimeters?", "mm"),
+    (r"decimetres?|decimeters?", "dm"), (r"metres?|meters?", "m"),
+    (r"seconds?|secs?", "s"), (r"minutes?|mins?", "min"), (r"hours?|hrs?", "h"),
+    (r"millivolts?", "mv"), (r"volts?", "v"), (r"milliamps?|milliamperes?", "ma"), (r"amps?|amperes?", "a"),
+    (r"ohms?", "ω"), (r"hertz", "hz"), (r"kilopascals?", "kpa"), (r"pascals?", "pa"),
+    (r"millilitres?|milliliters?", "ml"), (r"litres?|liters?", "l"),
+    (r"degrees? (?:celsius|centigrade|c)|° c|º ?c", "°c")]]
+_COMPACT = {"ms-1": "m/s", "ms-2": "m/s2", "nm-1": "n/m", "kgm-3": "kg/m3", "gcm-3": "g/cm3", "nkg-1": "n/kg",
+            "jkg-1": "j/kg", "kmh-1": "km/h", "cms-1": "cm/s", "kms-1": "km/s"}
+
+
+def sci_unit(s) -> str:
+    """How a unit is written, in one plain form: "g/cm³" = "g/cm3" = "g cm^-3" = "grams per cubic centimetre"
+    = "g/cm3"; "m s⁻²" = "m/s/s" = "m/s2"; "Watts" = "W" = "w". Lower case, no spaces."""
+    s = _quotes("" if s is None else str(s)).lower().translate(_SUPERSCRIPT).replace("−", "-")
+    s = s.replace("**", "").replace("^", "").replace("·", " ").replace("*", " ").strip().rstrip(".")
+    for pat, sym in _UNIT_NAMES:
+        s = pat.sub(sym, s)
+    s = re.sub(r"\bcubic\s+([a-z]+)", r"\g<1>3", s)
+    s = re.sub(r"\bsquare\s+([a-z]+)", r"\g<1>2", s)
+    s = re.sub(r"\b([a-z]+)\s+cubed\b", r"\g<1>3", s)
+    s = re.sub(r"\b([a-z]+)\s+squared\b", r"\g<1>2", s)
+    s = re.sub(r"\s*\bper\b\s*", "/", s)
+    out = []
+    for tok in s.split():                            # "m s-2": a negative power divides
+        m = re.fullmatch(r"([a-zω°]+)-(\d)", tok)
+        out.append("/" + m.group(1) + ("" if m.group(2) == "1" else m.group(2)) if m and out else tok)
+    s = "".join(out)
+    s = _COMPACT.get(s, s)
+    s = re.sub(r"/([a-z]+)/\1(?![a-z0-9])", r"/\g<1>2", s)       # "m/s/s" = "m/s2"
+    return re.sub(r"-(?!\d)", "", s)                             # "kilowatt-hour" = "kilowatt hour"
+
+
+_SAME_UNIT = {"ml": "cm3", "l": "dm3", "j/s": "w"}     # one size, two names: 20 ml = 20 cm³
+_KNOWN_UNITS = frozenset(sci_unit(u) for u in (
+    "m cm mm km dm g kg mg s min h N J kJ MJ W kW MW V mV A mA Ω Hz Pa kPa l ml N m kWh °C "
+    "m/s km/h cm/s km/s m/s² g/cm³ kg/m³ cm³ m³ dm³ cm² m² mm² N/kg N/m").split()
+    + ["N m"])
+
+
+def sci_same(typed: str, answer: str) -> bool:
+    """A science short answer and an accepted one: the same once units are written one way ("kg/m3" for kg/m³)."""
+    a = sci_unit(re.sub(r"^(a|an|the) (?=\S)", "", answer))
+    return bool(a) and sci_unit(re.sub(r"^(a|an|the) (?=\S)", "", typed)) == a
 
 
 def fmt_num(x) -> str:
@@ -227,7 +332,17 @@ def why_lines(q: dict | None, key: dict, value, again: bool = False) -> tuple[st
     another way of putting it, when it has one."""
     q = q or {}
     why = (q.get("why2") if again else None) or q.get("why", "")
-    no = (q.get("no") or {}).get(given_text(key, value)) if key.get("t") == "mcq" else None
+    no = None
+    if key.get("t") == "mcq":
+        no = (q.get("no") or {}).get(given_text(key, value))
+    elif key.get("t") == "text":            # a typed answer built on a misconception ("fronting" for inversion)
+        v = norm_text(value)
+        no = next((line for typed, line in (q.get("no") or {}).items()
+                   if norm_text(typed) == v or (key.get("loose") and loose(norm_text(typed)) == loose(v))), None)
+        if not no and re.search(r"word equation", q.get("q", ""), re.I) \
+                and re.fullmatch(r"(?:[A-Z][a-z]?[0-9₀-₉]*)+", _quotes(str(value or "")).strip()):
+            no = ("That is a chemical formula. A word equation uses the names of the substances, not their "
+                  "formulae, so write the name: %s." % expected_text(key))
     return no or "", why
 
 
@@ -270,7 +385,7 @@ def mark(key: dict, value) -> bool:
         v = norm_text(value)
         ok = key["a"] + key.get("full", [])
         if key.get("loose"):
-            return bool(loose(v)) and loose(v) in {loose(norm_text(a)) for a in ok}
+            return sci_text(v, [norm_text(a) for a in ok])
         return bool(v) and v in {norm_text(a) for a in ok}
     if t == "write":
         v = norm_write(value)
@@ -279,9 +394,24 @@ def mark(key: dict, value) -> bool:
             v, ok = v.rstrip(". "), {a.rstrip(". ") for a in ok}
         return bool(v) and v in ok
     if t == "num":
-        v = parse_num(value)
+        v = parse_num(value, key.get("unit") or "")
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9
     return False
+
+
+def sci_text(v: str, ok: list) -> bool:
+    """A science short answer (already norm_text): "the axle" = "axle", "non contact" = "non-contact", a unit
+    written any usual way ("kg/m3", "metres per second"), and a name with its symbol in brackets, when both
+    halves are right or are the same unit ("watt (W)", "W (watts)", "carbon dioxide (CO2)")."""
+    if not v:
+        return False
+    if (bool(loose(v)) and loose(v) in {loose(a) for a in ok}) or any(sci_same(v, a) for a in ok):
+        return True
+    m = re.fullmatch(r"(.+?)\s*\(([^()]+)\)", v)
+    if not m:
+        return False
+    name, sym = m.group(1).strip(), m.group(2).strip()
+    return sci_text(name, ok) and (sci_text(sym, ok) or (bool(sci_unit(sym)) and sci_unit(sym) == sci_unit(name)))
 
 
 _NEVER = frozenset({"yes", "no"})
@@ -380,6 +510,59 @@ def end_slip(key: dict, value, sk: dict | None = None) -> dict | None:
         stop = ("a %s at the end" % _END[end]) if end else ""
         return {"retry": "Nearly — check your %s." % what,
                 "after": "Your words were right: the sentence needs %s." % " and ".join(x for x in (start, stop) if x)}
+    return None
+
+
+_APOS_SKILL = re.compile(r"apostroph|possessive", re.I)     # where the apostrophe IS the skill: no retry there
+_NOT = {"can't": "cannot", "won't": "will not", "shan't": "shall not"}
+_SHORT = {"'re": "are", "'ll": "will", "'ve": "have", "'m": "am", "'d": "would or had"}
+_IS = frozenset("it he she that there what who here where how let".split())
+_APOS_WORDS = frozenset("were we're well we'll wed we'd ill i'll shed she'd hell he'll shell she'll its it's".split())
+
+
+def _apos_why(want: str, typed: str) -> str:
+    """Why this word is written so: "'can't' is short for cannot: the apostrophe goes where letters are missing."."""
+    w = want.lower().strip(".,;:!?\"")
+    if "'" not in w:
+        if w == "its":
+            return "'its' (belonging to it) has no apostrophe; 'it's' means it is."
+        return "'%s' has no apostrophe here." % w
+    if w.endswith("n't"):
+        return "'%s' is short for %s: the apostrophe goes where letters are missing." % (w, _NOT.get(w, w[:-3] + " not"))
+    short = next((s for s in _SHORT if w.endswith(s)), None)
+    if short:
+        return "'%s' is short for %s %s: the apostrophe goes where letters are missing." % (w, w[:-len(short)], _SHORT[short])
+    if w.endswith("'s") and w[:-2] in _IS:
+        return "'%s' is short for %s is (or %s has): the apostrophe goes where the letter is missing." % (w, w[:-2], w[:-2])
+    if w.endswith("s'"):
+        return "'%s': more than one owner, so the apostrophe goes after the s." % w
+    return "'%s': the apostrophe before the s shows belonging." % w
+
+
+def apostrophe_slip(key: dict, value, sk: dict | None = None) -> dict | None:
+    """An answer right but for an apostrophe left out, added or put in the wrong place ("cant you" for "can't
+    you", "ca'nt you", "the dogs bowl" for "the dog's bowl"): a punctuation slip, not the grammar of the
+    question. {"retry": ..., "after": ...} for one free retry, then a correction about the apostrophe. Not in a
+    skill about apostrophes or possession, where the apostrophe is the point."""
+    t = key.get("t")
+    if t not in ("text", "write") or not value or (sk and _APOS_SKILL.search(sk.get("title", ""))):
+        return None
+    norm = norm_text if t == "text" else norm_write
+    v = norm(value)
+    bare = lambda s: s.replace("'", "")             # noqa: E731
+    for a in (norm(x) for x in key["a"] + key.get("full", [])):
+        a2, v2 = a, v
+        if t == "write" and key.get("open_end"):
+            a2, v2 = a.rstrip(". "), v.rstrip(". ")
+        if v2 == a2 or bare(v2) != bare(a2) or bare(v2).split() == []:
+            continue
+        tw, aw = v2.split(), a2.split()
+        if len(tw) != len(aw) or (spelling_matters(sk) and any(
+                x != w and x.lower().strip(".,;:!?") in _APOS_WORDS for x, w in zip(tw, aw))):
+            continue                                  # "were" for "we're" in a homophone skill is the mistake
+        why = " ".join(_apos_why(w, x) for x, w in zip(tw, aw) if x != w)
+        return {"retry": "Nearly — check the apostrophe.",
+                "after": "Your words were right; the apostrophe was not. " + why}
     return None
 
 

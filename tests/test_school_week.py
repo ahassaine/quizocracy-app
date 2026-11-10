@@ -32,7 +32,7 @@ def test_school_spelling_list_comes_first_then_the_year_list(page):
     signup(page)
     pid = add_child(page, "Ada", 3, year_defaults=True)
     page.goto(f"/children/{pid}/edit")
-    assert "We'll say each word" in page.inner_text("#school-list + p")
+    assert "We'll say each word" in page.text_content("#school-list ~ [data-testid=explain]")
     page.fill("[data-testid=school-words]", "because, friend\nzigzagged - The path zigzagged up the hill.\nth3re")
     page.click("form.card button[type=submit]")
     assert "can't be a spelling word" in page.inner_text(".err")
@@ -76,7 +76,8 @@ def test_school_spelling_list_comes_first_then_the_year_list(page):
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     card = page.inner_text("[data-testid=card-school-words]")
-    assert "0/3" in card and "Right last time: because, friend, zigzagged" in card
+    # day 1: "3 right so far", not a discouraging "0/3 learned" (wave 5)
+    assert "3 right so far" in card and "because, friend, zigzagged" in card
     assert _label(TODAY + datetime.timedelta(days=7)) in card
 
     # saved again unchanged, the week keeps its dates; emptied, the list stops

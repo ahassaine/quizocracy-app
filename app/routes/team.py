@@ -178,7 +178,7 @@ async def maths_try_next(member_slug: str, payload: dict = Body(default={})):
     if not q:
         raise HTTPException(404, "no such skill")
     meta = next((s for s in maths_engine.skill_list() if s["key"] == key), {})
-    return {"ok": True, **q, "title": meta.get("title", key), "strand": meta.get("strand", "")}
+    return {"ok": True, **q, "skill": key, "title": meta.get("title", key), "strand": meta.get("strand", "")}
 
 
 @router.post("/{member_slug}/maths/check")
@@ -229,6 +229,8 @@ async def report_status(member_slug: str, rid: str, status: str = Form(...), bac
         await db.reports.update_one({"_id": r["_id"]}, {"$set": {"mailed_" + status: _now()}})
         note = upd.get("reply") or r.get("reply") or ""
         q = " ".join(str((r.get("served") or {}).get("prompt") or r.get("expected") or "").split())[:120]
+        if r.get("activity") == "spelling" and r.get("expected"):    # every spelling question has the same prompt
+            q = f"Spell the word: {r['expected']}"
         who = r.get("by_name") or p["name"]          # a grown-up's report from "Mistakes to go over", or the child's
         await mailer.to_family(r["family_id"], f"We checked the question {who} reported",
                                f"Hello,\n\n{who} reported a question"

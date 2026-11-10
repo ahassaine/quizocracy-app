@@ -383,6 +383,11 @@ def _(d=1):
         add, start = random.randint(2, 5), random.randint(1, 4)
         n = pick(_by(d, [5, 6, 8, 10], [10, 12, 15, 20], [25, 30, 40, 50]))
         rows = [[k, start + add * k] for k in (1, 2, 3, n)]
+        if d == 2:          # hard: work backwards from the number of matchsticks
+            return _tb("A matchstick pattern uses %d, %d, %d, ... matchsticks for patterns 1, 2, 3, ... Which pattern "
+                       "uses %d matchsticks?" % (rows[0][1], rows[1][1], rows[2][1], start + add * n), n, "int", {},
+                       ["Each pattern adds %d, so the number of matchsticks in pattern n is %dn + %d." % (add, add, start),
+                        "%dn + %d = %d, so %dn = %d and n = %d." % (add, start, start + add * n, add, add * n, n)])
         return _io("A matchstick pattern: the table shows the pattern number and the number of matchsticks. What goes in the "
                    "empty cell?", rows, 3, start + add * n,
                    ["Each pattern adds %d: sticks = %dn + %d." % (add, add, start), "%d × %d + %d = %d." % (add, n, start, start + add * n)])

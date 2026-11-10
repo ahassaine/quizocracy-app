@@ -164,6 +164,7 @@ input.answer { font-size:1.6rem; max-width:340px; text-align:center; font-family
 .feedback.yes { color:#3BE2A8; animation:pop-in .45s cubic-bezier(.34,1.56,.64,1); } .feedback.no { color:#FF8FA6; } .feedback.warn { color:var(--sun); }
 .stage.shake { animation:shake .45s; } .stage.flash { animation:flash .6s ease-out; }
 .daybar { margin:6px 0 16px; }
+.day-extra { color:var(--violet); font-weight:800; white-space:nowrap; }
 .act-head { display:flex; align-items:center; gap:12px; } .act-head img { width:48px; height:48px; }
 .m-prompt { font-size:1.2rem; font-weight:700; margin:10px 0 14px; } .m-host { margin:8px 0 14px; } .m-sol { color:#9AA4BB; font-size:.88rem; margin-top:6px; }
 .stage .chip { background:#1B2338; border-color:#2C3650; color:#C7CFE2; }

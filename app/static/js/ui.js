@@ -74,6 +74,22 @@
   }
   if (document.body && document.body.dataset.pupil) {
     flushPending();
+    flushCheck();
+  }
+  /* The same for a Year 4 check finished without a connection (tables_check.html keeps it under MKEY until the
+     server has marked it; that page sends it itself). On My day the page then reloads, to show it counted. */
+  function flushCheck() {
+    const MKEY = 'qz_mtc_done';
+    if (location.pathname === '/me/tables/year4-check') return;
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem(MKEY) || 'null'); } catch (e) {}
+    if (!p || !p.url || !p.body || p.body.pupil !== document.body.dataset.pupil) return;
+    if (Date.now() - (p.at || 0) > 12 * 3600 * 1000) { try { localStorage.removeItem(MKEY); } catch (e) {} return; }
+    fetch(p.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body), credentials: 'same-origin' })
+      .then(r => { if (r.status === 401 || r.status >= 502) return;
+        try { const q = JSON.parse(localStorage.getItem(MKEY) || 'null'); if (q && q.body && q.body.token === p.body.token) localStorage.removeItem(MKEY); } catch (e) {}
+        if (r.ok && location.pathname === '/me') location.reload(); })
+      .catch(() => {});
   }
   // A child left signed in goes back to "Who's learning?" after 10 minutes without a tap or a key (deps.CHILD_IDLE),
   // so a brother or sister picking up the tablet needs their own PIN. Nothing is lost: an unanswered question comes back.

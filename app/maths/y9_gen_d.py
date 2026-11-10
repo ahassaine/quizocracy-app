@@ -624,9 +624,20 @@ def _(d=1):
                    ["Base πr² = %dπ." % (r * r), "Curved side 2πrh = %dπ." % (2 * r * h), "Total %dπ." % (r * r + 2 * r * h)])
 
     def t_net_solid():
-        solid, faces = pick([("cube", 6), ("cuboid", 6), ("square_pyramid", 5), ("triangular_prism", 5)])
-        return {"prompt": "This is the net of a 3-D solid. How many faces does the solid have?", "component": "net", "spec": {"solid": solid},
-                "answer": faces, "answer_type": "int", "solution": ["Count the shapes in the net: %d faces." % faces]}
+        # Year 9: the area of the net is the surface area (counting the faces of a net is primary work)
+        if random.random() < 0.4:
+            s = random.randint(2, 12)
+            return {"prompt": "This net folds into a cube with edges of %d cm. What is the area of the net, in cm²?" % s,
+                    "component": "net", "spec": {"solid": "cube", "unit": "cm²"}, "answer": 6 * s * s, "answer_type": "int",
+                    "solution": ["The net is the cube's 6 square faces laid flat. Each is %d × %d = %d cm²." % (s, s, s * s),
+                                 "6 × %d = %d cm²." % (s * s, 6 * s * s)]}
+        l, w, h = random.sample(range(2, 13), 3)
+        sa = 2 * (l * w + l * h + w * h)
+        return {"prompt": "This net folds into a cuboid %d cm long, %d cm wide and %d cm tall. What is the area of the net, in cm²?"
+                          % (l, w, h), "component": "net", "spec": {"solid": "cuboid", "unit": "cm²"}, "answer": sa, "answer_type": "int",
+                "solution": ["The net is the cuboid's 6 faces laid flat, in 3 matching pairs: %d × %d = %d, %d × %d = %d and %d × %d = %d."
+                             % (l, w, l * w, l, h, l * h, w, h, w * h),
+                             "2 × (%d + %d + %d) = %d cm²." % (l * w, l * h, w * h, sa)]}
 
     return _pick_t(*_by(d, ([t_cuboid, t_cube, t_cylinder_pi, t_curved], [t_net_solid]),
                         ([t_cuboid, t_cube, t_tri_prism, t_cylinder_pi, t_cube_from_sa, t_cyl_decimal, t_open_box, t_curved, t_paint,

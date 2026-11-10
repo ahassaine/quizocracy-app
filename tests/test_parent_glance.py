@@ -124,12 +124,13 @@ def test_glance_extras_guesses_and_cards_after_one_day(page):
     assert "2 more after the targets were met" in card.inner_text()
     assert "like a guess" in card.locator("[data-testid=flag-guesses]").inner_text()
     acc = card.locator("[data-testid=home-accuracy]").inner_text()
-    assert "Times tables 60%" in acc and "needs help" in acc and "Spelling 0%" in acc
+    # the extras are left out of it too (wave 5), and 3 or 4 first tries are too few to say "needs help"
+    assert "Times tables 100%" in acc and "needs help" not in acc and "Spelling 0%" in acc
     page.goto(f"/children/{pid}")
     glance = page.inner_text("[data-testid=glance]")
-    assert "Times tables" in glance and "60%" in glance and "To work on next" in glance
+    assert "Times tables" in glance and "100%" in glance and "To work on next" in glance
     assert "started" in page.inner_text("[data-testid=grown-tables]")    # not a bare 0/144 after a good day
-    assert "re-checked on a later day" in page.inner_text("[data-testid=mastery-rule]")
+    assert "re-checked on a later day" in page.text_content("[data-testid=mastery-rule]")      # folded
     assert "guess" in page.inner_text("[data-testid=history]")
 
 
@@ -222,7 +223,7 @@ def test_sats_papers_for_year6_and_the_revise_switch(page):
     page.goto(f"/children/{pid}")
     for k in ("arithmetic", "reasoning", "gps", "spelling"):
         assert page.locator(f"[data-testid=sats-{k}]").count() == 1
-    assert "not a predicted mark" in page.inner_text("[data-testid=sats-honest]")
+    assert "not a predicted mark" in page.text_content("[data-testid=sats-honest]")
     assert "Not started yet" in page.inner_text("[data-testid=sats-reasoning]")
     page.click("[data-testid=sats-toggle]")
     page.wait_for_url(re.compile(r".*sats=on.*"))

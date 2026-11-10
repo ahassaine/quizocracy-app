@@ -849,16 +849,28 @@ async def school_status(pupil: dict) -> dict | None:
         return None
     state = {d["word"].lower(): d async for d in db.spelling_words.find(
         {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words] + old}})}
-    last_tricky = [w for w in old if (st := state.get(w.lower())) and st.get("wrong")
-                   and int(st.get("box", 0)) < LEARNED_BOX]
+    # the one rule of every mistake count (progress.mistake_book), so "Still tricky" here, the mistakes list and the
+    # printed report agree: a word not put right is tricky, or "again" when it was right again in the same sitting
+    book = {e["detail"].lower(): e for e in await progress.mistake_book(pupil) if e["activity"] == "spelling"}
+
+    def tricky(word: str, st: dict | None) -> str:
+        e = book.get(word.lower())
+        if e and not e["fixed"]:
+            return "again" if e["practised"] else "tricky"
+        return "tricky" if st and st.get("wrong") and not int(st.get("box", 0)) and not e else ""
+    last_tricky = [w for w in old if (st := state.get(w.lower())) and int(st.get("box", 0)) < LEARNED_BOX
+                   and tricky(w, st)]
     if not words:                 # the week is over: only earlier words still tricky, which the parent may take out
         return {"words": [], "learned": 0, "total": 0, "until": "", "last_tricky": last_tricky} if last_tricky else None
     out = []
     for w in words:
         st = state.get(w["w"].lower())
         box = int(st.get("box", 0)) if st else -1
-        out.append({"word": w["w"], "state": "learned" if box >= LEARNED_BOX else "right" if box > 0
-                    else "tricky" if st else "new", "right": int(st.get("right", 0)) if st else 0})
+        # "right" (right last time) only when the last answer was right in a later sitting; right again in the same
+        # sitting as the mistake is "again" (checked again later)
+        out.append({"word": w["w"], "state": "learned" if box >= LEARNED_BOX else (tricky(w["w"], st) or "right")
+                    if st and (box > 0 or tricky(w["w"], st)) else "tricky" if st else "new",
+                    "right": int(st.get("right", 0)) if st else 0})
     sl = pupil["school_words"]
     return {"words": out, "learned": sum(1 for w in out if w["state"] == "learned"), "total": len(out),
             "until": sl["until"], "last_tricky": last_tricky}

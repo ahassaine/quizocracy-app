@@ -85,7 +85,8 @@ def test_plan_change_starts_tomorrow_and_reward_is_kept(page):
     card = page.locator("[data-testid='kid-Leo']")
     assert card.locator("[data-testid=pct]").inner_text() == "100%"
     assert "Leo earned: Screen time" in card.inner_text()
-    assert "Spelling" not in card.inner_text()                           # today keeps the plan it started with
+    assert "Spelling" not in card.locator(".chips").inner_text()         # today keeps the plan it started with
+    assert "Spelling 8" in card.get_by_test_id("home-pending").inner_text()   # and Home says what comes tomorrow
     page.goto(f"/children/{pid}")
     assert "From tomorrow" in page.inner_text("[data-testid=plan-pending]")
     assert "Times tables 1/1" in page.inner_text("[data-testid=today]")

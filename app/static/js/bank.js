@@ -113,6 +113,7 @@ function BankDrill(activity) {
       return lead + (r.whynot ? '<div class="why" data-testid="why-not">' + esc(r.whynot) + '</div>' : '')
         + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
     },
+    whyRight(r) { return r.why ? '<div class="why">' + esc(r.why) + '</div>' : ''; },
     after(r) {
       area.querySelectorAll('button').forEach(b => { b.disabled = true; });
       if (cur.kind === 'mcq') area.querySelectorAll('.opt').forEach((b, i) => {

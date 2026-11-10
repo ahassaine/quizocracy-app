@@ -299,6 +299,10 @@ SKILLS = [
     },
     {
         "key": "GP6.04",
+        # apostrophes come straight after word classes (a frequent SATs slip, not one to meet after six other
+        # skills), and a grown-up can pick them as the school focus on their own or with "Punctuation"
+        "after": "GP6.01",
+        "also": ["Punctuation", "Apostrophes"],
         "year": 6,
         "strand": "Test review",
         "title": "Apostrophes for contraction and possession",

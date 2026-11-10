@@ -34,7 +34,7 @@ def test_practise_my_mistakes(page):
     assert page.inner_text("[data-testid=fix-all]") == "Practise my mistakes (2)"
     assert page.inner_text("[data-testid=fix-tables]") == "1 to fix"
     page.click("[data-testid=fix-all]")
-    page.wait_for_url("**/me/tables?fix=1")
+    page.wait_for_url("**/me/tables?fix=1*")
     doc = wait_question(page, "tables", pid)
     assert doc["meta"]["fact"] == fact                              # the same fact comes back
     assert "2 left" in page.inner_text("[data-testid=fix-msg]")    # the count of every subject, as on My day
@@ -45,7 +45,7 @@ def test_practise_my_mistakes(page):
     page.click("#next")
 
     # then straight on to the next subject's mistake: grammar, the very same question
-    page.wait_for_url("**/me/grammar?fix=1&moved=1")
+    page.wait_for_url("**/me/grammar?fix=1&moved=1*")
     it = wait_question(page, "grammar", pid)
     assert (it["meta"]["skill"], it["meta"]["qid"]) == (gq["skill"], gq["qid"])
     assert "Now Grammar and punctuation · Putting a mistake right · 1 left" in page.inner_text("[data-testid=fix-msg]")
@@ -54,9 +54,10 @@ def test_practise_my_mistakes(page):
     key = it["answer"]
     good = {"mcq": key.get("right"), "tap": key.get("hits"), "num": key.get("a")}.get(key["t"], (key.get("a") or [""])[0])
     assert s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": good}).json()["correct"]
-    page.reload()
-    page.wait_for_function("document.getElementById('fixMsg').textContent.length > 0")
-    assert "All your mistakes are done" in page.inner_text("[data-testid=fix-msg]")
+    page.reload()                                 # the same session (its start is kept in the address): it ends
+    assert "since=" in page.url
+    assert "All your mistakes are done" in page.inner_text("[data-testid=fix-end]")
+    assert page.is_visible("[data-testid=fix-end-back]")
     page.goto("/me")
     assert page.locator("[data-testid=fix-all]").count() == 0
 

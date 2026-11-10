@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}Settings · Quizocracy{% endblock %}
-{% block body %}
+{% block body %}{% from "_explain.html" import explain %}
 <h1 class="rise">Settings</h1>
 {% if saved %}<div class="ok">Saved.</div>{% endif %}
 {% if request.query_params.get('email_changed') %}<div class="ok" role="status">Your email is now {{ ctx.account.email }}. Sign in with it from now on.</div>{% endif %}
@@ -8,7 +8,8 @@
   <div class="field"><label for="family_name">Family name</label><input id="family_name" name="family_name" type="text" value="{{ ctx.family.name }}"></div>
   <h2 style="display:flex;align-items:center;gap:8px"><img src="/static/img/trophy.png" alt="" style="width:34px">Reward</h2>
   {% if plan.rewards %}
-  <p class="mut small">What your children earn when they finish enough of their day. They see it on their page and on the family board.</p>
+  <p class="mut small">What your children earn when they finish enough of their day.</p>
+  {% call explain() %}They see it on their page and on the family board. A child's own reward (in that child's Settings) comes first. Every change to a reward shows under Family activity on Home, so the other grown-ups see it.{% endcall %}
   <div class="field"><label for="reward_text">Reward</label><input id="reward_text" name="reward_text" type="text" maxlength="120" placeholder="30 minutes of screen time" value="{{ ctx.family.reward.text if ctx.family.reward else '' }}"></div>
   <div class="field"><label for="reward_threshold">Earned at (% of the day)</label><input id="reward_threshold" name="reward_threshold" type="number" min="10" max="100" value="{{ ctx.family.reward.threshold if ctx.family.reward else 100 }}" style="max-width:120px"></div>
   {% else %}<input type="hidden" name="reward_threshold" value="100"><p class="mut">Rewards come with the Family plan.</p>{% endif %}
@@ -28,6 +29,11 @@
       <span>Email me when a question a child reported has been checked <span class="mut small" style="display:block;font-weight:400">Either way, each child's reports and what we found are on their progress page.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
+  <form method="post" action="/settings/plan-emails" style="margin-top:10px">
+    <label class="check" for="plan_emails" style="font-weight:600"><input id="plan_emails" name="on" type="checkbox" value="1" {% if plan_emails %}checked{% endif %} data-autosave data-testid="plan-emails">
+      <span>Email me when another grown-up changes a plan <span class="mut small" style="display:block;font-weight:400">Targets, rewards, days off, spelling lists and topics. Either way, every change is under Family activity on Home.</span></span></label>
+    <noscript><button class="btn" type="submit">Save</button></noscript>
+  </form>
   <form method="post" action="/settings/name" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
     {% if request.query_params.get('name_saved') %}<div class="ok" role="status" style="flex-basis:100%">Saved. The other grown-ups see you as {{ ctx.account.name or ctx.account.email }}.</div>{% endif %}
     <div class="field" style="margin:0;flex:1 1 200px"><label for="my_name">Your name <span class="mut small" style="font-weight:400">(what the other grown-ups see, like "Jo" or "Gran")</span></label><input id="my_name" name="name" type="text" maxlength="40" value="{{ ctx.account.name or '' }}" autocomplete="given-name" data-testid="my-name"></div>
@@ -41,7 +47,8 @@
   {% if request.query_params.get('invited') %}<div class="ok" role="status">Invitation sent. It works for 7 days.</div>{% endif %}
   {% if request.query_params.get('removed') %}<div class="ok" role="status">Removed. They are signed out everywhere.</div>{% endif %}
   {% if request.query_params.get('role_changed') %}{% for a in adults if a.id == request.query_params.get('role_changed') %}<div class="ok" role="status" data-testid="role-changed">{{ a.name or a.email }} is now a {{ a.role|lower }}. Their login, password and weekly email stay as they were, and we told them by email.</div>{% endfor %}{% endif %}
-  <p class="mut small">Each grown-up has their own email and password. A parent can do everything, including deleting a child (with their password; the other parents are told). A carer, such as a grandparent minding the children, can hand the device to a child, unlock a child, see progress and PINs, type in the school's spelling list and mark a day off, but cannot change the children's plans, delete children, or change the account or its data.</p>
+  <p class="mut small">Each grown-up has their own email and password.</p>
+  {% call explain("What can each one do?") %}A parent can do everything, including deleting a child (with their password; the other parents are told). A carer, such as a grandparent minding the children, can hand the device to a child, unlock a child, see progress and PINs, type in the school's spelling list and mark a day off, but cannot change the children's plans, delete children, or change the account or its data. Only the account owner can delete the account.{% endcall %}
   {% for a in adults %}<div class="kid" style="padding:8px 0;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap" data-testid="adult">
     <span style="overflow-wrap:anywhere;min-width:0">{% if a.name %}<b>{{ a.name }}</b> · {% endif %}{{ a.email }}{% if a.you %} <span class="mut">(you)</span>{% endif %}<span class="mut small" style="display:block" data-testid="adult-role">{{ a.role }}{% if a.by %} · invited by {{ a.by }}{% endif %}</span></span>
     {% if a.removable %}<span class="row" style="margin:0;gap:6px">
@@ -64,14 +71,21 @@
 {% if ctx.full %}
 <div class="card"><b>Help</b><p class="mut small">Short answers about the daily plan, PINs, targets, rewards and your data.</p><a class="btn" href="/help" data-testid="settings-help">Open help</a></div>
 <div class="card"><b>Your data</b><p class="mut small">Download everything we hold about your family as a file.</p><a class="btn" href="/account/export">Download my data</a></div>
-<form method="post" action="/account/delete" class="card">
-  <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.{% if adults|length > 1 %} Every grown-up's login on this family goes too.{% endif %}</p>
+{% if ctx.role == 'owner' %}<form method="post" action="/account/delete" class="card" id="delete" data-testid="delete-account">
+  <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.{% if adults|length > 1 %} Every grown-up's login on this family goes too, and we email each of them.{% endif %}</p>
   {% if delete_error %}<div class="err" role="alert">{{ delete_error }}</div>{% endif %}
   <div class="field"><label for="confirm">Type DELETE</label><input id="confirm" name="confirm" type="text" style="max-width:200px"></div>
   <div class="field"><label for="delpw">Your password</label><input id="delpw" name="password" type="password" style="max-width:260px"></div>
   <button class="btn danger" type="submit">Delete everything</button>
-</form>
+</form>{% endif %}
 {% endif %}
+{% if ctx.role != 'owner' %}<form method="post" action="/account/leave" class="card" id="delete" data-testid="leave-family">
+  <b>Delete account</b><p class="mut small" data-testid="ask-owner">Only {{ owner_name or 'the account owner' }} can delete the family's account. Ask {{ owner_name or 'them' }} to delete it, or leave the family yourself: your login goes, and the children and their practice stay. The parents are told by email.</p>
+  {% if leave_error %}<div class="err" role="alert">{{ leave_error }}</div>{% endif %}
+  <div class="field"><label for="leaveconfirm">Type LEAVE</label><input id="leaveconfirm" name="confirm" type="text" style="max-width:200px"></div>
+  <div class="field"><label for="leavepw">Your password</label><input id="leavepw" name="password" type="password" style="max-width:260px"></div>
+  <button class="btn danger" type="submit" data-testid="leave-btn">Leave the family</button>
+</form>{% endif %}
 <script>
   /* The email ticks save on their own, without reloading the page, so nothing typed elsewhere on it (a reward not
      saved yet) is lost; "Saved" shows next to the tick. Without the script, the Save button under each does it. */

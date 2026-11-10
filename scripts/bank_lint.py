@@ -60,12 +60,15 @@ def check_q(q, where, out):
     if "no" in q:
         no = q["no"]
         wrong = {norm(x) for x in (q.get("opts") or [])[1:]}
-        if t != "mcq" or not isinstance(no, dict) or not no:
-            out.append(f"{where}: 'no' is a dict of wrong mcq options and why each is wrong")
+        right = {norm(x) for x in (q.get("a") if isinstance(q.get("a"), list) else [])}
+        if t not in ("mcq", "text") or not isinstance(no, dict) or not no:
+            out.append(f"{where}: 'no' is a dict of wrong mcq options (or typed text answers) and why each is wrong")
         else:
             for o, line in no.items():
-                if norm(o) not in wrong:
+                if t == "mcq" and norm(o) not in wrong:
                     out.append(f"{where}: 'no' names {o!r}, which is not a wrong option")
+                if t == "text" and norm(o) in right:
+                    out.append(f"{where}: 'no' names {o!r}, which is an accepted answer")
                 if not isinstance(line, str) or len(line.strip()) < 3:
                     out.append(f"{where}: 'no' line for {o!r} is empty")
     text = " ".join(str(q.get(k, "")) for k in ("q", "s", "why", "why2")) + " " + " ".join(map(str, q.get("opts", [])))

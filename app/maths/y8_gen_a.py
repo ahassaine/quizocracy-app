@@ -2615,7 +2615,8 @@ def _(d=1):
         exp = -random.randint(2, 4)
         sf, value = _sf_from_digits(digits, exp)
         return _numq("Write %s as an ordinary (decimal) number." % sf, _fmt(value),
-                     ["%s = %s." % (sf, _fmt(value))])
+                     ["10^%d means divide by 10 %d times, so move the decimal point %d places to the left."
+                      % (exp, -exp, -exp), "%s = %s." % (sf, _fmt(value))])
 
     def t_compare():
         d1 = _rand_digits(d)

@@ -28,6 +28,13 @@ def engine_year(year: int) -> int:
     return max([y for y in ENGINE_YEARS if y <= max(int(year or 1), 1)])
 
 
+def review_tag(skill_key: str, year: int) -> str | None:
+    """A question from an earlier year's skill (Years 8 and 9 mix in earlier KS3 work) says so on the child's
+    card: "Year 7 review"."""
+    m = re.match(r"Y(\d)\.", skill_key or "")
+    return "Year %s review" % m.group(1) if m and int(m.group(1)) < int(year or 0) else None
+
+
 LIKE_TRIES = 800      # questions made in memory, at most, to find one like a mistake (progress.alike)
 
 
@@ -107,6 +114,7 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
     meta = next((s for s in maths_engine.skill_list() if s["key"] == skill_key), {})
     return {**q, "skill": skill_key, "title": meta.get("title", skill_key), "strand": meta.get("strand", ""),
             "reason": reason, "score": score, "progress": await maths_mastery.progress(pid, year),
+            **({"review_of": tag} if (tag := review_tag(skill_key, year)) else {}),
             **({"no_like": True} if no_like else {})}
 
 
@@ -118,7 +126,8 @@ async def check(pupil: dict, token: str, value, ms: int | None) -> dict | None:
         return None
     if res.get("retry"):                 # a spelling slip: try again, nothing recorded yet
         return {"correct": False, "retry": True, "hint": res["hint"]}
-    m = await maths_mastery.record_attempt(pid, res["skill"], res["correct"], value)
+    m = await maths_mastery.record_attempt(pid, res["skill"], res["correct"], value,
+                                           tier=(served or {}).get("difficulty"))
     prompt = res.pop("prompt", "")
     # a right answer keeps its question (like), so it can put right an earlier mistake like it;
     # a mistake keeps how hard it was (dif), so the question that puts it right is as hard

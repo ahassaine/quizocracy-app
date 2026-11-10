@@ -56,6 +56,11 @@
   const FIX = new URLSearchParams(location.search).has('fix');      // ?fix=1: wrong answers come back first
   const FIX_CHECK = FIX && new URLSearchParams(location.search).has('check');   // &check=1: only the Year 4 check's misses
   const FIX_MOVED = FIX && new URLSearchParams(location.search).has('moved');   // &moved=1: on from another subject
+  // &since=: when this "Practise my mistakes" session began (the server's time): its queue is what was due then,
+  // and what is missed during it waits for the next one. &via=: subjects passed through on the way here without
+  // a question; the server never sends the child back to one of them, so it can never go round in a circle.
+  let fixSince = FIX ? new URLSearchParams(location.search).get('since') : null;
+  let fixVia = FIX ? (new URLSearchParams(location.search).get('via') || '') : '';
   // the child's school year (from _drill_head.html; 0 on pages without a child): Years 1-3 get a big, happy
   // "Correct" and kind words sooner; Year 7 up a quiet one (13-year-olds don't want "for little kids")
   const YEAR = parseInt(($('drillHead') || { dataset: {} }).dataset.year, 10) || 0;
@@ -79,10 +84,15 @@
     if (reached === false && now && window.QZ) QZ.confetti(140);     // the moment the target is reached
     reached = now;
     const pct = d.target ? Math.min(100, Math.floor(100 * d.done / d.target)) : 0;
-    $('dayDone').textContent = d.done; $('dayTarget').textContent = d.target;
+    // a Year 1-2 activity ended by its cap (twice its target in answers) shows the real number right, and is done
+    $('dayDone').textContent = d.capped && d.correct != null ? d.correct : d.done; $('dayTarget').textContent = d.target;
     $('dayFill').style.width = pct + '%';
     $('dayBar').classList.toggle('done', d.done >= d.target);
+    // right answers past the target: the child sees the extra effort too, not only the parent
+    const ex = $('dayExtra');
+    if (ex) { ex.hidden = !(d.extra > 0); ex.textContent = d.extra > 0 ? '+' + d.extra + ' extra today ★' : ''; }
     if (d.day_pct >= 100) $('dayMsg').innerHTML = '<b>All done for today, well done!</b> <a href="/me">See my day</a>';
+    else if (d.capped) $('dayMsg').textContent = 'That’s plenty for today: ' + d.answered + ' tries. Well done!';
     else if (d.done >= d.target) $('dayMsg').textContent = 'Target reached for today! You can keep going.';
     const rw = $('dayReward');
     if (rw && d.reward) {
@@ -131,6 +141,25 @@
       m.innerHTML = esc(fixDone || 'All your mistakes are done. Well done!') + ' <a href="/me">Back to my day</a>'
         + (FIX_CHECK ? ' · <a href="/me/tables/year4-check">Try the check again</a>' : '');
     }
+    /* The end of a "Practise my mistakes" session (the server's fix_end): a calm card instead of a question, with
+       what comes back later and when, and the way back to My day. Nothing more is asked. */
+    function fixEnd(q) {
+      gone = true; token = null; answered = false;
+      const text = q.fix_done || 'All your mistakes are done. Well done!';
+      const cut = text.indexOf('. ') + 1;
+      const head = cut ? text.slice(0, cut) : text, rest = cut ? text.slice(cut + 1) : '';
+      $('fixMsg').textContent = '';
+      $('stage').classList.remove('shake', 'flash');
+      $('stage').innerHTML = '<div data-testid="fix-end" role="status" style="text-align:center;padding:12px 4px">'
+        + '<img src="/static/img/trophy.png" alt="" style="width:64px;height:64px">'
+        + '<div class="display" style="font-size:1.4rem;font-weight:800;margin:6px 0 4px" data-testid="fix-end-head">' + esc(head) + '</div>'
+        + (rest ? '<p class="mut" style="margin:0 0 14px" data-testid="fix-end-more">' + esc(rest) + '</p>' : '')
+        + '<div class="row" style="justify-content:center"><a class="btn primary big" href="/me" data-testid="fix-end-back">Back to My day</a>'
+        + (FIX_CHECK ? '<a class="btn" href="/me/tables/year4-check">Try the check again</a>' : '') + '</div></div>';
+      if ($('backDay')) $('backDay').style.display = 'none';
+      if (window.Speak) { Speak.set([text]); Speak.feedback(text); }
+      const b = $('stage').querySelector('a'); if (b) b.focus();
+    }
     /* "Something wrong with this question?" (_drill_buttons.html): a reason, a note if they like, sent with the
        question's token; the server keeps the question as it was served. */
     let reason = null, reporting = false;
@@ -167,12 +196,34 @@
       });
     }
     let loading = false, checking = false;
+    /* Answer-bashing: after RUSH_RUN rushed wrong answers in a row (under QUICK_MS, or keys mashed: "jjj", "asdf"),
+       a gentle "Slow down and read it first" and a short wait before the next question. Not a punishment: nothing
+       is taken away, and the run starts again. (The parent's page counts rushed answers the same way: progress.py.) */
+    const RUSH_RUN = 3, QUICK_MS = 1500, PAUSE_MS = 4000;
+    let rushRun = 0, pauseUntil = 0;
+    function mashed(v) {
+      const s = String(v == null ? '' : (typeof v === 'object' ? Object.values(v).join(' ') : v)).trim().toLowerCase();
+      if (!s) return true;
+      if (/^(.)\1{2,}$/.test(s.replace(/\s+/g, ''))) return true;           // one key held: jjj, 1111
+      return s.length >= 4 && ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'].some(r => r.indexOf(s) >= 0 || r.split('').reverse().join('').indexOf(s) >= 0);
+    }
+    function slowDown(res, ms) {        // true when this answer makes the pause
+      const rushed = !res.correct && !res.other && (ms < QUICK_MS || mashed(lastVal));
+      rushRun = rushed ? rushRun + 1 : 0;
+      if (rushRun < RUSH_RUN) return false;
+      rushRun = 0; pauseUntil = Date.now() + PAUSE_MS;
+      const nx = $('next'); nx.disabled = true;
+      setTimeout(() => { nx.disabled = false; pauseUntil = 0; if (answered) nx.focus(); }, PAUSE_MS);
+      return true;
+    }
     async function next(note) {          // note: a message shown with the new question, until it is answered
       if (gone) return;
+      if (Date.now() < pauseUntil) return;          // "Slow down and read it first": a few seconds' breath
       if (loading) { if (wake) wake(); return; }      // still waiting for the connection: a tap on Next tries now
       // the answered question, its "Correct" and Next stay on screen until the new question has arrived
       const my = ++seq; loading = busy = true;
-      const body = opts.nextBody ? opts.nextBody() : (FIX ? (FIX_CHECK ? { fix: 1, check: 1 } : { fix: 1 }) : {});
+      const body = opts.nextBody ? opts.nextBody() : (FIX ? Object.assign({ fix: 1 }, FIX_CHECK ? { check: 1 } : {},
+        fixSince ? { since: fixSince } : {}, fixVia ? { via: fixVia } : {}) : {});
       const q = await send(api + 'next', body, () => my === seq && !gone, 'No connection. The next question comes when you are back online…');
       if (my === seq) loading = false;
       if (my !== seq || !q) return;        // a newer request superseded this one
@@ -183,9 +234,19 @@
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
       if ($('backDay')) $('backDay').style.display = 'none';
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
+      if (FIX && q.fix_since && q.fix_since !== fixSince) {      // kept in the address, so a refresh stays in this session
+        fixSince = q.fix_since;
+        try { const u = new URL(location.href); u.searchParams.set('since', fixSince); u.searchParams.delete('via'); history.replaceState(history.state, '', u); } catch (e) {}
+      }
+      if (FIX && q.fix_end) { setDay(q.day); return fixEnd(q); }
       token = q.token; setDay(q.day); skillName = q.title || q.skill || '';
       // "Practise my mistakes" runs through every subject: none ready here, so on to the next subject that has some
-      if (FIX && !q.fixing && q.fix_next) { location.href = '/me/' + q.fix_next + '?fix=1&moved=1'; return; }
+      if (FIX && !q.fixing && q.fix_next) {
+        location.href = '/me/' + q.fix_next + '?fix=1&moved=1' + (fixSince ? '&since=' + encodeURIComponent(fixSince) : '')
+          + '&via=' + encodeURIComponent((fixVia ? fixVia + ',' : '') + act);
+        return;
+      }
+      fixVia = '';                         // a question is on screen: from here the next subject may be any
       fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left; fixDone = q.fix_done || '';
       // the server's line (fix_msg) says what comes and when; the first one after moving on names the subject
       if (FIX && $('fixMsg')) fixNote(q.fix_msg != null ? (q.fix_msg ? (moved ? 'Now ' + q.fix_title + ' · ' : '') + q.fix_msg : null)
@@ -237,7 +298,7 @@
       if (fixing && res.correct && $('fixMsg')) {     // the count drops the moment a mistake is put right
         fixing = false; fixLeft = Math.max(0, fixLeft - 1);
         // right again in the same sitting: practised, and it comes back in a later one to count as put right
-        if (fixLeft) fixNote((res.again_later ? 'Practised, it comes back later' : 'Mistake put right') + ' · ' + fixLeft + ' left');
+        if (fixLeft) fixNote((res.again_later ? 'Good. It comes back later to make it stick' : 'Mistake put right') + ' · ' + fixLeft + ' left');
       }
       $('check').disabled = true; $('next').style.display = '';
       finishButtons(!!day.now);
@@ -247,9 +308,12 @@
       const st = $('stage');
       if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; if (!res.other) st.classList.add(res.correct ? 'flash' : 'shake'); }
       misses = res.correct ? 0 : res.other ? misses : misses + 1;
+      const calm = !opts.api && slowDown(res, ms);
       fb.innerHTML = res.correct ? cheer() + (res.again_later ? (YOUNG ? ' ' : '. ') + 'It comes back later, to check you remember it.' : '')
           + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '')
-        : (res.other ? '' : 'Not quite. ') + opts.explain(res) + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '') + (misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
+        : (res.other ? '' : 'Not quite. ') + opts.explain(res) + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '')
+          + (calm ? '<div class="kind" data-testid="slow-down">Slow down and read it first 🙂</div>'
+            : misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
       if (opts.after) opts.after(res);
       // moments that grow: a skill secure for the first time, an old mistake put right (the server says which)
       const wins = (res.mastered ? ['★ New skill secure' + (skillName ? ': ' + skillName : '') + '!'] : [])
@@ -262,7 +326,10 @@
       const done = day.all ? ' All done for today!' + (day.reward ? ' You earned: ' + day.reward + '.' : '')
         : day.won ? ' You earned: ' + day.reward + '.' : day.hit ? ' That is all for today here. Tap Back to My day.' : '';
       // opts.spoken(res): what to say instead of the screen's words (spelling says the letters one by one)
-      if (window.Speak) Speak.feedback(((opts.spoken && opts.spoken(res)) || (fb.innerText || fb.textContent).replace(/★/g, '').replace(/\s*\n+\s*/g, '. ')) + done);
+      if (window.Speak) Speak.feedback(((opts.spoken && opts.spoken(res)) || (fb.innerText || fb.textContent).replace(/★|🙂/g, '').replace(/\s*\n+\s*/g, '. ')) + done);
+      // a right answer can be checked too (the worked solution after every question): "Why?" opens it, not read aloud
+      const whyRight = res.correct && opts.whyRight ? opts.whyRight(res) : '';
+      if (whyRight) fb.insertAdjacentHTML('beforeend', '<details class="why-right" data-testid="why-right" style="margin-top:6px"><summary style="cursor:pointer;display:inline-block;padding:4px 0;font-weight:600;text-decoration:underline;text-underline-offset:3px">Why?</summary>' + whyRight + '</details>');
       if (res.correct && opts.autoNext && !day.hit) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
       else $('next').focus();
     }

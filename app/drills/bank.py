@@ -147,7 +147,7 @@ def make(subject: str):
         if not reason:
             # "working on this at school": about two questions in three from that strand, still by mastery
             strands = focus_on(pupil).get(subject, [])
-            in_focus = [s for s in skills if s["strand"] in strands]
+            in_focus = engine.focus_skills(subject, pupil.get("year", 3), strands)   # an earlier year's topic too
             close = [s for s in skills if len(s["qs"]) > 3 and any(n.split("#")[0] == s["key"] for n in near or [])]
             pool = close or (in_focus if in_focus and random.random() < FOCUS_SHARE else None)
             if not pool:            # in teaching order up to the day's target; after it, the strands in turn
@@ -172,8 +172,9 @@ def make(subject: str):
         correct = engine.mark(key, value)
         sk, q = engine.skill(meta["skill"]), engine.question(meta["skill"], meta["qid"])
         detail = f"{meta['skill']}#{meta['qid']}"
-        slipped = [] if correct else engine.slips(key, value, (q or {}).get("q", ""), sk)
-        ends = None if correct or slipped else engine.end_slip(key, value, sk)
+        apos = None if correct else engine.apostrophe_slip(key, value, sk)    # "cant you": a punctuation slip
+        slipped = [] if correct or apos else engine.slips(key, value, (q or {}).get("q", ""), sk)
+        ends = None if correct or slipped else (apos or engine.end_slip(key, value, sk))
         if (slipped or ends) and not it.get("retried"):
             # a word with a spelling slip ("respiraton", "wich"), or a sentence missing only its capital or full
             # stop, where that is not the skill: one free retry, nothing recorded yet

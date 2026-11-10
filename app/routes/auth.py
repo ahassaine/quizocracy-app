@@ -83,7 +83,7 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
     fam = {"_id": new_id("fam"), "name": (family_name.strip() or "My family")[:60], "plan": new_family_plan(),
            "created": _now(), "reward": {"text": "", "threshold": 100}}
     acc = {"_id": new_id("acc"), "email": email, "pw": hash_secret(password), "family_id": fam["_id"],
-           "role": "owner", "created": _now(), "verified_at": None}
+           "role": "owner", "created": _now(), "verified_at": None, "report_emails": True}
     await db.families.insert_one(fam)
     await db.accounts.insert_one(acc)
     await hit(f"mail:verify:{email}")              # the first code counts towards the resend limit
@@ -264,6 +264,8 @@ async def settings_view(ctx: Ctx) -> dict:
                     "removable": owner_view and a["_id"] != ctx.account["_id"] and (a.get("role") or "owner") != "owner"}
                    for a in adults],
         "report_emails": bool(ctx.account.get("report_emails")),
+        "plan_emails": bool(ctx.account.get("plan_emails")),
+        "owner_name": next((adult_name(a) for a in adults if (a.get("role") or "owner") == "owner"), ""),
         "invites": [{"id": c["_id"], "email": c["email"], "role": ROLE_TITLES.get(c.get("role"), ""),
                      "until": local_time(c["expires"]).strftime("%d %B")}
                     async for c in db.codes.find({"family_id": fid, "purpose": "invite", "expires": {"$gt": _now()}})
@@ -383,9 +385,21 @@ async def my_name(request: Request, ctx: Ctx = Depends(parent_page), name: str =
 
 
 @router.post("/settings/report-emails")
-async def report_emails_toggle(request: Request, ctx: Ctx = Depends(parent_page), on: str = Form("")):
-    """Email me when the team has checked a question a child reported (off unless ticked)."""
+async def report_emails_toggle(request: Request, ctx: Ctx = Depends(parent_page), on: str = Form(""),
+                               back: str = Form("")):
+    """Email me when the team has checked a question a child reported (on for families who joined since 10 Nov
+    2026). Also ticked under "Questions … reported" on a child's progress page (back: that child's id)."""
     await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"report_emails": bool(on)}})
+    if back and re.fullmatch(r"p_[0-9a-f]+", back):
+        return RedirectResponse(f"/children/{back}?report_emails={'on' if on else 'off'}#reports", 303)
+    return RedirectResponse("/settings?saved=1#login", 303)
+
+
+@router.post("/settings/plan-emails")
+async def plan_emails_toggle(request: Request, ctx: Ctx = Depends(parent_page), on: str = Form("")):
+    """Email me when another grown-up changes a child's plan, target, reward, days off, spelling list or topics
+    (off unless ticked; Family activity on Home lists every change either way)."""
+    await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"plan_emails": bool(on)}})
     return RedirectResponse("/settings?saved=1#login", 303)
 
 
@@ -417,7 +431,8 @@ async def invite_accept(request: Request, token: str = Form(...), password: str 
     elif not err and not consent:
         err = "Please confirm you are aged 18 or over."
     acc = {"_id": new_id("acc"), "email": inv["email"], "pw": hash_secret(password), "family_id": fam["_id"],
-           "role": inv["role"], "invited_by": inv.get("by"), "created": _now(), "verified_at": _now()}
+           "role": inv["role"], "invited_by": inv.get("by"), "created": _now(), "verified_at": _now(),
+           "report_emails": True}
     if not err:
         try:
             await db.accounts.insert_one(acc)          # the link came to this inbox, so the address is verified

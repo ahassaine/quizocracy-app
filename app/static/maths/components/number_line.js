@@ -2,10 +2,11 @@
  * spec: { min, max, step, major, fractions }  (major = spacing of labelled ticks)
  *   fractions: n — a line in steps of 1/n for a fraction question. Only whole numbers are labelled
  *              (decimal labels would give 0.375 for 3/8) and the value is sent as "k/n".
- * The line is drawn at the card's real width so its numbers stay readable on a phone. There is no live
- * readout (it would do the reading for the child); the marker snaps to the nearest tick, and when the
- * ticks are too close for a finger a "closer look" strip below shows the part of the line around the
- * marker with wide ticks. After Check, the chosen and the right values are written by the marks.
+ * The line is drawn at the card's real width so its numbers stay readable on a phone. The marker snaps to
+ * the nearest tick and its number shows above it as it moves, before Check (a 7-year-old whose finger
+ * landed on 0 instead of 2 sees it and moves it). When the ticks are too close for a finger (closer
+ * still for Years 1-2 and touch screens) a "closer look" strip below shows the part of the line around
+ * the marker with wide ticks. After Check, the chosen and the right values are written by the marks.
  */
 (function () {
   window.MComp = window.MComp || {};
@@ -97,12 +98,15 @@
 
       // ---- the closer look: a block of ticks around the marker, aligned to the line (never centred on
       //      the marker, so its end labels are ordinary tick labels, not a readout) ----
-      const MIN_PX = 12;
+      // ticks closer than this get the closer look: a child's finger is about 20 px wide on a phone
+      const year = (api && api.year) | 0;
+      const touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 0;
+      const MIN_PX = (year >= 1 && year <= 2) || touch ? 20 : 12, ZOOM_PX = year >= 1 && year <= 2 ? 30 : 22;
       let zoom = null;
       if (pxStep < MIN_PX) {
-        const ZW = W, ZH = 74, zy = 40;
+        const ZW = W, ZH = touch ? 84 : 74, zy = 40;
         let B = den || 10;                               // a fraction line zooms one whole at a time
-        if (!den) for (const b of [10, 5, 2]) { B = b; if ((ZW - 2 * padX) / b >= 22) break; }
+        if (!den) for (const b of [10, 5, 2]) { B = b; if ((ZW - 2 * padX) / b >= ZOOM_PX) break; }
         const zsvg = mk('svg', { viewBox: `0 0 ${ZW} ${ZH}`, width: '100%', 'aria-hidden': 'true',
           style: 'display:none;margin-top:8px;background:#0b0f14;border:1px dashed #30363d;border-radius:10px;touch-action:none;cursor:pointer;-webkit-user-select:none;user-select:none' });
         zsvg.appendChild(mk('text', { x: 8, y: 14, fill: DIM, 'font-size': 11 }, 'Closer look'));
@@ -147,6 +151,12 @@
       function setI(i, fromZoom) {
         idx = Math.max(0, Math.min(nSteps, i));
         marker.setAttribute('points', tri(toX(valAt(idx)), y));
+        // the arrow's number, live, for Years 1-2 only (a 7-year-old's finger slips); from Year 3 reading the
+        // line is the skill, so a live readout would give "mark 3/8" away
+        if (year >= 1 && year <= 2) {
+          markLab.setAttribute('x', Math.max(20, Math.min(W - 20, toX(valAt(idx))))); markLab.textContent = fmt(valAt(idx));
+        }
+        host.dataset.value = String(valAt(idx));
         if (zoom) {
           if (fromZoom) zoom.marker.setAttribute('points', tri(zoom.X(valAt(idx)), zoom.zy));
           else zoom.show(idx);

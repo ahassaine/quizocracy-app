@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
 {% if request.query_params.get('deleted') %}<div class="ok">Your account and all of its data have been deleted.</div>{% endif %}
+{% if request.query_params.get('left') %}<div class="ok" data-testid="left">You have left the family. Your login is gone; the children and their practice stay with the family.</div>{% endif %}
 <section class="hero">
   <div>
     <div class="badge-note rise"><img src="/static/img/family.png" alt="">Built by a parent for his kids</div>

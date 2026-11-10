@@ -78,7 +78,11 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
         new[s] = await db.bank_mastery.count_documents({"pupil_id": p["_id"], "subject": s, "mastered_at": {"$gte": since}})
     skills = await _skill_views(p, on)
     weak = [(w["subject"], w) for w in await work_on(p, on, 8)]     # real weakness: wrong answers, not a low score
-    open_m = await progress.open_mistakes(p, max(len(days), 1))
+    # still to put right: the parent page's "to go over" (progress.mistake_book, the one rule of every count)
+    open_m: dict = {}
+    for e in await progress.mistake_book(p, plan={a["key"] for a in todays_plan(p, ctx.family)}):
+        if e["state"] in ("due", "later"):
+            open_m.setdefault(e["activity"], []).append(e["detail"])
     words = spelling.list_for_year(p.get("year", 3))
     learned = sorted([w["word"] async for w in db.spelling_words.find(
         {"pupil_id": p["_id"], "box": {"$gte": spelling.LEARNED_BOX}, "word": {"$in": words}}, {"word": 1})],

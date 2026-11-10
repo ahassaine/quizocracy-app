@@ -36,7 +36,11 @@ BLOCK = 6                 # questions in a row on one skill before the next stra
 YOUNG_BLOCK = 3           # ... in Years 1-3: a young child tires of one kind of question after 3 or 4
 FAST_STREAK = 5           # right every time this many in a row: the skill is secure (checked back another day)
 CHECK_BACK_CHANCE = 0.35  # share of questions that check back a skill secured fast, on a later day
-PROBE_AFTER_FAST = 2      # skills secured fast before new skills open with one hard placement question
+PROBE_AFTER_FAST = 1      # skills secured fast before new skills open with one hard placement question
+HARD_TIER = 2             # the hardest tier (maths_engine.difficulty_for)
+HARD_RIGHT = 2            # right this many in a row at the hardest tier, with no slip, and the skill is secure
+FOCUS_WINDOW = 4          # a school-topic strand: its first unfinished skills take turns ...
+FOCUS_BLOCK = 3           # ... this many questions each (FAST_STREAK while every answer is right)
 
 # Skills that are the Numbers-in-words activity under another name: on a day that activity is in the
 # child's plan, maths leaves them until last.
@@ -99,8 +103,18 @@ def _year_skills(year=None):
     return [s for s in skills if s["key"].startswith(pref) and s["key"] not in OUT_OF_YEAR] or skills
 
 
-async def record_attempt(pupil, skill_key, correct, value=None):
-    """Log the attempt and update mastery. Returns the new mastery doc."""
+_STRANDS = {}
+
+
+def _strand_of(key):
+    if not _STRANDS:
+        _STRANDS.update({s["key"]: s["strand"] for s in skill_list()})
+    return _STRANDS.get(key)
+
+
+async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
+    """Log the attempt and update mastery. Returns the new mastery doc. tier: how hard the question was (a strong
+    child who gets the hardest tier right HARD_RIGHT times in a row, with no slip, has the skill secure)."""
     pupil = (pupil or "").lower()
     if not pupil or not skill_key:
         return None
@@ -119,11 +133,13 @@ async def record_attempt(pupil, skill_key, correct, value=None):
     attempts = int(doc.get("attempts", 0)) + 1
     right = int(doc.get("correct_count", 0)) + (1 if correct else 0)
     upd = {}
+    hard = int(doc.get("hard", 0)) + 1 if correct and tier is not None and int(tier) >= HARD_TIER else 0
     if correct:
         streak += 1
         score = min(MASTERED, score + gain(score, streak))
         slips = attempts - right
-        if doc.get("probing") or (slips <= 1 and streak >= FAST_STREAK + 2 * slips):
+        if doc.get("probing") or (slips <= 1 and streak >= FAST_STREAK + 2 * slips) \
+                or (slips == 0 and hard >= HARD_RIGHT) or (slips == 1 and hard >= HARD_RIGHT + 1):
             # right first time at the hardest tier (a placement probe), or right every time: secure now,
             # checked back on a later day
             score, upd["fast"] = MASTERED, True
@@ -137,9 +153,11 @@ async def record_attempt(pupil, skill_key, correct, value=None):
         upd.update({"probing": False, "probe": "right" if correct else "wrong"})
     upd.update({
         "pupil": pupil, "skill": skill_key, "score": score, "streak": streak,
-        "attempts": attempts, "correct_count": right, "last": _now(),
+        "attempts": attempts, "correct_count": right, "last": _now(), "hard": hard,
         # questions in a row on this skill: after BLOCK the next strand takes a turn
         "run": int(doc.get("run", 0)) + 1 if latest.get("skill") == skill_key else 1,
+        # ... and in a row within its strand, questions from other strands not counted (a school topic's turns)
+        "srun": int(doc.get("srun", 0)) + 1 if _latest_in_strand(mm, skill_key).get("skill") == skill_key else 1,
     })
     if score >= MASTERED and not doc.get("mastered_at"):
         upd["mastered_at"] = _now()
@@ -147,6 +165,35 @@ async def record_attempt(pupil, skill_key, correct, value=None):
                                       {"$set": upd}, upsert=True)
     upd["mastered"] = score >= MASTERED
     return upd
+
+
+def _latest_in_strand(mm, skill_key):
+    strand = _strand_of(skill_key)
+    return max((d for k, d in mm.items() if _strand_of(k) == strand and d.get("last")),
+               key=lambda d: d["last"], default={})
+
+
+def _focus_pick(in_focus, mm):
+    """A school-topic strand works its first FOCUS_WINDOW unfinished skills in turn, FOCUS_BLOCK questions each
+    (more while every answer is right, so a strong child secures one fast), not one skill until it is secure: with
+    "The four operations" in focus, multiplication and division come up as well as column addition."""
+    unfinished = [s for s in in_focus if mm.get(s["key"], {}).get("score", 0) < MASTERED]
+    if not unfinished:
+        return None
+    fresh = [s for s in unfinished if not (mm.get(s["key"], {}).get("score", 0) == 0
+                                           and mm.get(s["key"], {}).get("attempts", 0) >= STUCK_ATTEMPTS)]
+    window = (fresh or unfinished)[:FOCUS_WINDOW]
+    order = [s["key"] for s in in_focus]
+    cur = max((mm[k] for k in order if k in mm and mm[k].get("last")), key=lambda d: d["last"], default={})
+
+    def why(s):
+        return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
+    if cur.get("skill") in [s["key"] for s in window]:
+        clean = int(cur.get("attempts", 0)) == int(cur.get("correct_count", 0))
+        if int(cur.get("srun", 0)) < (FAST_STREAK if clean else FOCUS_BLOCK):
+            return cur["skill"], "practice"
+    at = order.index(cur["skill"]) if cur.get("skill") in order else -1
+    return why(next((s for s in window if order.index(s["key"]) > at), window[0]))
 
 
 async def _mastery_map(pupil):
@@ -216,20 +263,16 @@ async def next_skill(pupil, year=None, avoid=()):
         skills = rest
 
     # "working on this at school": about two questions in three from that strand, picked as its turn would be
-    strands = await _focus_strand(pupil)
-    in_focus = [s for s in skills if s["strand"] in strands]
+    focus = await _focus_strand(pupil)
+    in_focus = [s for s in skills if s["strand"] in focus]
     # Years 1-3: after YOUNG_BLOCK in a row on one focus skill, the next question comes from the ladder instead
     latest = max(mm.values(), key=lambda d: d.get("last") or datetime.datetime.min, default={})
     tired = str(year or "") in ("1", "2", "3") and latest.get("run", 0) >= YOUNG_BLOCK \
         and any(s["key"] == latest.get("skill") for s in in_focus)
     if in_focus and not tired and random.random() < FOCUS_SHARE:
-        pick = _strand_pick(in_focus, mm)
+        pick = _focus_pick(in_focus, mm)
         if pick:
             return pick
-        left = [s for s in in_focus if mm.get(s["key"], {}).get("score", 0) < MASTERED]
-        if left:
-            s = min(left, key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
-            return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
         return min(in_focus, key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)["key"], "review"
 
     # a skill secured fast is checked back on a later day
@@ -259,6 +302,8 @@ async def next_skill(pupil, year=None, avoid=()):
             strands.append(s["strand"])
     window = []
     for strand in strands:
+        if in_focus and strand in focus and len(strands) > len(focus):
+            continue                     # the school topic has its own turns (above); the other third is the rest
         pick = _strand_pick([s for s in skills if s["strand"] == strand], mm)
         if pick:
             window.append((strand, pick))
@@ -320,13 +365,21 @@ MIDDLE_FROM_YEAR = 5      # from Year 5 a new skill opens at the middle tier, no
 
 async def start_tier(pupil, year, skill_key, score):
     """The difficulty tier of the next question: by the score (maths_engine.difficulty_for), except that in Years
-    5 to 9 a skill with no wrong answer yet is asked at the middle tier at least. After a wrong answer the score
+    5 to 9 a skill with no wrong answer yet is asked at the middle tier at least, and at the hardest once two are
+    right (so a strong child meets the real thing by the third question, and secures it with HARD_RIGHT of
+    those). One slip after two right, or a missed placement probe, keeps the middle tier. Otherwise the score
     decides again, so a child who finds the skill hard gets the easier questions."""
     tier = difficulty_for(score)
-    if tier or int(year or 0) < MIDDLE_FROM_YEAR:
+    if tier >= HARD_TIER or int(year or 0) < MIDDLE_FROM_YEAR:
         return tier
     d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)}) or {}
-    return 1 if int(d.get("attempts", 0)) == int(d.get("correct_count", 0)) else tier
+    right = int(d.get("correct_count", 0))
+    wrong = int(d.get("attempts", 0)) - right
+    if wrong <= 0:
+        return HARD_TIER if right >= 2 else max(tier, 1)
+    if wrong == 1 and (right >= 2 or d.get("probe") == "wrong"):
+        return max(tier, 1)
+    return tier
 
 
 async def probe(pupil, year, skill_key):

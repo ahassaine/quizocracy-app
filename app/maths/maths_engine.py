@@ -21,6 +21,7 @@ import math
 from fractions import Fraction
 from ..db import db
 from ..drills import typos
+from .working import column_layout, layout_for, long_div_layout, long_mult_layout   # noqa: F401
 
 # ---------------------------------------------------------------- registry ----
 GENERATORS = {}
@@ -822,6 +823,9 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
             "tolerance": q.get("tolerance", 0),
             "unit": (q.get("spec") or {}).get("unit"),
             "solution": q.get("solution", []),
+            # the written method, set out, for the explanation (arithmetic skills only)
+            "layout": layout_for(q, next((s for s in SKILLS if s["key"] == skill_key), {})),
+            "no": [[k, v] for k, v in (q.get("no") or {}).items()],   # likely wrong answer, why (y9_gen_a._with_no)
             "difficulty": difficulty,
             "pupil": pupil,
             "created": datetime.datetime.utcnow(),
@@ -830,6 +834,10 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
     )
     return {"token": token, "prompt": q["prompt"],
             "component": q.get("component", "number"), "spec": q.get("spec", {})}
+
+def _no_key(v):
+    return re.sub(r"\s+", "", str(v if v is not None else "")).replace("−", "-").lower()
+
 
 async def check(token, value, pupil):
     """One answer per question, and only by the child it was served to."""
@@ -853,8 +861,12 @@ async def check(token, value, pupil):
         hint = form_hint(doc["answer_type"], doc["answer"], value, prompt)
         if hint:                                 # the right value in the wrong form: say so first
             solution.insert(0, hint)
+        why_not = {_no_key(k): v for k, v in (doc.get("no") or [])}.get(_no_key(value))
+        if why_not and not hint:                 # a likely slip (2^-3 typed as 1/6): why that answer is wrong
+            solution.insert(0, why_not)
     return {"ok": True, "correct": bool(correct),
             "expected": doc.get("display", doc["answer"]), "solution": solution,
+            **({"layout": doc["layout"]} if doc.get("layout") else {}),
             "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}
 
 # ------------------------------------------------ register Y3 generators ------

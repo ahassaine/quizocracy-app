@@ -16,8 +16,8 @@
 {% endblock %}
 {% block foot %}{% endblock %}
 {% block scripts %}
-{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v={{ 6 if c in ['data_table','io_table','base_ten','strip_model'] else 5 if c in ['area_grid','array','equal_groups','bar_chart','data_table','io_table','line_graph','pictogram','pie_chart','scatter_plot','strip_model'] else 4 if c in ['angle','area_grid','array','base_ten','circle','clock','coordinate_grid','equal_groups','fraction_bar','inequality_line','net','number','number_line','ruler','shape'] else 2 }}"></script>
-{% endfor %}<script src="/static/js/drill.js?v=23"></script><script>
+{% for c in ['angle','area_grid','array','bar_chart','base_ten','circle','clock','coordinate_grid','data_table','equal_groups','fraction_bar','inequality_line','io_table','line_graph','net','number','number_line','pictogram','pie_chart','ruler','scatter_plot','shape','strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v={{ 6 if c in ['data_table','io_table','base_ten','strip_model'] else 5 if c in ['number_line','area_grid','array','equal_groups','bar_chart','data_table','io_table','line_graph','pictogram','pie_chart','scatter_plot','strip_model'] else 4 if c in ['angle','area_grid','array','base_ten','circle','clock','coordinate_grid','equal_groups','fraction_bar','inequality_line','net','number','number_line','ruler','shape'] else 2 }}"></script>
+{% endfor %}<script src="/static/js/drill.js?v=26"></script><script>
 window.MComp = window.MComp || {};
 const SKILLS = {{ years|tojson }};
 const $ = (id) => document.getElementById(id);
@@ -26,7 +26,7 @@ fill();
 const d = Drill({ activity: 'maths', api: '/team/{{ me._id }}/maths/',
   nextBody: () => ({ skill: $('skill').value, difficulty: +$('diff').value }),
   render(q) {
-    $('skillTitle').textContent = q.title; $('skillStrand').textContent = q.strand; $('skillKey').textContent = $('skill').value;
+    $('skillTitle').textContent = q.title; $('skillStrand').textContent = q.strand; $('skillKey').textContent = q.skill || $('skill').value;   // the served question's, not a newer choice still loading
     const stage = $('mStage'); stage.innerHTML = '';
     const pr = document.createElement('div'); pr.className = 'm-prompt'; pr.textContent = q.prompt; stage.appendChild(pr);
     const host = document.createElement('div'); host.className = 'm-host'; host.id = 'mHost'; host.dataset.component = q.component; stage.appendChild(host);

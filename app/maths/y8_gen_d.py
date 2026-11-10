@@ -1742,8 +1742,8 @@ def _(d=1):
                           else "which does not equal", a * x + b)],
                       placeholder="yes or no")
 
-    opts = [add, subtract, multiply, divide, two_step, two_step_sub,
-            word_two_step, check_solution]
+    # the core tier is Year 8 work: two steps, or one step with a coefficient (x + 2 = 9 is only the easy tier)
+    opts = [multiply, divide, two_step, two_step_sub, word_two_step, check_solution]
     if d == 0:
         opts = [add, subtract, multiply, divide, check_solution]
     elif d == 2:
@@ -1892,7 +1892,7 @@ def _(d=1):
                       % (a - cc, e - a * c, x)], placeholder="x =")
 
     opts = [bracket, bracket_expand, collect_then_solve, bracket_word,
-            minus_bracket, bracket_perimeter, algebra_tiles, solve_distributive]
+            minus_bracket, bracket_perimeter, solve_distributive]
     if d == 0:
         opts = [bracket, bracket_word, minus_bracket, algebra_tiles,
                 solve_distributive]

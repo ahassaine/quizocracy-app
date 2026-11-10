@@ -134,10 +134,14 @@ def test_new_skills_from_year5_open_at_the_middle_tier(monkeypatch):
     assert _run(mm.start_tier("p1", 7, "Y7.0.a", 0)) == 1           # new skill, Year 7: middle tier
     assert _run(mm.start_tier("p1", 5, "Y5.0.a", 0)) == 1
     assert _run(mm.start_tier("p1", 3, "Y3.0.a", 0)) == 0           # Year 3 keeps the easy start
-    db.maths_mastery.docs["p1:Y7.0.a"] = {"attempts": 3, "correct_count": 2, "score": 10}
-    assert _run(mm.start_tier("p1", 7, "Y7.0.a", 10)) == 0          # after a wrong answer: easier questions
+    db.maths_mastery.docs["p1:Y7.0.a"] = {"attempts": 3, "correct_count": 1, "score": 10}
+    assert _run(mm.start_tier("p1", 7, "Y7.0.a", 10)) == 0          # after wrong answers: easier questions
+    db.maths_mastery.docs["p1:Y7.0.c"] = {"attempts": 3, "correct_count": 2, "score": 10}
+    assert _run(mm.start_tier("p1", 7, "Y7.0.c", 10)) == 1          # one slip after two right: stays in the middle
+    db.maths_mastery.docs["p1:Y7.0.b"] = {"attempts": 1, "correct_count": 1, "score": 23}
+    assert _run(mm.start_tier("p1", 7, "Y7.0.b", 23)) == 1
     db.maths_mastery.docs["p1:Y7.0.b"] = {"attempts": 2, "correct_count": 2, "score": 35}
-    assert _run(mm.start_tier("p1", 7, "Y7.0.b", 35)) == 1
+    assert _run(mm.start_tier("p1", 7, "Y7.0.b", 35)) == 2          # two right first time: the hardest tier
     assert _run(mm.start_tier("p1", 7, "Y7.0.b", 90)) == 2          # the score still hardens it
 
 

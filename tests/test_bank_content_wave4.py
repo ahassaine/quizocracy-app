@@ -23,7 +23,8 @@ def test_year6_test_review_has_the_gps_favourites_from_the_first_day():
         assert len(sk["qs"]) >= 20 and all(q["why"].strip() for q in sk["qs"]), title
         assert len({q["t"] for q in sk["qs"]}) >= 3, title
     order = [s["key"] for s in y6]
-    assert order[:8] == ["GP6.01", "GP6.17", "GP6.02", "GP6.18", "GP6.03", "GP6.19", "GP6.04", "GP6.20"], order[:8]
+    # apostrophes come second since wave 5 (they never came up in ~55 questions as the seventh)
+    assert order[:8] == ["GP6.01", "GP6.04", "GP6.17", "GP6.02", "GP6.18", "GP6.03", "GP6.19", "GP6.20"], order[:8]
 
 
 def test_the_doer_is_not_called_the_subject_without_saying_active():
@@ -41,7 +42,8 @@ def test_why_not_lines_name_real_wrong_options_and_why2_differs():
     n = 0
     for sub, sk, q in ALL:
         for opt, line in (q.get("no") or {}).items():
-            assert q["t"] == "mcq" and opt in q["opts"][1:] and line.strip(), (sk["key"], opt)
+            assert line.strip() and (opt in q["opts"][1:] if q["t"] == "mcq" else q["t"] == "text"
+                                     and engine.norm_text(opt) not in map(engine.norm_text, q["a"])), (sk["key"], opt)
             n += 1
         if q.get("why2"):
             assert q["why2"] != q["why"], sk["key"]

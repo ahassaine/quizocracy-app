@@ -7,7 +7,7 @@ from fractions import Fraction
 from zoneinfo import ZoneInfo
 
 from . import config
-from .activities import ACTIVITIES, acts_on, back_on, minutes, next_day, plan_of, rest_day, todays_plan
+from .activities import ACTIVITIES, YOUNG_CAP, acts_on, back_on, minutes, next_day, plan_of, rest_day, todays_plan
 from .db import db
 
 TZ = ZoneInfo(config.TIMEZONE)
@@ -24,19 +24,24 @@ def day_list(n: int) -> list:
 
 async def record(pupil: dict, activity: str, correct: bool, ms: int | None = None, detail: str = "",
                  question: str = "", expected: str = "", given: str = "", copied: bool = False, like: str = "",
-                 extra: dict | None = None) -> None:
+                 extra: dict | None = None, src: str = "") -> None:
     """detail: the item answered (fact, word, verb, number, skill#question; for maths the skill). copied: right,
     but straight after being shown the answer (it counts for today, never as a mistake put right). like: a
-    maths question answered right, kept so it can put right an earlier maths mistake like it (alike)."""
+    maths question answered right, kept so it can put right an earlier maths mistake like it (alike). src:
+    "mtc" for an answer of the timed Year 4 check (its time-outs are never "rushed"; see day_stats)."""
     row = {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "activity": activity,
            "correct": bool(correct), "ms": ms, "detail": detail[:80], "day": today(),
            "ts": datetime.datetime.utcnow()}
     if copied:
         row["copied"] = True
+    if src:
+        row["src"] = src
     if correct and like:
         row["lq"] = str(like)[:400]
     if not correct and question:          # a mistake keeps what was asked, so the parent can go over it later
-        row.update({"q": str(question)[:400], "exp": str(expected)[:200], "got": str(given or "")[:200], **(extra or {})})
+        # an answer of 0 (a number line's arrow on 0) is an answer, not a blank
+        row.update({"q": str(question)[:400], "exp": str(expected)[:200], "got": "" if given is None else str(given)[:200],
+                    **(extra or {})})
     await db.attempts.insert_one(row)
 
 
@@ -79,21 +84,30 @@ async def last_miss(pupil: dict, activity: str, detail: str, days: int = 7) -> d
     return r["ts"] if r else None
 
 
+def same_item(activity: str, detail: str) -> str:
+    """What one mistake is about: the item, except that a times-tables fact and its reverse are one fact (7 × 12
+    and 12 × 7: the same thing to learn, as the Year 4 check and tables.next_question already treat them)."""
+    m = re.fullmatch(r"(\d+)x(\d+)", detail or "") if activity == "tables" else None
+    return "x".join(sorted(m.groups(), key=int)) if m else detail
+
+
 async def _scan(pupil: dict, days: list) -> list:
     """Every mistake on these days, oldest first, each with when it was put right (None: not yet). A mistake is
-    put right only by a later right answer to THAT item: the same fact, word, verb, number or bank question
-    (detail), or for maths a question like it (alike); in grammar, science and spelling only once the miss is
-    PUT_RIGHT_AFTER old (sooner, it is practised: asked again in a later sitting). A right answer copied
-    straight after the correction puts nothing right. Once put right a mistake stays put right; missing the
-    item again is a new mistake."""
+    put right only by a later right answer to THAT item: the same fact (either way round), word, verb, number or
+    bank question (detail), or for maths a question like it (alike); in grammar, science and spelling only once
+    the miss is PUT_RIGHT_AFTER old (sooner, it is practised: asked again in a later sitting). A right answer
+    copied straight after the correction puts nothing right. Once put right a mistake stays put right; missing
+    the item again is a new mistake."""
     out, waiting = [], {}
     async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": days}, "detail": {"$nin": ["", None]},
                                      "copied": {"$ne": True}},
-                                    {"activity": 1, "detail": 1, "correct": 1, "ts": 1, "q": 1, "lq": 1, "nolike": 1}).sort("ts", 1):
-        k = (r["activity"], r["detail"])
+                                    {"activity": 1, "detail": 1, "correct": 1, "ts": 1, "q": 1, "lq": 1, "nolike": 1,
+                                     "exp": 1, "got": 1, "day": 1}).sort("ts", 1):
+        k = (r["activity"], same_item(r["activity"], r["detail"]))
         if not r["correct"]:
             m = {"id": r["_id"], "activity": r["activity"], "detail": r["detail"], "ts": r["ts"], "q": r.get("q", ""),
-                 "fixed": None, "nolike": bool(r.get("nolike")), "practised": None}
+                 "fixed": None, "nolike": bool(r.get("nolike")), "practised": None, "day": r.get("day", ""),
+                 "exp": r.get("exp", ""), "got": r.get("got", ""), "asked": "q" in r}
             out.append(m)
             waiting.setdefault(k, []).append(m)
             continue
@@ -119,62 +133,115 @@ def mistake_key(m: dict) -> str:
     return f"{m['detail']}@{m['id']}" if m["activity"] == "maths" else m["detail"]
 
 
-async def open_mistakes(pupil: dict, days: int = 7) -> dict:
-    """Mistakes not put right yet: {activity: [key, ...]} (mistake_key), the longest-waiting first, one per item
-    (maths: one per kind of question). Maths mistakes no question like them could be made for stay on the
-    parent's list but are not asked again (nolike). A mistake practised in this sitting (see _scan) rests until
-    its miss is PUT_RIGHT_AFTER old, then comes back."""
-    out: dict = {}
+async def mistake_book(pupil: dict, days: list | None = None, plan: set | None = None,
+                       before: datetime.datetime | None = None) -> list:
+    """THE one rule behind every count of mistakes: the child's "Practise my mistakes (N)" and its countdown,
+    "N come back later", "This week: N put right", the parent's "N to go over · N put right", "Still tricky" in
+    the school words and the printed report all read this list, so they always agree.
+
+    One entry per thing to learn (an item: a word, a fact either way round, a verb, a bank question; for maths a
+    kind of question), from its misses in these days (the last 7 by default), oldest first. Its latest miss stands
+    for it: {activity, key (mistake_key), detail, item, latest (the miss row of _scan), misses (all of them), state,
+    practised, back, again, fixed}. state:
+      - "fixed": put right (its latest miss was put right by a later right answer, see _scan);
+      - "cannot": not put right, but the app won't ask it again (no question like it could be made, or its
+        activity is not in `plan`): the parent sees it on a quieter line, the child never counts it;
+      - "later": right again in the same sitting (practised): it rests until `back` (PUT_RIGHT_AFTER after the
+        miss), then it is due again;
+      - "due": to put right now.
+    again: it had been put right, then was missed again (it shows once, as to go over, never also as put right).
+    before: only items whose latest miss is older than this (the queue of a "Practise my mistakes" session that
+    started then: what is missed during it waits for the next one); the others are left out."""
     now = datetime.datetime.utcnow()
-    for m in await _scan(pupil, day_list(days)):
-        if m["fixed"] or m["nolike"]:
-            continue
-        keys = out.setdefault(m["activity"], {})
-        same = next((k for k, o in keys.items() if o["detail"] == m["detail"]
-                     and (m["activity"] != "maths" or alike(o["q"], m["q"]))), None)
-        if same:
-            del keys[same]                    # the latest miss of the item stands for it (its gap counts)
-        if m["practised"] and now - m["ts"] < PUT_RIGHT_AFTER:
-            continue                          # right again in this sitting: asked again in a later one
-        keys[mistake_key(m)] = m
-    return {a: list(ks) for a, ks in out.items() if ks}
+    out: list = []
+    by_item: dict = {}
+    for m in await _scan(pupil, days or day_list(7)):
+        item = same_item(m["activity"], m["detail"])
+        if m["activity"] == "maths":          # one entry per kind of question of the skill
+            e = next((x for x in by_item.get((m["activity"], item), []) if alike(x["latest"]["q"], m["q"])), None)
+        else:
+            e = (by_item.get((m["activity"], item)) or [None])[0]
+        if e is None:
+            e = {"activity": m["activity"], "item": item, "misses": [], "again": False}
+            by_item.setdefault((m["activity"], item), []).append(e)
+            out.append(e)
+        if e["misses"] and e["latest"]["fixed"]:
+            e["again"] = True
+        e["misses"].append(m)
+        e["latest"] = m
+    for e in out:
+        m = e["latest"]
+        e.update(key=mistake_key(m), detail=m["detail"], fixed=m["fixed"], practised=bool(m["practised"] and not m["fixed"]),
+                 back=m["ts"] + PUT_RIGHT_AFTER if m["practised"] and not m["fixed"] else None)
+        e["state"] = ("fixed" if m["fixed"] else "cannot" if m["nolike"] or (plan is not None and m["activity"] not in plan)
+                      else "later" if e["practised"] and now < e["back"] else "due")
+    out.sort(key=lambda e: e["latest"]["ts"])
+    if before is not None:
+        out = [e for e in out if e["latest"]["ts"] < before]
+    return out
+
+
+def book_counts(book: list) -> dict:
+    """The numbers every screen shows, from mistake_book: due (to put right now), later (resting until a later
+    sitting), open (due + later: the parent's "to go over"), cannot, fixed (put right), and per activity
+    {activity: due}."""
+    n = {s: sum(1 for e in book if e["state"] == s) for s in ("due", "later", "cannot", "fixed")}
+    per: dict = {}
+    for e in book:
+        if e["state"] == "due":
+            per[e["activity"]] = per.get(e["activity"], 0) + 1
+    return {**n, "open": n["due"] + n["later"], "per": per}
+
+
+EVENING = 19              # from 7 pm (UK time), what comes back later comes back tomorrow, as far as a child is concerned
+
+
+def back_when(backs: list) -> str:
+    """When mistakes that rest come back, in a child's words: "tomorrow" in the evening; else "in about an hour"
+    or "in about 20 minutes" from the latest of `backs` (when each rests until, UTC); "next time" when they
+    don't rest (missed during a "Practise my mistakes" session: they wait for the next one)."""
+    now = datetime.datetime.utcnow()
+    if datetime.datetime.now(TZ).hour >= EVENING:
+        return "tomorrow"
+    backs = [b for b in backs if b and b > now]
+    if not backs:
+        return "next time"
+    mins = math.ceil((max(backs) - now).total_seconds() / 60)
+    return "in about an hour" if mins > 40 else f"in about {max(5, 5 * math.ceil(mins / 5))} minutes"
+
+
+async def open_mistakes(pupil: dict, days: int = 7) -> dict:
+    """Mistakes to put right now (mistake_book, state "due"): {activity: [key, ...]} (mistake_key), the
+    longest-waiting first, one per item (maths: one per kind of question)."""
+    out: dict = {}
+    for e in await mistake_book(pupil, day_list(days)):
+        if e["state"] == "due":
+            out.setdefault(e["activity"], []).append(e["key"])
+    return out
 
 
 async def mistakes(pupil: dict, days: list) -> list:
-    """Wrong answers on these days, newest day first: [{"day", "items": [...], "fixed": [...]}], each
-    {activity, q, exp, got, earlier, times, like}. The same question missed twice in a day shows once, with a
-    count and every different wrong answer (earlier). It is "fixed" (put right) when its last miss was put right
-    (see _scan); like: put right by a maths question like it, not by the same question; practised: not put
-    right yet, but right again in the same sitting (it is asked again in a later one)."""
-    scan = await _scan(pupil, days)
-    fixed = {m["id"]: m["fixed"] for m in scan}
-    practised = {m["id"] for m in scan if m["practised"] and not m["fixed"]}
+    """For the parent, from mistake_book: newest day first, [{"day", "items": [...], "fixed": [...]}]. Each
+    item shows once, on the day of its latest miss, {activity, q, exp, got, earlier, times, like, fixed,
+    practised, later, again, nolike, rid, rids}: the question and answer of its latest miss, every different
+    wrong answer before (earlier) and how many misses (times). like: a maths mistake is put right by a question
+    like it, not by the same question; practised: right again in the same sitting (not put right yet); later:
+    so it rests until a later sitting; rids: every miss of it (a report of any of them marks it)."""
     by_day: dict = {}
-    async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": days}, "correct": False,
-                                     "q": {"$exists": True}}).sort("ts", 1):
-        items = by_day.setdefault(r["day"], {})
-        k = (r["activity"], r["q"], r.get("exp", ""))
-        got = r.get("got", "")
-        if k in items and items[k]["fixed"]:     # missed again after it was put right: a new mistake, the old stays
-            items[(k, len(items))] = items.pop(k)
-        if k in items:
-            it = items[k]
-            it["times"] += 1
-            if it["got"] != got and it["got"] not in it["earlier"]:
-                it["earlier"].append(it["got"])
-            it["got"] = got
-        else:
-            items[k] = it = {"activity": r["activity"], "q": r["q"], "exp": r.get("exp", ""), "got": got, "earlier": [],
-                             "times": 1, "like": r["activity"] == "maths"}
-        it["fixed"] = bool(fixed.get(r["_id"]))
-        it["nolike"] = bool(r.get("nolike"))     # no question like it could be made: the app cannot ask it again
-        it["rid"] = str(r["_id"])                # its latest miss: what "Report this question" points at
-        it["practised"] = r["_id"] in practised
-    out = []
-    for d in sorted(by_day, reverse=True):
-        its = list(by_day[d].values())
-        out.append({"day": d, "items": [i for i in its if not i["fixed"]], "fixed": [i for i in its if i["fixed"]]})
-    return out
+    for e in await mistake_book(pupil, days):
+        m = e["latest"]
+        earlier = []
+        for x in e["misses"][:-1]:
+            if x["got"] != m["got"] and x["got"] not in earlier:
+                earlier.append(x["got"])
+        it = {"activity": e["activity"], "q": m["q"] or m["detail"], "exp": m["exp"], "got": m["got"], "earlier": earlier,
+              "times": len(e["misses"]), "like": e["activity"] == "maths", "fixed": bool(e["fixed"]),
+              "practised": e["practised"], "later": e["state"] == "later", "again": e["again"], "nolike": m["nolike"],
+              "rid": str(m["id"]), "rids": [str(x["id"]) for x in e["misses"]],
+              "days": sorted({x["day"] for x in e["misses"]})}
+        by_day.setdefault(m["day"], []).append(it)
+    return [{"day": d, "items": [i for i in by_day[d] if not i["fixed"]], "fixed": [i for i in by_day[d] if i["fixed"]]}
+            for d in sorted(by_day, reverse=True)]
 
 
 async def counts(pupil_ids: list, days: list) -> dict:
@@ -203,6 +270,12 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
     for a in plan:
         c = day_counts.get(a["key"], {"correct": 0, "answered": 0})
         done = min(a["target"], c["correct"])
+        # Years 1-2: the activity also ends after YOUNG_CAP times its target in answers, so a child who finds it hard
+        # is not given the longest day of all (capped: done for today, though not every answer was right)
+        capped = (pupil.get("year") in (1, 2) and not rest and done < a["target"]
+                  and c["answered"] >= YOUNG_CAP * a["target"])
+        if capped:
+            done = a["target"]
         step_done, step_target = done, a["target"]
         check = check_due(pupil, day) if a["key"] == "tables" else None
         if check:                     # "and a Year 4 check": the check counts as CHECK_ANSWERS more answers
@@ -211,7 +284,7 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
         done_all, target_all = done_all + step_done, target_all + step_target
         items.append({**a, "done": done, "correct": c["correct"], "answered": c["answered"],
                       "extra": c["correct"] if rest else max(0, c["correct"] - a["target"]),
-                      "pct": math.floor(100 * frac), "complete": frac >= 1, "check": check})
+                      "pct": math.floor(100 * frac), "complete": frac >= 1, "check": check, "capped": capped})
     # the day's percent weighs every planned answer the same: 5 science answers of 25 planned are 20%, not half
     pct = 0 if rest else math.floor(100 * done_all / target_all) if target_all else 0
     planned = {a["key"] for a in plan}
@@ -299,7 +372,8 @@ def plan_targets(pupils: list, family: dict, days: list) -> dict:
         for d in days:
             plan = [] if rest_day(p, d) else todays_plan(p, family, d)
             out.setdefault(p["_id"], {})[d] = {"acts": {a["key"]: a["target"] for a in plan},
-                                               "min": minutes(plan, p.get("year", 3)) if plan else 0}
+                                               "min": minutes(plan, p.get("year", 3), bool(check_due(p, d))) if plan else 0,
+                                               "year": p.get("year", 3)}
     return out
 
 
@@ -311,7 +385,22 @@ GAP_MS = 120000           # longer pauses between answers do not count as time s
 
 def _no_stats() -> dict:
     return {"answers": 0, "first": 0, "first_right": 0, "first_pct": None, "minutes": 0, "rushed": 0, "copied": 0,
-            "guesses": 0, "extra": 0, "extra_first": 0, "extra_right": 0, "extra_pct": None, "plan_min": 0, "acts": {}}
+            "guesses": 0, "extra": 0, "extra_first": 0, "extra_right": 0, "extra_pct": None, "plan_min": 0, "acts": {},
+            "rushed_list": [], "extra_at": "", "extra_after_day": False}
+
+
+RUSHED_SHOW = 12          # rushed answers listed under "N wrong answers look rushed"
+
+
+def _in_year(fact: str, year: int) -> bool:
+    """A times-tables fact ("12x7") is one of the child's year: one of its numbers is a table of that year (the
+    optional Year 4 check asks every table, so a Year 3 child's 12 × 7 is not judged as Year 3 work)."""
+    from .drills.tables import tables_for_year           # drills.tables imports this module
+    try:
+        a, b = (int(x) for x in str(fact).split("x"))
+    except ValueError:
+        return True
+    return bool({a, b} & set(tables_for_year(year)))
 
 
 def _mashed(got: str, exp: str) -> bool:
@@ -358,54 +447,77 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
     of getting it wrong (the answer was on screen). With targets (plan_targets), answers in an activity after its
     target is reached are extra: they stay out of first/first_pct (more effort never lowers the day's score) and
     are counted in extra, extra_first, extra_right, extra_pct; plan_min is the plan's minutes. acts: first tries
-    per activity, {activity: [first, first_right]}, extra answers included."""
+    per activity, {activity: [first, first_right]}, extra answers left out like the headline (so extra practice
+    never turns an activity "needs help"), and so are Year 4 check facts beyond the child's year (_in_year).
+    rushed_list: the rushed answers ({time, activity, q, got, exp}); a time-out in the timed Year 4 check is
+    never rushed. extra_at: when the extra answers were given ("19:08" or "19:08–19:20", UK time), and
+    extra_after_day: they all came after the whole day's targets were met."""
     out: dict = {}
     rows = db.attempts.find({"pupil_id": {"$in": pupil_ids}, "day": {"$in": days}},
                             {"pupil_id": 1, "day": 1, "activity": 1, "detail": 1, "correct": 1, "ms": 1, "ts": 1,
-                             "got": 1, "exp": 1, "copied": 1}).sort("ts", 1)
+                             "got": 1, "exp": 1, "copied": 1, "q": 1, "src": 1}).sort("ts", 1)
     wrong_at: dict = {}
     last_ts: dict = {}
     right_so_far: dict = {}
+    extra_ts: dict = {}
+    day_done: dict = {}
     async for r in rows:
         s = out.setdefault(r["pupil_id"], {}).setdefault(r["day"], _no_stats())
         plan = ((targets or {}).get(r["pupil_id"]) or {}).get(r["day"]) or {}
         s["plan_min"] = plan.get("min", 0)
         s["answers"] += 1
         ak = (r["pupil_id"], r["day"], r["activity"])
+        lk = (r["pupil_id"], r["day"])
         target = (plan.get("acts") or {}).get(r["activity"])
         extra = target is not None and right_so_far.get(ak, 0) >= target
         if r["correct"]:
             right_so_far[ak] = right_so_far.get(ak, 0) + 1
+        if extra:
+            extra_ts.setdefault(lk, []).append(r["ts"])
+        elif plan.get("acts") and lk not in day_done and all(
+                right_so_far.get((r["pupil_id"], r["day"], k), 0) >= t for k, t in plan["acts"].items()):
+            day_done[lk] = r["ts"]                 # the answer that met the last target
         key = (r["pupil_id"], r["activity"], "" if r.get("copied") else r.get("detail") or "")
         # maths records the skill, and every maths question is a new one, so only the other activities repeat an item
         prev_wrong = wrong_at.get(key) if key[2] and r["activity"] != "maths" else None
         ms = r.get("ms") if isinstance(r.get("ms"), (int, float)) else None
-        lk = (r["pupil_id"], r["day"])
         gap = (r["ts"] - last_ts[lk]).total_seconds() * 1000 if lk in last_ts else (ms or 0)
         s["minutes"] += min(max(gap, 0), GAP_MS) / 60000
         last_ts[lk] = r["ts"]
         if extra:
             s["extra"] += 1
         if prev_wrong is None:
-            a = s["acts"].setdefault(r["activity"], [0, 0])
-            a[0] += 1
-            a[1] += 1 if r["correct"] else 0
             if extra:
                 s["extra_first"] += 1
                 s["extra_right"] += 1 if r["correct"] else 0
             else:
                 s["first"] += 1
                 s["first_right"] += 1 if r["correct"] else 0
+                if not (r.get("src") == "mtc" and not _in_year(r.get("detail"), plan.get("year", 4))):
+                    a = s["acts"].setdefault(r["activity"], [0, 0])
+                    a[0] += 1
+                    a[1] += 1 if r["correct"] else 0
         elif r["correct"] and (r["ts"] - prev_wrong).total_seconds() * 1000 < COPY_MS:
             s["copied"] += 1
         if not r["correct"]:
             wrong_at[key] = r["ts"]
-            if (ms is not None and ms < QUICK_MS) or ("got" in r and _mashed(r.get("got"), r.get("exp"))):
+            if r.get("src") == "mtc":
+                pass                               # the timed check: a time-out or a quick slip is not rushing
+            elif (ms is not None and ms < QUICK_MS) or ("got" in r and _mashed(r.get("got"), r.get("exp"))):
                 s["rushed"] += 1
+                if len(s["rushed_list"]) < RUSHED_SHOW:
+                    s["rushed_list"].append({"time": f"{r['ts'].replace(tzinfo=datetime.timezone.utc).astimezone(TZ):%H:%M}",
+                                             "activity": r["activity"], "q": r.get("q", ""), "got": r.get("got", ""),
+                                             "exp": r.get("exp", ""), "quick": ms is not None and ms < QUICK_MS})
             elif "got" in r and _guessed(r.get("got"), r.get("exp")):
                 s["guesses"] += 1
         else:
             wrong_at.pop(key, None)
+    for (pid, d), ts in extra_ts.items():
+        s = out[pid][d]
+        a, b = (f"{t.replace(tzinfo=datetime.timezone.utc).astimezone(TZ):%H:%M}" for t in (ts[0], ts[-1]))
+        s["extra_at"] = a if a == b else f"{a}–{b}"
+        s["extra_after_day"] = (pid, d) in day_done and ts[0] >= day_done[(pid, d)]
     for per in out.values():
         for s in per.values():
             s["minutes"] = round(s["minutes"])
@@ -445,7 +557,7 @@ async def week_wins(pupil: dict) -> dict:
     """This week (the last 7 days) for the child: mistakes put right, and skills that became secure (maths,
     grammar, science)."""
     since = datetime.datetime.utcnow() - datetime.timedelta(days=7)
-    fixed = sum(1 for m in await _scan(pupil, day_list(7)) if m["fixed"] and m["fixed"] >= since)
+    fixed = book_counts(await mistake_book(pupil))["fixed"]      # the parent's "put right", the same rule
     secured = await db.maths_mastery.count_documents({"pupil": pupil["_id"].lower(), "mastered_at": {"$gte": since}}) \
         + await db.bank_mastery.count_documents({"pupil_id": pupil["_id"], "mastered_at": {"$gte": since}})
     return {"fixed": fixed, "secured": secured}

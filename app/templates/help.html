@@ -19,7 +19,7 @@
   <input id="helpSearch" type="text" inputmode="search" enterkeyhint="search" placeholder="For example: PIN, spelling list, dyslexia, day off" autocomplete="off" data-testid="help-search"></div>
 <p class="mut small" id="helpNone" hidden data-testid="help-none">Nothing matches. Try another word, or write to us.</p>
 <nav class="card" aria-label="Questions" id="helpToc"><ol class="help-toc small">
-  {% for id, q in [("day-plan", "What is a day's plan and how long does it take?"), ("needs-help", "Progress: which child needs help, and with what?"),
+  {% for id, q in [("day-plan", "What is a day's plan and how long does it take?"), ("needs-help", "Progress: which child needs help, and with what?"), ("easy", "My child finds it easy"),
      ("mastered", "How does something get learned (mastered)?"),
      ("comes-back", "Why does a missed question come back later?"), ("first-time", "What do “right first time”, “rushed” and “copied” mean?"),
      ("pins", "PINs: setting, showing, a locked child and unlocking"), ("changes", "Changing targets: “Changes start tomorrow”"),
@@ -56,6 +56,20 @@
     <li>At the top of the child's progress page you see the same for each activity, and <b>To work on next</b>: the skills with the most wrong answers. A skill your child only got right is never on it.</li>
     <li><b>Mistakes to go over</b>, on the same page, shows what your child wrote and the right answer. It is a good list to go through together.</li>
     <li>The weekly email also names up to three things to help with (see <a href="#weekly">The weekly email</a>).</li>
+    <li>“Needs help” shows only after 10 first tries in an activity, so one wobbly start never says it. Extra practice after a target never lowers the score or brings it on, and the optional Year 4 check only counts the times tables of your child's own year.</li>
+  </ul>
+  </details>
+</section>
+
+<section class="card help-q" id="easy" data-keys="easy too easy bored boring able gifted ahead stretch challenge harder top set bright next year working at level"><h2>My child finds it easy<a class="anchor" href="#easy" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-short">Set “Working at” to the next year in the child's Settings. The school year stays, and progress so far is kept.</p>
+  <details class="help-more"><summary>More</summary>
+  <ul>
+    <li>Maths already moves up quickly within the year when the first answers are right, so give it a few days first.</li>
+    <li>When your child gets most answers right first time (85% or more, over 40 first tries in a week), the progress page suggests working a year ahead.</li>
+    <li>In <b>Settings</b> for the child, choose <b>Working at: Year 9 level</b> (for example). The questions then come from that year. Every page and the printed report say “Year 8, working at Year 9 level”, so a teacher sees both.</li>
+    <li>Nothing is lost: the work of the year before shows as “review” on the progress page, and you can set it back at any time.</li>
+    <li>A school topic set for the old year moves to the same topic of the new year, if there is one. If not, we tell you, so you can pick a new one.</li>
   </ul>
   </details>
 </section>
@@ -98,7 +112,7 @@
   <details class="help-more"><summary>More</summary>
   <ul>
     <li><b>Right first time:</b> out of all first tries, how many were right. A question asked again after a mistake is not a first try.</li>
-    <li><b>Rushed:</b> a wrong answer given in under 1.5 seconds, left empty, or typed as random keys (like “asdf”). A few are normal. Many can mean the child is racing to finish.</li>
+    <li><b>Rushed:</b> a wrong answer given in under 1.5 seconds, left empty, or typed as random keys (like “asdf”). A few are normal. Many can mean the child is racing to finish. Press the “rushed” line on Home or the progress page to see which answers. Time running out in the timed Year 4 check is never “rushed”.</li>
     <li><b>Copied?:</b> a right answer typed within a minute of being shown it after a mistake. It counts for the day's target, but we mark it so you can see what was remembered and what was copied.</li>
     <li><b>Guess?:</b> a wrong answer like “idk” or “don't know”, or every option ticked at once.</li>
     <li><b>Time:</b> when a day is done much faster than planned, the parent page says so, for example “49 answers in 7 min; the plan expects about 17 min”.</li>
@@ -158,7 +172,7 @@
   </details>
 </section>
 
-<section class="card help-q" id="year4-check" data-keys="multiplication tables check mtc times tables test year 4 check practice timed"><h2>Year 4 times tables check practice<a class="anchor" href="#year4-check" aria-label="Link to this answer">#</a></h2>
+<section class="card help-q" id="year4-check" data-keys="multiplication tables check mtc times tables test year 4 check practice timed timer extra time nervous anxious panic slow signal offline connection"><h2>Year 4 times tables check practice<a class="anchor" href="#year4-check" aria-label="Link to this answer">#</a></h2>
   <p class="help-short" data-testid="help-short">A practice of the real Year 4 test: 25 times-table questions, 6 seconds each.</p>
   <details class="help-more"><summary>More</summary>
   <ul>
@@ -166,6 +180,9 @@
     <li>From Year 3, your child finds it at the bottom of the <b>Times tables</b> page: <b>Practise the check</b>.</li>
     <li>At the end they see their score and the questions they missed. <b>Practise the ones I missed</b> practises only those. From the second miss of the same fact, a tip for remembering it appears.</li>
     <li>A check closed before any answer is typed counts for nothing: no score and no mistakes. The progress page says it was started, not finished.</li>
+    <li><b>A nervous child:</b> in the child's Settings, under <b>+ a Year 4 check</b>, tick <b>Extra time to start with (9 seconds)</b>. It works straight away. The check says it is practice with extra time, and its best score is kept apart from the real 6-second one. Untick it when your child is ready.</li>
+    <li>Every check starts with a few seconds of “Get ready…” before question 1.</li>
+    <li><b>Bad signal:</b> the check carries on without a connection. If the signal goes at the end, the answers are kept on the phone or tablet and sent when it comes back, even after closing the page. If the app is closed in the middle of a check, it says so next time, and the check starts again.</li>
     <li>Every check, with its date and the best score, is on the child's progress page and in the printable report.</li>
     <li>To make one check a day part of the plan, tick <b>+ a Year 4 check</b> next to Times tables in the child's Settings (Years 3 to 6). A finished check also counts towards the times tables target.</li>
   </ul>
@@ -222,7 +239,7 @@
   <p class="help-short" data-testid="help-short">Press “Hand over to a child” on Home. To come back, press “Parent” and type your password.</p>
   <details class="help-more"><summary>More</summary>
   <ul>
-    <li><b>Hand over to a child</b> on Home (or <b>Learn</b> at the top) locks the parent area and opens “Who's learning?”. Your child taps their name, types their PIN and presses <b>Start</b>.</li>
+    <li><b>Hand over to a child</b> on Home (or <b>Hand over</b> at the top) locks the parent area and opens “Who's learning?”. Your child taps their name, types their PIN and presses <b>Start</b>.</li>
     <li>To come back, press <b>Parent</b> at the top and type your password. Any parent or carer in the family can use their own.</li>
     <li>On a device a child has used, parent mode locks itself after 5 minutes without use.</li>
     <li>A child left signed in goes back to “Who's learning?” after 10 minutes without use, so a brother or sister needs their own PIN. A question left unanswered comes back when they sign in again.</li>
@@ -267,6 +284,9 @@
   </ul>
   <p><b>Changing a role:</b> next to their name in Settings, press <b>Make carer</b> or <b>Make parent</b>. Their login, password and weekly email stay the same, and we tell them by email.</p>
   <p><b>Removing someone:</b> press <b>Remove</b> next to their name. They are signed out on every device at once, and we email them. The account owner (the grown-up who signed the family up) can't be removed or changed. Only parents can invite, change or remove grown-ups.</p>
+  <p><b>Seeing each other's changes:</b> every change to a child's plan, targets, reward, days off, spelling list or school topics shows under <b>Family activity</b> on Home, with who made it (“Steve added Science, 5 a day, from today”). Each grown-up can also tick <b>Email me when another grown-up changes a plan</b> in Settings. A child whose plan changed today sees one line about it on My day.</p>
+  <p><b>Two homes, one reward:</b> each child has one reward. Write both in it if they differ (“Minecraft at Mum's, film at Dad's”); every change to it shows in Family activity.</p>
+  <p><b>Deleting the account:</b> only the account owner can, and every grown-up gets an email. Another grown-up can leave the family instead (Settings, at the bottom): the children and their practice stay.</p>
   </details>
 </section>
 
@@ -316,7 +336,8 @@
     <li>The papers are: maths arithmetic (written sums), maths reasoning (fractions, ratio, algebra, shapes, measures and problems), grammar and punctuation, and spelling.</li>
     <li>It shows what your child has covered here. It is not a predicted mark.</li>
     <li>Reading is a SATs paper too, but we don't cover it.</li>
-    <li><b>Revise for SATs</b> (a button under the papers): for 2 weeks, about two questions in three in maths and grammar come from the Year 6 topics your child hasn't started yet. It ends by itself; press it again then for the next topics.</li>
+    <li><b>Weak</b> means under 60% right. A topic practised but not secure yet (8 of 9 right, say) is listed as <b>started, not secure yet</b>.</li>
+    <li><b>Revise for SATs</b> (a button under the papers): for 2 weeks, about two questions in three in maths and grammar come from the gaps the papers show, the least covered paper first (often arithmetic). It only uses free topic slots: topics you picked yourself stay, and if all three slots are yours it asks before replacing them. <b>Turn off</b> stops only its own topics. The box always says whether it is on or off. It ends by itself; press it again then for the next gaps.</li>
   </ul>
   </details>
 </section>

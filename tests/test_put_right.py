@@ -103,11 +103,13 @@ def test_a_maths_mistake_is_put_right_only_by_a_question_like_it(page):
     day = page.locator("[data-testid=mistakes-day]").first
     assert "1 put right since" in day.inner_text(), day.inner_text()
     assert "a question like this was right later" in day.locator("[data-testid=put-right]").first.inner_text()
-    # stable: missing that kind of question again is a new mistake; the first one stays put right
+    # missing that kind of question again makes it one to go over again: listed once, never also as put right
     DB.attempts.insert_one({**{k: miss[k] for k in ("pupil_id", "family_id", "activity", "detail", "q", "exp", "day")},
                             "correct": False, "got": "7", "ts": datetime.datetime.utcnow()})
     page.goto(f"/children/{pid}")
-    assert "1 put right since" in page.locator("[data-testid=mistakes-day]").first.inner_text()
+    day = page.locator("[data-testid=mistakes-day]").first.inner_text()
+    assert "1 to go over" in day and "put right since" not in day, day
+    assert "put right before, then missed again" in page.inner_text("[data-testid=missed-again]")
 
 
 def test_practise_my_mistakes_never_asks_the_same_question_twice_in_a_row(page):
@@ -126,10 +128,9 @@ def test_practise_my_mistakes_never_asks_the_same_question_twice_in_a_row(page):
     it = DB.items.find_one({"_id": f["token"]})
     assert f["fixing"] and (it["meta"]["skill"], it["meta"]["qid"]) == (missed["skill"], missed["qid"])
     assert _check(s, "grammar", f["token"], _good(it["answer"]))["correct"]
-    f = _next(s, "grammar", fix=1)                # put right: never straight back
-    it = DB.items.find_one({"_id": f["token"]})
-    assert (it["meta"]["skill"], it["meta"]["qid"]) != (missed["skill"], missed["qid"])
-    assert f["fix_msg"] == "" and f["fix_total"] == 0
+    r = _next(s, "grammar", fix=1)                # right again in the same sitting: the session ends calmly
+    assert r["fix_end"] and "token" not in r and r["fix_total"] == 0, r
+    assert r["fix_done"].startswith("All done for now. 1 mistake comes back later ("), r
 
 
 def _fill(s, act, n=RECALL_ITEMS):
@@ -152,23 +153,25 @@ def test_right_again_in_the_same_sitting_is_practice_and_put_right_only_later(pa
     assert f["fixing"] and (it["meta"]["skill"], it["meta"]["qid"]) == (missed["skill"], missed["qid"])
     r = _check(s, "grammar", f["token"], _good(it["answer"]))
     assert r["correct"] and r["again_later"] and not r["mastered"], r      # practice: it comes back later
-    f = _next(s, "grammar", fix=1)                # nothing more to put right in this sitting
-    assert f["fix_total"] == 0 and f["fix_msg"] == "", f
-    it = DB.items.find_one({"_id": f["token"]})
-    assert (it["meta"]["skill"], it["meta"]["qid"]) != (missed["skill"], missed["qid"])
-    _check(s, "grammar", f["token"], _good(it["answer"]))
+    assert not r.get("put_right"), r              # no "★ You put right a mistake" for practice
+    f = _next(s, "grammar", fix=1)                # nothing more to put right in this sitting: the end
+    assert f["fix_end"] and f["fix_total"] == 0 and "1 mistake comes back later" in f["fix_done"], f
+    page.goto("/me")
+    assert page.locator("[data-testid=fix-all]").count() == 0
+    assert "1 mistake you practised comes back later" in page.inner_text("[data-testid=fix-later]")
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     day = page.locator("[data-testid=mistakes-day]").first
     assert "1 to go over" in day.inner_text() and "put right since" not in day.inner_text(), day.inner_text()
-    assert "right again soon after" in day.locator("[data-testid=practised]").inner_text()
+    assert "right again today, checked again later" in day.locator("[data-testid=practised]").inner_text()
+    assert "1 of them right again today" in page.inner_text("[data-testid=mistakes-total]")
     enter_child(page, "Rami")
     _age(pid, 60)                                 # a later sitting: it comes back, and now it counts
     f = _next(s, "grammar", fix=1)
     it = DB.items.find_one({"_id": f["token"]})
     assert f["fixing"] and f["fix_total"] == 1 and (it["meta"]["skill"], it["meta"]["qid"]) == (missed["skill"], missed["qid"])
     r = _check(s, "grammar", f["token"], _good(it["answer"]))
-    assert r["correct"] and not r.get("again_later"), r
+    assert r["correct"] and not r.get("again_later") and r["put_right"], r
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     day = page.locator("[data-testid=mistakes-day]").first.inner_text()
@@ -239,7 +242,7 @@ def test_practise_the_ones_i_missed_after_the_check(page):
         f = _next(s, "tables", fix=1, check=1)
         fact = DB.items.find_one({"_id": f["token"]})["meta"]["fact"]
         assert fact in facts and fact not in looked and not f["fixing"], (fact, facts, f)
-        assert f["fix_msg"] == "A fact you missed in the check · 3 to put right" and f["fix_total"] == 3
+        assert f["fix_msg"] == f"A first look at a fact you missed in the check · {i + 1} of 3" and f["fix_total"] == 3
         looked.append(fact)
         r = _check(s, "tables", f["token"], str(DB.items.find_one({"_id": f["token"]})["answer"]))
         assert r["correct"] and r.get("again_later"), r
@@ -261,7 +264,8 @@ def test_practise_the_ones_i_missed_after_the_check(page):
         assert _check(s, "tables", f["token"], str(doc["answer"]))["correct"]
     f = _next(s, "tables", fix=1, check=1)
     assert f["fix_msg"] == "" and f["fix_done"].startswith("All the facts you missed in the check are put right")
-    assert old in _next(s, "tables", fix=1).get("fix_msg", "") or _next(s, "tables", fix=1)["fix_total"] == 1
+    if not any(same(old, g) for g in it["meta"]["facts"][3:]):  # (unless the check asked it, right: then it is put right)
+        assert old in _next(s, "tables", fix=1).get("fix_msg", "") or _next(s, "tables", fix=1)["fix_total"] == 1
 
 
 def test_a_fact_missed_twice_gets_a_trick(page):

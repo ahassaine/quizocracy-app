@@ -1877,15 +1877,30 @@ def _(d=1):
                    ["%d ÷ %d = %s." % (n, dd, _txt(dec))])
 
     def dec_to_frac_num():
-        dd = pick([2, 4, 5, 8, 10, 20, 25])
+        if d == 0:          # easy: the numerator only
+            dd = pick([2, 4, 5, 8, 10, 20, 25])
+            bn = random.randint(1, dd - 1)
+            while _hcf(bn, dd) != 1:
+                bn = random.randint(1, dd - 1)
+            dec = _frac_to_dec(bn, dd)
+            return _iq("Write %s as a fraction in its simplest form. Type the "
+                       "NUMERATOR." % _txt(dec), bn,
+                       ["%s = %d/%d in simplest form." % (_txt(dec), bn, dd),
+                        "The numerator is %d." % bn])
+        # Year 8: the whole fraction, from thousandths at the hard tier (0.875 = 875/1000 = 7/8)
+        dd = pick([8, 16, 40, 125, 200] if d == 2 else [8, 20, 25, 40, 50])
         bn = random.randint(1, dd - 1)
         while _hcf(bn, dd) != 1:
             bn = random.randint(1, dd - 1)
         dec = _frac_to_dec(bn, dd)
-        return _iq("Write %s as a fraction in its simplest form. Type the "
-                   "NUMERATOR." % _txt(dec), bn,
-                   ["%s = %d/%d in simplest form." % (_txt(dec), bn, dd),
-                    "The numerator is %d." % bn])
+        places = len(_txt(dec).split(".")[1])
+        p10 = 10 ** places
+        raw = int(dec * p10)
+        h = _hcf(raw, p10)
+        return _fq("Write %s as a fraction in its simplest form." % _txt(dec), bn, dd, "e.g. 3/8",
+                   ["%s has %d decimal place%s, so it is %d/%d." % (_txt(dec), places, "" if places == 1 else "s",
+                                                                    raw, p10),
+                    "Divide the top and bottom by their highest common factor, %d: %d/%d." % (h, bn, dd)])
 
     def dec_to_frac_den():
         dd = pick([2, 4, 5, 8, 20, 25])

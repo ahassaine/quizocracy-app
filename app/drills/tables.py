@@ -1,4 +1,5 @@
 """Times tables: multiplication and division facts, weighted towards the ones a child gets wrong or slow."""
+import asyncio
 import datetime
 import random
 import re
@@ -71,10 +72,12 @@ WEAK_MIN_WRONG = 3        # a table needs this many misses before it is called w
 
 async def weakest(pupil: dict) -> list:
     """The one or two times tables the child gets wrong most (by share of wrong answers, from WEAK_MIN_WRONG
-    misses), worst first: [7, 8]. The 1 and 10 times tables are never named."""
+    misses), worst first: [7, 8]. The 1 and 10 times tables are never named, nor a table beyond the child's year
+    (the optional Year 4 check asks a Year 3 child the 12× table too)."""
     per: dict = {}
+    tabs = set(tables_for_year(pupil.get("year", 4)))
     async for f in db.tables_facts.find({"pupil_id": pupil["_id"]}, {"a": 1, "b": 1, "right": 1, "wrong": 1}):
-        for t in {f.get("a"), f.get("b")} - {None, 1, 10}:
+        for t in ({f.get("a"), f.get("b")} - {None, 1, 10}) & tabs:
             s = per.setdefault(t, [0, 0])
             s[0] += int(f.get("wrong", 0))
             s[1] += int(f.get("right", 0))
@@ -184,10 +187,18 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
 # tables, MTC_SECONDS each, nothing marked until the end. Like the real check: no 1 times table, few questions on
 # the 2 and 10 tables, and more on the 6, 7, 8, 9 and 12 tables.
 MTC_N, MTC_SECONDS = 25, 6
+MTC_SLOW = 9              # "Extra time to start with" (the parent's setting): practice, not the real 6 seconds
 MTC_WEIGHT = {2: 0.4, 3: 1, 4: 1, 5: 1, 6: 2.4, 7: 2.4, 8: 2.4, 9: 2.4, 10: 0.4, 11: 1, 12: 2.4}
 MTC_EASY_MAX = 2          # at most this many questions with a 2 or a 10 in them
 MTC_KEEP = 100            # checks kept on the child's record (with their dates: a term of daily checks)
+MTC_STOPPED_HOURS = 12    # a check left unfinished this recently is "Your check stopped" on My day and the check page
 TIMED_OUT = "(time ran out)"
+
+
+def mtc_seconds(pupil: dict) -> int:
+    """Seconds for each question: the real check's 6, or MTC_SLOW when the parent ticked extra time (it is in the
+    times-tables row of the child's plan, and works from the moment it is saved)."""
+    return MTC_SLOW if ((pupil.get("activities") or {}).get("tables") or {}).get("slow") else MTC_SECONDS
 
 
 def mtc_facts(rng=random) -> list:
@@ -209,20 +220,101 @@ def mtc_facts(rng=random) -> list:
 
 async def mtc_start(pupil: dict) -> dict:
     """A new check: one token for all its questions; the answers stay on the server."""
-    facts = mtc_facts()
+    await mtc_stopped(pupil)            # a check left before its end is "started, not finished" for the parent
+    facts, secs = mtc_facts(), mtc_seconds(pupil)
     prompts = [f"{a} × {b} =" for a, b in facts]
     token = await items.issue(pupil, "mtc", [a * b for a, b in facts],
-                              {"facts": [f"{a}x{b}" for a, b in facts], "prompts": prompts})
-    return {"token": token, "questions": prompts, "seconds": MTC_SECONDS}
+                              {"facts": [f"{a}x{b}" for a, b in facts], "prompts": prompts, "secs": secs})
+    return {"token": token, "questions": prompts, "seconds": secs, "slow": secs != MTC_SECONDS}
+
+
+async def mtc_stopped(pupil: dict) -> dict | None:
+    """The child's last check if it was left before its end (the app closed, a sibling took the tablet) in the last
+    MTC_STOPPED_HOURS: {"token", "at"}, else None. Called where no check can be running (My day, the check page
+    opening, a new check starting). Each such check is noted once as "started, not finished" (mtc_open, with
+    stopped), so the parent sees it; if its answers still arrive (sent later from the device, see mtc_finish),
+    that note goes again."""
+    since = datetime.datetime.utcnow() - datetime.timedelta(hours=MTC_STOPPED_HOURS)
+    last = await db.items.find_one({"pupil_id": pupil["_id"], "activity": "mtc", "created": {"$gt": since}},
+                                   {"done": 1, "created": 1, "stopped": 1}, sort=[("created", -1)])
+    if not last or last.get("done"):
+        return None
+    if not last.get("stopped"):
+        await db.items.update_one({"_id": last["_id"]}, {"$set": {"stopped": True}})
+        row = {"at": last["created"], "day": progress.today(), "stopped": True}
+        await db.pupils.update_one({"_id": pupil["_id"]}, {"$push": {"mtc_open": {"$each": [row], "$slice": -MTC_KEEP}}})
+        pupil["mtc_open"] = ((pupil.get("mtc_open") or []) + [row])[-MTC_KEEP:]
+    return {"token": last["_id"], "at": last["created"]}
+
+
+def mtc_kind(before: list, score: int, results: list, secs: int) -> str:
+    """One encouraging line for every result, from real data only. before: the earlier checks (rows); results:
+    [(fact "7x8", right?, timed out?)] of this check. A new best has its own big line on the page, so this is for
+    every other result: the first check, matching the best, more than last time, or a table that has come on (all
+    its questions right now, after misses in the last few checks)."""
+    same = [r for r in before if (r.get("secs") or MTC_SECONDS) == secs]
+    best = max((r["score"] for r in same), default=None)
+    if best is None:
+        return f"Well done for finishing your first check{' with extra time' if secs != MTC_SECONDS else ''}! {score} is your score to beat next time."
+    if score > best:
+        return ""
+    lead = f"You matched your best of {best}!" if score == best else f"Your best is still {best}."
+    # a table that has come on: every question with it right in this check (at least 2), missed 2+ times lately
+    missed: dict = {}
+    for r in before[-3:]:
+        for f in r.get("facts") or []:
+            for t in {int(x) for x in f.split("x")} - {1, 2, 10}:
+                missed[t] = missed.get(t, 0) + 1
+    asked: dict = {}
+    for fact, right, _ in results:
+        for t in {int(x) for x in fact.split("x")} - {1, 2, 10}:
+            s = asked.setdefault(t, [0, 0])
+            s[0] += 1
+            s[1] += int(right)
+    up = sorted((missed[t], t) for t, (n, ok) in asked.items() if n >= 2 and ok == n and missed.get(t, 0) >= 2)
+    if up:
+        return f"{lead} The {up[-1][1]}s are coming on: you got every one right this time."
+    last = same[-1]["score"]
+    if score > last:
+        return f"{lead} That's {score - last} more than last time."
+    timed = sum(1 for _, right, out in results if out)
+    if timed >= 3:
+        return f"{lead} {timed} ran out of time: speed comes with practice, and the tips below help."
+    return f"{lead} {score} right today. Every check makes the tables a little quicker."
 
 
 async def mtc_finish(pupil: dict, token: str, answers: list, counts: bool) -> dict | None:
     """Mark a whole check. Every fact goes into the times-tables record (a missed one comes up more in practice);
     when `counts` (the plan has times tables today) each answer is also a times-tables answer for the day, so the
-    right ones count towards the target and the missed ones are mistakes to put right."""
+    right ones count towards the target and the missed ones are mistakes to put right. The same check sent again
+    (its answer was lost on a patchy connection, or the device sends it later) gets the same result back (again),
+    marked once only."""
     it = await items.claim(pupil, "mtc", token)
     if not it:
+        # sent twice at once (the page tried again as the signal came back, and the next page sent it too): the
+        # first one is still marking it, so wait a moment for its result
+        for _ in range(40):
+            old = await items.peek(pupil, "mtc", token)
+            if not old or not old.get("done"):
+                return None
+            if old.get("result"):
+                return {**old["result"], "again": True}
+            await asyncio.sleep(0.25)
         return None
+
+    async def mark() -> dict:
+        out = await _mtc_mark(pupil, it, answers, counts)
+        await db.items.update_one({"_id": it["_id"]}, {"$set": {"result": out}})
+        return out
+    # marked to the end even if the connection drops mid-request: a claimed check is never left half-marked
+    return await asyncio.shield(asyncio.ensure_future(mark()))
+
+
+async def _mtc_mark(pupil: dict, it: dict, answers: list, counts: bool) -> dict:
+    secs = int(it["meta"].get("secs") or MTC_SECONDS)
+    if it.get("stopped"):           # noted as stopped before its answers arrived: they have arrived after all
+        await db.pupils.update_one({"_id": pupil["_id"]}, {"$pull": {"mtc_open": {"at": it["created"]}}})
+        pupil["mtc_open"] = [r for r in pupil.get("mtc_open") or [] if r.get("at") != it["created"]]
     if not any(isinstance(a, dict) and str(a.get("value") or "").strip() for a in answers):
         # not one answer typed (walked away, or a sibling took the tablet): "started, not finished". No score, no
         # mistakes and nothing in the times-tables record; the parent sees it as that (mtc_open, last few).
@@ -232,15 +324,18 @@ async def mtc_finish(pupil: dict, token: str, answers: list, counts: bool) -> di
         return {"unfinished": True, "score": 0, "of": len(it["meta"]["facts"]), "missed": [], "counted": False,
                 "last": [r["score"] for r in (pupil.get("mtc") or [])[-3:]], "new_best": False,
                 "best": max((r["score"] for r in pupil.get("mtc") or []), default=None),
-                "checks": len(pupil.get("mtc") or [])}
-    m, score, missed = it["meta"], 0, []
+                "checks": len(pupil.get("mtc") or []), "secs": secs}
+    m, score, missed, results = it["meta"], 0, [], []
     shown = await items.just_shown(pupil, "tables")     # answers seen in practice a moment ago: no streak, as in check()
     for i, (answer, fact, prompt) in enumerate(zip(it["answer"], m["facts"], m["prompts"])):
         given = answers[i] if i < len(answers) and isinstance(answers[i], dict) else {}
         value = str(given.get("value") or "").strip()[:6]
         ms = given.get("ms")
-        ms = max(0, min(int(ms), MTC_SECONDS * 1000)) if isinstance(ms, (int, float)) else MTC_SECONDS * 1000
+        ms = max(0, min(int(ms), secs * 1000)) if isinstance(ms, (int, float)) else secs * 1000
+        if ms >= secs * 1000:       # the time ran out: what was half typed ("1" of 18) is no answer, not the answer
+            value = ""
         correct = value.isdigit() and int(value) == answer
+        results.append((fact, correct, not value))
         a, b = (int(x) for x in fact.split("x"))
         inc = {"right": 1, "streak": 1} if correct else {"wrong": 1}
         st = {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "a": a, "b": b, "last_ms": ms}
@@ -250,7 +345,8 @@ async def mtc_finish(pupil: dict, token: str, answers: list, counts: bool) -> di
         if not copied:
             await db.tables_facts.update_one({"_id": f"{pupil['_id']}:{fact}"}, {"$inc": inc, "$set": st}, upsert=True)
         if counts:
-            await progress.record(pupil, "tables", correct, ms, fact, prompt, answer, value or TIMED_OUT, copied=copied)
+            await progress.record(pupil, "tables", correct, ms, fact, prompt, answer, value or TIMED_OUT, copied=copied,
+                                  src="mtc")
         if correct:
             score += 1
         else:
@@ -259,15 +355,19 @@ async def mtc_finish(pupil: dict, token: str, answers: list, counts: bool) -> di
                 x["tip"] = tip(a, b)
             missed.append(x)
     before = pupil.get("mtc") or []
-    best = max((r["score"] for r in before), default=None)
+    # a best is against checks with the same time for each question (extra time is practice, not the real check)
+    best = max((r["score"] for r in before if (r.get("secs") or MTC_SECONDS) == secs), default=None)
     row = {"at": it["created"], "done_at": datetime.datetime.utcnow(), "day": progress.today(), "score": score,
            "of": len(m["facts"]), "missed": [x["prompt"] + " " + str(x["answer"]) for x in missed],
            "facts": [x["fact"] for x in missed]}
+    if secs != MTC_SECONDS:
+        row["secs"] = secs
     await db.pupils.update_one({"_id": pupil["_id"]}, {"$push": {"mtc": {"$each": [row], "$slice": -MTC_KEEP}}})
     pupil["mtc"] = (before + [row])[-MTC_KEEP:]           # the day's progress, read next, includes this check
     return {"score": score, "of": row["of"], "missed": missed, "counted": counts,
             "last": [r["score"] for r in pupil["mtc"][-3:]], "best": best,
-            "new_best": best is not None and score > best, "checks": len(pupil["mtc"])}
+            "new_best": best is not None and score > best, "checks": len(pupil["mtc"]),
+            "kind": mtc_kind(before, score, results, secs), "secs": secs}
 
 
 def mtc_history(pupil: dict, n: int | None = None) -> list:
@@ -276,6 +376,6 @@ def mtc_history(pupil: dict, n: int | None = None) -> list:
     out, best = [], None
     for r in pupil.get("mtc") or []:
         out.append({"day": r.get("day", ""), "score": r["score"], "of": r.get("of", MTC_N),
-                    "best": best is not None and r["score"] > best})
+                    "best": best is not None and r["score"] > best, "secs": r.get("secs") or MTC_SECONDS})
         best = r["score"] if best is None else max(best, r["score"])
     return out[-n:] if n else out

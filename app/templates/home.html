@@ -6,7 +6,7 @@
 <div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip" data-testid="plan-chip">{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}Free during the beta{% else %}{{ plan.title }} plan{% endif %}</span></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="kid-{{ p.name }}">
-  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div>{% if b.rest %}<div class="pct" data-testid="rest-day" style="font-size:1.1rem">{{ 'Day off' if b.rest == 'off' else 'Rest day' }}</div>{% else %}<div class="pct" data-testid="pct">{{ b.pct }}%</div>{% endif %}</div>
+  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut" data-testid="home-year">{{ year_text(p) }}</span></div>{% if b.rest %}<div class="pct" data-testid="rest-day" style="font-size:1.1rem">{{ 'Day off' if b.rest == 'off' else 'Rest day' }}</div>{% else %}<div class="pct" data-testid="pct">{{ b.pct }}%</div>{% endif %}</div>
   {% if locks and locks.get(p._id) %}<div class="err" role="status" data-testid="pin-locked" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;animation:none">
     <span><b>{{ p.name }} is locked until {{ locks[p._id] }}</b> after too many wrong PINs.</span>
     <form method="post" action="/children/{{ p._id }}/pin-unlock"><input type="hidden" name="back" value="home"><button class="btn" type="submit">Unlock {{ p.name }}</button></form></div>
@@ -14,7 +14,8 @@
   {% with name = p.name %}{% include "_rest_line.html" %}{% endwith %}
   {% if not b.rest %}<div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>{% endif %}
   {% if b.reward_earned %}<div class="reward earned" data-testid="reward-earned" style="margin-top:10px"><img src="/static/img/trophy.png" alt="">{{ p.name }} earned: {{ b.reward.text }}</div>{% endif %}
-  {% if not b.rest %}<div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>{% endif %}
+  {% if not b.rest %}<div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}{% set ck = (checks or {}).get(p._id) %}{% if ck %}<span class="chip{% if ck.score >= ck.best %} done{% endif %}" data-testid="home-check"><img src="/static/img/tables.png" alt="">Check: {{ ck.score }}/{{ ck.of }}{% if ck.best > ck.score %} (best {{ ck.best }}){% elif ck.n > 1 or ck.best == ck.score %} (best){% endif %}</span>{% endif %}</div>{% endif %}
+  {% set pend = (pending or {}).get(p._id) %}{% if pend %}<div class="small" data-testid="home-pending" style="margin-top:6px"><b>From tomorrow:</b> {% for a in pend %}{{ a.title }} {{ a.target }}{% if not loop.last %}, {% endif %}{% else %}nothing ticked{% endfor %}</div>{% endif %}
   {% with s = day_stats.get(p._id, {}).get(today_day) if day_stats else none, name = p.name, pct = b.pct %}{% include "_day_stats.html" %}{% endwith %}
   {% set acc = (accuracy or {}).get(p._id) %}{% if acc %}<div class="small" data-testid="home-accuracy" style="margin-top:6px"><span class="mut">Right first time, last 7 days:</span> {% for a in acc %}<span style="white-space:nowrap">{{ a.title }} <b{% if a.weak %} style="color:var(--sun)"{% endif %}>{{ a.pct }}%</b>{% if a.weak %} <span style="color:var(--sun)">needs help</span>{% endif %}</span>{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
   {% if hist[p._id]|length > 1 %}<div class="hist" title="Days done, last 7 days">{% for h in hist[p._id] %}{% if h.rest and not h.pct %}<i data-rest="1" style="height:100%;background:repeating-linear-gradient(135deg,var(--line) 0 4px,transparent 4px 8px);opacity:.8;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: rest day"></i>{% else %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endif %}{% endfor %}</div>
@@ -39,9 +40,9 @@
   <button class="btn" type="button" id="installBtn" hidden data-testid="install-btn">Add to home screen</button>
   <button class="btn" type="button" id="installNo" data-testid="install-dismiss" style="background:none;border-color:transparent;color:var(--mut)">No thanks</button>
 </div>
-{% if events %}<details class="card small" data-testid="family-log"{% if events[0].kind in ('pin_lock', 'child', 'adult', 'role') and events[0].when.startswith('Today') %} open{% endif %}>
+{% if events %}<details class="card small" data-testid="family-log"{% if events[0].kind in ('pin_lock', 'child', 'adult', 'role', 'plan') and events[0].when.startswith('Today') %} open{% endif %}>
   <summary style="cursor:pointer"><b>Family activity</b> <span class="mut">· latest: {{ events[0].text }}</span></summary>
-  <p class="mut" style="margin:6px 0">What the grown-ups and the PINs did lately, so everyone can see it: lock-outs and unlocks, PIN changes, grown-ups joining or leaving, roles, deleted children and new devices.</p>
+  <p class="mut" style="margin:6px 0">What every grown-up changed lately, so everyone sees the same picture: plans and targets, rewards, days off, school spelling lists and topics, PINs and lock-outs, grown-ups joining or leaving, deleted children and new devices.</p>
   <ul style="margin:0;padding-left:0;list-style:none">{% for e in events %}<li style="padding:4px 0;border-top:1px solid var(--line)" data-testid="log-line"><span class="mut" style="white-space:nowrap">{{ e.when }}</span> · {{ e.text }}</li>{% endfor %}</ul>
 </details>{% endif %}
 <p class="mut small">Questions about PINs, targets or rewards? See <a href="/help">Help</a>.</p>

@@ -21,7 +21,7 @@ a=a||{};window.QZ_A11Y=a;window.QZ_A11Y_DIRTY=d;['big','dys','space','calm','con
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>{% block title %}Quizocracy{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/app.css?v=16">
+<link rel="stylesheet" href="/static/css/app.css?v=17">
 </head>
 <body{% if ctx and ctx.child %} data-pupil="{{ ctx.child._id }}"{% endif %}>
 <header class="top{% if ctx and (ctx.child or ctx.account.verified_at) %} signed{% endif %}">
@@ -33,7 +33,7 @@ a=a||{};window.QZ_A11Y=a;window.QZ_A11Y_DIRTY=d;['big','dys','space','calm','con
     {% elif ctx and ctx.locked %}
       <a href="/learn">Who's learning?</a><a href="/board">Board</a><a href="/parent-unlock">Parent</a>
     {% elif ctx and ctx.account.verified_at %}
-      <a href="/home">Home</a><form method="post" action="/handover" style="display:inline"><button class="linkish" type="submit" title="Hand over to a child">Learn</button></form><a href="/board">Board</a><a href="/settings">Settings</a>
+      <a href="/home">Home</a><form method="post" action="/handover" style="display:inline"><button class="linkish" type="submit" title="Lock the parent area and hand the device to a child" data-testid="nav-handover">Hand over</button></form><a href="/board">Board</a><a href="/settings">Settings</a>
       <form method="post" action="/logout" style="display:inline"><button class="linkish" type="submit">Sign out</button></form>
     {% else %}
       <a href="/login">Sign in</a><a href="/signup">Sign up</a>
@@ -44,7 +44,7 @@ a=a||{};window.QZ_A11Y=a;window.QZ_A11Y_DIRTY=d;['big','dys','space','calm','con
 <main class="wrap">{% block body %}{% endblock %}</main>
 {% block foot %}<div class="foot"><a href="/help">Help</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>{% endblock %}
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:'){addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}</script>
-<script src="/static/js/ui.js?v=3"></script>
+<script src="/static/js/ui.js?v=4"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

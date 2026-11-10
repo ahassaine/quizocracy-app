@@ -50,6 +50,9 @@ def test_year4_check_on_a_phone_with_its_keypad(browser):
     pg.click("[data-testid=mtc-go]")
     pg.wait_for_url("**/me/tables/year4-check")
     pg.click("[data-testid=mtc-start]")
+    pg.wait_for_function("document.getElementById('count').textContent === 'Get ready…'")   # a breath before Q1 too
+    assert pg.evaluate("document.body.dataset.mtcq") == ""
+    pg.clock.run_for(3100)
     pg.wait_for_function("document.body.dataset.mtcq === '0'")
     assert pg.locator("[data-testid=mtc-keypad]").is_visible()
     assert pg.inner_text("[data-testid=mtc-sec]") == "6"
@@ -65,8 +68,8 @@ def test_year4_check_on_a_phone_with_its_keypad(browser):
             for d in str(answers[i] + 1):
                 pg.click(f"[data-testid=mtc-keypad] button[data-k='{d}']")
             pg.click("[data-testid=mtc-keypad] .ent")
-        elif i == 8:                                    # typed but not sent: the time runs out and it counts
-            pg.fill("[data-testid=mtc-answer]", str(answers[i]))
+        elif i == 8:                                    # typed but not sent: the time runs out, and a half-typed
+            pg.fill("[data-testid=mtc-answer]", str(answers[i]))      # answer is no answer in time, not the answer
             pg.clock.run_for(6300)
         else:
             pg.fill("[data-testid=mtc-answer]", str(answers[i]))
@@ -76,23 +79,24 @@ def test_year4_check_on_a_phone_with_its_keypad(browser):
         if i < 24:
             pg.clock.run_for(3100)                      # the pause before the next question
     pg.wait_for_selector("[data-testid=mtc-done]")
-    assert pg.inner_text("[data-testid=mtc-score]").startswith("23")
+    assert pg.inner_text("[data-testid=mtc-score]").startswith("22")
     missed = pg.inner_text("[data-testid=mtc-missed]")
-    assert prompts[3] in missed and "no answer in time" in missed and prompts[5] in missed
+    assert prompts[3] in missed and "no answer in time" in missed and prompts[5] in missed and prompts[8] in missed
+    assert "first check" in pg.inner_text("[data-testid=mtc-kind]")      # a kind word on every result
     assert "count towards today" in pg.inner_text("[data-testid=mtc-counted]")
     assert pg.locator("[data-testid=mtc-fix]").is_visible()
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390
     # each check counts as its right answers; the misses are mistakes to put right and weigh more in practice
     day = list(DB.attempts.find({"pupil_id": pid, "activity": "tables"}))
-    assert sum(a["correct"] for a in day) == 23 and len(day) == 25
+    assert sum(a["correct"] for a in day) == 22 and len(day) == 25
     f3 = item["meta"]["facts"][3]
     assert DB.tables_facts.find_one({"_id": f"{pid}:{f3}"})["wrong"] == 1
-    assert DB.pupils.find_one({"_id": pid})["mtc"][-1]["score"] == 23
+    assert DB.pupils.find_one({"_id": pid})["mtc"][-1]["score"] == 22
     pg.goto("/me")
     assert pg.inner_text("[data-testid=tile-tables]").startswith("Times tables") and "20 of 20" in pg.inner_text("[data-testid=tile-tables]")
     assert pg.locator("[data-testid=fix-tables]").count() == 1       # the missed facts wait to be put right
     pg.goto("/me/tables")
-    assert "Year 4 check practice: 23 /25" in pg.inner_text("[data-testid=mtc-last]")
+    assert "Year 4 check practice: 22 /25" in pg.inner_text("[data-testid=mtc-last]")
     pg.context.close()
 
 
@@ -108,7 +112,11 @@ def test_year4_check_without_tables_in_the_plan_does_not_count(browser):
     assert res["ok"] and res["score"] == 20 and len(res["missed"]) == 5 and res["counted"] is False and res["day"] is None
     assert DB.attempts.count_documents({"pupil_id": pid}) == 0
     assert DB.tables_facts.count_documents({"pupil_id": pid}) == 25
-    assert _api(pg, "/api/mtc/finish", {"token": r["token"], "answers": ans})["status"] == 409    # marked once only
+    # sent again (its answer was lost on the way back): the same result, marked once only
+    again = _api(pg, "/api/mtc/finish", {"token": r["token"], "answers": ans})
+    assert again["status"] == 200 and again["again"] is True and again["score"] == 20
+    assert DB.tables_facts.count_documents({"pupil_id": pid}) == 25 and len(DB.pupils.find_one({"_id": pid})["mtc"]) == 1
+    assert _api(pg, "/api/mtc/finish", {"token": "not-a-check", "answers": ans})["status"] == 409
     pg.context.close()
 
 

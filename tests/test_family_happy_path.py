@@ -87,12 +87,12 @@ def test_parent_sees_pin_and_saved_message(page):
     page.goto(f"/children/{pid}/edit")
     page.click("[data-testid=show-pin] summary")
     assert page.inner_text("[data-testid=pin-value]") == "2468"
-    page.fill("#pin", "1357")
+    page.fill("#pin", "1739")
     page.click("form.card button[type=submit]")
     page.wait_for_url(f"**/children/{pid}/edit?saved=1&pin=1")
     assert "Saved." in page.inner_text("[data-testid=saved]") and "PIN changed" in page.inner_text("[data-testid=saved]")
     page.click("[data-testid=show-pin] summary")
-    assert page.inner_text("[data-testid=pin-value]") == "1357"
+    assert page.inner_text("[data-testid=pin-value]") == "1739"
     page.click("form.card button[type=submit]")                          # no PIN typed: just "Saved."
     page.wait_for_url(f"**/children/{pid}/edit?saved=1")
     assert "PIN changed" not in page.inner_text("[data-testid=saved]")

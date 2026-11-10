@@ -63,18 +63,22 @@ async def enter(request: Request, pid: str, ctx: Ctx = Depends(family_page), pin
 async def me(request: Request, ctx: Ctx = Depends(child_page)):
     b = await progress.board(ctx.family, [ctx.child])
     plan = {a["key"] for a in b[0]["items"]}
-    open_ = {k: v for k, v in (await progress.open_mistakes(ctx.child)).items() if k in plan}
+    # the one rule of every mistake count (progress.mistake_book): the button counts those due now; those right
+    # again in this sitting rest, and are said as "N more come back later" (together: the parent's "to go over")
+    book = await progress.mistake_book(ctx.child, plan=plan)
+    open_ = _due(book)
     fix = {k: len(v) for k, v in open_.items()}
     # "Practise my mistakes" opens where a mistake is ready now, not on one still waiting for its gap
-    ready = [a["key"] for a in b[0]["items"] if fix.get(a["key"])
-             and set(open_[a["key"]]) - set(await items.waits(ctx.child, a["key"]))]
+    ready = [a["key"] for a in b[0]["items"] if fix.get(a["key"]) and await _ready_keys(ctx, a["key"], open_[a["key"]])]
+    later = [e for e in book if e["state"] == "later"]
     tabs = next((a for a in b[0]["items"] if a["key"] == "tables"), None)
     return page(request, "me.html", ctx, status=b[0], reward=b[0]["reward"], fix=fix,
+                fix_later=len(later), fix_later_when=progress.back_when([e["back"] for e in later]),
                 streak=(await progress.streaks(ctx.family, [ctx.child]))[ctx.child["_id"]],
                 wins=await progress.week_wins(ctx.child),
                 fix_first=(ready or [a["key"] for a in b[0]["items"] if fix.get(a["key"])] or [None])[0],
                 check_card=tabs if tabs and ctx.child.get("year") in progress.CHECK_YEARS else None,
-                checks=tables.mtc_history(ctx.child))
+                checks=tables.mtc_history(ctx.child), mtc_stopped=await tables.mtc_stopped(ctx.child))
 
 
 def _allowed(ctx: Ctx, activity: str) -> bool:
@@ -94,7 +98,10 @@ async def _day(ctx: Ctx, activity: str) -> dict:
     it = next((i for i in st["items"] if i["key"] == activity), None)
     reward = st["reward"]
     return {"done": it["done"] if it else 0, "target": it["target"] if it else 0, "day_pct": st["pct"],
-            "reward": reward.get("text", "") if st["reward_earned"] else ""}
+            "reward": reward.get("text", "") if st["reward_earned"] else "",
+            # right answers past the target ("+8 extra today"), and a Year 1-2 activity ended by its cap
+            "extra": it["extra"] if it else 0, "capped": bool(it and it.get("capped")),
+            "answered": it["answered"] if it else 0, "correct": it["correct"] if it else 0}
 
 
 def _switched(ctx: Ctx, payload: dict) -> JSONResponse | None:
@@ -113,8 +120,15 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
     if activity not in DRILLS or not _allowed(ctx, activity):
         raise HTTPException(403, "activity not available")
     want_fix = bool(payload.get("fix"))
-    fx = await _fix_state(ctx, activity, bool(payload.get("check"))) if want_fix else None
+    since = _since(payload.get("since")) if want_fix else None
+    fx = await _fix_state(ctx, activity, bool(payload.get("check")), since) if want_fix else None
     served = await _pending(ctx, activity, want_fix)
+    if served and fx and not served[1] and fx["ready"]:
+        served = None              # a practice question waiting on screen gives way to a mistake that is ready now
+    if want_fix and not (served and served[1]) and not fx["todo"] and not fx["queue"]:
+        # the mistakes due when this "Practise my mistakes" began are done, in every subject: it ends here
+        return {"ok": True, "fix_end": True, "fixing": False, **await _fix_end(ctx, fx),
+                "day": await _day(ctx, activity)}
     if served:
         q, fixing = served
     else:
@@ -129,40 +143,101 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
         await _remember(ctx, activity, q, want_fix, fixing)
     fix = {}
     if want_fix:
-        fix = {"fixing": fixing, "fix_left": len(fx["todo"]), "fix_later": len(fx["waiting"]), "fix_wait": fx["wait"]}
-        fix.update(await _fix_flow(ctx, activity, fx, fixing))
+        fix = {"fixing": fixing, "fix_left": len(fx["todo"]), "fix_later": len(fx["waiting"]), "fix_wait": fx["wait"],
+               "fix_since": since.isoformat()}
+        fix.update(await _fix_flow(ctx, activity, fx, fixing, payload.get("via")))
     return {"ok": True, **q, **fix, "day": await _day(ctx, activity)}
 
 
 NEAR = ("tables", "grammar", "science")      # drills that can fill a wait with questions like the waiting ones
+SESSION_HOURS = 6        # a "Practise my mistakes" session older than this (a page left open) starts again
 
 
-async def _fix_state(ctx: Ctx, activity: str, from_check: bool) -> dict:
-    """Where "Practise my mistakes" stands in this activity: open (every activity's mistakes), todo (this
-    activity's), ready (to put right now), waiting (shown too recently: they come back after a gap, so putting
-    them right is remembering, not copying; wait: about how many seconds), and first: after the Year 4 check
-    ("Practise the ones I missed", from_check), only the facts missed in it, each looked at once straight
-    away, then put right after the gap."""
-    open_ = await progress.open_mistakes(ctx.child)
-    todo, first, check = open_.get(activity, []), [], None
+def _since(value) -> datetime.datetime:
+    """When this "Practise my mistakes" session began (the server's time, sent back by the page as fix_since and
+    kept in its address); a missing, odd or old one starts a new session now."""
+    now = datetime.datetime.utcnow()
+    try:
+        t = datetime.datetime.fromisoformat(str(value))
+    except ValueError:
+        return now
+    return t if now - datetime.timedelta(hours=SESSION_HOURS) < t <= now else now
+
+
+def _due(book: list) -> dict:
+    """{activity: [key, ...]}: the mistakes of a mistake_book due now."""
+    out: dict = {}
+    for e in book:
+        if e["state"] == "due":
+            out.setdefault(e["activity"], []).append(e["key"])
+    return out
+
+
+async def _ready_keys(ctx: Ctx, activity: str, todo: list) -> list:
+    """The one rule for "ready to put right now", used both to pick a subject and in it (so "Practise my
+    mistakes" never goes to a subject that then sends it on): not shown too recently (items.waits), and not the
+    item answered last (never the same twice in a row; a fact either way round)."""
+    if not todo:
+        return []
+    waits = await items.waits(ctx.child, activity)
+    last = await items.last_detail(ctx.child, activity) if activity != "maths" else None
+    last = progress.same_item(activity, last) if last else None
+    return [t for t in todo if t not in waits and (last is None or progress.same_item(activity, t) != last)]
+
+
+async def _fix_state(ctx: Ctx, activity: str, from_check: bool, since: datetime.datetime) -> dict:
+    """Where "Practise my mistakes" stands in this activity. The session's queue is the mistakes due when it
+    began (since): one missed during it waits for the next session (the child is told at the end). open: every
+    activity's queue, todo (this activity's), ready (to put right now), waiting (shown too recently: they come
+    back after a gap, so putting them right is remembering, not copying; wait: about how many seconds), queue
+    (the queue's count in the plan's other subjects), and first: after the Year 4 check ("Practise the ones I
+    missed", from_check), only the facts missed in it, each looked at once straight away, then put right after
+    the gap."""
+    plan = {a["key"] for a in todays_plan(ctx.child, ctx.family)}
+    open_ = _due(await progress.mistake_book(ctx.child, plan=plan, before=since))
+    todo, first, check, looked, facts = open_.get(activity, []), [], None, [], set()
     if from_check and activity == "tables" and (ctx.child.get("mtc") or [{}])[-1].get("facts") is not None:
         check = ctx.child["mtc"][-1]
-        todo = [f for f in check["facts"] if f in todo]
+        facts = {progress.same_item("tables", f) for f in check["facts"]}
+        todo = [f for f in todo if progress.same_item("tables", f) in facts]
         looked = {r["detail"] async for r in db.attempts.find(
             {"pupil_id": ctx.child["_id"], "activity": "tables", "detail": {"$in": todo},
              "ts": {"$gt": check.get("done_at") or datetime.datetime.utcnow()}}, {"detail": 1})}
         first = [f for f in todo if f not in looked]
     waits = await items.waits(ctx.child, activity) if todo else {}
-    last = await items.last_detail(ctx.child, activity) if todo and activity != "maths" else None
-    ready = [t for t in todo if t not in waits and t != last and t not in first]
+    ready = [t for t in await _ready_keys(ctx, activity, todo) if t not in first]
     waiting = [t for t in todo if t not in ready and t not in first]
     return {"open": open_, "todo": todo, "ready": ready, "first": first, "waiting": waiting, "check": bool(check),
-            "wait": min([waits.get(t, 0) for t in waiting], default=0)}
+            "wait": min([waits.get(t, 0) for t in waiting], default=0), "since": since, "facts": facts,
+            "queue": 0 if check else sum(len(v) for k, v in open_.items() if k != activity and k in plan)}
 
 
-def _wait_text(n: int, secs: int, activity: str, check: bool) -> str:
-    """"Your 3 mistakes come back in about 2 minutes. Until then: more of the same tables." """
+async def _fix_end(ctx: Ctx, fx: dict) -> dict:
+    """The end of a "Practise my mistakes" session: what the child reads (fix_done), with how many mistakes come
+    back later and when (those right again in this sitting rest; those missed during it wait for the next
+    session)."""
+    plan = {a["key"] for a in todays_plan(ctx.child, ctx.family)}
+    book = await progress.mistake_book(ctx.child, plan=plan)
+    later = [e for e in book if e["state"] in ("later", "due")
+             and (not fx["check"] or e["activity"] == "tables" and e["item"] in fx["facts"])]
+    if fx["check"]:
+        done = "All the facts you missed in the check are put right. Well done!" if not later else \
+            "All done for now with the facts you missed in the check."
+    else:
+        done = "All your mistakes are done. Well done!" if not later else "All done for now."
+    n = len(later)
+    if n:
+        done += (f" {n} mistake{'s' if n != 1 else ''} come{'s' if n == 1 else ''} back later "
+                 f"({progress.back_when([e['back'] for e in later if e['state'] == 'later'])}), to check you remember "
+                 f"{'it' if n == 1 else 'them'}.")
+    return {"fix_total": 0, "fix_msg": "", "fix_done": done, "fix_title": "", "fix_next": None, "fix_comeback": n}
+
+
+def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0) -> str:
+    """"Your 3 mistakes come back in about 2 minutes. Until then: more of the same tables." (total: the count
+    on screen, when it is more than these: "3 of your 7 mistakes come back…")"""
     what = (("The fact you missed comes back" if n == 1 else f"The {n} facts you missed come back") if check else
+            f"{n} of your {total} mistakes come{'s' if n == 1 else ''} back" if total > n else
             ("Your mistake comes back" if n == 1 else f"Your {n} mistakes come back"))
     mins = -(-secs // 60)
     when = (f"in about {mins} minute{'s' if mins > 1 else ''}" if secs >= 45 else
@@ -173,21 +248,24 @@ def _wait_text(n: int, secs: int, activity: str, check: bool) -> str:
     return f"{what} {when}, so you remember {it} rather than copy {it}. Until then: {fill}."
 
 
-async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool) -> dict:
+async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool, via=None) -> dict:
     """"Practise my mistakes" goes through every subject in one go: how many are left in all (fix_total, the
-    count on My day), once this subject has none ready, the next subject that has (fix_next), and the line the
-    child reads (fix_msg; "" when every mistake is done, then fix_done). After the Year 4 check it stays on the
-    facts missed in that check."""
+    count on My day, of the session's queue), once this subject has none ready, the next subject that has
+    (fix_next), and the line the child reads (fix_msg). After the Year 4 check it stays on the facts missed in
+    that check. fix_next is only ever a subject with a mistake ready by the same rule its own page uses
+    (_ready_keys), or, when this subject has none left, where the rest wait; never one in `via` (the subjects
+    passed through on the way here without a question), so it can never send the child round in a circle."""
     plan = [a["key"] for a in todays_plan(ctx.child, ctx.family)]
     open_ = fx["open"]
+    passed = {str(v) for v in via} if isinstance(via, list) else set(str(via or "").split(",")) - {""}
     out = {"fix_total": len(fx["todo"]) if fx["check"] else sum(len(open_.get(k, [])) for k in plan),
            "fix_next": None, "fix_title": ACTIVITIES[activity]["title"],
            "fix_done": "All the facts you missed in the check are put right. Well done!" if fx["check"] else ""}
     if not fixing and activity in plan and not fx["check"]:
         i = plan.index(activity)
-        others = [k for k in plan[i + 1:] + plan[:i] if open_.get(k)]
+        others = [k for k in plan[i + 1:] + plan[:i] if open_.get(k) and k not in passed and k != activity]
         for k in others:
-            if set(open_[k]) - set(await items.waits(ctx.child, k)):
+            if await _ready_keys(ctx, k, open_[k]):
                 out["fix_next"] = k
                 break
         # all still waiting for a gap: go where they wait, as its own questions make the gap (never ping-pong:
@@ -197,10 +275,13 @@ async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool) -> dict:
     total = out["fix_total"]
     if fixing:
         out["fix_msg"] = f"Putting a mistake right · {total} left"
-    elif fx["first"] or (fx["check"] and not fx["waiting"] and fx["todo"]):
+    elif fx["first"]:
+        n = len(fx["todo"])
+        out["fix_msg"] = f"A first look at a fact you missed in the check · {n - len(fx['first']) + 1} of {n}"
+    elif fx["check"] and not fx["waiting"] and fx["todo"]:
         out["fix_msg"] = f"A fact you missed in the check · {total} to put right"
     elif fx["waiting"]:
-        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"])
+        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"], total)
     else:
         out["fix_msg"] = f"Your other mistakes come back a little later · {total} waiting" if total else ""
     return out
@@ -240,8 +321,10 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
         raise HTTPException(403, "activity not available")
     ms = payload.get("ms")
     ms = int(ms) if isinstance(ms, (int, float)) else None
-    # the mistakes open before this answer: if a right answer puts one right, the child sees that moment (put_right)
-    before = set((await progress.open_mistakes(ctx.child)).get(activity, []))
+    # the mistakes not put right before this answer: if a right answer really puts one right (mistake_book, the
+    # parent's rule; right again in the same sitting is practice, not that), the child sees the moment (put_right)
+    before = {e["latest"]["id"] for e in await progress.mistake_book(ctx.child)
+              if e["activity"] == activity and not e["fixed"]}
     if activity == "verbs":
         res = await verbs.check(ctx.child, payload.get("token"), payload.get("past", ""), payload.get("pp", ""), ms)
     else:
@@ -249,7 +332,8 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
     if res is None:
         return JSONResponse({"ok": False, "error": "expired"}, status_code=409)
     if before and res.get("correct") and not res.get("retry"):
-        res["put_right"] = bool(before - set((await progress.open_mistakes(ctx.child)).get(activity, [])))
+        res["put_right"] = bool(before & {e["latest"]["id"] for e in await progress.mistake_book(ctx.child)
+                                          if e["activity"] == activity and e["fixed"]})
     return {"ok": True, **res, "day": await _day(ctx, activity)}
 
 
@@ -266,9 +350,11 @@ async def spelling_audio(token: str, ctx: Ctx = Depends(child_api)):
 # counts towards the day only when the plan has times tables.
 @router.get("/me/tables/year4-check")
 async def mtc_page(request: Request, ctx: Ctx = Depends(child_page)):
-    hist = tables.mtc_history(ctx.child)
+    hist, secs = tables.mtc_history(ctx.child), tables.mtc_seconds(ctx.child)
     return page(request, "tables_check.html", ctx, act=ACTIVITIES["tables"], practice=_allowed(ctx, "tables"),
-                last=[r["score"] for r in hist[-3:]], best=max((r["score"] for r in hist), default=None))
+                last=[r["score"] for r in hist[-3:]], secs=secs, real_secs=tables.MTC_SECONDS,
+                best=max((r["score"] for r in hist if r["secs"] == secs), default=None),
+                stopped=await tables.mtc_stopped(ctx.child))
 
 
 @router.post("/api/mtc/start")
@@ -306,7 +392,8 @@ async def api_reading(payload: dict = Body(...), ctx: Ctx = Depends(child_api)):
 # "Something wrong with this question?": the question exactly as it was served, kept for the team board
 # (/team/<member>/reports). The child's own family sees them on the progress page; no other family ever does.
 REPORT_REASONS = {"wrong": "The answer is wrong", "unreadable": "I can't read or see it",
-                  "nonsense": "The question doesn't make sense", "other": "Something else"}
+                  "nonsense": "The question doesn't make sense", "easy": "Too easy for this year",
+                  "other": "Something else"}
 REPORTS_PER_DAY = 10
 
 

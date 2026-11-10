@@ -10,7 +10,7 @@
   {% if mtc %}<div class="mut small" data-testid="mtc-last">Year 4 check practice: {{ mtc|map(attribute='score')|join(', ') }} /25 · best {{ ctx.child.mtc|map(attribute='score')|max }}/25</div>{% endif %}</div>
   <a class="btn" href="/me/tables/year4-check" data-testid="mtc-go">Practise the check</a></div>
 </div>{% endif %}{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=23"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=26"></script><script>
 Drill({ activity: 'tables', autoNext: 700,
   render(q) { const el = document.getElementById("q"); el.textContent = q.prompt + " ?"; el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },

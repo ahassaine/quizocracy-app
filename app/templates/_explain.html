@@ -1,0 +1,3 @@
+{# A long explanation folded behind a short link, so a parent sees the big numbers and labels first:
+   {% from "_explain.html" import explain %}{% call explain() %}The explanation…{% endcall %} #}
+{% macro explain(label="What does this mean?", testid="explain") %}<details class="small" data-testid="{{ testid }}" style="margin:2px 0 10px"><summary style="cursor:pointer;color:var(--violet);font-weight:600;display:inline-block;min-height:32px;padding:4px 0">{{ label }}</summary><div class="mut" style="margin-top:2px">{{ caller() }}</div></details>{% endmacro %}

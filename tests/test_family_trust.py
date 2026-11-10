@@ -233,11 +233,10 @@ def test_question_reports_reach_the_family_with_the_outcome(page, browser):
     assert "Rohan reported:" in rep.inner_text() and "I think it's 54" in rep.inner_text()
     assert rep.locator("[data-testid=report-outcome]").inner_text() == "we're checking"
     assert page.locator("[data-testid=mistake-reported]").count() == 1          # the mistake says it was reported
-    # the team marks it, with a note; the email goes only to a grown-up who ticked it
+    # the team marks it, with a note; the email goes to a grown-up who has it ticked (on for new families since
+    # wave 5; it can be unticked in Settings or on the progress page)
     page.goto("/settings")
-    assert not page.is_checked("[data-testid=report-emails]")
-    page.check("[data-testid=report-emails]")
-    page.get_by_text("Saved", exact=True).first.wait_for()
+    assert page.is_checked("[data-testid=report-emails]")
     slug = "".join(secrets.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(10))
     DB.team_members.insert_one({"_id": slug, "name": "Meriem", "initials": "Me", "role": "member", "telegram_chat_id": None,
                                 "active": True, "created": datetime.datetime.utcnow()})

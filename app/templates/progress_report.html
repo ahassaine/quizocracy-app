@@ -33,7 +33,7 @@
 <nav class="rep-ranges no-print" aria-label="Period">{% for k, label in ranges.items() %}<a class="btn" href="?range={{ k }}"{% if k == rng %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
 
 <h1>{{ pupil.name }} · progress report</h1>
-<p class="mut" style="margin:0">Year {{ pupil.year }} · {{ ranges[rng] }}{% if period %}: {{ period }}{% endif %} · Printed {{ printed }}</p>
+<p class="mut" style="margin:0"><span data-testid="report-year">{{ year_text(pupil) }}</span> · {{ ranges[rng] }}{% if period %}: {{ period }}{% endif %} · Printed {{ printed }}</p>
 <p class="mut small" style="margin:.2em 0 0">Practice on Quizocracy, which follows the national curriculum in England (Years 1–9).</p>
 
 {% if not days %}<div class="card mut">{{ pupil.name }} has not started yet.</div>{% else %}
