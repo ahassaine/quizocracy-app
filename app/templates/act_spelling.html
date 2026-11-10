@@ -7,15 +7,22 @@
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=16"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=17"></script><script>
 const audio = document.getElementById('audio');
+let say = '';          // a school word with no recorded clip: the browser's own voice says it
+function sayWord() { return new Promise(res => { const s = window.speechSynthesis; if (!s || !window.SpeechSynthesisUtterance) return res();
+  let t = 0; const done = () => { clearTimeout(t); res(); }; s.cancel(); const u = new SpeechSynthesisUtterance(say);
+  const v = (s.getVoices() || []).find(x => /^en[-_]GB/i.test(x.lang)); u.lang = v ? v.lang : 'en-GB'; if (v) u.voice = v;
+  u.rate = 0.8; u.onend = u.onerror = done; t = setTimeout(done, 6000); s.speak(u); }); }
 // the word's clip; the promise ends when it has played (or could not play: no tap on the page yet)
-function playWord() { return new Promise(res => { let t = 0; const done = () => { clearTimeout(t); audio.removeEventListener('ended', done); res(); };
+function playWord() { if (say) return sayWord(); return new Promise(res => { let t = 0; const done = () => { clearTimeout(t); audio.removeEventListener('ended', done); res(); };
   audio.addEventListener('ended', done); t = setTimeout(done, 6000); audio.currentTime = 0; audio.play().catch(done); }); }
 let playing = null;
-document.getElementById('play').addEventListener('click', () => { audio.currentTime = 0; audio.play().catch(() => {}); });
+document.getElementById('play').addEventListener('click', () => { if (say) { sayWord(); return; } audio.currentTime = 0; audio.play().catch(() => {}); });
 Drill({ activity: 'spelling',
-  render(q) { audio.src = q.audio; audio.load(); playing = playWord();
+  render(q) { say = q.say ? [...atob(q.say)].reverse().join('') : '';
+    if (say) { audio.removeAttribute('src'); playing = new Promise(r => setTimeout(r, 0)).then(playWord); }   // after the 🔊 button resets the voice
+    else { audio.src = q.audio; audio.load(); playing = playWord(); }
     document.getElementById('cue').textContent = q.cue ? 'Hint: ' + q.cue : '';
     document.getElementById('letters').textContent = q.letters + (q.letters === 1 ? ' letter' : ' letters');
     const a = document.getElementById('answer'); a.value = ''; a.focus(); },

@@ -1,0 +1,18 @@
+Hello,
+
+Here is how {{ week_label }} went on Quizocracy.
+{% for c in children %}
+{{ c.name|upper }} (Year {{ c.year }})
+{% if c.answers %}Done {{ c.done }} of {{ c.days }} days · {{ c.answers }} answers{% if c.first_pct is not none %} · {{ c.first_pct }}% right first time{% endif %} · {{ c.minutes }} minutes
+{{ c.line }}
+{% if c.mastered %}Mastered this week: {{ c.mastered|join("; ") }}
+{% endif %}{% if c.weak %}Worth practising: {{ c.weak|join("; ") }}
+{% endif %}{% if c.flags %}Worth a look: {{ c.flags|join("; ") }}
+{% endif %}{% else %}{{ c.line }}
+{% endif %}{{ c.name }}'s progress: {{ c.url }}
+{% endfor %}
+Have a good week,
+Quizocracy
+
+You get this email because "Email me a weekly summary" is on in your Settings.
+Stop these emails: {{ unsub_url }}

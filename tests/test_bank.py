@@ -44,6 +44,42 @@ def test_every_year_has_a_bank(sub):
 def test_question_ids_are_unique():
     ids = [(sk["key"], q["id"]) for _, sk, q in ALL]
     assert len(ids) == len(set(ids))
+    assert len({q["id"] for _, _, q in ALL}) == len(ALL)                # unique across the whole bank, too
+
+
+def test_question_ids_are_written_in_the_content_and_survive_an_edit():
+    """The served id is the one written in the file, not a hash of the text (10 Nov 2026), so editing a question
+    keeps children's seen lists, mistakes and mastery for it."""
+    import importlib
+    for path in sorted(engine.CONTENT.glob("*_y*.py")):
+        for sk in importlib.import_module(f"app.bank.content.{path.stem}").SKILLS:
+            assert all(re.fullmatch(r"[0-9a-f]{12}", q.get("id", "")) and list(q)[0] == "id" for q in sk["qs"]), sk["key"]
+    _, sk, q = ALL[0]
+    assert engine.question(sk["key"], q["id"]) is q
+    edited = dict(q, q=q["q"] + " (edited)")
+    assert engine._qid(sk["key"], edited) != q["id"]                   # the old hash would have moved...
+    assert edited["id"] == q["id"]                                      # ...the written id does not
+
+
+def test_bank_ids_script_adds_fresh_ids_and_is_idempotent(tmp_path, monkeypatch):
+    import importlib.util
+    import pathlib
+    spec = importlib.util.spec_from_file_location("bank_ids", pathlib.Path(__file__).parent.parent / "scripts/bank_ids.py")
+    bank_ids = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bank_ids)
+    src = ('SKILLS = [\n    {"key": "GP1.99", "qs": [\n        {"id": "aaaaaaaaaaaa", "t": "num", "q": "One?", "a": 1},\n'
+           '        {"t": "num", "q": "Two – née?", "a": 2},\n        {"t": "num",\n         "q": "Three?", "a": 3},\n    ]},\n]\n')
+    f = tmp_path / "grammar_y1.py"
+    f.write_text(src, encoding="utf-8")
+    monkeypatch.setattr(bank_ids, "CONTENT", tmp_path)
+    assert bank_ids.main(["--check"]) == 1
+    assert bank_ids.main([]) == 0
+    out = f.read_text(encoding="utf-8")
+    new = re.findall(r'\{"id": "([0-9a-f]{12})", "t"', out)
+    assert len(new) == 3 and len(set(new)) == 3 and new[0] == "aaaaaaaaaaaa"
+    assert re.sub(r'"id": "[0-9a-f]{12}", ', "", out) == re.sub(r'"id": "a{12}", ', "", src)   # nothing else changed
+    assert bank_ids.main([]) == 0 and f.read_text(encoding="utf-8") == out                     # idempotent
+    assert bank_ids.main(["--check"]) == 0
 
 
 def test_every_question_marks_right_and_wrong():

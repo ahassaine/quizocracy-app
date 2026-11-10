@@ -1,2 +1,19 @@
-{"name":"Quizocracy","short_name":"Quizocracy","start_url":"/","display":"standalone","background_color":"#F7F8FC","theme_color":"#4F46E5",
- "icons":[{"src":"/static/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/static/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "id": "/",
+  "name": "Quizocracy",
+  "short_name": "Quizocracy",
+  "description": "Short daily practice for children in Years 1 to 9.",
+  "lang": "en-GB",
+  "start_url": "/learn",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F7F8FC",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {"src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/static/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/static/img/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "/static/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

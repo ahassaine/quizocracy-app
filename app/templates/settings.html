@@ -2,6 +2,8 @@
 {% block body %}
 <h1 class="rise">Settings</h1>
 {% if saved %}<div class="ok">Saved.</div>{% endif %}
+{% if request.query_params.get('email_changed') %}<div class="ok" role="status">Your email is now {{ ctx.account.email }}. Sign in with it from now on.</div>{% endif %}
+{% if ctx.full %}
 <form method="post" action="/settings" class="card">
   <div class="field"><label for="family_name">Family name</label><input id="family_name" name="family_name" type="text" value="{{ ctx.family.name }}"></div>
   <h2 style="display:flex;align-items:center;gap:8px"><img src="/static/img/trophy.png" alt="" style="width:34px">Reward</h2>
@@ -12,15 +14,49 @@
   {% else %}<input type="hidden" name="reward_threshold" value="100"><p class="mut">Rewards come with the Family plan.</p>{% endif %}
   <button class="btn primary" type="submit">Save</button>
 </form>
+{% endif %}
+<div class="card" id="login" data-testid="login-card"><b>Your login</b>
+  <p style="margin:8px 0 0;overflow-wrap:anywhere">{{ ctx.account.email }} <span class="chip" data-testid="my-role">{{ role_title }}</span></p>
+  {% if ctx.full %}<div class="row" style="margin-top:8px"><a class="btn" href="/account/email" data-testid="change-email">Change email</a></div>{% endif %}
+  <form method="post" action="/settings/weekly" style="margin-top:14px">
+    <label class="check" for="weekly" style="font-weight:600"><input id="weekly" name="weekly" type="checkbox" value="1" {% if weekly %}checked{% endif %} onchange="this.form.submit()" data-testid="weekly">
+      <span>Email me a weekly summary <span class="mut small" style="display:block;font-weight:400">On Sunday evening: how each child's week went, and what to help with.</span></span></label>
+    <noscript><button class="btn" type="submit">Save</button></noscript>
+  </form>
+</div>
+{% if pins %}<div class="card" data-testid="pins"><b>Children's PINs</b><p class="mut small">Each child types their PIN on "Who's learning?".</p>
+  {% for p in pins %}<div class="kid" style="padding:6px 0"><span>{{ p.name }}</span><details><summary style="cursor:pointer">Show</summary><span class="display" style="font-size:1.4rem;font-weight:800;letter-spacing:6px" data-testid="pin-{{ p.name }}">{{ p.pin }}</span></details></div>{% endfor %}
+</div>{% endif %}
+<div class="card" id="adults" data-testid="adults"><b>Grown-ups on this family</b>
+  {% if request.query_params.get('invited') %}<div class="ok" role="status">Invitation sent. It works for 7 days.</div>{% endif %}
+  {% if request.query_params.get('removed') %}<div class="ok" role="status">Removed. They are signed out everywhere.</div>{% endif %}
+  <p class="mut small">Each grown-up has their own email and password. A carer, such as a grandparent minding the children, can hand the device to a child, unlock a child and see progress and PINs, but cannot change children, the account or its data.</p>
+  {% for a in adults %}<div class="kid" style="padding:8px 0;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap" data-testid="adult">
+    <span style="overflow-wrap:anywhere;min-width:0">{{ a.email }}{% if a.you %} <span class="mut">(you)</span>{% endif %}<span class="mut small" style="display:block">{{ a.role }}</span></span>
+    {% if a.removable %}<form method="post" action="/settings/adults/{{ a.id }}/remove" data-confirm="Remove {{ a.email }}? They will be signed out and their login will stop working." onsubmit="return confirm(this.dataset.confirm)"><button class="btn" type="submit" data-testid="remove-adult">Remove</button></form>{% endif %}</div>{% endfor %}
+  {% for i in invites %}<div class="kid" style="padding:8px 0;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap" data-testid="invite-row">
+    <span style="overflow-wrap:anywhere;min-width:0">{{ i.email }}<span class="mut small" style="display:block">{{ i.role }}, invited (until {{ i.until }})</span></span>
+    {% if ctx.full %}<form method="post" action="/settings/invites/{{ i.id }}/cancel"><button class="btn" type="submit">Cancel</button></form>{% endif %}</div>{% endfor %}
+  {% if ctx.full %}<form method="post" action="/settings/invite" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
+    {% if invite_error %}<div class="err" role="alert">{{ invite_error }}</div>{% endif %}
+    <div class="field"><label for="invite_email">Invite someone by email</label><input id="invite_email" name="email" type="email" required autocomplete="off" value="{{ invite_email or '' }}"></div>
+    <label class="check" style="font-weight:600"><input type="radio" name="role" value="carer" {% if invite_role != 'parent' %}checked{% endif %}><span>Carer <span class="mut small" style="display:block;font-weight:400">Minds the children: hands over the device, unlocks a child, sees progress.</span></span></label>
+    <label class="check" style="font-weight:600;margin-top:8px"><input type="radio" name="role" value="parent" {% if invite_role == 'parent' %}checked{% endif %}><span>Parent <span class="mut small" style="display:block;font-weight:400">Everything you can do, including changing children and the account.</span></span></label>
+    <button class="btn primary" type="submit" style="margin-top:12px" data-testid="send-invite">Send invitation</button>
+  </form>{% endif %}
+</div>
 {% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}<div class="card" data-testid="plan"><b>Plan:</b> Free beta — every activity included
   <p class="mut small">During the beta your family has all seven activities, rewards and room for up to {{ plan.max_children }} children, free. Nothing is charged. We will tell you before anything you rely on changes.</p></div>
 {% else %}<div class="card" data-testid="plan"><b>Plan:</b> {{ plan.title }}</div>{% endif %}
+{% if ctx.full %}
+<div class="card"><b>Help</b><p class="mut small">Short answers about the daily plan, PINs, targets, rewards and your data.</p><a class="btn" href="/help" data-testid="settings-help">Open help</a></div>
 <div class="card"><b>Your data</b><p class="mut small">Download everything we hold about your family as a file.</p><a class="btn" href="/account/export">Download my data</a></div>
 <form method="post" action="/account/delete" class="card">
-  <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.</p>
+  <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.{% if adults|length > 1 %} Every grown-up's login on this family goes too.{% endif %}</p>
   {% if delete_error %}<div class="err" role="alert">{{ delete_error }}</div>{% endif %}
   <div class="field"><label for="confirm">Type DELETE</label><input id="confirm" name="confirm" type="text" style="max-width:200px"></div>
   <div class="field"><label for="delpw">Your password</label><input id="delpw" name="password" type="password" style="max-width:260px"></div>
   <button class="btn danger" type="submit">Delete everything</button>
 </form>
+{% endif %}
 {% endblock %}

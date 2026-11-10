@@ -11,6 +11,7 @@ Telegram with the recipient's own link.
   POST /team/{member}/{tid}/status            open / awaiting_retest (admin) / resolved
   GET  /team/{member}/{tid}/files/{mid}/{f}   attachment
   GET  /team/{member}/maths · POST next/check  try any maths skill (testing aid; no progress recorded)
+  GET  /team/{member}/reports · POST {rid}/status  children's question reports: open / fixed / not a problem
 """
 import asyncio
 import datetime
@@ -29,6 +30,7 @@ from .. import config
 from ..db import db
 from ..maths import maths_engine
 from ..web import page
+from .child import REPORT_REASONS
 
 router = APIRouter(prefix="/team")
 ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -129,7 +131,8 @@ async def threads(request: Request, member_slug: str, open: int = 0):
     ts = [t async for t in db.team_threads.find(q).sort("last_at", -1).limit(500)]
     members = [m async for m in db.team_members.find({"active": True, "role": {"$ne": "bot"}}).sort("created", 1)]
     return page(request, "team/list.html", me=me, threads=ts, members=members, names=await _names(),
-                open_only=bool(open), statuses=STATUSES)
+                open_only=bool(open), statuses=STATUSES,
+                reports_open=await db.reports.count_documents({"status": "open"}))
 
 
 @router.get("/{member_slug}/new")
@@ -184,6 +187,31 @@ async def maths_try_check(member_slug: str, payload: dict = Body(default={})):
     res = await maths_engine.check(payload.get("token"), payload.get("value"), "team:" + me["_id"])
     res.pop("prompt", None)
     return res
+
+
+REPORT_STATUSES = {"open": "open", "fixed": "fixed", "not_a_problem": "not a problem"}
+
+
+@router.get("/{member_slug}/reports")
+async def reports(request: Request, member_slug: str, status: str = "open"):
+    """Children's "Something wrong with this question?" reports, newest first (written by routes/child.py)."""
+    me = await _member(member_slug)
+    q = {"status": status} if status in REPORT_STATUSES else {}
+    rs = [r async for r in db.reports.find(q).sort("ts", -1).limit(300)]
+    for r in rs:
+        r["served_text"] = json.dumps(r.get("served"), ensure_ascii=False, indent=1, default=str)
+    counts = {s: await db.reports.count_documents({"status": s}) for s in REPORT_STATUSES}
+    return page(request, "team/reports.html", me=me, reports=rs, status=status if q else "all",
+                statuses=REPORT_STATUSES, counts=counts, reasons=REPORT_REASONS)
+
+
+@router.post("/{member_slug}/reports/{rid}/status")
+async def report_status(member_slug: str, rid: str, status: str = Form(...), back: str = Form("open")):
+    me = await _member(member_slug)
+    if status not in REPORT_STATUSES or not ObjectId.is_valid(rid):
+        raise HTTPException(400, "bad status")
+    await db.reports.update_one({"_id": ObjectId(rid)}, {"$set": {"status": status, "by": me["_id"], "status_at": _now()}})
+    return RedirectResponse(f"/team/{member_slug}/reports?status={back if back in REPORT_STATUSES else 'all'}#r{rid}", 303)
 
 
 @router.get("/{member_slug}/{tid}")

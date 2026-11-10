@@ -1,14 +1,17 @@
-"""Parent accounts: sign up, verify email, sign in and out, reset password."""
+"""Parent accounts: sign up, verify email, sign in and out, reset password; the other adults of a family
+(invitations), changing the account email, and the weekly summary's on/off switch."""
 import datetime
 import re
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from pymongo.errors import DuplicateKeyError
 
 from .. import config, mailer
-from ..activities import new_family_plan
+from ..activities import new_family_plan, plan_of
 from ..db import db
-from ..deps import client_ip, create_session, end_session, hit, load, local_time, over_limit
+from ..deps import (FULL_ROLES, ROLE_TITLES, Ctx, client_ip, create_session, end_session, full_page, hit, load,
+                    local_time, over_limit, parent_page, weekly_on)
 from ..security import hash_secret, new_code, new_id, new_token, token_key, verify_secret
 from ..web import page
 
@@ -218,3 +221,272 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
                       f"If you did not change it, choose a new password now at {config.PUBLIC_URL}/forgot "
                       f"and write to us at {config.SUPPORT_EMAIL}.\n")
     return RedirectResponse("/login?reset=1", 303)
+
+
+# ---- The other adults of a family: a co-parent, or a carer such as a grandparent minding the children ----
+
+ADULTS_MAX = 6                     # adults on one family, open invitations included
+INVITE_DAYS = 7
+ROLE_CAN = {
+    "parent": "everything you can do: add and change children, see their progress, manage the account and invite people",
+    "carer": "hand the phone or tablet to a child, unlock a child who is locked out, and see Home, progress and "
+             "the children's PINs. A carer cannot change or delete children, the account or its data",
+}
+
+
+async def settings_view(ctx: Ctx) -> dict:
+    """What the Settings page shows besides the family's own settings: the adults, open invitations, this adult's
+    login and weekly email, and (for a carer, who cannot open the children's settings) the children's PINs."""
+    fid = ctx.family["_id"]
+    adults = [a async for a in db.accounts.find({"family_id": fid}).sort("created", 1)]
+    owner_view = ctx.full
+    return {
+        "adults": [{"id": a["_id"], "email": a["email"], "role": ROLE_TITLES.get(a.get("role") or "owner", "Parent"),
+                    "you": a["_id"] == ctx.account["_id"],
+                    "removable": owner_view and a["_id"] != ctx.account["_id"] and (a.get("role") or "owner") != "owner"}
+                   for a in adults],
+        "invites": [{"id": c["_id"], "email": c["email"], "role": ROLE_TITLES.get(c.get("role"), ""),
+                     "until": local_time(c["expires"]).strftime("%d %B")}
+                    async for c in db.codes.find({"family_id": fid, "purpose": "invite", "expires": {"$gt": _now()}})
+                    .sort("expires", 1)],
+        "weekly": weekly_on(ctx.account),
+        "role_title": ROLE_TITLES.get(ctx.role, "Parent"),
+        "pins": [] if ctx.full else [{"name": p["name"], "pin": p.get("pin_view") or ""}
+                                     async for p in db.pupils.find({"family_id": fid}).sort("created", 1)],
+    }
+
+
+async def _settings_page(request: Request, ctx: Ctx, status_code: int = 400, **kw):
+    return page(request, "settings.html", ctx, plan=plan_of(ctx.family), status_code=status_code,
+                **await settings_view(ctx), **kw)
+
+
+def _taken(email: str, family_id: str, acc: dict | None) -> str | None:
+    """Why this address cannot join this family, or None."""
+    if not acc:
+        return None
+    if acc["family_id"] == family_id:
+        return f"{email} is already on your family."
+    return (f"{email} already has its own Quizocracy family, so it cannot join yours as well. "
+            f"Ask them to use a different email address, or to delete that other account first.")
+
+
+@router.get("/not-allowed")
+async def not_allowed(request: Request, ctx: Ctx = Depends(parent_page)):
+    owner = await db.accounts.find_one({"family_id": ctx.family["_id"], "role": "owner"})
+    return page(request, "not_allowed.html", ctx, owner=owner["email"] if owner else "", status_code=403)
+
+
+@router.post("/settings/invite")
+async def invite(request: Request, ctx: Ctx = Depends(full_page), email: str = Form(""), role: str = Form("carer")):
+    email = email.strip().lower()
+    role = role if role in ("parent", "carer") else "carer"
+    fid = ctx.family["_id"]
+    err = None
+    if not EMAIL_RE.match(email):
+        err = "Enter the email address of the person you want to invite."
+    else:
+        err = _taken(email, fid, await db.accounts.find_one({"email": email}))
+    if not err:
+        n = await db.accounts.count_documents({"family_id": fid}) + await db.codes.count_documents(
+            {"family_id": fid, "purpose": "invite", "email": {"$ne": email}, "expires": {"$gt": _now()}})
+        if n >= ADULTS_MAX:
+            err = f"A family can have up to {ADULTS_MAX} grown-ups, invitations included. Remove someone first."
+        elif not await _mail_allowed(request, "invite", email):
+            err = "We have sent several invitations to that address already. Wait a few minutes before sending another."
+    if err:
+        return await _settings_page(request, ctx, invite_error=err, invite_email=email, invite_role=role)
+    tok = new_token()
+    await db.codes.delete_many({"family_id": fid, "purpose": "invite", "email": email})    # a new one replaces it
+    await db.codes.insert_one({"_id": new_id("inv"), "email": email, "purpose": "invite", "hash": token_key(tok),
+                               "family_id": fid, "role": role, "by": ctx.account["_id"], "created": _now(),
+                               "expires": _now() + datetime.timedelta(days=INVITE_DAYS)})
+    who, fam = ctx.account["email"], ctx.family["name"]
+    await mailer.send(email, f"{who} invited you to {fam} on Quizocracy",
+                      f"Hello,\n\n{who} has invited you to join {fam} on Quizocracy, where their children do a "
+                      f"short daily practice in maths, spelling and more.\n\n"
+                      f"You are invited as a {role}. You will be able to {ROLE_CAN[role]}.\n\n"
+                      f"To accept, open this link within {INVITE_DAYS} days and choose your own password:\n\n"
+                      f"{config.PUBLIC_URL}/invite?token={tok}\n\n"
+                      f"If you were not expecting this, you can ignore this email.\n", secret=tok)
+    return RedirectResponse("/settings?invited=1#adults", 303)
+
+
+@router.post("/settings/invites/{iid}/cancel")
+async def invite_cancel(request: Request, iid: str, ctx: Ctx = Depends(full_page)):
+    await db.codes.delete_one({"_id": iid, "family_id": ctx.family["_id"], "purpose": "invite"})
+    return RedirectResponse("/settings#adults", 303)
+
+
+@router.post("/settings/adults/{aid}/remove")
+async def adult_remove(request: Request, aid: str, ctx: Ctx = Depends(full_page)):
+    acc = await db.accounts.find_one({"_id": aid, "family_id": ctx.family["_id"]})
+    # The account owner stays (deleting the account is the way out), and nobody removes themselves by mistake.
+    if not acc or acc["_id"] == ctx.account["_id"] or (acc.get("role") or "owner") == "owner":
+        return RedirectResponse("/settings#adults", 303)
+    await db.accounts.delete_one({"_id": acc["_id"]})
+    await db.sessions.delete_many({"account_id": acc["_id"]})        # signed out on every device
+    await db.codes.delete_many({"account_id": acc["_id"]})
+    await mailer.send(acc["email"], f"You were removed from {ctx.family['name']} on Quizocracy",
+                      f"Hello,\n\n{ctx.account['email']} removed you from {ctx.family['name']} on Quizocracy, so "
+                      f"your login there no longer works.\n\nIf you think this is a mistake, ask them to invite "
+                      f"you again.\n")
+    return RedirectResponse("/settings?removed=1#adults", 303)
+
+
+async def _open_invite(token: str) -> dict | None:
+    return await db.codes.find_one({"purpose": "invite", "hash": token_key(token or ""), "expires": {"$gt": _now()}})
+
+
+@router.get("/invite")
+async def invite_form(request: Request, token: str = ""):
+    inv = await _open_invite(token)
+    fam = await db.families.find_one({"_id": inv["family_id"]}) if inv else None
+    if not inv or not fam:
+        return page(request, "invite.html", invalid=True, status_code=400)
+    by = await db.accounts.find_one({"_id": inv.get("by")}) or {}
+    return page(request, "invite.html", inv=inv, family=fam, by=by.get("email", ""), token=token,
+                can=ROLE_CAN[inv["role"]], error=_taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]})))
+
+
+@router.post("/invite")
+async def invite_accept(request: Request, token: str = Form(...), password: str = Form(...), consent: str = Form("")):
+    inv = await _open_invite(token)
+    fam = await db.families.find_one({"_id": inv["family_id"]}) if inv else None
+    if not inv or not fam:
+        return page(request, "invite.html", invalid=True, status_code=400)
+    by = await db.accounts.find_one({"_id": inv.get("by")}) or {}
+    err = _taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))
+    if not err and len(password) < 8:
+        err = "Use a password of 8 characters or more."
+    elif not err and not consent:
+        err = "Please confirm you are aged 18 or over."
+    acc = {"_id": new_id("acc"), "email": inv["email"], "pw": hash_secret(password), "family_id": fam["_id"],
+           "role": inv["role"], "invited_by": inv.get("by"), "created": _now(), "verified_at": _now()}
+    if not err:
+        try:
+            await db.accounts.insert_one(acc)          # the link came to this inbox, so the address is verified
+        except DuplicateKeyError:
+            err = _taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))
+    if err:
+        return page(request, "invite.html", inv=inv, family=fam, by=by.get("email", ""), token=token,
+                    can=ROLE_CAN[inv["role"]], error=err, consent=consent, status_code=400)
+    await db.codes.delete_many({"purpose": "invite", "email": inv["email"]})      # every family's: it has joined one
+    resp = RedirectResponse("/home?joined=1", 303)
+    await create_session(resp, acc)
+    return resp
+
+
+# ---- Changing the account email: a code goes to the new address, a notice to the old one ----
+
+@router.get("/account/email")
+async def email_form(request: Request, ctx: Ctx = Depends(full_page)):
+    rec = await db.codes.find_one({"account_id": ctx.account["_id"], "purpose": "email_change", "expires": {"$gt": _now()}})
+    return page(request, "email_change.html", ctx, pending=rec["email"] if rec and request.query_params.get("sent") else None)
+
+
+@router.post("/account/email")
+async def email_change(request: Request, ctx: Ctx = Depends(full_page), new_email: str = Form(""),
+                       password: str = Form("")):
+    new_email = new_email.strip().lower()
+    err = None
+    if not EMAIL_RE.match(new_email):
+        err = "Enter a valid email address."
+    elif new_email == ctx.account["email"]:
+        err = "That is already your email address."
+    elif not verify_secret(password, ctx.account["pw"]):
+        err = "Your password is not right."
+    elif await db.accounts.find_one({"email": new_email}):
+        err = "That email already has a Quizocracy account. Choose another address."
+    elif not await _mail_allowed(request, "email_change", new_email):
+        err = "We have sent several codes already. Check that inbox and its spam folder, or wait a few minutes."
+    if err:
+        return page(request, "email_change.html", ctx, error=err, new_email=new_email, status_code=400)
+    await _send_change_code(ctx.account, new_email)
+    return RedirectResponse("/account/email?sent=1", 303)
+
+
+async def _send_change_code(account: dict, new_email: str) -> None:
+    code = new_code()
+    await db.codes.delete_many({"account_id": account["_id"], "purpose": "email_change"})
+    await db.codes.insert_one({"email": new_email, "purpose": "email_change", "account_id": account["_id"],
+                               "family_id": account["family_id"], "hash": hash_secret(code), "tries": 0,
+                               "expires": _now() + datetime.timedelta(minutes=30)})
+    await mailer.send(new_email, f"Your Quizocracy code: {code}",
+                      f"Your code is {code}\n\nEnter it in Quizocracy to make {new_email} the email address for your "
+                      f"account. It expires in 30 minutes.\n\nIf you did not ask for this, ignore this email: "
+                      f"nothing changes.\n", secret=code)
+
+
+@router.post("/account/email/resend")
+async def email_resend(request: Request, ctx: Ctx = Depends(full_page)):
+    rec = await db.codes.find_one({"account_id": ctx.account["_id"], "purpose": "email_change"})
+    if not rec:
+        return RedirectResponse("/account/email", 303)
+    if not await _mail_allowed(request, "email_change", rec["email"]):
+        return page(request, "email_change.html", ctx, pending=rec["email"], status_code=429,
+                    error="We have sent several codes already. Check that inbox and its spam folder, "
+                          "or wait a few minutes before asking for another.")
+    await _send_change_code(ctx.account, rec["email"])
+    return RedirectResponse("/account/email?sent=1", 303)
+
+
+@router.post("/account/email/confirm")
+async def email_confirm(request: Request, ctx: Ctx = Depends(full_page), code: str = Form("")):
+    aid = ctx.account["_id"]
+    rec = await db.codes.find_one({"account_id": aid, "purpose": "email_change", "expires": {"$gt": _now()}})
+    if not rec:
+        return page(request, "email_change.html", ctx, status_code=400,
+                    error="That code has expired. Enter the new address again to get a new code.")
+    fails_key = f"verify:{rec['email']}"         # the same hourly cap as the sign-up code
+    err = None
+    if await over_limit(fails_key, CODE_FAILS_HOUR, 60):
+        err = "Too many wrong codes. Wait an hour, then ask for a new code."
+    elif rec.get("tries", 0) >= CODE_TRIES:
+        err = "That code has had too many wrong tries and no longer works. Ask for a new code below."
+    elif not verify_secret(code.strip(), rec["hash"]):
+        await db.codes.update_one({"_id": rec["_id"]}, {"$inc": {"tries": 1}})
+        await hit(fails_key)
+        err = "That code is not right, or it has expired."
+    if err:
+        return page(request, "email_change.html", ctx, pending=rec["email"], error=err, status_code=400)
+    old, new = ctx.account["email"], rec["email"]
+    try:
+        await db.accounts.update_one({"_id": aid}, {"$set": {"email": new}, "$addToSet": {"past_emails": old}})
+    except DuplicateKeyError:
+        await db.codes.delete_many({"account_id": aid, "purpose": "email_change"})
+        return page(request, "email_change.html", ctx, status_code=400,
+                    error="That email has just been used for another Quizocracy account. Choose another address.")
+    await db.codes.delete_many({"account_id": aid, "purpose": "email_change"})
+    await mailer.send(old, "Your Quizocracy email was changed",
+                      f"The email address for your Quizocracy account was changed from {old} to {new} on "
+                      f"{local_time(_now()):%d %B %Y at %H:%M}. From now on, sign in with {new}.\n\n"
+                      f"If this wasn't you, reply to this email straight away (or write to {config.SUPPORT_EMAIL}) "
+                      f"and we will put it right.\n", headers={"Reply-To": config.SUPPORT_EMAIL})
+    return RedirectResponse("/settings?email_changed=1", 303)
+
+
+# ---- The weekly summary: on/off in Settings, and a signed one-click link in each email ----
+
+@router.post("/settings/weekly")
+async def weekly_toggle(request: Request, ctx: Ctx = Depends(parent_page), weekly: str = Form("")):
+    await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"weekly_email": bool(weekly)}})
+    return RedirectResponse("/settings?saved=1#login", 303)
+
+
+@router.get("/unsubscribe")
+async def unsubscribe_form(request: Request, t: str = ""):
+    # A link opened is not yet a "yes": mail scanners open links too. One press of the button turns it off.
+    acc = await db.accounts.find_one({"_id": mailer.unsub_account(t)}) if mailer.unsub_account(t) else None
+    return page(request, "unsubscribe.html", acc=acc, t=t, status_code=200 if acc else 400)
+
+
+@router.post("/unsubscribe")
+async def unsubscribe(request: Request):
+    form = await request.form()
+    t = request.query_params.get("t") or form.get("t") or ""      # mail apps' one-click POST puts it in the URL
+    aid = mailer.unsub_account(t)
+    acc = await db.accounts.find_one({"_id": aid}) if aid else None
+    if acc:
+        await db.accounts.update_one({"_id": aid}, {"$set": {"weekly_email": False}})
+    return page(request, "unsubscribe.html", acc=acc, t=t, done=bool(acc), status_code=200 if acc else 400)

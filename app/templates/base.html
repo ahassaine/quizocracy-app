@@ -4,14 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script>try{var t=localStorage.getItem('qz_theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='light'}</script>
+<script>try{var a=JSON.parse(localStorage.getItem('qz_a11y')||'{}');['big','dys','space','calm','contrast'].forEach(function(k){if(a[k]===true)document.documentElement.classList.add('a11y-'+k)})}catch(e){}</script>
 <meta name="theme-color" content="#4F46E5">
-<link rel="manifest" href="/static/manifest.webmanifest">
-<link rel="icon" href="/static/icon-192.png">
-<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="manifest" href="/static/manifest.webmanifest?v=2">
+<link rel="icon" href="/static/img/favicon-32.png" sizes="32x32"><link rel="icon" href="/static/img/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Quizocracy">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>{% block title %}Quizocracy{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/app.css?v=13">
+<link rel="stylesheet" href="/static/css/app.css?v=14">
 </head>
 <body{% if ctx and ctx.child %} data-pupil="{{ ctx.child._id }}"{% endif %}>
 <header class="top{% if ctx and (ctx.child or ctx.account.verified_at) %} signed{% endif %}">
@@ -32,7 +34,8 @@
   </nav>
 </header>
 <main class="wrap">{% block body %}{% endblock %}</main>
-{% block foot %}<div class="foot"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>{% endblock %}
+{% block foot %}<div class="foot"><a href="/help">Help</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>{% endblock %}
+<script>if('serviceWorker' in navigator&&location.protocol!=='file:'){addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}</script>
 <script src="/static/js/ui.js?v=2"></script>
 {% block scripts %}{% endblock %}
 </body>

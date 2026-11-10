@@ -10,7 +10,7 @@ db = client[config.DB_NAME]
 # Every collection that holds a family's data. Deleting a family walks this list.
 FAMILY_COLLECTIONS = (
     "accounts", "pupils", "sessions", "attempts", "maths_lab_q", "maths_attempts", "maths_mastery",
-    "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
+    "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items", "reports",
 )
 
 
@@ -22,6 +22,9 @@ async def ensure_indexes():
     await db.sessions.create_index([("family_id", ASCENDING)])
     await db.codes.create_index([("expires", ASCENDING)], expireAfterSeconds=0)
     await db.codes.create_index([("email", ASCENDING), ("purpose", ASCENDING)])
+    await db.codes.create_index([("family_id", ASCENDING), ("purpose", ASCENDING)])     # a family's open invitations
+    await db.codes.create_index([("account_id", ASCENDING), ("purpose", ASCENDING)])    # an email change waiting for its code
+    await db.weekly_sends.create_index([("family_id", ASCENDING)])                      # _id "<week>:<account>": one per week
     await db.attempts.create_index([("pupil_id", ASCENDING), ("day", ASCENDING), ("activity", ASCENDING)])
     await db.attempts.create_index([("family_id", ASCENDING), ("day", DESCENDING)])
     await db.maths_lab_q.create_index([("created", ASCENDING)], expireAfterSeconds=7 * 86400)
@@ -38,5 +41,6 @@ async def ensure_indexes():
     await db.login_failures.create_index([("email", ASCENDING), ("ts", ASCENDING)])
     await db.team_messages.create_index([("tid", ASCENDING), ("time", ASCENDING)])
     await db.team_messages.create_index([("time", ASCENDING)])
+    await db.reports.create_index([("pupil_id", ASCENDING), ("day", ASCENDING)])     # "Something wrong?" reports, 10 a day
     await db.outbox.create_index([("to", ASCENDING), ("created", DESCENDING)])
     await db.outbox.create_index([("created", ASCENDING)], expireAfterSeconds=30 * 86400)   # the mail log is kept 30 days

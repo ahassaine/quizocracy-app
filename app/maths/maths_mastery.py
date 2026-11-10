@@ -20,6 +20,7 @@ retention review (which IXL does not do). Years 8 and 9 also mix in earlier KS3 
 """
 import datetime
 import random
+from ..activities import FOCUS_SHARE, focus_on
 from ..db import db
 from .maths_engine import skill_list
 
@@ -193,6 +194,15 @@ def _strand_pick(in_strand, mm):
     return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
 
 
+async def _focus_strand(pupil):
+    """The maths strand the parent says the class is working on now, or None."""
+    try:
+        p = await db.pupils.find_one({"_id": pupil}, {"focus": 1})
+    except Exception:
+        p = None
+    return focus_on(p or {}).get("maths")
+
+
 async def next_skill(pupil, year=None, avoid=()):
     """Adaptive pick: the lowest unfinished levels of several strands in turn, in-progress first; sometimes a
     review. avoid: skills to leave until everything else is mastered (practised elsewhere today)."""
@@ -203,6 +213,19 @@ async def next_skill(pupil, year=None, avoid=()):
     rest = [s for s in skills if s["key"] not in set(avoid)]
     if any(mm.get(s["key"], {}).get("score", 0) < MASTERED for s in rest):
         skills = rest
+
+    # "working on this at school": about two questions in three from that strand, picked as its turn would be
+    strand = await _focus_strand(pupil)
+    in_focus = [s for s in skills if s["strand"] == strand]
+    if in_focus and random.random() < FOCUS_SHARE:
+        pick = _strand_pick(in_focus, mm)
+        if pick:
+            return pick
+        left = [s for s in in_focus if mm.get(s["key"], {}).get("score", 0) < MASTERED]
+        if left:
+            s = min(left, key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
+            return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
+        return min(in_focus, key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)["key"], "review"
 
     # a skill secured fast is checked back on a later day
     checks = [s["key"] for s in skills if mm.get(s["key"], {}).get("fast") and not mm[s["key"]].get("checked")

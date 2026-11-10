@@ -50,6 +50,7 @@
   window.Drill = function (opts) {
     const act = opts.activity, api = opts.api || ('/api/' + act + '/');   // opts.api: another endpoint (team testing page)
     let token = null, answered = false, shownAt = 0, busy = false, seq = 0, gone = false;
+    let lastVal = null;                  // what was last sent to Check for this question (for a report)
     function switched(res) {        // another child signed in on this device (e.g. in another tab): stop here
       if (!res || res.error !== 'switched') return false;
       gone = true; token = null; ++seq;
@@ -66,10 +67,43 @@
       if (text) { m.textContent = text; return; }
       m.innerHTML = 'All your mistakes are done. Well done! <a href="/me">Back to my day</a>';
     }
+    /* "Something wrong with this question?" (_drill_buttons.html): a reason, a note if they like, sent with the
+       question's token; the server keeps the question as it was served. */
+    let reason = null;
+    function reportReset() {
+      if (!$('report')) return;
+      reason = null; $('reportBox').hidden = true; $('reportOpen').hidden = false;
+      $('reportOpen').setAttribute('aria-expanded', 'false'); $('reportMsg').textContent = ''; $('reportNote').value = '';
+      $('reportBox').querySelectorAll('[data-reason]').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-checked', 'false'); });
+    }
+    if ($('report')) {
+      $('reportOpen').addEventListener('click', () => {
+        const open = $('reportBox').hidden;
+        $('reportBox').hidden = !open; $('reportOpen').setAttribute('aria-expanded', String(open)); $('reportMsg').textContent = '';
+      });
+      $('reportBox').querySelectorAll('[data-reason]').forEach(b => b.addEventListener('click', () => {
+        reason = b.dataset.reason;
+        $('reportBox').querySelectorAll('[data-reason]').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-checked', String(x === b)); });
+      }));
+      $('reportCancel').addEventListener('click', () => { const m = $('reportMsg').textContent; reportReset(); $('reportMsg').textContent = m; });
+      $('reportSend').addEventListener('click', async () => {
+        if (!reason) { $('reportMsg').textContent = 'Tap what is wrong first.'; return; }
+        $('reportSend').disabled = true;
+        const res = await post('/api/report', { activity: act, token, reason, note: $('reportNote').value, answer: lastVal,
+          device: { w: innerWidth, h: innerHeight, touch: 'ontouchstart' in window || navigator.maxTouchPoints > 0 } }).catch(() => ({}));
+        $('reportSend').disabled = false;
+        if (switched(res)) return;
+        reportReset(); $('reportOpen').hidden = true;
+        $('reportMsg').textContent = res.ok ? 'Thanks! A grown-up will check it.'
+          : (res.error === 'limit' ? 'Thanks! You have sent a lot of reports today, so a grown-up will look at those first.'
+            : 'Sorry, that did not send. Try again in a moment.');
+        if (!res.ok && res.error !== 'limit') $('reportOpen').hidden = false;
+      });
+    }
     async function next(note) {          // note: a message shown with the new question, until it is answered
       if (gone) return;
       const my = ++seq;
-      answered = false; busy = true;
+      answered = false; busy = true; lastVal = null; reportReset();
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
       const q = await post(api + 'next', opts.nextBody ? opts.nextBody() : (FIX ? { fix: 1 } : {}));
@@ -98,7 +132,7 @@
         $('feedback').textContent = (opts.empty && opts.empty())
           || (document.querySelector('[data-testid=choices]') ? 'Tap your answer first.' : 'Type your answer first.'); return;
       }
-      busy = true;
+      busy = true; lastVal = val;
       const res = await post(api + 'check',Object.assign({ token, ms: Date.now() - shownAt }, val));
       busy = false;
       if (switched(res)) return;
@@ -132,6 +166,7 @@
     $('next').addEventListener('click', next);
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
+      if (e.target && e.target.closest && e.target.closest('#report, #a11y')) return;   // a report or the Aa settings, not an answer
       e.preventDefault();
       answered ? next() : check();
     });

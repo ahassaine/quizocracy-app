@@ -18,6 +18,7 @@ KEY_RE = re.compile(r"^(GP|SC)([1-9])\.(\d{2})$")
 BANNED = re.compile(r"\b(all|none) of (the )?(above|these)\b|\b(god|gods|magic|wizard|witch|ghost|zombie|vampire)\b", re.I)
 AMERICAN = re.compile(r"\b(color|colors|favorite|center|(?<!light )(?<!parking )meter|meters|liter|liters|gray|mom|math|neighbor|behavior|"
                       r"flavor|harbor|honor|vapor|odor|fiber|aluminum|sulfur dioxide)\b")
+ID_RE = re.compile(r"^[0-9a-f]{12}$")
 MIN_QS, MIN_TYPES = 20, 3
 
 
@@ -49,7 +50,9 @@ def check_q(q, where, out):
     for f in ("q", "why"):
         if not isinstance(q.get(f), str) or len(q[f].strip()) < 3:
             out.append(f"{where}: missing {f}")
-    extra = set(q) - {"t", "q", "why", "opts", "s", "a", "tol", "unit"}
+    if not isinstance(q.get("id"), str) or not ID_RE.match(q["id"]):
+        out.append(f"{where}: missing or malformed id (run scripts/bank_ids.py)")
+    extra = set(q) - {"id", "t", "q", "why", "opts", "s", "a", "tol", "unit"}
     if extra:
         out.append(f"{where}: unknown fields {sorted(extra)}")
     text = " ".join(str(q.get(k, "")) for k in ("q", "s", "why")) + " " + " ".join(map(str, q.get("opts", [])))
@@ -96,8 +99,9 @@ def check_q(q, where, out):
             out.append(f"{where}: bad tol")
 
 
-def check_module(name, seen_keys):
+def check_module(name, seen_keys, seen_ids=None):
     out = []
+    seen_ids = {} if seen_ids is None else seen_ids
     try:
         mod = importlib.import_module(f"app.bank.content.{name}")
     except Exception as e:  # noqa: BLE001 - report anything that stops the file loading
@@ -128,6 +132,10 @@ def check_module(name, seen_keys):
         prompts = {}
         for i, q in enumerate(qs):
             check_q(q, f"{k}#{i}", out)
+            if q.get("id") in seen_ids:                 # ids are unique across the whole bank, not only the skill
+                out.append(f"{k}#{i}: duplicate id {q['id']} (also {seen_ids[q['id']]})")
+            elif q.get("id"):
+                seen_ids[q["id"]] = f"{k}#{i}"
             sig = norm(q.get("q", "") + "|" + q.get("s", "") + "|" + "|".join(sorted(map(str, q.get("opts", [])))))
             if sig in prompts:
                 out.append(f"{k}#{i}: same question as #{prompts[sig]}")
@@ -137,9 +145,9 @@ def check_module(name, seen_keys):
 
 def main(argv):
     names = argv or sorted(p.stem for p in (ROOT / "app/bank/content").glob("*.py") if p.stem != "__init__")
-    seen, bad, tot_s, tot_q = {}, 0, 0, 0
+    seen, ids, bad, tot_s, tot_q = {}, {}, 0, 0, 0
     for n in names:
-        probs, ns, nq = check_module(n, seen)
+        probs, ns, nq = check_module(n, seen, ids)
         tot_s += ns; tot_q += nq
         for p in probs:
             print(p)

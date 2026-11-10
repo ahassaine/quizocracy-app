@@ -35,6 +35,6 @@
     </form>
     {% endif %}
   </div>
-{% else %}<div class="card">No children yet. <a href="/children/new">Add one</a>.</div>{% endfor %}
+{% else %}<div class="card">No children yet.{% if ctx.full %} <a href="/children/new">Add one</a>.{% else %} A parent adds them.{% endif %}</div>{% endfor %}
 </div>
 {% endblock %}

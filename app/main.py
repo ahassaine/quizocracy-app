@@ -1,4 +1,5 @@
 """Quizocracy, the product: a separate service from the family app (hw.quizocracy.com)."""
+import asyncio
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
@@ -6,23 +7,25 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config
+from . import config, errors
 from .config import BASE_DIR
 from .db import db, ensure_indexes
 from .deps import Redirect, load
-from .routes import auth, child, parent, team
+from .routes import auth, child, extras, parent, team
 from .web import page
 
 
 @asynccontextmanager
 async def lifespan(app):
     await ensure_indexes()
+    count = asyncio.create_task(errors.daily_count())
     yield
+    count.cancel()
 
 
 app = FastAPI(title="Quizocracy", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-for r in (auth.router, parent.router, child.router, team.router):
+for r in (auth.router, parent.router, child.router, team.router, extras.router):
     app.include_router(r)
 
 
@@ -31,6 +34,10 @@ async def _redirect(request: Request, exc: Redirect):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"ok": False, "error": "auth"}, status_code=401)
     return RedirectResponse(exc.url, 303)
+
+
+# Any other exception is a 500: a friendly page, a log line and a throttled email to the operator (app/errors.py).
+app.add_exception_handler(Exception, errors.handler)
 
 
 SAFE = {"GET", "HEAD", "OPTIONS"}
@@ -82,5 +89,9 @@ async def terms(request: Request):
 
 @app.get("/healthz")
 async def healthz():
-    await db.command("ping")
-    return {"ok": True}
+    """For the uptime check (scripts/uptime_check.py): 503 when the database does not answer a ping within 2 s."""
+    try:
+        await asyncio.wait_for(db.command("ping"), 2)
+    except Exception:  # noqa: BLE001 - any failure to ping means the database is down for us
+        return JSONResponse({"ok": False, "db": "down"}, status_code=503)
+    return {"ok": True, "db": "ok"}

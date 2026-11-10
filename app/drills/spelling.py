@@ -1,4 +1,5 @@
 """Spelling from the national-curriculum statutory lists, with spaced repetition (Leitner boxes)."""
+import base64
 import datetime
 import json
 import random
@@ -372,6 +373,91 @@ def audio_file(word: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", word.lower()) + ".mp3"
 
 
+def has_clip(word: str) -> bool:
+    return (BASE_DIR / "static" / "audio" / "words" / audio_file(word)).exists()
+
+
+# ---- the school's weekly list: the parent types or pastes it; for SCHOOL_DAYS it comes before the year list ----
+SCHOOL_MAX = 30
+SCHOOL_DAYS = 7
+SCHOOL_WORD = re.compile(r"[A-Za-z]+(?:['-][A-Za-z]+)*")
+_CUE_SPLIT = re.compile(r"\s+[-–—]\s+|\s*:\s*")
+_BULLET = re.compile(r"^\s*(?:\d+[.)]|[-•*·–—])\s+")
+_KNOWN = {w.lower(): w for lst in list(LISTS.values()) + list(KS3.values()) for w in lst}
+
+
+def parse_school_words(text: str) -> tuple[list, str]:
+    """The parent's list -> ([{"w": word, "cue": sentence with ___}], error). Words may be split by commas,
+    semicolons, new lines or spaces; a line "there - over there" (or "there: over there") gives a sentence,
+    where the word is blanked out. Numbered or bulleted lists pasted from a school letter are fine."""
+    out, seen = [], set()
+    for line in str(text or "").replace("’", "'").replace("‘", "'").splitlines():
+        line = _BULLET.sub("", line).strip()
+        if not line:
+            continue
+        m = _CUE_SPLIT.search(line)
+        if m and SCHOOL_WORD.fullmatch(line[:m.start()].strip()):
+            pieces = [(line[:m.start()].strip(), line[m.end():].strip())]
+        else:
+            pieces = [(w, "") for w in re.split(r"[,;\s]+", line) if w.strip(".!?\"-–—")]
+        for w, cue in pieces:
+            w = w.strip(".!?\"")
+            w = _KNOWN.get(w.lower(), w)          # "february" is the list's "February", with its own clip
+            if not SCHOOL_WORD.fullmatch(w):
+                return [], (f"“{w[:30]}” can't be a spelling word: use letters only, with an apostrophe (don't) "
+                            "or a hyphen (well-known) if the word has one.")
+            if len(w) > 30:
+                return [], f"“{w[:30]}…” is too long for one word."
+            if w.lower() in seen:
+                continue
+            seen.add(w.lower())
+            cue = cue[:120]
+            if cue and "___" not in cue:
+                cue = re.sub(r"(?<![A-Za-z'])" + re.escape(w) + r"(?![A-Za-z'])", "___", cue, flags=re.I)
+            out.append({"w": w, "cue": cue})
+    if len(out) > SCHOOL_MAX:
+        return [], (f"That's {len(out)} words. Up to {SCHOOL_MAX} fit in one week's list: "
+                    "keep the ones the school sent for this week.")
+    return out, ""
+
+
+def school_text(words: list) -> str:
+    """The list as the form shows it again: one word a line, with its sentence after a dash."""
+    return "\n".join(w["w"] + (" - " + w["cue"] if w.get("cue") else "") for w in words)
+
+
+def school_words(pupil: dict, day: str | None = None) -> list:
+    """The school list while it runs (from its first day for SCHOOL_DAYS, or until replaced), else []."""
+    sl = pupil.get("school_words") or {}
+    day = day or progress.today()
+    if not sl.get("words") or not (sl.get("from", "") <= day < sl.get("until", "")):
+        return []
+    return sl["words"]
+
+
+def _school_cue(pupil: dict, word: str) -> str:
+    cue = next((w.get("cue", "") for w in school_words(pupil) if w["w"].lower() == word.lower()), "")
+    return cue or CUES.get(word, "")
+
+
+async def school_status(pupil: dict) -> dict | None:
+    """For the parent: each word of the running school list and how far it is learned."""
+    words = school_words(pupil)
+    if not words:
+        return None
+    state = {d["word"].lower(): d async for d in db.spelling_words.find(
+        {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words]}})}
+    out = []
+    for w in words:
+        st = state.get(w["w"].lower())
+        box = int(st.get("box", 0)) if st else -1
+        out.append({"word": w["w"], "state": "learned" if box >= LEARNED_BOX else "right" if box > 0
+                    else "tricky" if st else "new", "right": int(st.get("right", 0)) if st else 0})
+    sl = pupil["school_words"]
+    return {"words": out, "learned": sum(1 for w in out if w["state"] == "learned"), "total": len(out),
+            "until": sl["until"]}
+
+
 def _today() -> datetime.date:
     return datetime.date.fromisoformat(progress.today())
 
@@ -385,8 +471,14 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
     shown = await items.just_shown(pupil, "spelling")     # a missed word comes back later, not straight away
     due = [w for w in words if w in state and state[w].get("due", "") <= today and w != last and w not in shown]
     new = [w for w in words if w not in state]
-    if focus and (BASE_DIR / "static" / "audio" / "words" / audio_file(focus)).exists():
+    # the school's list comes first: its new words, and those due today (a missed one after its gap)
+    school = [w["w"] for w in school_words(pupil)]
+    school_due = [w for w in school if w != last and w not in shown
+                  and (w not in state or state[w].get("due", "") <= today)]
+    if focus and (has_clip(focus) or focus in school):
         word = focus
+    elif school_due:
+        word = min(school_due, key=lambda w: (state[w].get("box", 0) if w in state else 0, school.index(w)))
     elif due:
         due.sort(key=lambda w: (state[w].get("box", 0), state[w].get("due", "")))
         word = due[0]
@@ -394,10 +486,14 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
         word = new[0]
     else:
         word = random.choice([w for w in words if w != last and w not in shown] or [w for w in words if w != last] or words)
-    token = await items.issue(pupil, "spelling", word, {"cue": CUES.get(word, "")})
+    cue = _school_cue(pupil, word) if word in school else CUES.get(word, "")
+    token = await items.issue(pupil, "spelling", word, {"cue": cue, "school": word in school})
     await db.pupils.update_one({"_id": pupil["_id"]}, {"$set": {"_last_spelling": word}})
-    return {"token": token, "audio": f"/api/spelling/audio/{token}", "cue": CUES.get(word, ""),
-            "letters": len(word)}
+    q = {"token": token, "audio": f"/api/spelling/audio/{token}", "cue": cue, "letters": len(word)}
+    if not has_clip(word):
+        # a school word with no recorded clip: the browser's voice says it (sent encoded, not as plain text)
+        q.update({"audio": "", "say": base64.b64encode(word[::-1].encode()).decode()})
+    return q
 
 
 async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | None:
@@ -414,7 +510,10 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     st = await db.spelling_words.find_one({"_id": f"{pupil['_id']}:{word}"}) or {}
     box = int(st.get("box", 0))
     box = min(box + 1, len(INTERVALS) - 1) if correct else 0
-    due = (_today() + datetime.timedelta(days=INTERVALS[box] if correct else 0)).isoformat()
+    days = INTERVALS[box] if correct else 0
+    if box < LEARNED_BOX and word in {w["w"] for w in school_words(pupil)}:
+        days = min(days, 1)                   # a school word comes back every day of its week until it is learned
+    due = (_today() + datetime.timedelta(days=days)).isoformat()
     await db.spelling_words.update_one({"_id": f"{pupil['_id']}:{word}"}, {
         "$set": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": box, "due": due},
         "$inc": {"right" if correct else "wrong": 1}}, upsert=True)

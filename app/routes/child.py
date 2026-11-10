@@ -6,7 +6,7 @@ import re
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
-from ..activities import todays_plan
+from ..activities import ACTIVITIES, todays_plan
 from ..config import BASE_DIR
 from ..db import db
 from ..deps import Ctx, child_api, child_page, family_page, local_hm, own_pupil, pin_lock_until, pin_locks
@@ -193,3 +193,75 @@ async def spelling_audio(token: str, ctx: Ctx = Depends(child_api)):
         raise HTTPException(404)
     return FileResponse(AUDIO_DIR / spelling.audio_file(it["answer"]), media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
+
+
+# Practice for the Year 4 Multiplication Tables Check (tables.mtc_*): open to every child, whatever the plan; it
+# counts towards the day only when the plan has times tables.
+@router.get("/me/tables/year4-check")
+async def mtc_page(request: Request, ctx: Ctx = Depends(child_page)):
+    return page(request, "tables_check.html", ctx, act=ACTIVITIES["tables"], practice=_allowed(ctx, "tables"),
+                last=[r["score"] for r in (ctx.child.get("mtc") or [])[-3:]])
+
+
+@router.post("/api/mtc/start")
+async def api_mtc_start(payload: dict = Body(default={}), ctx: Ctx = Depends(child_api)):
+    if (refused := _switched(ctx, payload)):
+        return refused
+    return {"ok": True, **await tables.mtc_start(ctx.child)}
+
+
+@router.post("/api/mtc/finish")
+async def api_mtc_finish(payload: dict = Body(...), ctx: Ctx = Depends(child_api)):
+    if (refused := _switched(ctx, payload)):
+        return refused
+    answers = payload.get("answers")
+    res = await tables.mtc_finish(ctx.child, payload.get("token"), answers if isinstance(answers, list) else [],
+                                  _allowed(ctx, "tables"))
+    if res is None:
+        return JSONResponse({"ok": False, "error": "expired"}, status_code=409)
+    return {"ok": True, **res, "day": await _day(ctx, "tables") if res["counted"] else None}
+
+
+# "Something wrong with this question?": the question exactly as it was served, kept for the team board
+# (/team/<member>/reports). Never shown to any family.
+REPORT_REASONS = {"wrong": "The answer is wrong", "unreadable": "I can't read or see it",
+                  "nonsense": "The question doesn't make sense", "other": "Something else"}
+REPORTS_PER_DAY = 10
+
+
+@router.post("/api/report")
+async def api_report(request: Request, payload: dict = Body(...), ctx: Ctx = Depends(child_api)):
+    if (refused := _switched(ctx, payload)):
+        return refused
+    activity, reason = str(payload.get("activity") or ""), str(payload.get("reason") or "")
+    if activity not in DRILLS or reason not in REPORT_REASONS:
+        raise HTTPException(400, "bad report")
+    day = progress.today()
+    if await db.reports.count_documents({"pupil_id": ctx.child["_id"], "day": day}) >= REPORTS_PER_DAY:
+        return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
+    coll, who = _served_in(activity)
+    token = str(payload.get("token") or "")
+    doc = await coll.find_one({"_id": token, who: ctx.child["_id"]}) if token else None
+    served = expected = skill = None
+    if doc:
+        served = json.loads(doc["served"]["q"]) if (doc.get("served") or {}).get("q") else \
+            {k: doc.get(k) for k in ("prompt", "meta") if doc.get(k) is not None}
+        if activity == "maths":
+            expected, skill = doc.get("display") or doc.get("answer"), doc.get("skill")
+        else:
+            m = doc.get("meta") or {}
+            expected, skill = doc.get("answer"), m.get("skill") or m.get("fact") or m.get("base")
+    dev = payload.get("device") if isinstance(payload.get("device"), dict) else {}
+    answer = payload.get("answer")          # what the page last sent to Check ({value} or {past, pp}), if anything
+    if isinstance(answer, dict) and set(answer) == {"value"}:
+        answer = answer["value"]
+    await db.reports.insert_one({
+        "family_id": ctx.family["_id"], "pupil_id": ctx.child["_id"], "year": ctx.child.get("year"),
+        "activity": activity, "skill": skill, "reason": reason, "note": str(payload.get("note") or "").strip()[:500],
+        "token": token, "served": served, "expected": expected,
+        "answer": (answer if isinstance(answer, str) else json.dumps(answer, ensure_ascii=False))[:300]
+                  if answer is not None else None,
+        "device": {k: int(dev[k]) for k in ("w", "h") if isinstance(dev.get(k), (int, float))}
+                  | {"touch": bool(dev.get("touch")), "ua": request.headers.get("user-agent", "")[:200]},
+        "day": day, "ts": datetime.datetime.utcnow(), "status": "open"})
+    return {"ok": True}

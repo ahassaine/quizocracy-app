@@ -1,5 +1,6 @@
 """The activity catalogue, plan limits and each child's daily plan."""
 import datetime
+import re
 from zoneinfo import ZoneInfo
 
 from . import config
@@ -94,3 +95,79 @@ def todays_plan(pupil: dict, family: dict, day: str | None = None) -> list:
         if a.get("on") and k in allowed and pupil.get("year", 1) >= ACTIVITIES[k]["min_year"]:
             out.append({**ACTIVITIES[k], "key": k, "target": max(1, int(a.get("target") or ACTIVITIES[k]["target"]))})
     return out
+
+
+def local_today() -> str:
+    return datetime.datetime.now(ZoneInfo(config.TIMEZONE)).date().isoformat()
+
+
+def day_label(day: str) -> str:
+    """"2026-11-24" -> "24 Nov" (a parent reads it; the year is always near)."""
+    try:
+        d = datetime.date.fromisoformat(day)
+    except (TypeError, ValueError):
+        return day or ""
+    return f"{d.day} {d.strftime('%b')}"
+
+
+# ---- rest days: the weekdays the child practises (logged like the plan, so a change made today starts
+# tomorrow once the child has started) and single days off (sick day, holiday), which apply at once ----
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+ALL_WEEK = list(range(7))
+MAX_DAYS_OFF = 21              # one day off can cover up to three weeks
+
+
+def practice_days_on(pupil: dict, day: str | None) -> list:
+    """The weekdays (0 = Monday) the child practised in the week of that day; every day by default."""
+    days = pupil.get("practice_days")
+    if day:
+        for e in pupil.get("days_log") or []:
+            if e["from"] <= day:
+                days = e["days"]
+    return ALL_WEEK if days is None else list(days)
+
+
+def day_off(pupil: dict, day: str) -> dict | None:
+    return next((o for o in pupil.get("days_off") or [] if o["from"] <= day <= o["to"]), None)
+
+
+def rest_day(pupil: dict, day: str | None = None) -> str:
+    """"off" (a day off the parent marked), "week" (not one of the practice days) or "" (a practice day)."""
+    day = day or local_today()
+    if day_off(pupil, day):
+        return "off"
+    if datetime.date.fromisoformat(day).weekday() not in practice_days_on(pupil, day):
+        return "week"
+    return ""
+
+
+def days_text(days: list) -> str:
+    """[0, 1, 2, 3, 4] -> "Mon to Fri"; [5, 6] -> "Sat, Sun"; every day -> "every day"."""
+    days = sorted(set(days))
+    if days == ALL_WEEK:
+        return "every day"
+    if not days:
+        return "no days"
+    if len(days) > 2 and days == list(range(days[0], days[-1] + 1)):
+        return f"{WEEKDAYS[days[0]]} to {WEEKDAYS[days[-1]]}"
+    return ", ".join(WEEKDAYS[d] for d in days)
+
+
+# ---- "working on this at school": a strand that gets most of the questions for a week or two ----
+FOCUS_SHARE = 2 / 3            # about two questions in three come from the focus strand
+FOCUS_WEEKS = (1, 2)
+
+
+def focus_on(pupil: dict, day: str | None = None) -> dict:
+    """The focus strands while the focus runs ({"maths": "3.6 Fractions", "grammar": "Punctuation"}), else {}.
+    It runs from its first day up to, not including, `until`, and then ends by itself."""
+    f = pupil.get("focus") or {}
+    day = day or local_today()
+    if not f or not (f.get("from", "") <= day < f.get("until", "")):
+        return {}
+    return {k: f[k] for k in ("maths", "grammar", "science") if f.get(k)}
+
+
+def strand_label(strand: str) -> str:
+    """"3.6 Fractions" -> "Fractions" (the maths strands carry their ladder number)."""
+    return re.sub(r"^\d+\.\d+\s+", "", strand or "")

@@ -1,29 +1,70 @@
 {% extends "base.html" %}{% block title %}Home · Quizocracy{% endblock %}
 {% block body %}
 {% if welcome %}<div class="ok">Your email is verified. Add your first child to get started.</div>{% endif %}
+{% if request.query_params.get('joined') %}<div class="ok" role="status" data-testid="joined">Welcome! You have joined {{ ctx.family.name }}. Sign in with your own email and password from now on.</div>{% endif %}
 {% if request.query_params.get('deleted') %}<div class="ok">Child deleted, with all their practice data.</div>{% endif %}
 <div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip" data-testid="plan-chip">{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}Free during the beta{% else %}{{ plan.title }} plan{% endif %}</span></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="kid-{{ p.name }}">
-  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div><div class="pct" data-testid="pct">{{ b.pct }}%</div></div>
+  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div>{% if b.rest and not b.pct %}<div class="pct" data-testid="rest-day" style="font-size:1.1rem">Rest day</div>{% else %}<div class="pct" data-testid="pct">{{ b.pct }}%</div>{% endif %}</div>
   {% if locks and locks.get(p._id) %}<div class="err" role="status" data-testid="pin-locked" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;animation:none">
     <span><b>{{ p.name }} is locked until {{ locks[p._id] }}</b> after too many wrong PINs.</span>
     <form method="post" action="/children/{{ p._id }}/pin-unlock"><input type="hidden" name="back" value="home"><button class="btn" type="submit">Unlock {{ p.name }}</button></form></div>
   {% elif unlocked == p._id %}<div class="ok" role="status">{{ p.name }} is unlocked and can type the PIN again.</div>{% endif %}
-  <div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>
+  {% if b.rest %}<div class="small mut" style="margin-top:6px">{{ 'A day off' if b.rest == 'off' else 'Not a practice day' }}: nothing is due today.{% if b.extra %} {{ p.name }} did {{ b.extra }} extra right answer{{ '' if b.extra == 1 else 's' }} anyway.{% endif %}</div>
+  {% else %}<div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>{% endif %}
   {% if b.reward_earned %}<div class="reward earned" data-testid="reward-earned" style="margin-top:10px"><img src="/static/img/trophy.png" alt="">{{ p.name }} earned: {{ b.reward.text }}</div>{% endif %}
-  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>
+  {% if not b.rest %}<div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>{% endif %}
   {% with s = day_stats.get(p._id, {}).get(today_day) if day_stats else none, name = p.name %}{% include "_day_stats.html" %}{% endwith %}
-  {% if hist[p._id]|length > 1 %}<div class="hist" title="Days done, last 7 days">{% for h in hist[p._id] %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endfor %}</div>
-  <div class="mut small" style="margin-top:2px">{% if hist[p._id]|length < 7 %}Each day since {{ p.name }} started{% else %}The last 7 days{% endif %}, today on the right</div>{% endif %}
-  <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a><a class="btn" href="/children/{{ p._id }}/edit">Settings</a></div>
+  {% if hist[p._id]|length > 1 %}<div class="hist" title="Days done, last 7 days">{% for h in hist[p._id] %}{% if h.rest and not h.pct %}<i data-rest="1" style="height:100%;background:repeating-linear-gradient(135deg,var(--line) 0 4px,transparent 4px 8px);opacity:.8;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: rest day"></i>{% else %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endif %}{% endfor %}</div>
+  <div class="mut small" style="margin-top:2px">{% if hist[p._id]|length < 7 %}Each day since {{ p.name }} started{% else %}The last 7 days{% endif %}, today on the right{% if hist[p._id]|selectattr('rest')|list %} · striped: rest day{% endif %}</div>{% endif %}
+  <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a>{% if ctx.full %}<a class="btn" href="/children/{{ p._id }}/edit">Settings</a>{% endif %}</div>
 </div>
 {% else %}
 <div class="card rise feature"><img src="/static/img/family.png" alt=""><div><b class="display" style="font-size:1.2rem">No children yet</b><div class="mut">Add your first child and their daily plan is ready in a minute.</div></div></div>
 {% endfor %}
 <div class="row">
   {% if full %}<span class="mut small" data-testid="family-full">The {{ plan.title }} plan has room for {{ plan.max_children }} children.</span>
-  {% else %}<a class="btn primary" href="/children/new">Add a child</a>{% endif %}
+  {% elif ctx.full %}<a class="btn primary" href="/children/new">Add a child</a>{% endif %}
   {% if board %}<form method="post" action="/handover" style="display:inline"><button class="btn" type="submit">Hand over to a child</button></form>{% endif %}
 </div>
+<style>#installTip[hidden], #installTip [hidden] { display:none !important; }</style>
+<div class="card small" id="installTip" hidden data-testid="install-tip" style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 16px">
+  <img src="/static/img/icon-192.png" alt="" style="width:36px;height:36px;border-radius:9px">
+  <div style="flex:1 1 220px"><b>Add Quizocracy to your home screen</b>
+    <div class="mut" id="installIos" hidden data-testid="install-ios">On this iPhone or iPad: press <b>Share</b>, then <b>Add to Home Screen</b>.</div>
+    <div class="mut" id="installWhy">It opens full screen on “Who's learning?”, like an app.</div></div>
+  <button class="btn" type="button" id="installBtn" hidden data-testid="install-btn">Add to home screen</button>
+  <button class="btn" type="button" id="installNo" data-testid="install-dismiss" style="background:none;border-color:transparent;color:var(--mut)">No thanks</button>
+</div>
+<p class="mut small">Questions about PINs, targets or rewards? See <a href="/help">Help</a>.</p>
+<script>
+  /* The home-screen tip: the browser's own install prompt where there is one (Chrome, Edge, Android), written steps on
+     iPhone/iPad Safari. Never shown once installed, inside the app, or after "No thanks" on this device. */
+  (function () {
+    const tip = document.getElementById('installTip'), btn = document.getElementById('installBtn');
+    let asked = false;
+    try { asked = localStorage.getItem('qz_install_tip') === 'no'; } catch (e) {}
+    const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (asked || installed) return;
+    const ua = navigator.userAgent;
+    const ios = (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+      && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    if (ios) { document.getElementById('installIos').hidden = false; document.getElementById('installWhy').hidden = true; tip.hidden = false; }
+    let prompt = null;
+    addEventListener('beforeinstallprompt', e => { e.preventDefault(); prompt = e; btn.hidden = false; tip.hidden = false; });
+    btn.addEventListener('click', async () => {
+      if (!prompt) return;
+      prompt.prompt();
+      const r = await prompt.userChoice.catch(() => null);
+      prompt = null;
+      if (r && r.outcome === 'accepted') tip.hidden = true; else btn.hidden = true;
+    });
+    addEventListener('appinstalled', () => { tip.hidden = true; });
+    document.getElementById('installNo').addEventListener('click', () => {
+      tip.hidden = true;
+      try { localStorage.setItem('qz_install_tip', 'no'); } catch (e) {}
+    });
+  })();
+</script>
 {% endblock %}

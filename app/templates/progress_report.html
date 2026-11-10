@@ -1,0 +1,87 @@
+{% extends "base.html" %}{% block title %}{{ pupil.name }}'s progress report · Quizocracy{% endblock %}
+{% block body %}
+<style>
+  .rep-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin:12px 0; }
+  .rep-tiles div { border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px; background:var(--card); }
+  .rep-tiles b { display:block; font-family:var(--display); font-size:1.5rem; line-height:1.1; }
+  .rep h2 { font-size:1.1rem; margin:1.1em 0 .4em; }
+  .rep .t { width:100%; }
+  .rep .t td, .rep .t th { padding:4px 8px; }
+  .rep .words { columns:4 120px; column-gap:16px; margin:6px 0 0; padding:0; list-style:none; font-size:.9rem; }
+  .rep-ranges { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .rep-ranges .btn { padding:7px 12px; font-size:.9rem; }
+  .rep-ranges a[aria-current] { background:var(--violet); color:#fff; border-color:var(--violet); }
+  @media print {
+    @page { size:A4; margin:14mm 14mm 16mm; }
+    header.top, .foot, .no-print { display:none !important; }
+    :root, :root[data-theme="dark"] { --bg:#fff; --card:#fff; --card-2:#fff; --line:#cfd4de; --ink:#000; --mut:#444; --shadow:none; color-scheme:light; }
+    body { background:#fff !important; color:#000; font-size:11pt; padding:0; }
+    .wrap { max-width:none; padding:0; }
+    .card, .rep-tiles div { box-shadow:none; break-inside:avoid; margin:8px 0; padding:10px 12px; }
+    .rep h1 { font-size:18pt; margin:0 0 4px; }
+    .rep h2 { break-after:avoid; }
+    .rep table tr { break-inside:avoid; }
+    .rep .t { font-size:9pt; } .rep .t td, .rep .t th { padding:2px 6px; }
+    a { color:#000; }
+  }
+</style>
+<div class="rep" data-testid="report">
+<div class="row no-print" style="justify-content:space-between;align-items:center">
+  <a href="/children/{{ pupil._id }}">&larr; {{ pupil.name }}'s progress</a>
+  <button class="btn primary" type="button" onclick="window.print()" data-testid="print">Print / save as PDF</button>
+</div>
+<nav class="rep-ranges no-print" aria-label="Period">{% for k, label in ranges.items() %}<a class="btn" href="?range={{ k }}"{% if k == rng %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+
+<h1>{{ pupil.name }} · progress report</h1>
+<p class="mut" style="margin:0">Year {{ pupil.year }} · {{ ranges[rng] }}{% if period %}: {{ period }}{% endif %} · Printed {{ printed }}</p>
+<p class="mut small" style="margin:.2em 0 0">Practice on Quizocracy, which follows the national curriculum in England (Years 1–9).</p>
+
+{% if not days %}<div class="card mut">{{ pupil.name }} has not started yet.</div>{% else %}
+<div class="rep-tiles" data-testid="report-totals">
+  <div><b data-testid="days-practised">{{ practised }}</b><span class="small mut">of {{ days|length }} day{{ '' if days|length == 1 else 's' }} practised</span></div>
+  <div><b>{{ done_days }}</b><span class="small mut">day{{ '' if done_days == 1 else 's' }} with the plan finished</span></div>
+  <div><b data-testid="answers">{{ tot.answers }}</b><span class="small mut">answers</span></div>
+  <div><b data-testid="first-pct">{{ first_pct ~ '%' if first_pct is not none else '–' }}</b><span class="small mut">right first time</span></div>
+  <div><b>{{ tot.minutes if tot.minutes or not tot.answers else 'under 1' }}</b><span class="small mut">minutes of practice</span></div>
+</div>
+{% if tot.rushed or tot.copied %}<p class="small mut">{% if tot.rushed %}{{ tot.rushed }} wrong answer{{ ' was' if tot.rushed == 1 else 's were' }} rushed (very quick, blank or random keys). {% endif %}{% if tot.copied %}{{ tot.copied }} right answer{{ ' was' if tot.copied == 1 else 's were' }} typed within a minute of being shown the answer, so {{ 'it does' if tot.copied == 1 else 'they do' }} not count as right first time.{% endif %}</p>{% endif %}
+
+{% if acts %}<h2>By activity</h2>
+<div class="card" style="overflow-x:auto"><table class="t small" data-testid="report-acts">
+  <tr><th>Activity</th><th>Right answers</th><th>Answers</th><th>Right</th></tr>
+  {% for k, a in acts %}<tr><td>{{ ACTIVITIES[k].title }}</td><td>{{ a.correct }}</td><td>{{ a.answered }}</td><td>{{ (100 * a.correct // a.answered) if a.answered else 0 }}%</td></tr>{% endfor %}
+</table></div>{% endif %}
+{% endif %}
+
+{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
+{% if skills or tables or verbs or spelling_on %}<h2>Learned so far</h2>
+<p class="small mut">Where {{ pupil.name }} stands today. A skill is secure once it is mastered: a run of right answers on it, checked again on a later day.</p>{% endif %}
+{% for subj, groups in skills.items() %}
+<div class="card" data-testid="report-skills-{{ subj }}" style="overflow-x:auto">
+  <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>
+  <span class="small mut">· {{ groups|sum(attribute='secure') }} of {{ groups|sum(attribute='secure') + groups|sum(attribute='practising') + groups|sum(attribute='new') }} skills secure{% if new.get(subj) %}, {{ new[subj] }} newly mastered in this period{% endif %}</span>
+  <table class="t small" style="margin-top:6px">
+    <tr><th>Strand</th><th>Secure</th><th>Practising</th><th>Not started</th></tr>
+    {% for g in groups %}<tr><td>{{ g.strand }}</td><td><b>{{ g.secure }}</b></td><td>{{ g.practising }}</td><td class="mut">{{ g.new }}</td></tr>{% endfor %}
+  </table>
+</div>{% endfor %}
+{% if tables or verbs %}<div class="card small">
+  {% if tables %}<div><b>Times tables:</b> {{ tables.mastered }} of {{ tables.total }} facts known (right 3 times in a row).</div>{% endif %}
+  {% if verbs %}<div><b>Irregular verbs:</b> {{ verbs.mastered }} of {{ verbs.total }} verbs known, level {{ verbs.level }} of {{ verbs.levels }}.</div>{% endif %}
+</div>{% endif %}
+
+{% if spelling_on %}<h2>Spellings learned</h2>
+<div class="card" data-testid="report-spelling"><div class="small"><b>{{ learned|length }} of {{ words_total }}</b> words from the Year {{ pupil.year }} word list learned (spelt right on 3 different days).</div>
+{% if learned %}<ul class="words">{% for w in learned %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}
+
+<h2>To work on next</h2>
+<div class="card" data-testid="report-focus">
+{% if weak or to_fix %}
+  {% if weak %}<div class="small"><b>Skills still being practised</b> (weakest first):</div>
+  <ul class="small" style="margin:4px 0 8px;padding-left:18px">{% for subj, s in weak %}<li>{{ skill_names[subj] }}: {{ s.title }} <span class="mut">(score {{ s.score }}/100)</span></li>{% endfor %}</ul>{% endif %}
+  {% for k, items in to_fix.items() %}<div class="small"><b>{{ ACTIVITIES[k].title }} still to put right:</b> {{ items[:20]|map('replace', 'x', ' × ')|join(', ') if k == 'tables' else items[:20]|join(', ') }}{% if items|length > 20 %} and {{ items|length - 20 }} more{% endif %}</div>{% endfor %}
+{% else %}<div class="small mut">Nothing stands out: no skill is lagging and every mistake in this period has been put right.</div>{% endif %}
+</div>
+<p class="small mut" style="margin-top:14px">Quizocracy · quizocracy.com · Free during the beta</p>
+</div>
+{% endblock %}

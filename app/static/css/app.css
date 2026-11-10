@@ -258,3 +258,79 @@ input.answer.wide { max-width:420px; text-align:left; font-size:1.25rem; }
 .gaps.right { border-color:#22c55e; } .gaps.wrong { border-color:#f85149; }
 textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden; text-align:left; line-height:1.3; background:#0B1120;
   border:2px solid #2C3650; color:#fff; border-radius:12px; font-size:1.5rem; font-family:var(--display); font-weight:700; }
+
+/* "Something wrong with this question?" (_drill_buttons.html): small and quiet under the buttons */
+.report { margin-top:14px; }
+.report-link { background:none; border:0; padding:6px 0; color:#9AA4BB; font:inherit; font-size:.85rem; text-decoration:underline; cursor:pointer; }
+.report-link[hidden] { display:none; }
+.report-box { margin-top:6px; padding:12px; border:1px solid #2C3650; border-radius:12px; background:#141B2F; max-width:520px; }
+.report-box[hidden] { display:none; }
+.report-ttl { font-weight:800; }
+.report-why { display:grid; gap:8px; margin:8px 0 10px; } .report-why .opt { font-size:.98rem; padding:10px 12px; }
+.report-lbl { font-weight:600; font-size:.9rem; color:#C7CFE2; margin-bottom:4px; }
+.report-box textarea { background:#0B1120; border:2px solid #2C3650; color:#fff; font-size:1rem; }
+.report-box .row { margin-top:10px; } .report-box .btn { padding:9px 16px; }
+.report-msg { font-size:.92rem; font-weight:700; color:#3BE2A8; }
+
+/* Year 4 check practice (tables_check.html) */
+.mtc-rules { margin:6px 0 4px; padding-left:20px; } .mtc-rules li { margin:4px 0; }
+.mtc-q { font-size:clamp(2.4rem, 11vw, 3.4rem); margin:14px 0 16px; min-height:1.2em; }
+.mtc-sec { font-family:var(--display); font-weight:800; font-size:1.6rem; font-variant-numeric:tabular-nums; min-width:2ch; text-align:right; }
+.mtc-time { height:12px; background:#1B2338; border-radius:999px; overflow:hidden; margin-top:8px; }
+.mtc-time > i { display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--sun),var(--coral)); border-radius:999px; }
+.keypad { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; max-width:340px; margin-top:14px; }
+.keypad[hidden] { display:none; }
+.keypad button { font:700 1.6rem var(--display); height:58px; border-radius:12px; background:#1B2338; color:#fff; border:2px solid #2C3650; cursor:pointer;
+  touch-action:manipulation; }
+.keypad button:active { background:#2A2560; }
+.keypad .ent { background:var(--violet); border-color:var(--violet); }
+.mtc-missed { list-style:none; padding:0; margin:8px 0 0; display:grid; gap:6px; }
+.mtc-missed li { font-size:1.15rem; font-weight:700; } .mtc-missed .mut { font-weight:600; font-size:.95rem; }
+
+/* text and display settings (_a11y.html): per device, as classes on <html> (set early in base.html) */
+.head-btns { display:flex; gap:8px; align-items:center; }
+.a11y { position:relative; display:inline-block; }
+.a11y-btn { min-width:44px; height:44px; padding:0 10px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink);
+  font:800 1.05rem/1 Georgia, "Times New Roman", serif; cursor:pointer; }
+.a11y-btn[aria-expanded="true"] { border-color:var(--violet); }
+.a11y-panel { position:absolute; right:0; top:calc(100% + 6px); z-index:30; width:min(300px, calc(100vw - 32px)); background:var(--card); color:var(--ink);
+  border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; box-shadow:var(--shadow-lg); text-align:left; }
+.a11y-panel[hidden] { display:none; }
+@media (max-width:640px) { .a11y-panel { position:fixed; left:16px; right:16px; top:64px; width:auto; max-height:calc(100vh - 80px); overflow:auto; } }
+.a11y-panel .check { margin:10px 0; font-weight:600; } .a11y-panel .check input { flex:none; }
+.a11y-ttl { font-family:var(--display); font-weight:800; font-size:1.05rem; }
+.a11y-float { float:right; margin:.5em 0 0 10px; position:relative; z-index:6; }
+.head-btns .a11y { z-index:6; }
+:root.a11y-big { font-size:118.75%; }
+:root.a11y-big body { font-size:19px; }
+/* the header keeps its size and spacing, so the child's links still fit on one line on a phone */
+:root.a11y-dys header.top, :root.a11y-space header.top { letter-spacing:normal; word-spacing:normal; }
+@media (max-width:640px) { :root.a11y-big header.signed nav.links a, :root.a11y-big header.signed nav.links button.linkish,
+  :root.a11y-dys header.signed nav.links a, :root.a11y-dys header.signed nav.links button.linkish { font-size:13px; padding:6px 4px; }
+  :root.a11y-big .brand, :root.a11y-dys .brand { font-size:17px; } }
+:root.a11y-dys { --body:Verdana, Tahoma, "DejaVu Sans", "Trebuchet MS", sans-serif; --display:Verdana, Tahoma, "DejaVu Sans", "Trebuchet MS", sans-serif; }
+:root.a11y-dys body { letter-spacing:.04em; word-spacing:.1em; line-height:1.7; }
+:root.a11y-dys h1, :root.a11y-dys h2, :root.a11y-dys .display, :root.a11y-dys .q { letter-spacing:.02em; }
+:root.a11y-space body { line-height:1.9; letter-spacing:.05em; word-spacing:.16em; }
+:root.a11y-space p, :root.a11y-space .card { margin-top:1.1em; margin-bottom:1.1em; }
+:root.a11y-space .row, :root.a11y-space .opts, :root.a11y-space .words, :root.a11y-space .grid { gap:16px; }
+:root.a11y-space .bq, :root.a11y-space .m-prompt { line-height:1.8; }
+:root.a11y-dys input, :root.a11y-dys textarea, :root.a11y-dys button, :root.a11y-space input, :root.a11y-space textarea { letter-spacing:inherit; word-spacing:inherit; }
+:root.a11y-calm *, :root.a11y-calm *::before, :root.a11y-calm *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+:root.a11y-calm .confetti { display:none; }
+@media (prefers-reduced-motion: reduce) { .confetti { display:none; } }
+:root.a11y-contrast { --ink:#000; --mut:#1F2937; --line:#111827; --bg:#FFFFFF; --bg-2:#E5E7EB; --card:#FFFFFF; --card-2:#FFFFFF; --field:#FFFFFF;
+  --violet:#3730A3; --good:#065F46; --bad:#9F1239; --glow:none; --board:#000; --board-line:#FFFFFF; }
+:root.a11y-contrast[data-theme="dark"] { --ink:#FFFFFF; --mut:#E5E7EB; --line:#E5E7EB; --bg:#000; --bg-2:#1F2937; --card:#000; --card-2:#000; --field:#000;
+  --violet:#A5B4FC; --good:#6EE7B7; --bad:#FDA4AF; }
+:root.a11y-contrast a { text-decoration:underline; }
+:root.a11y-contrast .stage, :root.a11y-contrast .stage .mut, :root.a11y-contrast .why, :root.a11y-contrast .m-sol, :root.a11y-contrast .report-link,
+  :root.a11y-contrast .report-lbl { color:#FFFFFF; }
+:root.a11y-contrast .stage input[type=text], :root.a11y-contrast .stage input.answer, :root.a11y-contrast input.m-input, :root.a11y-contrast .opt,
+  :root.a11y-contrast .word, :root.a11y-contrast textarea.write, :root.a11y-contrast .gaps, :root.a11y-contrast .keypad button,
+  :root.a11y-contrast .report-box, :root.a11y-contrast .speak-btn { border-color:#FFFFFF; background:#000; color:#FFFFFF; }
+:root.a11y-contrast .opt.sel, :root.a11y-contrast .word.sel { background:#3730A3; border-color:#FFFF00; }
+:root.a11y-contrast .feedback.yes { color:#6EE7B7; } :root.a11y-contrast .feedback.no { color:#FDA4AF; } :root.a11y-contrast .feedback.warn { color:#FDE047; }
+:root.a11y-contrast input:focus, :root.a11y-contrast textarea:focus, :root.a11y-contrast button:focus-visible, :root.a11y-contrast a:focus-visible { outline:3px solid #FACC15; outline-offset:2px; }
+:root.a11y-contrast .btn.primary { background:#3730A3; color:#fff; border:2px solid #000; }
+:root.a11y-contrast[data-theme="dark"] .btn.primary { border-color:#fff; }

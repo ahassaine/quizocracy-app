@@ -9,7 +9,7 @@ from fastapi import HTTPException, Request
 
 from . import config
 from .db import db
-from .security import new_token, token_key
+from .security import new_token, token_key, verify_secret
 
 COOKIE = "qz_s"
 # Idle limits. Parent mode on a device a child has used (a PIN was typed or the parent unlocked it) locks itself;
@@ -33,6 +33,27 @@ class Ctx:
     family: dict
     child: dict | None = None
     locked: bool = False            # child mode: a child is signed in, or the device was handed over
+
+    @property
+    def role(self) -> str:
+        """owner (signed the family up), parent (invited, the same rights) or carer (minds the children)."""
+        return self.account.get("role") or "owner"
+
+    @property
+    def full(self) -> bool:
+        """Full rights: manage children, the account, the other adults and the family's data. A carer has not."""
+        return self.role in FULL_ROLES
+
+
+# The adults of a family. Each has their own login; the PIN, lock and parent-mode rules are the same for all.
+FULL_ROLES = ("owner", "parent")
+ROLE_TITLES = {"owner": "Parent (account owner)", "parent": "Parent", "carer": "Carer"}
+
+
+def weekly_on(account: dict) -> bool:
+    """Does this adult get the Sunday summary? On for parents unless turned off; a carer turns it on."""
+    v = account.get("weekly_email")
+    return (account.get("role") or "owner") in FULL_ROLES if v is None else bool(v)
 
 
 def client_ip(request: Request) -> str:
@@ -144,6 +165,25 @@ async def parent_page(request: Request) -> Ctx:
     if ctx.locked:
         raise Redirect("/parent-unlock")
     return ctx
+
+
+async def full_page(request: Request) -> Ctx:
+    """Parent mode for an adult with full rights; a carer gets a plain "ask a parent" page."""
+    ctx = await parent_page(request)
+    if not ctx.full:
+        raise Redirect("/not-allowed")
+    return ctx
+
+
+async def family_adult(ctx: Ctx, password: str) -> dict | None:
+    """The adult of this family whose password this is (the signed-in one tried first), or None."""
+    if verify_secret(password, ctx.account["pw"]):
+        return ctx.account
+    async for a in db.accounts.find({"family_id": ctx.family["_id"], "_id": {"$ne": ctx.account["_id"]},
+                                     "verified_at": {"$ne": None}}):
+        if verify_secret(password, a["pw"]):
+            return a
+    return None
 
 
 async def child_page(request: Request) -> Ctx:

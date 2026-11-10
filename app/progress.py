@@ -5,7 +5,7 @@ from fractions import Fraction
 from zoneinfo import ZoneInfo
 
 from . import config
-from .activities import plan_of, todays_plan
+from .activities import plan_of, rest_day, todays_plan
 from .db import db
 
 TZ = ZoneInfo(config.TIMEZONE)
@@ -88,21 +88,25 @@ async def counts(pupil_ids: list, days: list) -> dict:
 def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = None) -> dict:
     """Progress of one child on one day, against the plan of that day: per activity and overall percent.
     Percents are rounded down (exact fractions), so 100% and a reward "at 100%" come only when every activity
-    is complete. A day that reached 100% or earned its reward keeps it (pupil.kept), whatever changes later."""
+    is complete. A day that reached 100% or earned its reward keeps it (pupil.kept), whatever changes later.
+    On a rest day (rest: "off" or "week", see activities.rest_day) nothing is due: every right answer is extra,
+    and the day shows as rest, not as 0%; only what it had already kept stays."""
     day = day or today()
     items, total = [], Fraction(0)
     plan = todays_plan(pupil, family, day)
+    rest = rest_day(pupil, day)
     for a in plan:
         c = day_counts.get(a["key"], {"correct": 0, "answered": 0})
         done = min(a["target"], c["correct"])
         frac = Fraction(done, a["target"])
         total += frac
         items.append({**a, "done": done, "correct": c["correct"], "answered": c["answered"],
-                      "extra": max(0, c["correct"] - a["target"]), "pct": math.floor(100 * frac),
-                      "complete": done >= a["target"]})
-    pct = math.floor(100 * total / len(plan)) if plan else 0
+                      "extra": c["correct"] if rest else max(0, c["correct"] - a["target"]),
+                      "pct": math.floor(100 * frac), "complete": done >= a["target"]})
+    pct = 0 if rest else math.floor(100 * total / len(plan)) if plan else 0
     kept = (pupil.get("kept") or {}).get(day) or {}
-    return {"items": items, "pct": max(pct, int(kept.get("pct") or 0)), "kept": kept}
+    return {"items": items, "pct": max(pct, int(kept.get("pct") or 0)), "kept": kept, "rest": rest,
+            "extra": sum(c.get("correct", 0) for c in day_counts.values()) if rest else 0}
 
 
 def reward_for(pupil: dict, family: dict) -> dict:

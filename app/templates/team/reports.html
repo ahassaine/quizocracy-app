@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Question reports · Team board{% endblock %}
+{% block body %}
+<p><a href="/team/{{ me._id }}">← Team board</a></p>
+<h1>Question reports</h1>
+<p class="mut small">Sent by children with “Something wrong with this question?”. Each keeps the question exactly as it was served. Families never see this page.</p>
+<p class="small">{% for s, label in statuses.items() %}{% if status == s %}<b>{{ label|capitalize }} ({{ counts[s] }})</b>{% else %}<a href="/team/{{ me._id }}/reports?status={{ s }}">{{ label|capitalize }} ({{ counts[s] }})</a>{% endif %} · {% endfor %}{% if status == 'all' %}<b>All</b>{% else %}<a href="/team/{{ me._id }}/reports?status=all">All</a>{% endif %}</p>
+{% for r in reports %}
+<div class="card" id="r{{ r._id }}" data-testid="report">
+  <div class="kid"><b>{{ ACTIVITIES[r.activity].title if ACTIVITIES.get(r.activity) else r.activity }}{% if r.year %} · Year {{ r.year }}{% endif %}</b><span class="chip{% if r.status != 'open' %} done{% endif %}" data-testid="report-status">{{ statuses.get(r.status, r.status) }}</span></div>
+  <div class="mut small">{{ r.ts.strftime('%d %b %H:%M') }} UTC{% if r.skill %} · skill <code>{{ r.skill }}</code>{% endif %}{% if r.device and r.device.w %} · {{ r.device.w }}×{{ r.device.h }}{% if r.device.touch %} touch{% endif %}{% endif %}</div>
+  <p style="margin:10px 0 4px"><b data-testid="report-reason">{{ reasons.get(r.reason, r.reason) }}</b>{% if r.note %}: <span dir="auto" style="white-space:pre-wrap">{{ r.note }}</span>{% endif %}</p>
+  <div class="small">Expected: <b>{{ r.expected if r.expected is not none else '?' }}</b> · Child's last answer: <b>{{ r.answer if r.answer is not none else '(none yet)' }}</b></div>
+  <details class="small" style="margin-top:8px"><summary style="cursor:pointer">The question as served</summary>
+    <pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;background:var(--bg-2);padding:10px;border-radius:8px;max-height:320px;overflow:auto">{{ r.served_text }}</pre></details>
+  {% if r.device and r.device.ua %}<div class="mut small" style="overflow-wrap:anywhere">{{ r.device.ua }}</div>{% endif %}
+  <form method="post" action="/team/{{ me._id }}/reports/{{ r._id }}/status" class="row" style="margin-top:8px">
+    <input type="hidden" name="back" value="{{ status }}">
+    {% for s, label in statuses.items() %}{% if s != r.status %}<button class="btn" name="status" value="{{ s }}" data-testid="set-{{ s }}">Mark {{ label }}</button>{% endif %}{% endfor %}
+  </form>
+</div>
+{% else %}<div class="card">No reports here.</div>{% endfor %}
+{% endblock %}

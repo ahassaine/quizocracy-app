@@ -6,17 +6,20 @@ import re
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
 
-from ..activities import (ACTIVITIES, ORDER, PLANS, SECONDS, YEARS, default_activities, minutes, plan_of,
-                          todays_plan, year_pace)
+from ..activities import (ACTIVITIES, ALL_WEEK, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SECONDS, WEEKDAYS, YEARS,
+                          day_label, days_text, default_activities, focus_on, minutes, plan_of, practice_days_on,
+                          rest_day, strand_label, todays_plan, year_pace)
 from ..bank import engine as bank_engine
 from ..maths import maths_mastery
 from ..db import FAMILY_COLLECTIONS, db
-from ..deps import Ctx, clear_pin_lock, family_page, hit, over_limit, own_pupil, parent_page, pin_locks
+from ..deps import (Ctx, clear_pin_lock, family_adult, family_page, full_page, hit, over_limit, own_pupil,
+                    parent_page, pin_locks)
 from ..drills import bank, maths, spelling, tables, verbs
 from .. import progress
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
+from .auth import settings_view
 from .child import picker_page
 
 router = APIRouter()
@@ -25,6 +28,7 @@ PIN_RE = re.compile(r"^\d{4}$")
 templates.env.globals["PLAN_JS"] = {"defaults": {y: default_activities(y) for y in YEARS}, "seconds": SECONDS,
                                     "pace": {y: year_pace(y) for y in YEARS},
                                     "min_year": {k: a["min_year"] for k, a in ACTIVITIES.items()}}
+templates.env.filters["daylabel"] = day_label          # "2026-11-24" -> "24 Nov"
 
 
 async def _pupils(ctx: Ctx) -> list:
@@ -61,7 +65,7 @@ def _full_reason(family: dict) -> str:
 
 
 @router.get("/children/new")
-async def child_new_form(request: Request, ctx: Ctx = Depends(parent_page)):
+async def child_new_form(request: Request, ctx: Ctx = Depends(full_page)):
     if len(await _pupils(ctx)) >= plan_of(ctx.family)["max_children"]:
         return page(request, "upgrade.html", ctx, reason=_full_reason(ctx.family), plan=plan_of(ctx.family))
     # the year list opens on Year 1, so its plan is ticked; the form's script re-ticks when the year changes
@@ -70,7 +74,7 @@ async def child_new_form(request: Request, ctx: Ctx = Depends(parent_page)):
 
 
 @router.post("/children/new")
-async def child_new(request: Request, ctx: Ctx = Depends(parent_page)):
+async def child_new(request: Request, ctx: Ctx = Depends(full_page)):
     form = await request.form()
     if len(await _pupils(ctx)) >= plan_of(ctx.family)["max_children"]:
         return page(request, "upgrade.html", ctx, reason=_full_reason(ctx.family), plan=plan_of(ctx.family),
@@ -117,7 +121,12 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
                 hist_keys=[k for k in ORDER if any(it["key"] == k for h in hist for it in h["items"])],
                 stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]),
                 mistakes=await progress.mistakes(p, progress.day_list(7)), pending=nxt if pending else None,
-                skills=await _skill_views(p, on), plan_items=now, TIPS=TIPS)
+                skills=await _skill_views(p, on), plan_items=now, TIPS=TIPS,
+                school=await spelling.school_status(p) if "spelling" in on else None,
+                focus=[strand_label(s) for k, s in focus_on(p).items() if k in on],
+                focus_until=(p.get("focus") or {}).get("until", ""), rest_today=rest_day(p),
+                pdays=days_text(practice_days_on(p, _tomorrow())),
+                days_off=[o for o in p.get("days_off") or [] if o["to"] >= progress.today()])
 
 
 def _tomorrow() -> str:
@@ -173,14 +182,15 @@ def _acts(p: dict) -> dict:
 
 
 @router.get("/children/{pid}/edit")
-async def child_edit_form(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+async def child_edit_form(request: Request, pid: str, ctx: Ctx = Depends(full_page)):
     p = await own_pupil(ctx, pid)
     return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p),
-                started=await _started_today(p), today_items=todays_plan(p, ctx.family))
+                started=await _started_today(p), today_items=todays_plan(p, ctx.family),
+                **_school_week_view(p, ctx.family))
 
 
 @router.post("/children/{pid}/edit")
-async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(full_page)):
     p = await own_pupil(ctx, pid)
     form = await request.form()
     name = (form.get("name") or p["name"]).strip()[:30]
@@ -190,13 +200,22 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
         year = p["year"]
     if year not in YEARS:
         year = p["year"]
+    school, err = _form_school_words(form, p)
+    rest, err = (await _form_rest(form, p)) if not err else ({}, err)
+    if err:
+        return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p),
+                    started=await _started_today(p), today_items=todays_plan(p, ctx.family), error=err,
+                    status_code=400, **_school_week_view(p, ctx.family, {k: form.get(k) or "" for k in (
+                        "school_words", "off_from", "off_to")}))
     upd = {"name": name or p["name"], "year": year, "reward": _form_reward(form, ctx.family),
-           **await _new_plan(p, _form_activities(form, year), bool(form.get("plan_today")))}
+           **await _new_plan(p, _form_activities(form, year), bool(form.get("plan_today"))),
+           **school, **rest, **_form_focus(form, p, ctx.family, year)}
     pin = (form.get("pin") or "").strip()
     if pin:
         if not PIN_RE.match(pin):
             return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p),
-                        error="The PIN is 4 numbers, like 2580.", status_code=400)
+                        error="The PIN is 4 numbers, like 2580.", status_code=400, started=await _started_today(p),
+                        today_items=todays_plan(p, ctx.family), **_school_week_view(p, ctx.family))
         # pin_view: shown to the parent (a minder must be able to find it); a 4-digit hash would not protect it anyway.
         upd["pin"], upd["pin_view"] = hash_secret(pin), pin
     await db.pupils.update_one({"_id": p["_id"]}, {"$set": upd})
@@ -224,10 +243,129 @@ async def _new_plan(p: dict, acts: dict, today_too: bool) -> dict:
     return {"activities": acts, "plan_log": log}
 
 
+# ---- the school's week: its spelling list, the topic the class is on, and rest days ----
+
+def _plus_days(n: int) -> str:
+    return (datetime.date.fromisoformat(progress.today()) + datetime.timedelta(days=n)).isoformat()
+
+
+def _focus_options(p: dict, family: dict) -> dict:
+    """The strands of the child's year a parent can pick: {"maths": [strand, ...], "grammar": [...], ...}."""
+    allowed, out = plan_of(family)["activities"], {}
+    if "maths" in allowed:
+        out["maths"] = list(dict.fromkeys(s["strand"] for s in maths_mastery._year_skills(maths.engine_year(p["year"]))))
+    for subj in ("grammar", "science"):
+        if subj in allowed and p["year"] >= ACTIVITIES[subj]["min_year"]:
+            out[subj] = list(dict.fromkeys(s["strand"] for s in bank_engine.skills(subj, p["year"])))
+    return out
+
+
+def _form_focus(form, p: dict, family: dict, year: int) -> dict:
+    """The update for "Working on this at school". Picking the same again keeps its dates; a new pick runs
+    from today for 1 or 2 weeks; nothing picked (or a new school year) ends it."""
+    if "focus_maths" not in form:
+        return {}
+    opts = _focus_options(p, family)
+    maths_s = form.get("focus_maths") or ""
+    subj, _, other = (form.get("focus_other") or "").partition(":")
+    new = {"maths": maths_s if maths_s in opts.get("maths", []) else "",
+           **({subj: other} if other and other in opts.get(subj, []) else {})}
+    new = {k: v for k, v in new.items() if v}
+    if year != p["year"] or not new:
+        return {"focus": None} if p.get("focus") else {}
+    try:
+        weeks = int(form.get("focus_weeks") or 1)
+    except ValueError:
+        weeks = 1
+    weeks = weeks if weeks in FOCUS_WEEKS else 1
+    cur = p.get("focus") or {}
+    if focus_on(p) == new:
+        if int(cur.get("weeks") or 1) == weeks:
+            return {}
+        start = cur["from"]
+    else:
+        start = progress.today()
+    until = (datetime.date.fromisoformat(start) + datetime.timedelta(weeks=weeks)).isoformat()
+    return {"focus": {**new, "weeks": weeks, "from": start, "until": until}}
+
+
+def _form_school_words(form, p: dict) -> tuple[dict, str]:
+    """The update for the school's spelling list, and an error to show. A new list runs for SCHOOL_DAYS from today;
+    the same list saved again keeps its dates; an emptied box ends it."""
+    if "school_words" not in form:
+        return {}, ""
+    words, err = spelling.parse_school_words(form.get("school_words") or "")
+    if err:
+        return {}, err
+    if words == spelling.school_words(p):
+        return {}, ""
+    if not words:
+        return ({"school_words": None} if p.get("school_words") else {}), ""
+    return {"school_words": {"words": words, "from": progress.today(), "until": _plus_days(spelling.SCHOOL_DAYS)}}, ""
+
+
+async def _form_rest(form, p: dict) -> tuple[dict, str]:
+    """The update for practice days and days off, and an error to show. A change of weekdays follows the plan's
+    rule (from tomorrow once the child has started today); a day off applies at once, today included."""
+    if "pdays_form" not in form:
+        return {}, ""
+    upd = {}
+    days = sorted({int(d) for d in form.getlist("pday") if str(d).isdigit() and int(d) in ALL_WEEK})
+    if not days:
+        return {}, "Tick at least one practice day. For a break, add days off instead."
+    cur = p.get("practice_days")
+    start = progress.today() if form.get("plan_today") or not await _started_today(p) else _tomorrow()
+    if days != (ALL_WEEK if cur is None else sorted(cur)) or days != sorted(practice_days_on(p, start)):
+        log = [e for e in p.get("days_log") or [{"from": "", "days": ALL_WEEK if cur is None else cur}] if e["from"] < start]
+        cutoff = progress.day_list(15)[0]
+        log = ([e for e in log if e["from"] < cutoff][-1:] + [e for e in log if e["from"] >= cutoff])[-20:]
+        upd.update({"practice_days": days, "days_log": log + [{"from": start, "days": days}]})
+    today = progress.today()
+    gone = set(form.getlist("off_remove"))
+    offs = [o for o in p.get("days_off") or []
+            if o["to"] >= progress.day_list(31)[0] and not (o["to"] >= today and f"{o['from']}|{o['to']}" in gone)]
+    first, last = (form.get("off_from") or "").strip(), (form.get("off_to") or "").strip()
+    if first or last:
+        try:
+            d1 = datetime.date.fromisoformat(first or last)
+            d2 = datetime.date.fromisoformat(last) if last else d1
+        except ValueError:
+            return {}, "Pick the day off from the calendar."
+        if d1.isoformat() < today:
+            return {}, "A day off can start today or later."
+        if d2 < d1:
+            return {}, "The last day off is before the first one. Swap them round."
+        if (d2 - d1).days + 1 > MAX_DAYS_OFF:
+            return {}, f"Days off can cover up to {MAX_DAYS_OFF // 7} weeks at a time. Add the rest as another break."
+        if d1.isoformat() > _plus_days(366):
+            return {}, "Pick a day within the next year."
+        offs.append({"from": d1.isoformat(), "to": d2.isoformat()})
+    offs = sorted({(o["from"], o["to"]) for o in offs})[-20:]
+    offs = [{"from": a, "to": b} for a, b in offs]
+    if offs != (p.get("days_off") or []):
+        upd["days_off"] = offs
+    return upd, ""
+
+
+def _school_week_view(p: dict, family: dict, draft: dict | None = None) -> dict:
+    """What the child form shows for the school list, the focus and rest days (draft: what the parent typed,
+    shown again with an error)."""
+    today = progress.today()
+    sl = spelling.school_words(p)
+    return {"school_text": (draft or {}).get("school_words", spelling.school_text(sl)),
+            "school_until": p["school_words"]["until"] if sl else "", "school_max": spelling.SCHOOL_MAX,
+            "focus_opts": _focus_options(p, family), "focus_now": focus_on(p),
+            "focus_cur": p.get("focus") if focus_on(p) else None,
+            "pdays": ALL_WEEK if p.get("practice_days") is None else p["practice_days"], "WEEKDAYS": WEEKDAYS,
+            "days_off": [o for o in p.get("days_off") or [] if o["to"] >= today], "today_iso": today,
+            "max_off": _plus_days(366), "draft": draft or {}, "strand_label": strand_label}
+
+
 async def _delete_pupils(ids: list) -> None:
     for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
         await db[c].delete_many({"pupil": {"$in": ids}})
-    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items"):
+    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
+              "reports"):
         await db[c].delete_many({"pupil_id": {"$in": ids}})
     # A device that child was using goes back to "Who's learning?", still locked: never to parent mode.
     await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None, "locked": True}})
@@ -235,7 +373,7 @@ async def _delete_pupils(ids: list) -> None:
 
 
 @router.post("/children/{pid}/delete")
-async def child_delete(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+async def child_delete(request: Request, pid: str, ctx: Ctx = Depends(full_page)):
     p = await own_pupil(ctx, pid)
     await _delete_pupils([p["_id"]])
     return RedirectResponse("/home?deleted=1", 303)
@@ -243,11 +381,12 @@ async def child_delete(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
 
 @router.get("/settings")
 async def settings_form(request: Request, ctx: Ctx = Depends(parent_page)):
-    return page(request, "settings.html", ctx, plan=plan_of(ctx.family), saved=request.query_params.get("saved"))
+    return page(request, "settings.html", ctx, plan=plan_of(ctx.family), saved=request.query_params.get("saved"),
+                **await settings_view(ctx))
 
 
 @router.post("/settings")
-async def settings(request: Request, ctx: Ctx = Depends(parent_page), family_name: str = Form(""),
+async def settings(request: Request, ctx: Ctx = Depends(full_page), family_name: str = Form(""),
                    reward_text: str = Form(""), reward_threshold: int = Form(100)):
     upd = {"name": (family_name.strip() or ctx.family["name"])[:60]}
     if plan_of(ctx.family)["rewards"]:
@@ -257,7 +396,7 @@ async def settings(request: Request, ctx: Ctx = Depends(parent_page), family_nam
 
 
 @router.get("/account/export")
-async def export(request: Request, ctx: Ctx = Depends(parent_page)):
+async def export(request: Request, ctx: Ctx = Depends(full_page)):
     fid = ctx.family["_id"]
     pupils = await _pupils(ctx)
     ids = [p["_id"] for p in pupils]
@@ -267,7 +406,8 @@ async def export(request: Request, ctx: Ctx = Depends(parent_page)):
             "devices": [{k: s.get(k) for k in ("created", "expires", "child_id")}
                         async for s in db.sessions.find({"family_id": fid})]}
     # Every per-child collection that deleting a child removes (see _delete_pupils), so the file is complete.
-    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items"):
+    for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
+              "reports"):
         data[c] = [d async for d in db[c].find({"pupil_id": {"$in": ids}}, {"_id": 0})]
     for c in ("maths_attempts", "maths_mastery", "maths_lab_q"):
         data[c] = [d async for d in db[c].find({"pupil": {"$in": ids}}, {"_id": 0})]
@@ -284,16 +424,19 @@ def _json_default(o):
 
 
 @router.post("/account/delete")
-async def delete_account(request: Request, ctx: Ctx = Depends(parent_page), password: str = Form(...),
+async def delete_account(request: Request, ctx: Ctx = Depends(full_page), password: str = Form(...),
                          confirm: str = Form("")):
     if confirm.strip().upper() != "DELETE" or not verify_secret(password, ctx.account["pw"]):
         return page(request, "settings.html", ctx, plan=plan_of(ctx.family), status_code=400,
-                    delete_error="Type DELETE and your password to delete the account.")
+                    delete_error="Type DELETE and your password to delete the account.", **await settings_view(ctx))
     fid = ctx.family["_id"]
     await _delete_pupils([p["_id"] async for p in db.pupils.find({"family_id": fid}, {"_id": 1})])
-    emails = [a["email"] async for a in db.accounts.find({"family_id": fid})]
+    # every adult's address, and the ones they changed from, so the mail log about them goes too
+    emails = [e async for a in db.accounts.find({"family_id": fid}) for e in [a["email"], *a.get("past_emails", [])]]
     for c in FAMILY_COLLECTIONS:
         await db[c].delete_many({"family_id": fid})
+    await db.codes.delete_many({"family_id": fid})             # invitations still open
+    await db.weekly_sends.delete_many({"family_id": fid})
     await db.codes.delete_many({"email": {"$in": emails}})
     await db.outbox.delete_many({"to": {"$in": emails}})
     await db.families.delete_one({"_id": fid})
@@ -325,15 +468,18 @@ async def unlock(request: Request, ctx: Ctx = Depends(family_page), password: st
     if await over_limit(key, UNLOCK_FAILS, UNLOCK_MINUTES):
         return page(request, "unlock.html", ctx, status_code=429,
                     error=f"Too many wrong passwords. The parent area is locked for {UNLOCK_MINUTES} minutes.")
-    if not verify_secret(password, ctx.account["pw"]):
+    adult = await family_adult(ctx, password)
+    if not adult:
         await hit(key)
         return page(request, "unlock.html", ctx, error="That password is not right.", status_code=400)
     await db.login_failures.delete_many({"email": key})
     now = datetime.datetime.utcnow()
     # handed: this device has been in a child's hands, so parent mode here locks itself when left idle (deps).
+    # Any adult of the family can open it, and the device is then theirs, with their own rights (a carer's or a parent's).
     await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": None, "locked": False,
                                                                         "parent_ok_at": now, "seen_at": now,
-                                                                        "handed": True, "timed_out": False}})
+                                                                        "handed": True, "timed_out": False,
+                                                                        "account_id": adult["_id"]}})
     return RedirectResponse("/home", 303)
 
 
@@ -347,7 +493,7 @@ async def pin_unlock(request: Request, pid: str, ctx: Ctx = Depends(family_page)
         err = None
         if await over_limit(key, UNLOCK_FAILS, UNLOCK_MINUTES):
             err = f"Too many wrong passwords. Try again in {UNLOCK_MINUTES} minutes."
-        elif not verify_secret(password, ctx.account["pw"]):
+        elif not await family_adult(ctx, password):
             await hit(key)
             err = "That parent password is not right."
         if err:

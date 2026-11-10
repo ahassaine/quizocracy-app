@@ -27,9 +27,20 @@ SKILLS = [
   production bank that a child works through for a whole school year, not a sample.
 * Keys are unique across the whole bank. Do not renumber published keys later (progress is stored by key).
 
+## Question ids
+
+Every question carries a permanent `"id"` (12 hex characters), the first key of its dict:
+`{"id": "40bb622cea67", "t": "write", ...}`. Children's seen lists, mistakes, retries and mastery are stored by
+this id, so it **never changes**, even when the question's text, options or answers are edited, and it is
+never reused. Write a new question without an id, then run `python scripts/bank_ids.py`: it gives each question
+that lacks one a fresh id that no question has, and touches nothing else (running it again changes nothing).
+Never type or copy an id by hand; the lint fails on a missing or duplicate id. Deleting a question retires its
+id. (The ids written on 10 Nov 2026 are the hashes the questions were served under until then, so no record
+had to move.)
+
 ## Question types
 
-Every question has `"t"` (type), `"q"` (the instruction or question) and `"why"` (one short sentence that
+Every question has `"id"` (see above), `"t"` (type), `"q"` (the instruction or question) and `"why"` (one short sentence that
 teaches the point; the child sees it after a wrong answer, under the right answer).
 
 | t | Child does | Fields |

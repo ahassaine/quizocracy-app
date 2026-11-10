@@ -22,6 +22,9 @@ _BY_KEY: dict = {}
 
 
 def _qid(skill_key: str, q: dict) -> str:
+    """The id a question was served under before ids were written in the content (10 Nov 2026): a hash of its
+    text, so an edit gave it a new one. scripts/bank_ids.py --legacy wrote these into the files; the engine only
+    falls back to it for a question added since without an id (the lint fails on that)."""
     sig = "|".join([skill_key, q.get("t", ""), q.get("q", ""), q.get("s", ""), *map(str, q.get("opts", []))])
     return hashlib.sha1(sig.encode()).hexdigest()[:12]
 
@@ -70,7 +73,10 @@ def load() -> dict:
                 continue
             subject = next((s for s, p in PREFIX.items() if str(sk.get("key", "")).startswith(p)), None)
             out = excluded.QUESTIONS.get(sk.get("key"), set())
-            qs = [dict(q, id=_qid(sk["key"], q)) for q in sk.get("qs", []) if _usable(q) and q.get("q") not in out]
+            qs = [q if q.get("id") else dict(q, id=_qid(sk["key"], q))     # the id is permanent (SPEC.md)
+                  for q in sk.get("qs", []) if _usable(q) and q.get("q") not in out]
+            if any(not q.get("id") for q in sk.get("qs", [])):
+                log.warning("bank skill %s has questions without an id: run scripts/bank_ids.py", sk.get("key"))
             if subject == "science":                 # "the axle" is as right as "axle" (not so in grammar)
                 qs = [dict(q, loose=True) if q["t"] == "text" else q for q in qs]
             if not subject or not qs:

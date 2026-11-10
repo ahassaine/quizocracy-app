@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Change email · Quizocracy{% endblock %}
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise">
+<h1>Change your email</h1>
+{% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+{% if pending %}
+<p>We sent a 6-digit code to <b style="overflow-wrap:anywhere">{{ pending }}</b>. Your email changes once you enter it; until then, keep signing in with {{ ctx.account.email }}.</p>
+<form method="post" action="/account/email/confirm" class="card">
+  <div class="field"><label for="code">Code</label><input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required maxlength="6"></div>
+  <button class="btn primary" type="submit">Change my email</button>
+</form>
+<div class="row"><form method="post" action="/account/email/resend"><button class="btn" type="submit">Send a new code</button></form><a class="btn" href="/account/email">Use another address</a></div>
+{% else %}
+<p class="mut">Now: <b style="overflow-wrap:anywhere">{{ ctx.account.email }}</b>. We send a code to the new address, and a note to this one once it has changed.</p>
+<form method="post" action="/account/email" class="card">
+  <div class="field"><label for="new_email">New email</label><input id="new_email" name="new_email" type="email" required autocomplete="email" value="{{ new_email or '' }}"></div>
+  <div class="field"><label for="password">Your password</label><input id="password" name="password" type="password" required autocomplete="current-password"></div>
+  <button class="btn primary" type="submit">Send me a code</button> <a class="btn" href="/settings">Cancel</a>
+</form>
+{% endif %}
+</div>{% endblock %}

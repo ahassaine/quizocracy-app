@@ -1,0 +1,132 @@
+{% extends "base.html" %}{% block title %}Help · Quizocracy{% endblock %}
+{% block body %}
+<style>
+  .help-toc { columns:2 240px; column-gap:18px; margin:0; padding-left:18px; }
+  .help-toc li { margin:3px 0; break-inside:avoid; }
+  .help-q { scroll-margin-top:76px; }
+  .help-q h2 { font-size:1.15rem; margin:0 0 .4em; }
+  .help-q h2 a.anchor { color:var(--mut); font-weight:400; margin-left:6px; opacity:.5; text-decoration:none; }
+  .help-q p, .help-q ul, .help-q table { margin:.4em 0; }
+  .help-q:target { border-color:var(--violet); }
+</style>
+<h1 class="rise">Help</h1>
+<p class="mut">Short answers for parents. Can't find what you need? Write to <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
+<div class="field" style="max-width:420px"><label for="helpSearch">Search the help</label>
+  <input id="helpSearch" type="search" placeholder="For example: PIN, reward, Scotland" autocomplete="off" data-testid="help-search"></div>
+<p class="mut small" id="helpNone" hidden data-testid="help-none">Nothing matches. Try another word, or write to us.</p>
+<nav class="card" aria-label="Questions" id="helpToc"><ol class="help-toc small">
+  {% for id, q in [("day-plan", "What is a day's plan and how long does it take?"), ("mastered", "How does something get learned (mastered)?"),
+     ("comes-back", "Why does a missed question come back later?"), ("first-time", "What do “right first time”, “rushed” and “copied” mean?"),
+     ("pins", "PINs: setting, showing, a locked child and unlocking"), ("changes", "Changing targets: “Changes start tomorrow”"),
+     ("rewards", "Rewards"), ("handover", "Handing the device to a child, and parent mode"), ("siblings", "Siblings on one device"),
+     ("read-aloud", "Read-aloud"), ("curriculum", "Which curriculum does it follow?"), ("report", "A progress report for a teacher"),
+     ("install", "Putting Quizocracy on your home screen"), ("beta", "What does the beta include?"),
+     ("privacy", "Data and privacy"), ("contact", "How to contact us")] %}
+  <li><a href="#{{ id }}">{{ q }}</a></li>{% endfor %}</ol></nav>
+
+<section class="card help-q" id="day-plan"><h2>What is a day's plan and how long does it take?<a class="anchor" href="#day-plan" aria-label="Link to this answer">#</a></h2>
+  <p>Each child has a short list of activities for the day, each with a target of <b>right answers</b> (for example: maths 8, times tables 20, spelling 8). Wrong answers never count towards a target. The day is finished when every activity reaches its target, and the bar shows how far along it is. A child can keep going after that; extra right answers show as “+5”.</p>
+  <p>When you add a child, the plan is filled in for their school year and comes to about 15 minutes. The child's Settings page shows “About … minutes a day” as you change the targets. Younger children take longer per answer, and the estimate allows for that.</p>
+</section>
+
+<section class="card help-q" id="mastered"><h2>How does something get learned (mastered)?<a class="anchor" href="#mastered" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>Maths, grammar and science skills</b> have a score from 0 to 100. Right answers raise it; wrong answers lower it, more so near the top. At 100 the skill is <b>secure</b> (mastered). A child who gets a skill right every time, 5 in a row, is secure at once, and the app checks it again on a later day. Secure skills come back now and then so they are not forgotten.</li>
+    <li><b>Times tables:</b> a fact is known once it is answered right 3 times in a row.</li>
+    <li><b>Spelling:</b> a word is learned when it is spelt right on 3 different days. Words come back after 1, 3, 7 and 21 days.</li>
+    <li><b>Irregular verbs:</b> a verb is known when it is right twice running; 10 right in a row moves the child up a level.</li>
+  </ul>
+  <p>This takes days and weeks, not one evening. A right answer typed just after being shown the answer counts for today's target, but not towards learning it.</p>
+</section>
+
+<section class="card help-q" id="comes-back"><h2>Why does a missed question come back later?<a class="anchor" href="#comes-back" aria-label="Link to this answer">#</a></h2>
+  <p>After a wrong answer the child sees the right one. If the same question came straight back, they could copy it from memory without learning it. So it comes back after at least 5 other questions and 3 minutes, when getting it right means it was remembered. Grammar and science questions come back once more on another day.</p>
+  <p>On their own page a child also has a <b>Practise my mistakes</b> button. On the child's progress page you see “Mistakes to go over” for the last 7 days; once a mistake is answered right later, it moves to “Put right since”.</p>
+</section>
+
+<section class="card help-q" id="first-time"><h2>What do “right first time”, “rushed” and “copied” mean?<a class="anchor" href="#first-time" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>Right first time</b>: the share of first tries that were right. A question answered again after a mistake is not a first try.</li>
+    <li><b>Rushed</b>: wrong answers given in under 1.5 seconds, left blank, or typed as random keys (like “asdf”). A few are normal; many suggest the child is racing to finish.</li>
+    <li><b>Copied?</b>: right answers typed within a minute of being shown that answer after a mistake. They count for the day's target, but we flag them so you can see how much was remembered rather than copied.</li>
+  </ul>
+</section>
+
+<section class="card help-q" id="pins"><h2>PINs: setting, showing, a locked child and unlocking<a class="anchor" href="#pins" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>Setting:</b> you choose a 4-number PIN when you add a child. To change it, open the child's <b>Settings</b> and type a new PIN. The new one works at once and the old one stops working.</li>
+    <li><b>Showing:</b> forgotten it? In the child's Settings, press <b>Show the PIN</b>. Only parents can see it; a carer with their own login can't.</li>
+    <li><b>Locked:</b> after 6 wrong PINs within 5 minutes, that child's tile locks for 5 minutes, so a brother or sister can't keep guessing. The tile says until when.</li>
+    <li><b>Unlocking:</b> wait, or on Home press <b>Unlock</b> next to the child. On “Who's learning?” open <b>Grown-up? Unlock … now</b> under the child's name and type your parent password. Changing the PIN also lifts the lock.</li>
+  </ul>
+</section>
+
+<section class="card help-q" id="changes"><h2>Changing targets: “Changes start tomorrow”<a class="anchor" href="#changes" aria-label="Link to this answer">#</a></h2>
+  <p>Change the activities and targets in the child's <b>Settings</b>. If the child hasn't practised yet today, changes start straight away. If they have started, today keeps the plan they started with and the changes start tomorrow, so the finish line doesn't move under them. To change today too, tick <b>Change today's plan too</b>; a reward already earned today stays earned. Past days are always judged against the plan they had.</p>
+</section>
+
+<section class="card help-q" id="rewards"><h2>Rewards<a class="anchor" href="#rewards" aria-label="Link to this answer">#</a></h2>
+  <p>Set a family reward in <a href="/settings">Settings</a> (for example “30 minutes of screen time”) and when it is earned: at 100% of the day, or at a lower share such as 80%. A child can have their own reward instead, in their own Settings. Children see the reward on their page and on the family board, and Home shows when it is earned. Once earned, it stays earned for that day, whatever changes later. The app only tells you; giving the reward is up to you.</p>
+</section>
+
+<section class="card help-q" id="handover"><h2>Handing the device to a child, and parent mode<a class="anchor" href="#handover" aria-label="Link to this answer">#</a></h2>
+  <p>Press <b>Hand over to a child</b> on Home (or <b>Learn</b> at the top). This locks the parent area and opens “Who's learning?”. Your child taps their name, types their PIN and presses <b>Start</b>.</p>
+  <p>To come back, press <b>Parent</b> at the top and type your password (any parent or carer of the family can use their own). On a device a child has used, parent mode locks itself after 5 minutes without use. A child left signed in goes back to “Who's learning?” after an hour without use. After 8 wrong parent passwords the parent area stays locked for 15 minutes.</p>
+</section>
+
+<section class="card help-q" id="siblings"><h2>Siblings on one device<a class="anchor" href="#siblings" aria-label="Link to this answer">#</a></h2>
+  <p>Each child has their own name tile, PIN, year, plan and progress. When one finishes, they press <b>Switch</b>: that signs them out, and the next child types their own PIN. Nobody can practise on a sibling's account without the sibling's PIN. The <b>Board</b> shows everyone's day side by side. Each child can also use their own phone or tablet: sign in there with your account and hand it over.</p>
+</section>
+
+<section class="card help-q" id="read-aloud"><h2>Read-aloud<a class="anchor" href="#read-aloud" aria-label="Link to this answer">#</a></h2>
+  <p>Every question has a speaker button that reads it out with the device's own voice (a British English voice where the device has one). Children in Years 1 and 2 also hear each question as it appears, and hear the feedback. On iPhone and iPad the device only speaks after a first tap, so the button says “Tap to hear” until then. Spelling always plays the word to spell. If a device has no voice, the speaker button is not shown and everything else works as normal.</p>
+</section>
+
+<section class="card help-q" id="curriculum"><h2>Which curriculum does it follow?<a class="anchor" href="#curriculum" aria-label="Link to this answer">#</a></h2>
+  <p data-testid="help-curriculum"><b>Follows the national curriculum in England (Years 1–9).</b> Maths, grammar and punctuation, and science follow each year's programme of study, skill by skill. Spelling uses the national curriculum word lists for Years 1 to 6, and longer, harder words for Years 7 to 9. Times tables start in Year 2 and irregular verbs in Year 3.</p>
+  <p><b>In Scotland, Wales or Northern Ireland?</b> Pick the year in England that matches your child's age. For example, P4 in Scotland is about Year 3. Birthday cut-offs differ a little between the nations, so if your child falls between two years, start with the lower one: you can change the year at any time in the child's Settings.</p>
+  <div style="overflow-x:auto"><table class="t small" data-testid="uk-years" style="white-space:nowrap">
+    <tr><th>England</th><th>Scotland</th><th>Wales</th><th>Northern Ireland</th><th>Age</th></tr>
+    {% for y, sco, wal, ni in uk_years %}<tr><td><b>Year {{ y }}</b></td><td>{{ sco }}</td><td>{{ wal }}</td><td>{{ ni }}</td><td>{{ y + 4 }}–{{ y + 5 }}</td></tr>{% endfor %}
+  </table></div>
+</section>
+
+<section class="card help-q" id="report"><h2>A progress report for a teacher<a class="anchor" href="#report" aria-label="Link to this answer">#</a></h2>
+  <p>On a child's progress page, press <b>Print / save as PDF</b>. That opens a progress report which fits on one or two A4 pages: days practised, answers, right first time, minutes, skills secure by subject and strand, what to work on next and the spellings learned, for the last 7 days, the last 30 days or this term so far. Press <b>Print / save as PDF</b> again there to print it or save it to share.</p>
+</section>
+
+<section class="card help-q" id="install"><h2>Putting Quizocracy on your home screen<a class="anchor" href="#install" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>iPhone or iPad (Safari):</b> press <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>.</li>
+    <li><b>Android (Chrome):</b> open the ⋮ menu, then <b>Add to Home screen</b> or <b>Install app</b>.</li>
+    <li><b>Computer (Chrome or Edge):</b> press the install icon at the right of the address bar.</li>
+  </ul>
+  <p>It then opens full screen on “Who's learning?”, like an app. It still needs the internet to check answers.</p>
+</section>
+
+<section class="card help-q" id="beta"><h2>What does the beta include?<a class="anchor" href="#beta" aria-label="Link to this answer">#</a></h2>
+  <p>Everything, free: all seven activities (maths, times tables, spelling, grammar and punctuation, science, numbers in words and irregular verbs), rewards, the family board and room for up to 6 children. Nothing is charged and no card is asked for. We will tell you before anything you rely on changes. Tell us what works and what doesn't: it shapes what we build next.</p>
+</section>
+
+<section class="card help-q" id="privacy"><h2>Data and privacy<a class="anchor" href="#privacy" aria-label="Link to this answer">#</a></h2>
+  <p>We keep your email address, your children's first names or nicknames, their school years and PINs, and their answers, so we can choose the next question and show you progress. No surnames, dates of birth, photos or schools. No adverts, no chat, nothing shared with other families, and no AI looks at your child's work. In <a href="/settings">Settings</a> you can download everything we hold, or delete your account and all its data at once. Read the full <a href="/privacy">privacy notice</a>.</p>
+</section>
+
+<section class="card help-q" id="contact"><h2>How to contact us<a class="anchor" href="#contact" aria-label="Link to this answer">#</a></h2>
+  <p>Email <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>. A real person reads every message. If something looks wrong, tell us the child's year, the activity and the question, and a screenshot helps.</p>
+</section>
+<script>
+  /* Search: show only the answers that contain every word typed (headings and text), and hide the list of questions. */
+  (function () {
+    const box = document.getElementById('helpSearch'), toc = document.getElementById('helpToc'), none = document.getElementById('helpNone');
+    const qs = [...document.querySelectorAll('.help-q')];
+    box.addEventListener('input', () => {
+      const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      qs.forEach(s => { const hit = words.every(w => s.textContent.toLowerCase().includes(w)); s.hidden = !hit; shown += hit; });
+      toc.hidden = words.length > 0;
+      none.hidden = shown > 0;
+    });
+  })();
+</script>
+{% endblock %}

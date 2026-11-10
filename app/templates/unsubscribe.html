@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Weekly email · Quizocracy{% endblock %}
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
+<h1 style="text-align:center">Weekly summary</h1>
+{% if not acc %}<div class="err" role="alert">This link does not work. You can turn the weekly email off in Settings after signing in.</div>
+{% elif done %}<div class="ok" role="status" data-testid="unsubscribed">Done. {{ acc.email }} will not get the weekly summary any more. You can turn it back on in Settings.</div>
+{% else %}
+<div class="card"><p style="margin-top:0">Stop the Sunday summary email to <b style="overflow-wrap:anywhere">{{ acc.email }}</b>?</p>
+<form method="post" action="/unsubscribe"><input type="hidden" name="t" value="{{ t }}"><button class="btn primary" type="submit" data-testid="unsubscribe">Stop the weekly email</button></form></div>
+{% endif %}
+</div>{% endblock %}

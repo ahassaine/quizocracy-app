@@ -7,6 +7,7 @@ question comes back RETRY_GAP questions and RETRY_SECONDS later, and once more o
 import datetime
 import random
 
+from ..activities import FOCUS_SHARE, focus_on
 from ..bank import engine
 from ..db import db
 from ..maths.maths_mastery import CHALLENGE_ZONE, MASTERED, gain, penalty
@@ -90,7 +91,10 @@ def make(subject: str):
                     reason = "retry"
                     break
         if not reason:
-            sk, reason = pick_skill(skills, mm)
+            # "working on this at school": about two questions in three from that strand, still by mastery
+            strand = focus_on(pupil).get(subject)
+            in_focus = [s for s in skills if s["strand"] == strand]
+            sk, reason = pick_skill(in_focus if in_focus and random.random() < FOCUS_SHARE else skills, mm)
             q = pick_question(sk, mm.get(sk["key"], {}).get("seen", []))
         pub, key = engine.serve(q)
         token = await items.issue(pupil, subject, key, {"skill": sk["key"], "qid": q["id"], "reason": reason})

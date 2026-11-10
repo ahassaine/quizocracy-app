@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Join a family · Quizocracy{% endblock %}
+{% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
+{% if invalid %}<h1 style="text-align:center">Invitation</h1>
+<div class="err" role="alert" data-testid="invite-invalid">This invitation has expired, was already used or was cancelled. Ask the parent who invited you to send a new one.</div>
+<p><a href="/login">Sign in</a> if you already joined.</p>
+{% else %}
+<h1 style="text-align:center">Join {{ family.name }}</h1>
+<p>{% if by %}<b style="overflow-wrap:anywhere">{{ by }}</b> invited you{% else %}You are invited{% endif %} as a <b>{{ inv.role }}</b>. You will be able to {{ can }}.</p>
+{% if error %}<div class="err" role="alert" data-testid="invite-error">{{ error }}</div>{% endif %}
+<form method="post" action="/invite" class="card">
+  <input type="hidden" name="token" value="{{ token }}">
+  <div class="field"><label for="email">Your email</label><input id="email" type="email" value="{{ inv.email }}" disabled autocomplete="username"></div>
+  <div class="field"><label for="password">Choose a password</label><input id="password" name="password" type="password" required autocomplete="new-password" aria-describedby="pw-hint">
+    <div class="mut small" id="pw-hint">8 characters or more. This is your own password: you sign in with it, and it opens the parent area on a device a child has used.</div></div>
+  <label class="check" for="consent" style="font-weight:400;align-items:center;padding:12px 14px;margin:12px 0 4px;border:1px solid var(--line);border-radius:14px;cursor:pointer;min-height:56px">
+    <input id="consent" name="consent" type="checkbox" value="1" {% if consent %}checked{% endif %} style="width:28px;height:28px;margin:0;flex:none">
+    <span>I am aged 18 or over, and I accept the <a href="/terms" target="_blank" rel="noopener">terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</span></label>
+  <button class="btn primary big" type="submit" style="margin-top:10px">Join the family</button>
+</form>
+{% endif %}
+</div>{% endblock %}

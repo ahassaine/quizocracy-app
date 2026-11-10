@@ -7,7 +7,8 @@
 <form method="post" class="card">
   <div class="field"><label for="name">First name or nickname</label><input id="name" name="name" type="text" required maxlength="30" value="{{ pupil.name if pupil else '' }}"></div>
   <div class="field"><label for="year">School year (England)</label>
-    <select id="year" name="year" required>{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select></div>
+    <select id="year" name="year" required aria-describedby="year-hint">{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select>
+    <div class="mut small" id="year-hint" data-testid="year-hint">Follows the national curriculum in England (Years 1–9). In Scotland, Wales or Northern Ireland, pick the year for your child's age: P4 in Scotland is about Year 3 (<a href="/help#curriculum" target="_blank" rel="noopener">see the table</a>).</div></div>
   {% if editing %}<div class="field"><b>{{ pupil.name }}'s PIN</b>
     {% if pupil.pin_view %}<details data-testid="show-pin"><summary style="cursor:pointer;padding:6px 0">Show the PIN</summary><span class="display" style="font-size:1.6rem;font-weight:800;letter-spacing:6px" data-testid="pin-value">{{ pupil.pin_view }}</span></details>
     {% else %}<div class="mut small">Set a new PIN below and it will be shown here, for anyone who minds {{ pupil.name }}.</div>{% endif %}</div>{% endif %}
@@ -62,6 +63,44 @@
     forYear(false);
   })();
   </script>
+  {% if editing %}
+  {% set dr = draft or {} %}{% set date_css = "width:200px;max-width:100%;background:var(--field);border:2px solid var(--line);border-radius:12px;color:var(--ink);font:inherit;font-size:1.05rem;padding:9px 12px" %}
+  {% if 'spelling' in plan.activities %}
+  <h2 id="school-list">This week's spelling list from school</h2>
+  <p class="mut small">Type or paste the words the school sent home: commas, spaces or one word a line all work. For the next 7 days {{ pupil.name }} practises these first, with the same listening and marking, then goes back to the Year {{ pupil.year }} list. We'll say each word; add a sentence after a dash if you like: "there - over there".</p>
+  {% if school_until %}<div class="small" data-testid="school-running" style="margin-bottom:6px"><b>Running until {{ school_until|daylabel }}.</b> <span class="mut">Saving a new list starts a new week. Empty the box to stop it.</span></div>{% endif %}
+  {% if not acts.get('spelling', {}).get('on') %}<div class="small mut" style="margin-bottom:6px">Spelling isn't ticked in the daily plan above: tick it so {{ pupil.name }} practises the list.</div>{% endif %}
+  <div class="field"><label for="school_words">Spelling words <span class="mut small" style="font-weight:400">(up to {{ school_max }})</span></label>
+    <textarea id="school_words" name="school_words" rows="5" maxlength="4000" placeholder="because, friend, there - over there" data-testid="school-words" autocapitalize="off" autocorrect="off" spellcheck="false">{{ school_text }}</textarea></div>
+  {% endif %}
+  {% if focus_opts %}
+  <h2 id="school-focus">Working on this at school <span class="mut small" style="font-weight:400">(optional)</span></h2>
+  <p class="mut small">Pick what the class is learning now. For 1 or 2 weeks about two questions in three come from it, still at {{ pupil.name }}'s level; the rest of the plan carries on, and it ends by itself.</p>
+  {% if focus_now %}<div class="small" data-testid="focus-now" style="margin-bottom:6px"><b>Focus: {% for k, s in focus_now.items() %}{{ strand_label(s) }}{% if not loop.last %}, {% endif %}{% endfor %} until {{ focus_cur.until|daylabel }}.</b> <span class="mut">Choose "Nothing" to stop it now.</span></div>{% endif %}
+  {% if focus_opts.maths %}<div class="field"><label for="focus_maths">Maths topic</label>
+    <select id="focus_maths" name="focus_maths" data-testid="focus-maths"><option value="">Nothing</option>{% for s in focus_opts.maths %}<option value="{{ s }}" {% if focus_now.maths == s %}selected{% endif %}>{{ strand_label(s) }}</option>{% endfor %}</select></div>
+  {% else %}<input type="hidden" name="focus_maths" value="">{% endif %}
+  {% if focus_opts.grammar or focus_opts.science %}<div class="field"><label for="focus_other">Grammar or science</label>
+    <select id="focus_other" name="focus_other" data-testid="focus-other"><option value="">Nothing</option>
+    {% for subj in ("grammar", "science") %}{% if focus_opts[subj] %}<optgroup label="{{ ACTIVITIES[subj].title }}">{% for s in focus_opts[subj] %}<option value="{{ subj }}:{{ s }}" {% if focus_now.get(subj) == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</optgroup>{% endif %}{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="focus_weeks">For</label>
+    <select id="focus_weeks" name="focus_weeks" style="max-width:200px" data-testid="focus-weeks">{% for w in (1, 2) %}<option value="{{ w }}" {% if focus_cur and focus_cur.weeks == w %}selected{% endif %}>{{ w }} week{{ 's' if w > 1 }}</option>{% endfor %}</select>
+    <div class="mut small">Topics of Year {{ pupil.year }}. Changing the school year stops the focus.</div></div>
+  {% endif %}
+  <h2 id="rest-days">Practice days</h2>
+  <p class="mut small">The days {{ pupil.name }} practises. Other days are rest days: My day says so, practice still counts as extra, and the history shows them as rest, not 0%.{% if started %} {{ pupil.name }} has started today, so a change here starts tomorrow (unless you ticked "Change today's plan too" above).{% endif %}</p>
+  <input type="hidden" name="pdays_form" value="1">
+  <div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-bottom:6px" data-testid="practice-days">
+    {% for d in WEEKDAYS %}<label class="check" style="font-weight:600"><input type="checkbox" name="pday" value="{{ loop.index0 }}" {% if loop.index0 in pdays %}checked{% endif %} data-testid="pday-{{ loop.index0 }}"> {{ d }}</label>{% endfor %}</div>
+  <h3 style="margin:14px 0 4px">Days off</h3>
+  <p class="mut small">A sick day or a holiday, up to 3 weeks. A day off starts at once, even today, and never takes back a reward already earned.</p>
+  {% if days_off %}<ul class="small" style="padding-left:0;list-style:none;margin:6px 0" data-testid="days-off">{% for o in days_off %}
+    <li style="margin:4px 0"><label class="check" style="font-weight:400"><input type="checkbox" name="off_remove" value="{{ o.from }}|{{ o.to }}"> <span><b>{{ o.from|daylabel }}{% if o.to != o.from %} to {{ o.to|daylabel }}{% endif %}</b>{% if o.from <= today_iso %} (now){% endif %} · <span class="mut">tick to cancel it</span></span></label></li>{% endfor %}</ul>{% endif %}
+  <div style="display:flex;flex-wrap:wrap;gap:0 14px">
+    <div class="field" style="margin:6px 0"><label for="off_from">First day off</label><input id="off_from" name="off_from" type="date" min="{{ today_iso }}" max="{{ max_off }}" value="{{ dr.off_from or '' }}" data-testid="off-from" style="{{ date_css }}"></div>
+    <div class="field" style="margin:6px 0"><label for="off_to">Last day off <span class="mut small" style="font-weight:400">(if more than one)</span></label><input id="off_to" name="off_to" type="date" min="{{ today_iso }}" max="{{ max_off }}" value="{{ dr.off_to or '' }}" data-testid="off-to" style="{{ date_css }}"></div>
+  </div>
+  {% endif %}
   <div class="row"><button class="btn primary" type="submit">Save</button><a class="btn" href="{{ '/children/' ~ pupil._id if editing else '/home' }}">Cancel</a></div>
 </form>
 {% if editing %}

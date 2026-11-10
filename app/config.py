@@ -29,9 +29,13 @@ MAIL_PORT = int(os.getenv("QZ_MAIL_PORT", "25"))
 MAIL_FROM = os.getenv("QZ_MAIL_FROM", "Quizocracy <noreply@quizocracy.com>")
 # Addresses on these domains are never sent, only captured (used by the end-to-end tests).
 CAPTURE_DOMAINS = tuple(d.strip().lower() for d in os.getenv("QZ_CAPTURE_DOMAINS", "example.test").split(",") if d.strip())
+# Unhandled server errors (500s) are emailed here, throttled (app/main.py); unset: logged only.
+ALERT_EMAIL = os.getenv("QZ_ALERT_EMAIL", "").strip()
 
 TIMEZONE = os.getenv("QZ_TZ", "Europe/London")
 SUPPORT_EMAIL = os.getenv("QZ_SUPPORT_EMAIL", "support@quizocracy.com")
+# Signs links that work without signing in (the weekly email's unsubscribe). Set a long random value in production.
+SECRET_KEY = os.getenv("QZ_SECRET_KEY", "dev-only-not-secret")
 
 PRICE_MONTH = "£3.99"
 PRICE_YEAR = "£35"
