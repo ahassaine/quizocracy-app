@@ -4,27 +4,52 @@
   <form method="post" action="/handover" style="margin-top:8px"><button class="btn" type="submit">Hand over to a child</button></form></div>{% endif %}
 <div class="kid"><h1>{{ pupil.name }}</h1><a class="btn" href="/children/{{ pupil._id }}/edit">Settings</a></div>
 <p class="mut">Year {{ pupil.year }}</p>
+{% set td = hist[-1] if hist else none %}
+{% if td %}<div class="card" data-testid="today">
+  <div class="kid"><b>Today</b><span class="pct">{{ td.pct }}%</span></div>
+  <div class="chips">{% for it in td['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>
+  {% with s = td.stats, name = pupil.name %}{% include "_day_stats.html" %}{% endwith %}
+  {% if pending %}<div class="small mut" data-testid="plan-pending" style="margin-top:6px">From tomorrow: {% for a in pending %}{{ a.title }} {{ a.target }}{% if not loop.last %}, {% endif %}{% else %}nothing ticked{% endfor %}.</div>{% endif %}
+</div>{% endif %}
+<h2>Learned so far</h2>
+<p class="mut small">These fill up over days and weeks, not in one evening: something counts only once {{ pupil.name }} has shown it more than once.</p>
 <div class="grid">
-  {% if stats.maths %}<div class="card lift"><div class="act-head"><img src="/static/img/maths.png" alt="" style="width:46px;height:46px;animation:none"><b>Maths</b></div><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered</div></div>{% endif %}
-  <div class="card lift"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts answered right 3 times running</div></div>
-  <div class="card lift"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">statutory words learned</div></div>
-  {% for k in ("grammar", "science") %}{% if stats[k] %}<div class="card lift" data-testid="card-{{ k }}"><div class="act-head"><img src="/static/img/{{ k }}.png" alt="" style="width:46px;height:46px;animation:none"><b>{{ ACTIVITIES[k].title }}</b></div><div class="pct">{{ stats[k].mastered }}/{{ stats[k].total }}</div><div class="mut small">Year {{ stats[k].year }} skills mastered</div></div>{% endif %}{% endfor %}
-  {% if stats.verbs %}<div class="card lift"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">level {{ stats.verbs.level }} of {{ stats.verbs.levels }}</div></div>{% endif %}
+  {% if stats.maths %}<div class="card lift" data-testid="card-maths"><div class="act-head"><img src="/static/img/maths.png" alt="" style="width:46px;height:46px;animation:none"><b>Maths</b></div><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered{% if stats.maths.started %}, {{ stats.maths.started }} more being practised{% endif %}. A skill is mastered after a long run of right answers on it.</div></div>{% endif %}
+  {% if stats.tables %}<div class="card lift" data-testid="card-tables"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts known. A fact counts once it is answered right 3 times in a row, so new facts take a few days.</div></div>{% endif %}
+  {% if stats.spelling %}<div class="card lift" data-testid="card-spelling"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">words from the school word list learned. A word counts as learned when it is spelt right on 3 different days.</div></div>{% endif %}
+  {% for k in ("grammar", "science") %}{% if stats[k] %}<div class="card lift" data-testid="card-{{ k }}"><div class="act-head"><img src="/static/img/{{ k }}.png" alt="" style="width:46px;height:46px;animation:none"><b>{{ ACTIVITIES[k].title }}</b></div><div class="pct">{{ stats[k].mastered }}/{{ stats[k].total }}</div><div class="mut small">Year {{ stats[k].year }} skills mastered. A skill is mastered after a run of right answers on it.</div></div>{% endif %}{% endfor %}
+  {% if stats.verbs %}<div class="card lift" data-testid="card-verbs"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">verbs known (right twice running), level {{ stats.verbs.level }} of {{ stats.verbs.levels }}.</div></div>{% endif %}
 </div>
+{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
+{% if skills %}<h2>Strong and weak spots</h2>
+<p class="mut small"><b>Secure</b>: mastered. <b>Practising</b>: started, not mastered yet (the lower the score, the weaker). <b>Not started</b>: not asked yet. Tap a row for its skills.</p>
+{% for subj, groups in skills.items() %}
+<div class="card" data-testid="skills-{{ subj }}" style="overflow-x:auto">
+  <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>
+  {% for g in groups %}
+  <details style="border-top:1px solid var(--line);padding:6px 0"><summary style="cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline">
+    <span style="flex:1 1 220px">{{ g.strand }}</span>
+    <span class="small"><b style="color:var(--good)">{{ g.secure }}</b> secure · <b>{{ g.practising }}</b> practising · <span class="mut">{{ g.new }} not started</span></span></summary>
+    <ul class="small" style="margin:6px 0 0;padding-left:18px">{% for s in g.skills %}
+      <li>{{ s.title }} · {% if s.state == 'secure' %}<b style="color:var(--good)">secure</b>{% elif s.state == 'practising' %}practising, score {{ s.score }}/100{% else %}<span class="mut">not started</span>{% endif %}</li>{% endfor %}</ul>
+  </details>{% endfor %}
+</div>{% endfor %}{% endif %}
 <h2>Mistakes to go over</h2>
 {% if mistakes %}
-<p class="mut small">Wrong answers from the last 7 days, so you can practise them together. The app also brings these questions back by itself.</p>
+<p class="mut small">Wrong answers from the last 7 days, so you can practise them together. The app also brings these questions back by itself; once {{ pupil.name }} gets one right later, it moves to "Put right since".</p>
 {% for d in mistakes %}
 <details class="card mistakes" data-testid="mistakes-day" {% if loop.first %}open{% endif %}>
-  <summary><b>{{ d.day }}</b> <span class="mut">· {{ d['items']|length }} to go over</span></summary>
-  <ul class="mlist">
-    {% for m in d['items'] %}{% set a = ACTIVITIES.get(m.activity, {}) %}
+  <summary><b>{{ d.day }}</b> <span class="mut">· {{ d['items']|length }} to go over{% if d.fixed %} · {{ d.fixed|length }} put right since{% endif %}</span></summary>
+  {% for group, ms in (("open", d['items']), ("fixed", d.fixed)) %}{% if ms %}
+  {% if group == 'fixed' %}<div class="small mut" style="margin-top:8px;font-weight:700" data-testid="mistakes-fixed">Put right since</div>{% endif %}
+  <ul class="mlist"{% if group == 'fixed' %} style="opacity:.7"{% endif %}>
+    {% for m in ms %}{% set a = ACTIVITIES.get(m.activity, {}) %}
     <li><img src="{{ a.img }}" alt="{{ a.title }}" title="{{ a.title }}"><div>
-      <div>{{ m.q }}</div>
-      <div class="small"><span class="mut">{{ pupil.name }} wrote</span> <span class="bad-ans">{{ m.got or '(blank)' }}</span>{% if m.times > 1 %} <span class="mut">({{ m.times }} tries)</span>{% endif %}
-        · <span class="mut">answer</span> <b>{{ m.exp }}</b></div></div></li>
+      <div><span class="mut small">{{ a.title }} ·</span> {{ m.q }}</div>
+      <div class="small"><span class="mut">{{ pupil.name }} wrote</span> <span class="bad-ans">{{ m.got or '(blank)' }}</span>{% if m.earlier %} <span class="mut">(before that: {% for g in m.earlier %}<span class="bad-ans">{{ g or '(blank)' }}</span>{% if not loop.last %}, {% endif %}{% endfor %})</span>{% endif %}{% if m.times > 1 %} <span class="mut">({{ m.times }} tries)</span>{% endif %}
+        · <span class="mut">answer</span> <b>{{ m.exp }}</b>{% if group == 'fixed' %} · <span style="color:var(--good);font-weight:700">put right</span>{% endif %}</div></div></li>
     {% endfor %}
-  </ul>
+  </ul>{% endif %}{% endfor %}
 </details>
 {% endfor %}
 {% else %}
@@ -38,12 +63,15 @@
 {% endif %}{% endfor %}
 </div>
 
-<h2>Last 14 days</h2>
+<h2>{% if hist|length < 14 %}Since {{ pupil.name }} started{% else %}Last 14 days{% endif %}</h2>
+<p class="mut small">Each day against the plan it had that day. "+5" means 5 right answers beyond the target. "Right first time" leaves out answers given again after being shown the answer.</p>
 <div class="card" style="overflow-x:auto">
-<table class="t" data-testid="history">
-  <tr><th>Day</th><th>Done</th>{% for it in hist[-1]['items'] %}<th><img src="{{ it.img }}" alt="{{ it.title }}" title="{{ it.title }}" style="width:24px"></th>{% endfor %}</tr>
-  {% for h in hist|reverse %}
-  <tr><td>{{ h.day }}</td><td><b>{{ h.pct }}%</b></td>{% for it in h['items'] %}<td title="{{ it.title }}: {{ it.correct }} right of {{ it.answered }}">{{ it.done }}/{{ it.target }}</td>{% endfor %}</tr>
+<table class="t small" data-testid="history">
+  <tr><th>Day</th><th>Done</th>{% for k in hist_keys %}{% set a = ACTIVITIES[k] %}<th style="white-space:nowrap"><img src="{{ a.img }}" alt="" style="width:20px;vertical-align:middle"> {{ a.title }}</th>{% endfor %}<th>Answers</th><th>Right first time</th><th>Minutes</th><th>Notes</th></tr>
+  {% for h in hist|reverse %}{% set by = {} %}{% for it in h['items'] %}{% set _ = by.update({it.key: it}) %}{% endfor %}
+  <tr><td style="white-space:nowrap">{{ h.day }}</td><td><b>{{ h.pct }}%</b></td>{% for k in hist_keys %}{% set it = by.get(k) %}<td style="white-space:nowrap"{% if it %} title="{{ it.title }}: {{ it.correct }} right of {{ it.answered }}"{% endif %}>{% if it %}{{ it.done }}/{{ it.target }}{% if it.extra %} <span class="mut">+{{ it.extra }}</span>{% endif %}{% else %}<span class="mut">off</span>{% endif %}</td>{% endfor %}
+    <td>{{ h.stats.answers }}</td><td>{{ h.stats.first_pct ~ '%' if h.stats.first_pct is not none else '–' }}</td><td>{{ h.stats.minutes if h.stats.answers else '–' }}</td>
+    <td class="small">{% if h.stats.rushed %}<span style="color:var(--sun)">{{ h.stats.rushed }} rushed</span>{% endif %}{% if h.stats.rushed and h.stats.copied %}, {% endif %}{% if h.stats.copied %}<span style="color:var(--sun)">{{ h.stats.copied }} copied?</span>{% endif %}</td></tr>
   {% endfor %}
 </table>
 </div>

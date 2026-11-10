@@ -729,14 +729,16 @@ def _(d=1):
         who = pick(NAMES); thing = pick(_OBJ)
         return _numq("%s has %d %s and is given %d more. How many %s now?"
                      % (who, a, thing, b, thing), a + b,
-                     ["%d + %d = %d %s." % (a, b, a + b, thing)], unit=thing)
+                     ["'Given %d more' means %s gets more, so add." % (b, who),
+                      "%d + %d = %d %s." % (a, b, a + b, thing)], unit=thing)
 
     def sub_word():
         who = pick(NAMES); thing = pick(_OBJ)
         top = a if a - b >= 5 else a + b
         return _numq("%s had %d %s and gave away %d. How many are left?"
                      % (who, top, thing, b), top - b,
-                     ["%d − %d = %d %s." % (top, b, top - b, thing)], unit=thing)
+                     ["'Gave away' and 'left' mean some are taken away, so subtract.",
+                      "%d − %d = %d %s." % (top, b, top - b, thing)], unit=thing)
 
     def money_word():
         who = pick(NAMES)
@@ -744,7 +746,8 @@ def _(d=1):
         return _numq("%s buys a rubber for %s and a pencil for %s. "
                      "How much is that altogether, in pence?"
                      % (who, money(p1), money(p2)), p1 + p2,
-                     ["%d + %d = %dp." % (p1, p2, p1 + p2)], unit="p")
+                     ["'Altogether' means both prices put together, so add.",
+                      "%d + %d = %dp." % (p1, p2, p1 + p2)], unit="p")
 
     def chart():
         cats = ["Mon", "Tue", "Wed", "Thu"]
@@ -757,7 +760,8 @@ def _(d=1):
         return _barq("The chart shows books read each day. How many more books "
                      "were read on %s than on %s?" % (cats[i], cats[j]),
                      cats, vals, vals[i] - vals[j],
-                     ["%s: %d, %s: %d." % (cats[i], vals[i], cats[j], vals[j]),
+                     ["'How many more … than' means find the difference, so subtract.",
+                      "%s: %d, %s: %d." % (cats[i], vals[i], cats[j], vals[j]),
                       "%d − %d = %d." % (vals[i], vals[j], vals[i] - vals[j])])
 
     def picto():
@@ -767,7 +771,8 @@ def _(d=1):
         return _pictq("The pictogram shows the cars in a car park. How many red "
                       "and blue cars altogether?", cats, vals, key, "car",
                       vals[0] + vals[1],
-                      ["Red %d, blue %d." % (vals[0], vals[1]),
+                      ["'Altogether' means red and blue together, so add.",
+                       "Red %d, blue %d." % (vals[0], vals[1]),
                        "%d + %d = %d cars." % (vals[0], vals[1], vals[0] + vals[1])])
 
     def two_step():
@@ -776,7 +781,8 @@ def _(d=1):
         return _numq("%s had %d %s, gave %d to a friend, then collected %d more. "
                      "How many %s now?" % (who, a, "cards", b, c, "cards"),
                      a - b + c,
-                     ["%d − %d = %d." % (a, b, a - b),
+                     ["'Gave' means take away, so subtract; 'collected more' means add.",
+                      "%d − %d = %d." % (a, b, a - b),
                       "%d + %d = %d cards." % (a - b, c, a - b + c)], unit="cards")
 
     opts = [add_word, sub_word, money_word, chart, picto]
@@ -1849,19 +1855,22 @@ def _(d=1):
         who = pick(NAMES)
         return _numq("%s buys %d boxes of pencils. Each box holds %d pencils. "
                      "How many pencils in total?" % (who, n, per), n * per,
-                     ["%d × %d = %d pencils." % (n, per, n * per)], unit="pencils")
+                     ["'Each' box holds %d — the same number %d times, so multiply." % (per, n),
+                      "%d × %d = %d pencils." % (n, per, n * per)], unit="pencils")
 
     def money_word():
         cost = random.randint(4, 9) * 10
         return _numq("Each notebook costs %s. How much do %d notebooks cost, "
                      "in pence?" % (money(cost), n), cost * n,
-                     ["%d × %d = %dp." % (cost, n, cost * n)], unit="p")
+                     ["'Each' one costs %dp — the same price %d times, so multiply." % (cost, n),
+                      "%d × %d = %dp." % (cost, n, cost * n)], unit="p")
 
     def array_model():
         rows, cols = (n, per) if per <= 12 and n <= 10 else (per, n)
         return _arrayq("A tray has %d rows of %d cakes. Build the array and type "
                        "how many cakes there are." % (rows, cols), rows, cols,
-                       ["%d × %d = %d cakes." % (rows, cols, rows * cols)])
+                       ["'%d rows of %d' means the same number in every row, so multiply." % (rows, cols),
+                        "%d × %d = %d cakes." % (rows, cols, rows * cols)])
 
     def picto():
         key = pick([2, 5, 10])
@@ -1869,14 +1878,17 @@ def _(d=1):
         vals = [key * random.randint(2, 7) for _ in cats]
         return _pictq("The pictogram shows medals won. How many medals were won "
                       "altogether?", cats, vals, key, "medal", sum(vals),
-                      ["%s = %d." % (" + ".join(str(v) for v in vals), sum(vals))])
+                      ["Each picture means %d medals. 'Altogether' means all the classes together, so add." % key,
+                       "%s = %d." % (" + ".join(str(v) for v in vals), sum(vals))])
 
     def two_step():
         extra = random.randint(5, 20)
         return _numq("%d bags each hold %d marbles. There are also %d loose "
                      "marbles. How many marbles altogether?" % (n, per, extra),
                      n * per + extra,
-                     ["%d × %d = %d." % (n, per, n * per),
+                     ["'Each' bag holds %d, so multiply; then add the loose ones: 'altogether' means "
+                      "all of them." % per,
+                      "%d × %d = %d." % (n, per, n * per),
                       "%d + %d = %d marbles." % (n * per, extra, n * per + extra)],
                      unit="marbles")
 
@@ -1901,7 +1913,8 @@ def _(d=1):
                         "partLabel": str(per), "totalLabel": "?",
                         "unknown": "total"},
                        n * per,
-                       ["The strip has %d equal parts of %d." % (n, per),
+                       ["'Each one holds %d' means %d equal parts of %d, so multiply." % (per, n, per),
+                        "The strip has %d equal parts of %d." % (n, per),
                         "%d × %d = %d apples." % (n, per, n * per)])
 
     opts = [pencils, money_word, array_model, picto, strip_word]
@@ -1925,13 +1938,16 @@ def _(d=1):
     def teams():
         return _numq("%d children are put into teams of %d. How many teams are "
                      "there?" % (total, per), groups,
-                     ["%d ÷ %d = %d teams." % (total, per, groups)], unit="teams")
+                     ["'Teams of %d' means %d in every team: how many %ds fit into %d? Divide."
+                      % (per, per, per, total),
+                      "%d ÷ %d = %d teams." % (total, per, groups)], unit="teams")
 
     def sharing():
         who = pick(NAMES)
         return _numq("%s shares %d stickers equally between %d friends. How many "
                      "stickers does each friend get?" % (who, total, groups), per,
-                     ["%d ÷ %d = %d stickers." % (total, groups, per)],
+                     ["'Shares equally' means every friend gets the same, so divide.",
+                      "%d ÷ %d = %d stickers." % (total, groups, per)],
                      unit="stickers")
 
     def money_word():
@@ -1939,7 +1955,8 @@ def _(d=1):
         tot = each * groups
         return _numq("%s is shared equally between %d children. How much does each "
                      "child get, in pence?" % (money(tot), groups), each,
-                     ["%d ÷ %d = %dp each." % (tot, groups, each)], unit="p")
+                     ["'Shared equally' means every child gets the same, so divide.",
+                      "%d ÷ %d = %dp each." % (tot, groups, each)], unit="p")
 
     def array_model():
         rows, cols = groups, per
@@ -1963,7 +1980,8 @@ def _(d=1):
         return _numq("%d biscuits are shared equally between %d children. One child "
                      "eats %d of theirs. How many biscuits does that child have "
                      "left?" % (total, groups, eaten), per - eaten,
-                     ["%d ÷ %d = %d each." % (total, groups, per),
+                     ["'Shared equally' means divide; 'eats' and 'left' mean take away, so subtract.",
+                      "%d ÷ %d = %d each." % (total, groups, per),
                       "%d − %d = %d left." % (per, eaten, per - eaten)],
                      unit="biscuits")
 
@@ -1985,7 +2003,8 @@ def _(d=1):
                         "partLabel": "?", "totalLabel": str(total),
                         "unknown": "part"},
                        per,
-                       ["The strip of %d is split into %d equal parts."
+                       ["'Shares equally' means every friend gets the same, so divide.",
+                        "The strip of %d is split into %d equal parts."
                         % (total, groups),
                         "%d ÷ %d = %d marbles each." % (total, groups, per)])
 

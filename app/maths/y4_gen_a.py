@@ -273,7 +273,9 @@ def _(d=1):
         who = pick(NAMES)
         return _tb("%s has %d %s. Each one holds %d %s. How many %s altogether?"
                    % (who, k, holder, step, thing, thing), k * step, "int", {"unit": thing},
-                   ["Count on in %ds, %d times." % (step, k),
+                   ["'Each' one holds %d — the same number %d times, so multiply. 'Altogether' means all of "
+                    "them together." % (step, k),
+                    "Count on in %ds, %d times." % (step, k),
                     "%d × %d = %s." % (k, step, _c(k * step))])
 
     def t_inverse():
@@ -639,8 +641,9 @@ def _(d=1):
         digits = [str(n // 1000), str((n // 100) % 10), str((n // 10) % 10), str(n % 10)]
         col = random.randint(0, 3)
         place = ["thousands", "hundreds", "tens", "ones"][col]
+        # the number is given in words, so the digit is read from them, not copied from the same number in figures
         return _dt("This place-value chart shows the number %s. "
-                   "Which digit belongs in the empty %s cell?" % (_c(n), place),
+                   "Which digit belongs in the empty %s cell?" % (_w4(n), place),
                    ["Thousands", "Hundreds", "Tens", "Ones"], [digits], int(digits[col]),
                    ["%s = %s." % (_c(n), _thto(n)),
                     "The %s digit is %s." % (place, digits[col])], missing=[0, col])

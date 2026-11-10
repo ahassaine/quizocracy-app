@@ -33,7 +33,8 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
         a, b = int(m.group(1)), int(m.group(2))
     else:
         facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
-        pool = [(a, b) for a in tabs for b in range(1, 13)]
+        shown = await items.just_shown(pupil, "tables")      # a missed fact comes back later, not straight away
+        pool = [(a, b) for a in tabs for b in range(1, 13) if f"{a}x{b}" not in shown]
         weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
         a, b = random.choices(pool, weights=weights, k=1)[0]
     divide = pupil.get("year", 4) >= 2 and random.random() < 0.3
@@ -62,6 +63,10 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         correct = False
     m = it["meta"]
     fid = f"{pupil['_id']}:{m['fact']}"
+    if correct and m["fact"] in await items.just_shown(pupil, "tables"):
+        # right, but straight after being shown it: counts for today, not towards the fact's streak or as put right
+        await progress.record(pupil, "tables", correct, ms, "", m.get("prompt", ""), it["answer"], value)
+        return {"correct": True, "expected": it["answer"], "again_later": True}
     if correct:
         await db.tables_facts.update_one({"_id": fid}, {"$inc": {"right": 1, "streak": 1},
                                          "$set": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"],

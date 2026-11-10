@@ -4,10 +4,12 @@
 {% if reason == 'limit' %}
 <h1 style="margin:0 0 .3em">Your family is full</h1>
 <p>The {{ plan.title }} plan has room for {{ plan.max_children }} children, and you have {{ plan.max_children }}. To add another child, delete one first from their settings.</p>
+{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}<p>During the beta this is free: up to {{ plan.max_children }} children, all seven activities and rewards.</p>{% endif %}
 <p class="mut">If you need room for more, write to us at <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
 {% else %}
 <h1 style="margin:0 0 .3em">That needs the Family plan</h1>
 <p>The Free plan covers one child and three activities. The Family plan covers up to six children, all seven activities (including grammar and punctuation, and science) and rewards.</p>
+{% if cfg.BETA_FAMILY_PLAN %}<p>During the beta the Family plan is free: up to six children, all seven activities and rewards.</p>{% endif %}
 <p class="mut">Ask us to switch your family over at <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
 {% endif %}
 <a class="btn" href="/home">Back</a></div></div>

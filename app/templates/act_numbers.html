@@ -3,14 +3,19 @@
 <div class="stage rise rise-3" id="stage">
   <div class="mut" id="ask">…</div>
   <div class="q" id="q" data-testid="question"></div>
-  <input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" aria-label="Your answer" style="max-width:100%;text-align:left">
+  <textarea class="answer grow" id="answer" rows="1" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Your answer"></textarea>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=11"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=16"></script><script>
+// a long number in words wraps onto more lines instead of scrolling its start out of sight
+function fit() { const a = document.getElementById('answer'); a.style.height = 'auto'; a.style.height = a.scrollHeight + 'px'; }
+document.getElementById('answer').addEventListener('input', fit);
 Drill({ activity: 'numbers',
+  // "seventeen -> 17" is reading the word: only the instruction is read out; "17 -> seventeen" reads both
+  speech(q) { return q.mode === 'digits' ? [q.ask] : [q.ask, q.prompt]; },
   render(q) { document.getElementById('ask').textContent = q.ask; const el = document.getElementById('q');
     el.textContent = q.prompt; el.className = 'q' + (q.mode === 'digits' ? ' words' : '');
-    const a = document.getElementById('answer'); a.value = ''; a.inputMode = q.mode === 'digits' ? 'numeric' : 'text'; a.focus(); },
+    const a = document.getElementById('answer'); a.value = ''; fit(); a.inputMode = q.mode === 'digits' ? 'numeric' : 'text'; a.focus(); },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },
   explain(r) { return 'It is <b>' + esc(r.expected) + '</b>.'; } });
 </script>{% endblock %}

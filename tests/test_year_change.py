@@ -13,7 +13,8 @@ def test_progress_follows_new_year(page):
     page.goto("/children/%s/edit" % pid)
     page.select_option("#year", "2")
     page.click("form.card button[type=submit]")
-    page.wait_for_url("**/children/%s" % pid)
+    page.wait_for_url("**/children/%s/edit?saved=1" % pid)
+    page.goto("/children/%s" % pid)
     txt = page.inner_text("main")
     assert "Year 2 skills mastered" in txt and "/36" in txt, txt
     assert "Irregular verbs" not in txt, txt

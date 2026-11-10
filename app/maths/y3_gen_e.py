@@ -1671,18 +1671,21 @@ def _x35d(d):
         g = random.randint(2, 8)
         per = random.randint(2, 6)
         return _eg("Each plate has %d cakes on it. How many cakes are there altogether?" % per, g, per, g * per,
-                   ["%d plates of %d." % (g, per), "%d × %d = %d." % (g, per, g * per)])
+                   ["'Each' plate has %d — the same number on every plate, so multiply. 'Altogether' means "
+                    "all the plates together." % per, "%d plates of %d." % (g, per), "%d × %d = %d." % (g, per, g * per)])
 
     def t_laps():
         who = pick(NAMES)
         return _tb("Each lap of the park is %d km. %s runs %d laps. How far does %s run, in km?" % (t, who, k, who),
-                   t * k, "int", {"unit": "km"}, ["%d × %d = %d km." % (k, t, t * k)])
+                   t * k, "int", {"unit": "km"}, ["'Each' lap is %d km — the same distance %d times, so multiply." % (t, k),
+                                                  "%d × %d = %d km." % (k, t, t * k)])
 
     def t_fortnight():
         p = random.randint(2, 6)
         who = pick(NAMES)
         return _tb("%s reads %d pages every day for 2 weeks. How many pages does %s read?" % (who, p, who), 14 * p, "int", {},
-                   ["2 weeks = 14 days.", "14 × %d = %d pages." % (p, 14 * p)])
+                   ["'Every day' means the same number of pages each day, so multiply.", "2 weeks = 14 days.",
+                    "14 × %d = %d pages." % (p, 14 * p)])
 
     return [t_laps, t_fortnight, t_price_table, t_price_table, t_bars, t_bars, t_plates, t_plates]
 
@@ -1705,19 +1708,22 @@ def _x35e(d):
 
     def t_ribbon():
         return _tb("A piece of string %d cm long is cut into %d equal pieces. How long is each piece, in cm?" % (n, t), k, "int",
-                   {"unit": "cm"}, ["%d ÷ %d = %d cm." % (n, t, k)])
+                   {"unit": "cm"}, ["'Equal pieces' means every piece is the same length, so divide.",
+                                    "%d ÷ %d = %d cm." % (n, t, k)])
 
     def t_and_friends():
         who = pick(NAMES)
         f = t - 1
         return _tb("%s and %s share %d marbles equally. How many marbles does each person get?"
-                   % (who, _pl(f, "friend"), n), k, "int", {}, ["That is %d people, not %d." % (t, f), "%d ÷ %d = %d." % (n, t, k)])
+                   % (who, _pl(f, "friend"), n), k, "int", {}, ["'Share equally' means divide. '%s and %s' is %d people, not %d."
+                                                                 % (who, _pl(f, "friend"), t, f), "%d ÷ %d = %d." % (n, t, k)])
 
     def t_bad_ones():
         bad = random.randint(2, 6)
         tot = n + bad
         return _tb("A box holds %d apples. %d are bad. The rest are packed into bags of %d. How many bags are there?" % (tot, bad, t),
-                   k, "int", {}, ["%d − %d = %d good apples." % (tot, bad, n), "%d ÷ %d = %d bags." % (n, t, k)])
+                   k, "int", {}, ["'The rest' means the apples left after the bad ones are taken away: subtract, then "
+                                  "divide into bags.", "%d − %d = %d good apples." % (tot, bad, n), "%d ÷ %d = %d bags." % (n, t, k)])
 
     return [t_weeks, t_ribbon, t_and_friends, t_bad_ones, t_price_table, t_price_table]
 

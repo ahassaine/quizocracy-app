@@ -131,9 +131,20 @@
         'text-align:center;outline:none;box-sizing:border-box';
       input.addEventListener('focus', () => { input.style.borderColor = '#4f8df7'; });
       input.addEventListener('blur', () => { input.style.borderColor = '#30363d'; });
+      // the box widens with a long answer in words ("eight thousand three hundred") instead of hiding its start
+      const grow = () => { input.style.maxWidth = Math.max(200, Math.min(560, 16 * input.value.length + 40)) + 'px'; };
       input.addEventListener('input', () => {
         if (blankCell) blankCell.textContent = input.value.trim();
+        grow();
       });
+      // the dashed cell looks like the place to type, so a tap on it types in the box
+      if (blankCell) {
+        blankCell.style.cursor = 'text';
+        blankCell.setAttribute('data-testid', 'blank-cell');
+        blankCell.addEventListener('click', () => { if (input.style.display !== 'none' && !input.readOnly) input.focus(); });
+        input.addEventListener('focus', () => { blankCell.style.borderStyle = 'solid'; });
+        input.addEventListener('blur', () => { if (!input.readOnly) blankCell.style.borderStyle = 'dashed'; });
+      }
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); api.submit(); }
       });
@@ -151,6 +162,7 @@
       host.__getValue = () => input.value.trim();
       host.__feedback = (res) => {
         const col = res && res.correct ? '#22c55e' : '#f85149';
+        input.readOnly = true;
         input.style.borderColor = col;
         if (blankCell) {
           blankCell.style.borderColor = col;

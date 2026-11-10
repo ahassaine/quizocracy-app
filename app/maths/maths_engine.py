@@ -20,6 +20,7 @@ import re
 import math
 from fractions import Fraction
 from ..db import db
+from ..drills import typos
 
 # ---------------------------------------------------------------- registry ----
 GENERATORS = {}
@@ -334,6 +335,8 @@ def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt=""
     at = answer_type
     if at in ("num", "int"):
         v, e = _a_number(value, prompt), _num(expected)
+        if v is None and not _IN_DIGITS.search(str(prompt or "")):
+            v = _WORD_NUM.get(str(value).strip().lower())        # "two" for 2, unless the task is writing it in digits
         if v is None or e is None:
             return False
         near = lambda a, b: abs(a - b) <= (tolerance or 0) + 1e-9 * max(abs(b), 1e-6)   # noqa: E731 float noise only
@@ -384,11 +387,59 @@ def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt=""
     sv, se = _sn(value), _sn(expected)
     if sv == se or sv.replace(" and ", " ") == se.replace(" and ", " "):
         return True
+    if _RULE.fullmatch(se):                          # a sequence rule: "+10" for "add 10", "×3" for "multiply by 3"
+        return _rule(sv) == se
     pe = _poly(se)                                   # algebra in another order: "30+5x" for "5x+30"
     if pe is not None:
         return _poly(sv) == pe
     wv, we = _words(sv), _words(se)                  # "a half turn" for "half", "Wednesday" for "Wed"
     return bool(wv) and (wv == we or wv.replace(" and ", " ") == we.replace(" and ", " "))
+
+
+# "two" typed for 2 (a word answer to "How many …?"); never where writing the number in digits is the task
+_WORD_NUM = {w: float(i) for i, w in enumerate(_ONES)} | {w: float(10 * i) for i, w in enumerate(_TENS) if w}
+_IN_DIGITS = re.compile(r"digit|numeral|figures|in numbers", re.I)
+
+# A term-to-term rule as words: "add 10", "subtract 3", "multiply by 2", "divide by 4", "multiply by 2 then add 1"
+_RULE_STEP = r"(?:add|subtract|multiply by|divide by) \d+(?:\.\d+)?"
+_RULE = re.compile(r"%s(?: (?:then|and) %s)?" % (_RULE_STEP, _RULE_STEP))
+_RULE_SAID = [(re.compile(p), r) for p, r in (
+    (r"(?:^|(?<=\s))\+(?=\d)|\bplus |\badd on |\bincrease by ", "add "),
+    (r"(?:^|(?<=\s))-(?=\d)|\bminus |\btake away |\btake |\bsubtract by |\bdecrease by ", "subtract "),
+    (r"(?:^|(?<=\s))(?:x|×|\*)(?=\d)|\btimes (?:by )?|\bmultiply (?!by)|\bmultiplied by ", "multiply by "),
+    (r"(?:^|(?<=\s))(?:÷|/)(?=\d)|\bdivide (?!by)|\bdivided by |\bshare by ", "divide by "))]
+
+
+def _rule(sv):
+    """A typed rule in the words the question uses: "+10" -> "add 10", "x2 then +1" -> "multiply by 2 then add 1".
+    "each time" and "every time" are dropped."""
+    s = re.sub(r"\s*\b(?:each|every) (?:time|term)\b", "", sv)
+    s = re.sub(r"(?<=\d)\s*(?=[+×x*÷/-]\d)", " then ", s)                # "x2+1" -> "x2 then +1"
+    s = re.sub(r"(?<=[+×x*÷/-])\s+(?=\d)", "", s)                       # "+ 10" -> "+10"
+    s = re.sub(r"(?<=[a-z])(?=[+×*÷/-]\d)", " ", s)                      # "then+1" -> "then +1"
+    for pat, rep in _RULE_SAID:
+        s = pat.sub(rep, s)
+    s = re.sub(r"(multiply by|divide by|add|subtract)\s+(?=\d)", r"\1 ", s)
+    return " ".join(s.split())
+
+
+def slipped_words(answer_type, expected, value, prompt=""):
+    """A word answer that is right but for a slip of the keyboard ("yse", "eigth thousand"): [(typed, wanted)].
+    Never a word the question offers as a choice, a number word for another ("eighty" for "eight") or yes/no."""
+    if answer_type != "str":
+        return []
+    se, sv = _sn(expected).replace(" and ", " "), _sn(value).replace(" and ", " ")
+    if not re.fullmatch(r"[a-z ]+", se) or not re.fullmatch(r"[a-z ]+", sv):
+        return []
+    never = typos.NUMBER_WORDS | {"yes", "no"} | set(re.findall(r"[a-z]+", str(prompt or "").lower()))
+    return typos.slips(sv.split(), se.split(), never)
+
+
+def slip_hint(expected, pairs):
+    """What the child is told before the free retry."""
+    if all(w in typos.NUMBER_WORDS for w in _sn(expected).split()):
+        return typos.number_hint(pairs)
+    return typos.RETRY
 
 
 def form_hint(answer_type, expected, value, prompt=""):
@@ -714,6 +765,15 @@ async def check(token, value, pupil):
     correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0), doc.get("unit"), prompt)
     solution = list(doc.get("solution", []))
     if not correct:
+        slipped = slipped_words(doc["answer_type"], doc["answer"], value, prompt)
+        if slipped and not doc.get("retried"):
+            # a spelling slip where spelling is not the skill: one free retry, the question stays open
+            await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
+            return {"ok": True, "correct": False, "retry": True, "hint": slip_hint(doc["answer"], slipped),
+                    "skill": doc.get("skill")}
+        if slipped:                              # after the retry: name the misspelt word
+            right = "Your number was right. " if slip_hint(doc["answer"], slipped) != typos.RETRY else ""
+            solution.insert(0, right + typos.corrections(slipped))
         hint = form_hint(doc["answer_type"], doc["answer"], value, prompt)
         if hint:                                 # the right value in the wrong form: say so first
             solution.insert(0, hint)

@@ -953,33 +953,38 @@ def _(d=1):
         return _numq("A charity walk raised £%s in %s and £%s in %s. How many "
                      "pounds were raised altogether?"
                      % (_com(a), p1, _com(b), p2), a + b,
-                     ["%d + %d = %d pounds." % (a, b, a + b)], unit="pounds")
+                     ["'Altogether' means both amounts put together, so add.",
+                      "%d + %d = %d pounds." % (a, b, a + b)], unit="pounds")
 
     def how_many_more():
         return _numq("A school library has %s books. A town library has %s books. "
                      "How many more books does the school library have?"
                      % (_com(a + b), _com(b)), a,
-                     ["%d − %d = %d books." % (a + b, b, a)], unit="books")
+                     ["'How many more' means find the difference, so subtract.",
+                      "%d − %d = %d books." % (a + b, b, a)], unit="books")
 
     def distance():
         who = pick(NAMES)
         return _numq("%s cycles %s m on Saturday and %s m on Sunday. How many metres "
                      "does %s cycle in total?" % (who, _com(a), _com(b), who), a + b,
-                     ["%d + %d = %d m." % (a, b, a + b)], unit="m")
+                     ["'In total' means both days put together, so add.",
+                      "%d + %d = %d m." % (a, b, a + b)], unit="m")
 
     def two_step_shop():
         who = pick(NAMES)
         return _numq("%s had %s points. %s spent %s points on a prize and then earned "
                      "%s more points. How many points does %s have now?"
                      % (who, _com(a + b), who, _com(b), _com(c), who), a + c,
-                     ["%d − %d = %d." % (a + b, b, a),
+                     ["'Spent' means take away, so subtract; 'earned more' means add.",
+                      "%d − %d = %d." % (a + b, b, a),
                       "%d + %d = %d points." % (a, c, a + c)], unit="points")
 
     def two_step_stock():
         return _numq("A warehouse held %s boxes. %s boxes arrived and %s boxes were "
                      "sent out. How many boxes are in the warehouse now?"
                      % (_com(a), _com(b), _com(c)), a + b - c,
-                     ["%d + %d = %d." % (a, b, a + b),
+                     ["'Arrived' means more came in, so add; 'sent out' means some left, so subtract.",
+                      "%d + %d = %d." % (a, b, a + b),
                       "%d − %d = %d boxes." % (a + b, c, a + b - c)], unit="boxes")
 
     def money_two_step():
@@ -1006,7 +1011,8 @@ def _(d=1):
         return _barq("The chart shows how many house points each year group earned. "
                      "How many more points did %s earn than %s?" % (cats[i], cats[j]),
                      cats, vals, vals[i] - vals[j],
-                     ["%s: %d, %s: %d." % (cats[i], vals[i], cats[j], vals[j]),
+                     ["'How many more … than' means find the difference, so subtract.",
+                      "%s: %d, %s: %d." % (cats[i], vals[i], cats[j], vals[j]),
                       "%d − %d = %d." % (vals[i], vals[j], vals[i] - vals[j])])
 
     def table_word():
@@ -1018,7 +1024,8 @@ def _(d=1):
                     ["Park", "Visitors"],
                     [[names[i], _com(vals[i])] for i in range(3)],
                     vals[0] + vals[1],
-                    ["%s: %d, %s: %d." % (names[0], vals[0], names[1], vals[1]),
+                    ["'Altogether' means both parks put together, so add.",
+                     "%s: %d, %s: %d." % (names[0], vals[0], names[1], vals[1]),
                      "%d + %d = %d visitors."
                      % (vals[0], vals[1], vals[0] + vals[1])],
                     caption="Park visitors")
@@ -1030,7 +1037,8 @@ def _(d=1):
         return _pictq("The pictogram shows the cars counted in a survey. How many "
                       "red and green cars were counted altogether?",
                       cats, vals, key, "car", vals[0] + vals[2],
-                      ["Red %d and green %d." % (vals[0], vals[2]),
+                      ["'Altogether' means red and green together, so add.",
+                       "Red %d and green %d." % (vals[0], vals[2]),
                        "%d + %d = %d cars." % (vals[0], vals[2],
                                                vals[0] + vals[2])])
 
@@ -1047,7 +1055,8 @@ def _(d=1):
         return _numq("%s has a population of %s and %s has a population of %s. What "
                      "is the difference between the two populations?"
                      % (p1, _com(a + b), p2, _com(b)), a,
-                     ["%d − %d = %d people." % (a + b, b, a)], unit="people")
+                     ["'Difference' means how much bigger one is than the other, so subtract.",
+                      "%d − %d = %d people." % (a + b, b, a)], unit="people")
 
     opts = [total_word, how_many_more, distance, chart_word, table_word,
             picto_word, strip_compare, population_diff]

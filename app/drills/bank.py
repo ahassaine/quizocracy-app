@@ -2,7 +2,7 @@
 
 Mastery per skill uses the maths scoring (big gains early, a demanding last stretch; 100 = mastered).
 The child works a window of the first WINDOW unmastered skills in teaching order, interleaved; a wrong
-question comes back RETRY_GAP questions later; mastered skills come back now and then for review.
+question comes back RETRY_GAP questions and RETRY_SECONDS later, and once more on a later day; mastered skills come back now and then for review.
 """
 import datetime
 import random
@@ -11,10 +11,12 @@ from ..bank import engine
 from ..db import db
 from ..maths.maths_mastery import CHALLENGE_ZONE, MASTERED, gain, penalty
 from .. import items, progress
+from . import typos
 
 WINDOW = 3                 # unmastered skills practised side by side
 PLATEAU_ATTEMPTS = 25      # a skill this long without nearing mastery steps aside for the next one
-RETRY_GAP = 3              # questions before a wrong one comes back
+RETRY_GAP = items.RECALL_ITEMS          # questions before a wrong one comes back ...
+RETRY_SECONDS = items.RECALL_SECONDS    # ... and seconds, so it is remembered, not copied; then once more another day
 MAX_RETRIES = 2
 REVIEW_CHANCE = 0.15
 REVIEW_AFTER_DAYS = 3
@@ -80,8 +82,9 @@ def make(subject: str):
             k, qid = focus.split("#", 1)
             sk, q = engine.skill(k), engine.question(k, qid)
             reason = "fix" if sk and q else None
+        now, today = _now(), progress.today()
         for r in ([] if reason else st.get("retry", [])):
-            if r["due"] <= st["n"]:
+            if r["due"] <= st["n"] and r.get("after", now) <= now and r.get("day", "") < today:
                 sk, q = engine.skill(r["key"]), engine.question(r["key"], r["qid"])
                 if sk and q:
                     reason = "retry"
@@ -102,6 +105,14 @@ def make(subject: str):
         key, meta = it["answer"], it["meta"]
         correct = engine.mark(key, value)
         sk, q = engine.skill(meta["skill"]), engine.question(meta["skill"], meta["qid"])
+        detail = f"{meta['skill']}#{meta['qid']}"
+        slipped = [] if correct else engine.slips(key, value, (q or {}).get("q", ""))
+        if slipped and not it.get("retried"):
+            # a science word with a spelling slip ("respiraton"): one free retry, nothing recorded yet
+            await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
+            return {"correct": False, "retry": True, "hint": typos.RETRY}
+        if correct and detail in await items.just_shown(pupil, subject):
+            return await _copied(pupil, subject, key, value, q, ms, detail)
         doc = await db.bank_mastery.find_one({"_id": f"{pupil['_id']}:{meta['skill']}"}) or {}
         score, streak = int(doc.get("score", 0)), int(doc.get("streak", 0))
         if correct:
@@ -123,22 +134,39 @@ def make(subject: str):
         tries = next((r.get("tries", 0) for r in st.get("retry", [])
                       if r["key"] == meta["skill"] and r["qid"] == meta["qid"]), 0)
         if not correct and tries < MAX_RETRIES:
-            retry.append({"key": meta["skill"], "qid": meta["qid"], "due": st["n"] + RETRY_GAP, "tries": tries + 1})
+            retry.append({"key": meta["skill"], "qid": meta["qid"], "due": st["n"] + RETRY_GAP, "tries": tries + 1,
+                          "after": _now() + datetime.timedelta(seconds=RETRY_SECONDS)})
+        elif correct and meta.get("reason") == "retry" and tries < MAX_RETRIES:
+            # put right after a gap: asked once more on a later day, to see that it stayed
+            retry.append({"key": meta["skill"], "qid": meta["qid"], "due": 0, "tries": MAX_RETRIES,
+                          "day": progress.today()})
         await db.bank_state.update_one({"_id": st["_id"]}, {"$set": {"retry": retry[-10:]}})
+        out = await _feedback(pupil, subject, key, value, q, ms, detail, correct)
+        out.update({"mastered": score >= MASTERED and not doc.get("mastered_at"), "score": score})
+        if slipped:                          # after the retry: which word was misspelt
+            out["hint"] = typos.corrections(slipped)
+        return out
 
+    async def _feedback(pupil, subject, key, value, q, ms, detail, correct) -> dict:
         prompt = (q or {}).get("q", "")
         if q and q.get("s") and q["t"] in ("tap", "write"):
             prompt += " " + q["s"].replace("[", "").replace("]", "")
         exp = engine.expected_text(key)
-        await progress.record(pupil, subject, correct, ms, f"{meta['skill']}#{meta['qid']}", prompt, exp, engine.given_text(key, value))
-        out = {"correct": correct, "expected": exp, "why": (q or {}).get("why", ""),
-               "mastered": score >= MASTERED and not doc.get("mastered_at"), "score": score}
+        await progress.record(pupil, subject, correct, ms, detail, prompt, exp, engine.given_text(key, value))
+        out = {"correct": correct, "expected": exp, "why": (q or {}).get("why", "")}
         if key["t"] == "mcq":
             out["right"] = key["right"]
         if key["t"] == "tap":
             out["hits"] = key["hits"]
         if key["t"] == "num" and q and q.get("unit"):
             out["expected"] = f"{exp} {q['unit']}"
+        return out
+
+    async def _copied(pupil, subject, key, value, q, ms, detail) -> dict:
+        """Right, but straight after being shown it: counts for today; no mastery, and the mistake stays to put right."""
+        out = await _feedback(pupil, subject, key, value, q, ms, "", True)
+        sc = await db.bank_mastery.find_one({"_id": f"{pupil['_id']}:{detail.split('#')[0]}"}) or {}
+        out.update({"mastered": False, "score": int(sc.get("score", 0)), "again_later": True})
         return out
 
     async def summary(pupil: dict) -> dict:

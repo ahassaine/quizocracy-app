@@ -72,12 +72,20 @@ def signup(page, email=None, family="Test family"):
     return email
 
 
-def add_child(page, name="Sami", year=4, pin="1234", targets=None):
+def add_child(page, name="Sami", year=4, pin="1234", targets=None, year_defaults=False):
     page.goto("/children/new")
     page.fill("#name", name)
     page.select_option("#year", str(year))
     page.fill("#pin", pin)
+    # The form ticks the year's short default day. Most tests want every activity the year allows, as before;
+    # year_defaults=True keeps the form's own default plan. A target given always switches its activity on.
+    for box in ([] if year_defaults else page.locator("[data-testid^=on-]").all()):
+        if box.is_enabled():
+            box.check()
     for k, v in (targets or {}).items():
+        box = page.locator(f"[data-testid=on-{k}]")
+        if box.is_enabled():
+            box.check()
         page.fill(f"[data-testid=target-{k}]", str(v))
     page.click("form.card button[type=submit]")
     page.wait_for_url(re.compile(r".*/children/p_[0-9a-f]+\?added=1"))

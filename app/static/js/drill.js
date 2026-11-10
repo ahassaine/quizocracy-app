@@ -14,6 +14,19 @@
 
   let reached = null, rewarded = null;
   const FIX = new URLSearchParams(location.search).has('fix');      // ?fix=1: wrong answers come back first
+  // the child's school year (from _drill_head.html; 0 on pages without a child): Years 1-3 get a big, happy
+  // "Correct" and kind words sooner; Year 7 up a quiet one (13-year-olds don't want "for little kids")
+  const YEAR = parseInt(($('drillHead') || { dataset: {} }).dataset.year, 10) || 0;
+  const YOUNG = YEAR >= 1 && YEAR <= 3, TEEN = YEAR >= 7;
+  const PRAISE = ['Well done!', 'Brilliant!', 'Super!', 'Great job!', 'Fantastic!'];
+  function cheer() {
+    if (YOUNG) return '<span class="joy-star" aria-hidden="true">★</span><span class="joy-word">Correct!</span> '
+      + '<span class="joy-praise">' + PRAISE[Math.floor(Math.random() * PRAISE.length)] + '</span>';
+    return '<span class="tick' + (TEEN ? ' quiet' : '') + '" aria-hidden="true">✓</span> Correct';
+  }
+  // after a run of misses (2 for Years 1-3, 3 after that) a kind word comes with the answer
+  const KIND = TEEN ? 'Keep going: the next one is a fresh start.' : 'Good try! Let’s try another one.';
+  let misses = 0;
   function setDay(d) {
     if (!d) return;
     const now = d.done >= d.target;
@@ -23,7 +36,8 @@
     $('dayDone').textContent = d.done; $('dayTarget').textContent = d.target;
     $('dayFill').style.width = pct + '%';
     $('dayBar').classList.toggle('done', d.done >= d.target);
-    if (d.done >= d.target) $('dayMsg').textContent = 'Target reached for today! You can keep going.';
+    if (d.day_pct >= 100) $('dayMsg').innerHTML = '<b>All done for today, well done!</b> <a href="/me">See my day</a>';
+    else if (d.done >= d.target) $('dayMsg').textContent = 'Target reached for today! You can keep going.';
     const rw = $('dayReward');
     if (rw && d.reward) {
       if (rw.hidden && rewarded === false && window.QZ) QZ.confetti(220);   // the moment the reward is earned
@@ -39,11 +53,18 @@
     function switched(res) {        // another child signed in on this device (e.g. in another tab): stop here
       if (!res || res.error !== 'switched') return false;
       gone = true; token = null; ++seq;
+      if (window.Speak) Speak.stop();
       const fb = $('feedback'); fb.className = 'feedback warn';
       fb.innerHTML = esc(res.name) + ' is signed in on this device now, so this page has stopped. '
         + '<a href="/learn">Go back to “Who’s learning?”</a>';
       $('check').disabled = true; $('next').style.display = 'none';
       return true;
+    }
+    let fixing = false, fixLeft = 0;
+    function fixNote(text) {             // text null: every mistake is done
+      const m = $('fixMsg');
+      if (text) { m.textContent = text; return; }
+      m.innerHTML = 'All your mistakes are done. Well done! <a href="/me">Back to my day</a>';
     }
     async function next(note) {          // note: a message shown with the new question, until it is answered
       if (gone) return;
@@ -57,9 +78,14 @@
       if (switched(q)) return;
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
       token = q.token; setDay(q.day);
-      if (FIX && $('fixMsg')) $('fixMsg').textContent = q.fixing
-        ? 'Putting a mistake right · ' + q.fix_left + ' left' : 'No mistakes left to fix here. Well done!';
+      // "Practise my mistakes" runs through every subject: none ready here, so on to the next subject that has some
+      if (FIX && !q.fixing && q.fix_next) { location.href = '/me/' + q.fix_next + '?fix=1'; return; }
+      fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left;
+      if (FIX && $('fixMsg')) fixNote(q.fixing ? 'Putting a mistake right · ' + fixLeft + ' left'
+        : (q.fix_later ? 'Your mistakes come back after a few other questions · ' + q.fix_later + ' waiting'
+          : (fixLeft ? 'Your other mistakes come back a little later · ' + fixLeft + ' waiting' : null)));
       opts.render(q);
+      if (window.Speak) Speak.set(opts.speech ? opts.speech(q) : [q.prompt]);   // the 🔊 button (speak.js)
       document.body.dataset.qtoken = q.token;      // which question is on screen (used by the tests)
       if (typeof note === 'string') { $('feedback').className = 'feedback warn'; $('feedback').textContent = note; }
       shownAt = Date.now();
@@ -69,21 +95,36 @@
       const val = opts.read();
       if (val === null) {                  // nothing given yet: the page may say what to do (opts.empty), e.g. "Add some blocks first."
         $('feedback').className = 'feedback warn';
-        $('feedback').textContent = (opts.empty && opts.empty()) || 'Type your answer first.'; return;
+        $('feedback').textContent = (opts.empty && opts.empty())
+          || (document.querySelector('[data-testid=choices]') ? 'Tap your answer first.' : 'Type your answer first.'); return;
       }
       busy = true;
       const res = await post(api + 'check',Object.assign({ token, ms: Date.now() - shownAt }, val));
       busy = false;
       if (switched(res)) return;
       if (!res.ok) return next('That question expired, so here is another one.');
+      if (res.retry) {                     // a near miss ("eigth"): nothing marked, the same question stays open
+        const fb = $('feedback'); fb.className = 'feedback warn'; fb.textContent = res.hint || 'Nearly. Check it and try again.';
+        const a = $('answer') || $('past'); if (a && a.offsetParent && !a.readOnly) a.focus();
+        if (window.Speak) Speak.feedback(fb.textContent);
+        return;
+      }
       answered = true; setDay(res.day);
+      if (fixing && res.correct && $('fixMsg')) {     // the count drops the moment a mistake is put right
+        fixing = false; fixLeft = Math.max(0, fixLeft - 1);
+        if (fixLeft) fixNote('Mistake put right · ' + fixLeft + ' left');
+      }
       $('check').disabled = true; $('next').style.display = '';
       const fb = $('feedback');
-      fb.className = 'feedback ' + (res.correct ? 'yes' : 'no');
+      fb.className = 'feedback ' + (res.correct ? 'yes' : 'no') + (res.correct && YOUNG ? ' joy' : '');
       const st = $('stage');
       if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; st.classList.add(res.correct ? 'flash' : 'shake'); }
-      fb.innerHTML = res.correct ? 'Correct' : 'Not quite. ' + opts.explain(res);
+      misses = res.correct ? 0 : misses + 1;
+      fb.innerHTML = res.correct ? cheer() + (res.again_later ? (YOUNG ? ' ' : '. ') + 'It comes back later, to check you remember it.' : '')
+          + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '')
+        : 'Not quite. ' + opts.explain(res) + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '') + (misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
       if (opts.after) opts.after(res);
+      if (window.Speak) Speak.feedback((fb.innerText || fb.textContent).replace('★', '').replace(/\s*\n+\s*/g, '. '));    // Years 1-2 hear it too
       if (res.correct && opts.autoNext) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
       else $('next').focus();
     }
@@ -98,4 +139,50 @@
     return { next, check, esc };
   };
   window.esc = esc;
+
+  /* A typed answer that can only be one of a few words the question itself names ("(type yes or no)",
+     "Type yes or no.", "(A or B)", "Is it living, dead or never alive?", "odd or even?"): those words, else null.
+     Read from how the question is written, the same text the child reads; the answer is never sent here. */
+  const PAIR = /\b(yes or no|true or false|odd or even|even or odd|more or less|bigger or smaller|living, dead or never alive)(\s+[a-z]+)?\s*\?/i;
+  function words(list) {
+    const w = list.split(/\s*,\s*|\s+or\s+/i).map(x => x.trim().replace(/^['"‘“]+|['"’”.]+$/g, '').trim()).filter(Boolean);
+    return w.length >= 2 && w.length <= 4 && w.every(x => x.length <= 20 && x.split(/\s+/).length <= 3 && !/[\d%=:]/.test(x)
+      && !FORM.test(x)) ? w : null;
+  }
+  const FORM = /\b(numbers?|fractions?|form|words?|decimals?|units?)\b/i;      // "(a fraction or a whole number)" is how to write it
+  window.Drill.choices = function (prompt, placeholder) {
+    const s = String(prompt || '');
+    const br = s.match(/\(\s*(?:type\s+)?([^()]+?\s+or\s+[^()]+?)\s*\)/gi);          // the last "( … or … )"
+    if (br) { const w = words(br[br.length - 1].replace(/^\(\s*(?:type\s*:?\s+)?|\s*\)$/gi, '')); if (w) return w; }
+    const ty = s.match(/\b(?:type|answer)\s+((?:'[^']+'|\w+)\s+or\s+(?:'[^']+'|\w+))(?=\s*(?:[.?!]|for\b|$))/i);
+    if (ty) { const w = words(ty[1]); if (w) return w; }
+    const p = s.match(PAIR) || s.match(/^(true or false)\b/i);
+    if (p) return words(p[1].toLowerCase());
+    return placeholder && /^yes or no$/i.test(String(placeholder).trim()) ? ['yes', 'no'] : null;
+  };
+  /* Tap buttons for those words, put after `input`'s row; a tap writes the word into the input, which stays the
+     answer. hide: the box goes (Years 1-4 can't spell "never alive"); otherwise buttons and box side by side. */
+  window.Drill.choiceButtons = function (input, list, hide, anchor) {
+    const box = document.createElement('div'); box.className = 'opts choices'; box.setAttribute('data-testid', 'choices');
+    list.forEach((w, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.textContent = w === w.toLowerCase() && w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1) : w;   // not "Ml", "X"
+      b.dataset.value = w; b.setAttribute('data-testid', 'choice-' + i);
+      b.addEventListener('click', () => { if (b.disabled) return;
+        input.value = w; input.dispatchEvent(new Event('input', { bubbles: true }));
+        box.querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === b));
+        if (window.Speak) Speak.word(w); });
+      box.appendChild(b);
+    });
+    const at = anchor || input;
+    at.parentNode.insertBefore(box, at.nextSibling);
+    if (hide) { input.style.display = 'none'; input.tabIndex = -1; }
+    box.__mark = (res) => box.querySelectorAll('.opt').forEach(b => {     // after Check: green for right, pink for a miss
+      b.disabled = true;
+      const right = String(res.expected || '').trim().toLowerCase() === b.dataset.value.toLowerCase();
+      if (b.classList.contains('sel')) b.classList.add(res.correct ? 'right' : 'wrong');
+      else if (!res.correct && right) b.classList.add('right');
+    });
+    return box;
+  };
 })();

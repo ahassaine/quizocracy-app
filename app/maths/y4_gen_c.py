@@ -1047,7 +1047,8 @@ def _(d=1):
         return _numq("A blue ribbon is %d cm long. A red ribbon is %d times as "
                      "long as the blue ribbon. How long is the red ribbon, in cm?"
                      % (base, k), base * k,
-                     ["%d × %d = %d cm." % (base, k, base * k)], unit="cm")
+                     ["'%d times as long' means multiply." % k,
+                      "%d × %d = %d cm." % (base, k, base * k)], unit="cm")
 
     def comparison():
         a, b = _two_names()
@@ -1056,7 +1057,8 @@ def _(d=1):
         return _numq("%s has %d stickers. %s has %d times as many stickers as %s. "
                      "How many stickers do %s and %s have altogether?"
                      % (a, base, b, k, a, a, b), base + base * k,
-                     ["%s has %d × %d = %d stickers." % (b, base, k, base * k),
+                     ["'%d times as many' means multiply; 'altogether' means add the two amounts." % k,
+                      "%s has %d × %d = %d stickers." % (b, base, k, base * k),
                       "%d + %d = %d stickers altogether."
                       % (base, base * k, base + base * k)], unit="stickers")
 
@@ -1065,7 +1067,8 @@ def _(d=1):
         m = random.randint(3, 9)
         return _numq("One balloon costs %s. How much do %d balloons cost, in "
                      "pence?" % (money(cost), m), cost * m,
-                     ["%d × %d = %dp." % (cost, m, cost * m)], unit="p")
+                     ["One costs %dp, so %d of them cost that price %d times: multiply." % (cost, m, m),
+                      "%d × %d = %dp." % (cost, m, cost * m)], unit="p")
 
     def rows_of():
         rows = random.randint(6, 14)
@@ -1073,7 +1076,9 @@ def _(d=1):
         return _numq("A hall has %d rows of chairs with %d chairs in each row. "
                      "How many chairs are there altogether?" % (rows, cols),
                      rows * cols,
-                     ["%d × %d = %d chairs." % (rows, cols, rows * cols)],
+                     ["'In each row' means every row has %d — the same number %d times, so multiply."
+                      % (cols, rows),
+                      "%d × %d = %d chairs." % (rows, cols, rows * cols)],
                      unit="chairs")
 
     def area_model():
@@ -1092,7 +1097,8 @@ def _(d=1):
         return _pictq("The pictogram shows how many books each class read. How "
                       "many books were read altogether?", cats, vals, key,
                       "book", sum(vals),
-                      ["%s." % ", ".join("%s: %d" % (c, v)
+                      ["'Altogether' means all the classes together, so add.",
+                       "%s." % ", ".join("%s: %d" % (c, v)
                                          for c, v in zip(cats, vals)),
                        "%s = %d books." % (" + ".join(str(v) for v in vals),
                                            sum(vals))])
@@ -1105,7 +1111,8 @@ def _(d=1):
         return _barq("The chart shows how many cakes were sold each day. Each "
                      "cake costs %dp. How much money was taken on %s, in pence?"
                      % (k, cats[i]), cats, vals, vals[i] * k,
-                     ["%s: %d cakes." % (cats[i], vals[i]),
+                     ["'Each' cake costs %dp — the same price for every cake, so multiply." % k,
+                      "%s: %d cakes." % (cats[i], vals[i]),
                       "%d × %d = %dp." % (vals[i], k, vals[i] * k)])
 
     def price_table():
@@ -1117,7 +1124,8 @@ def _(d=1):
         return _dtq("Use the price list. How much do %d %ss cost altogether, in "
                     "pence?" % (m, items[i].lower()), ["Item", "Price"], rows,
                     prices[i] * m,
-                    ["One %s costs %dp." % (items[i].lower(), prices[i]),
+                    ["%d %ss at the same price each: multiply." % (m, items[i].lower()),
+                     "One %s costs %dp." % (items[i].lower(), prices[i]),
                      "%d × %d = %dp." % (prices[i], m, prices[i] * m)])
 
     def strip_model():
@@ -1125,7 +1133,8 @@ def _(d=1):
         return _stripq("Use the strip model. %s fills %d trays and each tray holds "
                        "%d buns. How many buns does %s bake altogether?"
                        % (who, n, per, who), n, str(per), "?", "total", n * per,
-                       ["The strip shows %d equal parts of %d." % (n, per),
+                       ["'Each' tray holds %d — the same number %d times, so multiply." % (per, n),
+                        "The strip shows %d equal parts of %d." % (n, per),
                         "%d × %d = %d buns." % (n, per, n * per)])
 
     def two_step():
@@ -1174,14 +1183,17 @@ def _(d=1):
         thing = pick(_OBJ)
         return _numq("%s shares %d %s equally between %d friends. How many %s "
                      "does each friend get?" % (who, total, thing, groups, thing),
-                     per, ["%d ÷ %d = %d %s each." % (total, groups, per, thing)],
+                     per, ["'Shares equally' means every friend gets the same, so divide.",
+                           "%d ÷ %d = %d %s each." % (total, groups, per, thing)],
                      unit=thing)
 
     def grouping():
         thing = pick(_OBJ)
         return _numq("%d %s are packed into bags of %d. How many bags are filled?"
                      % (total, thing, per), groups,
-                     ["%d ÷ %d = %d bags." % (total, per, groups)], unit="bags")
+                     ["'Bags of %d' means %d in every bag: how many %ds fit into %d? Divide."
+                      % (per, per, per, total),
+                      "%d ÷ %d = %d bags." % (total, per, groups)], unit="bags")
 
     def scaling_down():
         base = random.randint(4, 30)
@@ -1244,7 +1256,8 @@ def _(d=1):
                        "%d friends. How many conkers does each friend get?"
                        % (who, total, groups), groups, "?", str(total), "part",
                        per,
-                       ["The strip of %d is split into %d equal parts."
+                       ["'Shares equally' means every friend gets the same, so divide.",
+                        "The strip of %d is split into %d equal parts."
                         % (total, groups),
                         "%d ÷ %d = %d conkers each." % (total, groups, per)])
 
@@ -1262,7 +1275,8 @@ def _(d=1):
         return _numq("%d biscuits are shared equally between %d plates. Then %d "
                      "more biscuits are added to one plate. How many biscuits are "
                      "on that plate?" % (each * m, m, extra), each + extra,
-                     ["%d ÷ %d = %d biscuits each." % (each * m, m, each),
+                     ["'Shared equally' means divide; 'more … added' means add.",
+                      "%d ÷ %d = %d biscuits each." % (each * m, m, each),
                       "%d + %d = %d." % (each, extra, each + extra)],
                      unit="biscuits")
 

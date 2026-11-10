@@ -1,4 +1,7 @@
 """The activity catalogue, plan limits and each child's daily plan."""
+import datetime
+from zoneinfo import ZoneInfo
+
 from . import config
 
 ACTIVITIES = {
@@ -35,15 +38,56 @@ def new_family_plan() -> str:
     return "family" if config.BETA_FAMILY_PLAN else "free"
 
 
+# The default day for each school year: the few activities that matter most at that age, about 15 minutes
+# (see minutes()). Anything else the parent can switch on.
+YEAR_DEFAULTS = {
+    1: {"maths": 8, "spelling": 6},
+    2: {"maths": 6, "tables": 15, "spelling": 6},
+    3: {"maths": 8, "tables": 20, "spelling": 8},
+    4: {"maths": 8, "tables": 20, "spelling": 8},
+    5: {"maths": 10, "tables": 20, "spelling": 8},
+    6: {"maths": 10, "spelling": 8, "grammar": 5},
+    7: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
+    8: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
+    9: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
+}
+# Rough seconds a child needs per correct answer (wrong tries and reading the feedback included), and how much
+# longer younger children take. Only used to tell the parent how long a day takes.
+SECONDS = {"maths": 50, "tables": 8, "spelling": 25, "grammar": 40, "science": 35, "numbers": 40, "verbs": 20}
+
+
+def year_pace(year: int) -> float:
+    return 1.5 if year <= 2 else 1.2 if year <= 4 else 1.0 if year <= 6 else 0.85
+
+
+def minutes(plan: list, year: int) -> int:
+    """About how long a day of this plan ([{key, target}]) takes, in minutes."""
+    return round(sum(SECONDS[a["key"]] * a["target"] for a in plan) * year_pace(year) / 60)
+
+
 def default_activities(year: int) -> dict:
-    return {k: {"on": year >= a["min_year"], "target": a["target"]} for k, a in ACTIVITIES.items()}
+    d = YEAR_DEFAULTS.get(year) or YEAR_DEFAULTS[3]
+    return {k: {"on": k in d and year >= a["min_year"], "target": d.get(k, a["target"])} for k, a in ACTIVITIES.items()}
 
 
-def todays_plan(pupil: dict, family: dict) -> list:
-    """Activities this child should do today, respecting the family's plan."""
+def acts_on(pupil: dict, day: str | None) -> dict | None:
+    """The activities the child's plan had on that day. A plan change is logged with the day it starts
+    (plan_log, oldest first), so a change made today starts tomorrow and past days keep their own plan."""
+    acts = pupil.get("activities")
+    if day:
+        for e in pupil.get("plan_log") or []:
+            if e["from"] <= day:
+                acts = e["acts"]
+    return acts
+
+
+def todays_plan(pupil: dict, family: dict, day: str | None = None) -> list:
+    """Activities this child should do today (or on that day), respecting the family's plan."""
     allowed = plan_of(family)["activities"]
     defaults = default_activities(pupil.get("year", 3))
-    acts = pupil.get("activities") or defaults
+    if day is None:
+        day = datetime.datetime.now(ZoneInfo(config.TIMEZONE)).date().isoformat()
+    acts = acts_on(pupil, day) or defaults
     out = []
     for k in ORDER:
         a = acts.get(k) or defaults[k]          # an activity added after the child was set up starts on

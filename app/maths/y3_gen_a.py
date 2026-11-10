@@ -157,7 +157,9 @@ def _(d=1):
         return _tb("%s has %d %s. Each one holds %d %s. How many %s altogether?"
                    % (who, k, holder, step, thing, thing),
                    k * step, "int", {"unit": thing},
-                   ["Count on in %ds, %d times." % (step, k),
+                   ["'Each' one holds %d — the same number %d times, so multiply. 'Altogether' means all of "
+                    "them together." % (step, k),
+                    "Count on in %ds, %d times." % (step, k),
                     "%d × %d = %d." % (k, step, k * step)])
 
     def t_inverse():

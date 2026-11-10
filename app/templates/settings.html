@@ -12,7 +12,9 @@
   {% else %}<input type="hidden" name="reward_threshold" value="100"><p class="mut">Rewards come with the Family plan.</p>{% endif %}
   <button class="btn primary" type="submit">Save</button>
 </form>
-<div class="card"><b>Plan:</b> {{ plan.title }}</div>
+{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}<div class="card" data-testid="plan"><b>Plan:</b> Free beta — every activity included
+  <p class="mut small">During the beta your family has all seven activities, rewards and room for up to {{ plan.max_children }} children, free. Nothing is charged. We will tell you before anything you rely on changes.</p></div>
+{% else %}<div class="card" data-testid="plan"><b>Plan:</b> {{ plan.title }}</div>{% endif %}
 <div class="card"><b>Your data</b><p class="mut small">Download everything we hold about your family as a file.</p><a class="btn" href="/account/export">Download my data</a></div>
 <form method="post" action="/account/delete" class="card">
   <b>Delete account</b><p class="mut small">Deletes your account, your children and all their practice, immediately.</p>

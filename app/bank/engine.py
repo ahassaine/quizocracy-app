@@ -10,6 +10,8 @@ import pathlib
 import random
 import re
 
+from ..drills import typos
+
 log = logging.getLogger("qz.bank")
 CONTENT = pathlib.Path(__file__).parent / "content"
 PREFIX = {"grammar": "GP", "science": "SC"}
@@ -187,10 +189,17 @@ def open_end(prompt: str, s: str) -> bool:
     return not _quotes(s).rstrip().rstrip("'\"").endswith((".", "?", "!")) and not _END_MARKS.search(prompt)
 
 
+_WORD_NUM = {w: float(i) for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+    "seventeen eighteen nineteen twenty".split())}
+
+
 def parse_num(s) -> float | None:
     """One number, with digit-group commas or spaces and a unit if the child likes ("10 000 kJ", "6 m").
     A hedge or a range is not one number: "25 or 30", "6-9", "6/7", "1.4.9" give None."""
     s = _quotes("" if s is None else str(s)).strip().replace("−", "-")
+    if s.lower() in _WORD_NUM:                       # "two" for 2: the number is the answer, not how it is written
+        return _WORD_NUM[s.lower()]
     m = re.match(r"^[-+]?(?:\d{1,3}(?:[, ]\d{3})+(?!\d)|\d+)(?:\.\d+)?|^[-+]?\.\d+", s)
     if not m or re.search(r"\d", s[m.end():]):
         return None
@@ -252,3 +261,21 @@ def mark(key: dict, value) -> bool:
         v = parse_num(value)
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9
     return False
+
+
+_NEVER = frozenset({"yes", "no"})
+
+
+def slips(key: dict, value, prompt: str = "") -> list:
+    """Science words typed with one slip ("respiraton", "ded"): [(typed, wanted)] against the nearest accepted
+    answer, for a free retry. Never in grammar, where how a word is written is often the point, and never a word
+    the question itself offers ("living, dead or never alive?")."""
+    if key.get("t") != "text" or not key.get("loose"):
+        return []
+    words = lambda s: re.findall(r"[a-z]+", re.sub(r"^(a|an|the) (?=\S)", "", norm_text(s)))   # noqa: E731
+    tv = words(value)
+    for a in key["a"]:
+        pairs = typos.slips(tv, words(a), _NEVER | set(re.findall(r"[a-z]+", prompt.lower())))
+        if pairs:
+            return pairs
+    return []

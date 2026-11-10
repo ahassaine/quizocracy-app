@@ -1,20 +1,26 @@
 {% extends "base.html" %}{% block title %}Spelling · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
 <div class="stage rise rise-3" id="stage">
-  <div class="row"><button class="btn big" id="play" type="button">Listen again</button><span class="mut" id="letters"></span></div>
+  <div class="row"><button class="btn big" id="play" type="button" data-speaks>Listen again</button><span class="mut" id="letters"></span></div>
   <div class="mut" id="cue" style="margin-top:10px;font-size:1.1rem"></div>
   <audio id="audio" preload="auto"></audio>
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=11"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=16"></script><script>
 const audio = document.getElementById('audio');
+// the word's clip; the promise ends when it has played (or could not play: no tap on the page yet)
+function playWord() { return new Promise(res => { let t = 0; const done = () => { clearTimeout(t); audio.removeEventListener('ended', done); res(); };
+  audio.addEventListener('ended', done); t = setTimeout(done, 6000); audio.currentTime = 0; audio.play().catch(done); }); }
+let playing = null;
 document.getElementById('play').addEventListener('click', () => { audio.currentTime = 0; audio.play().catch(() => {}); });
 Drill({ activity: 'spelling',
-  render(q) { audio.src = q.audio; audio.load(); audio.play().catch(() => {});
+  render(q) { audio.src = q.audio; audio.load(); playing = playWord();
     document.getElementById('cue').textContent = q.cue ? 'Hint: ' + q.cue : '';
-    document.getElementById('letters').textContent = q.letters + ' letters';
+    document.getElementById('letters').textContent = q.letters + (q.letters === 1 ? ' letter' : ' letters');
     const a = document.getElementById('answer'); a.value = ''; a.focus(); },
+  // 🔊: the word, then its hint sentence ("I walk ___ school." tells "to" from "two"); Years 1-2 hear the hint after the word by themselves
+  speech(q) { return { parts: q.cue ? ['Hint: ' + q.cue] : [], lead: playWord, after: playing }; },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },
   explain(r) { return 'It is spelt <b>' + esc(r.expected) + '</b>.'; } });
 </script>{% endblock %}

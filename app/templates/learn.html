@@ -3,18 +3,37 @@
 <h1 class="rise">Who's learning?</h1>
 {% if ctx.locked %}<p class="mut small">Parents can leave practice from <a href="/parent-unlock">Parent</a>.</p>{% else %}<p class="mut small">Children will see that you can look at their answers and progress.</p>
   <form method="post" action="/handover" class="row"><button class="btn" type="submit">Lock the parent area and hand over</button></form>{% endif %}
-{% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+{% if error and not pin_for %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <div class="grid">
 {% set colours = ['#4F46E5', '#F43F5E', '#14B8A6', '#0EA5E9', '#F59E0B', '#7C3AED'] %}
 {% for p in pupils %}
-  <div class="card lift rise rise-{{ [loop.index, 5]|min }}" style="text-align:center">
+  <div class="card lift rise rise-{{ [loop.index, 5]|min }}" style="text-align:center" data-testid="tile-{{ p.name }}">
     <div style="width:74px;height:74px;border-radius:16px;margin:0 auto 8px;display:grid;place-items:center;font-family:var(--display);font-size:1.8rem;font-weight:800;color:#fff;background:{{ colours[loop.index0 % 6] }};box-shadow:var(--shadow)">{{ p.name[:1] }}</div>
     <div class="name display" style="font-weight:800;font-size:1.3rem">{{ p.name }}</div>
-    <form method="post" action="/learn/{{ p._id }}" class="pinform" data-testid="pin-{{ p.name }}">
-      <div class="field"><label for="pin-{{ p._id }}" class="mut small">PIN</label>
-      <input id="pin-{{ p._id }}" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="off" style="max-width:150px;font-size:1.6rem;text-align:center;letter-spacing:10px;margin:auto;display:block" {% if pin_for == p._id %}autofocus{% endif %}></div>
+    {% if unlocked == p._id %}<div class="ok" role="status">{{ p.name }} can type the PIN again now.</div>{% endif %}
+    {% if pin_for == p._id and error and not (locks and locks.get(p._id)) %}<div class="err" role="alert" style="text-align:left">{{ error }}</div>{% endif %}
+    {% if locks and locks.get(p._id) %}
+      <p data-testid="locked-{{ p.name }}"><b>{{ p.name }} is locked until {{ locks[p._id] }}</b><br><span class="mut small">Too many wrong PINs.</span></p>
+      {% if ctx.locked %}
+      <details style="text-align:left"{% if unlock_error and pin_for == p._id %} open{% endif %}><summary class="small" style="cursor:pointer;padding:6px 0">Grown-up? Unlock {{ p.name }} now</summary>
+        {% if unlock_error and pin_for == p._id %}<div class="err" role="alert">{{ unlock_error }}</div>{% endif %}
+        <form method="post" action="/children/{{ p._id }}/pin-unlock" novalidate>
+          <div class="field"><label for="upw-{{ p._id }}" class="small">Parent password</label>
+          <input id="upw-{{ p._id }}" name="password" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false"></div>
+          {# new-password: browsers must not offer the saved parent password on the device handed to a child #}
+          <button class="btn" type="submit">Unlock {{ p.name }}</button> <a class="small" href="/forgot">Forgot password?</a>
+        </form>
+      </details>
+      {% else %}
+      <form method="post" action="/children/{{ p._id }}/pin-unlock"><button class="btn" type="submit">Unlock {{ p.name }}</button></form>
+      {% endif %}
+    {% else %}
+    <form method="post" action="/learn/{{ p._id }}" class="pinform" data-testid="pin-{{ p.name }}" novalidate>
+      <div class="field"><label for="pin-{{ p._id }}" class="mut small">PIN (4 numbers)</label>
+      <input id="pin-{{ p._id }}" name="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" style="max-width:150px;font-size:1.6rem;text-align:center;letter-spacing:10px;margin:auto;display:block" {% if pin_for == p._id %}autofocus{% endif %}></div>
       <button class="btn primary" type="submit">Start</button>
     </form>
+    {% endif %}
   </div>
 {% else %}<div class="card">No children yet. <a href="/children/new">Add one</a>.</div>{% endfor %}
 </div>

@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from .. import config, mailer
 from ..activities import new_family_plan
 from ..db import db
-from ..deps import client_ip, create_session, end_session, hit, load, over_limit
+from ..deps import client_ip, create_session, end_session, hit, load, local_time, over_limit
 from ..security import hash_secret, new_code, new_id, new_token, token_key, verify_secret
 from ..web import page
 
@@ -24,6 +24,11 @@ MAIL_PER_IP = ((30, 60),)
 
 def _now():
     return datetime.datetime.utcnow()
+
+
+def _code(s: str) -> str:
+    """An invitation code as compared: any case, spaces ignored."""
+    return re.sub(r"\s+", "", s or "").upper()
 
 
 async def _mail_allowed(request: Request, purpose: str, email: str) -> bool:
@@ -58,19 +63,20 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
                  family_name: str = Form(""), invite: str = Form(""), consent: str = Form("")):
     email = email.strip().lower()
     err = None
-    if config.INVITE_CODE and invite.strip() != config.INVITE_CODE:
-        err = "That invitation code is not valid."
+    if config.INVITE_CODE and _code(invite) != _code(config.INVITE_CODE):
+        err = "That invitation code is not right. Check it against your invitation (small or capital letters both work)."
     elif not EMAIL_RE.match(email):
         err = "Enter a valid email address."
     elif len(password) < 8:
-        err = "Use a password of at least 8 characters."
+        err = "Use a password of 8 characters or more."
     elif not consent:
         err = "Please confirm you are a parent or guardian aged 18 or over."
     elif await db.accounts.find_one({"email": email}):
         err = "An account already exists for this email. Sign in instead."
     if err:
-        return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), error=err,
-                    email=email, family_name=family_name, status_code=400)
+        # Everything typed comes back, so one slip never means typing the code and password again.
+        return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), error=err, email=email,
+                    password=password, family_name=family_name, invite=invite, consent=consent, status_code=400)
     fam = {"_id": new_id("fam"), "name": (family_name.strip() or "My family")[:60], "plan": new_family_plan(),
            "created": _now(), "reward": {"text": "", "threshold": 100}}
     acc = {"_id": new_id("acc"), "email": email, "pw": hash_secret(password), "family_id": fam["_id"],
@@ -197,11 +203,18 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
     if not rec:
         return page(request, "reset.html", token=token, invalid=True, status_code=400)
     if len(password) < 8:
-        return page(request, "reset.html", token=token, error="Use at least 8 characters.", status_code=400)
+        return page(request, "reset.html", token=token, error="Use 8 characters or more.", status_code=400)
     acc = await db.accounts.find_one({"email": rec["email"]})
     await db.accounts.update_one({"_id": acc["_id"]}, {"$set": {"pw": hash_secret(password),
                                                                 "verified_at": acc.get("verified_at") or _now()}})
     await db.codes.delete_many({"email": rec["email"], "purpose": "reset"})
     await db.sessions.delete_many({"account_id": acc["_id"]})          # sign out everywhere
     await db.login_failures.delete_many({"email": rec["email"]})
+    # Tell the account: anyone with the inbox (or a minder) can reset, and the other adults need to know.
+    await mailer.send(rec["email"], "Your Quizocracy password was changed",
+                      f"The password for your Quizocracy account ({rec['email']}) was changed on "
+                      f"{local_time(_now()):%d %B %Y at %H:%M}. Everyone signed in was signed out; "
+                      f"sign in again with the new password.\n\n"
+                      f"If you did not change it, choose a new password now at {config.PUBLIC_URL}/forgot "
+                      f"and write to us at {config.SUPPORT_EMAIL}.\n")
     return RedirectResponse("/login?reset=1", 303)

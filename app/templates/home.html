@@ -2,14 +2,20 @@
 {% block body %}
 {% if welcome %}<div class="ok">Your email is verified. Add your first child to get started.</div>{% endif %}
 {% if request.query_params.get('deleted') %}<div class="ok">Child deleted, with all their practice data.</div>{% endif %}
-<div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip">{{ plan.title }} plan</span></div>
+<div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip" data-testid="plan-chip">{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}Free during the beta{% else %}{{ plan.title }} plan{% endif %}</span></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="kid-{{ p.name }}">
   <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div><div class="pct" data-testid="pct">{{ b.pct }}%</div></div>
+  {% if locks and locks.get(p._id) %}<div class="err" role="status" data-testid="pin-locked" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;animation:none">
+    <span><b>{{ p.name }} is locked until {{ locks[p._id] }}</b> after too many wrong PINs.</span>
+    <form method="post" action="/children/{{ p._id }}/pin-unlock"><input type="hidden" name="back" value="home"><button class="btn" type="submit">Unlock {{ p.name }}</button></form></div>
+  {% elif unlocked == p._id %}<div class="ok" role="status">{{ p.name }} is unlocked and can type the PIN again.</div>{% endif %}
   <div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>
   {% if b.reward_earned %}<div class="reward earned" data-testid="reward-earned" style="margin-top:10px"><img src="/static/img/trophy.png" alt="">{{ p.name }} earned: {{ b.reward.text }}</div>{% endif %}
-  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
-  <div class="hist" title="Last 7 days">{% for h in hist[p._id] %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endfor %}</div>
+  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>
+  {% with s = day_stats.get(p._id, {}).get(today_day) if day_stats else none, name = p.name %}{% include "_day_stats.html" %}{% endwith %}
+  {% if hist[p._id]|length > 1 %}<div class="hist" title="Days done, last 7 days">{% for h in hist[p._id] %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endfor %}</div>
+  <div class="mut small" style="margin-top:2px">{% if hist[p._id]|length < 7 %}Each day since {{ p.name }} started{% else %}The last 7 days{% endif %}, today on the right</div>{% endif %}
   <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a><a class="btn" href="/children/{{ p._id }}/edit">Settings</a></div>
 </div>
 {% else %}

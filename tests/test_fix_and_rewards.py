@@ -1,5 +1,6 @@
 """'Practise my mistakes' brings back exactly what the child got wrong until it is put right, and each child
 can have their own reward instead of the family's."""
+import datetime
 import re
 
 import requests
@@ -26,6 +27,9 @@ def test_practise_my_mistakes(page):
     gq = DB.items.find_one({"_id": q["token"]})["meta"]
     assert s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": "zzqx"}).json()["correct"] is False
 
+    # an earlier sitting: the answers are no longer fresh in mind, so the mistakes are ready to come back
+    DB.attempts.update_many({"pupil_id": pid}, {"$set": {"ts": datetime.datetime.utcnow() - datetime.timedelta(hours=1)}})
+
     page.goto("/me")
     assert page.inner_text("[data-testid=fix-all]") == "Practise my mistakes (2)"
     assert page.inner_text("[data-testid=fix-tables]") == "1 to fix"
@@ -33,22 +37,26 @@ def test_practise_my_mistakes(page):
     page.wait_for_url("**/me/tables?fix=1")
     doc = wait_question(page, "tables", pid)
     assert doc["meta"]["fact"] == fact                              # the same fact comes back
-    assert "1 left" in page.inner_text("[data-testid=fix-msg]")
+    assert "2 left" in page.inner_text("[data-testid=fix-msg]")    # the count of every subject, as on My day
     page.fill("#answer", str(doc["answer"]))
     page.click("#check")
     page.wait_for_selector("#feedback.yes")
+    assert "1 left" in page.inner_text("[data-testid=fix-msg]")    # drops as soon as it is put right
     page.click("#next")
-    wait_question(page, "tables", pid, doc["_id"])
-    assert "No mistakes left" in page.inner_text("[data-testid=fix-msg]")
 
-    # grammar: the very same question, until it is answered right
-    for _ in range(2):
-        q = s.post(BASE + "/api/grammar/next", json={"fix": 1}).json()
-        it = DB.items.find_one({"_id": q["token"]})
-        assert q["fixing"] and (it["meta"]["skill"], it["meta"]["qid"]) == (gq["skill"], gq["qid"])
-        key = it["answer"]
-        good = {"mcq": key.get("right"), "tap": key.get("hits"), "num": key.get("a")}.get(key["t"], (key.get("a") or [""])[0])
-        s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": "zzqx" if _ == 0 else good})
+    # then straight on to the next subject's mistake: grammar, the very same question
+    page.wait_for_url("**/me/grammar?fix=1")
+    it = wait_question(page, "grammar", pid)
+    assert (it["meta"]["skill"], it["meta"]["qid"]) == (gq["skill"], gq["qid"])
+    assert "1 left" in page.inner_text("[data-testid=fix-msg]")
+    q = s.post(BASE + "/api/grammar/next", json={"fix": 1}).json()          # the same question again (refresh)
+    assert q["token"] == it["_id"]
+    key = it["answer"]
+    good = {"mcq": key.get("right"), "tap": key.get("hits"), "num": key.get("a")}.get(key["t"], (key.get("a") or [""])[0])
+    assert s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": good}).json()["correct"]
+    page.reload()
+    page.wait_for_function("document.getElementById('fixMsg').textContent.length > 0")
+    assert "All your mistakes are done" in page.inner_text("[data-testid=fix-msg]")
     page.goto("/me")
     assert page.locator("[data-testid=fix-all]").count() == 0
 
@@ -66,7 +74,7 @@ def test_each_child_can_have_their_own_reward(page):
     page.fill("#reward_text", "A trip to the park")
     page.fill("#reward_threshold", "20")
     page.click("form.card button[type=submit]")
-    page.wait_for_url(f"**/children/{pid}")
+    page.wait_for_url(f"**/children/{pid}/edit?saved=1")
     add_child(page, "Lila", 4)
 
     enter_child(page, "Adam")

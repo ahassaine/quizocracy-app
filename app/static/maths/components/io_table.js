@@ -22,7 +22,9 @@
         (hasRule ? '#e6edf3' : '#4f8df7') +
         ';background:#0b0f14;border:1px solid #30363d;border-radius:8px;' +
         'padding:6px 12px;display:inline-block;margin-bottom:10px';
-      wrap.appendChild(rule);
+      // "Rule: ?" only when the rule is what is asked (no missing cell); for a missing Out number the prompt
+      // gives the rule or the rows show it, and a "?" there reads as a second thing to answer
+      if (hasRule || missing < 0) wrap.appendChild(rule);
 
       // Table
       const table = document.createElement('table');
@@ -93,9 +95,20 @@
         'text-align:center;outline:none;box-sizing:border-box';
       input.addEventListener('focus', () => { input.style.borderColor = '#4f8df7'; });
       input.addEventListener('blur', () => { input.style.borderColor = '#30363d'; });
+      // the box widens with a long answer instead of hiding its start
+      const grow = () => { input.style.maxWidth = Math.max(180, Math.min(480, 16 * input.value.length + 40)) + 'px'; };
       input.addEventListener('input', () => {
         if (blankCell) blankCell.textContent = input.value.trim();
+        grow();
       });
+      // the dashed cell looks like the place to type, so a tap on it types in the box
+      if (blankCell) {
+        blankCell.style.cursor = 'text';
+        blankCell.setAttribute('data-testid', 'blank-cell');
+        blankCell.addEventListener('click', () => { if (input.style.display !== 'none' && !input.readOnly) input.focus(); });
+        input.addEventListener('focus', () => { blankCell.style.borderStyle = 'solid'; });
+        input.addEventListener('blur', () => { if (!input.readOnly) blankCell.style.borderStyle = 'dashed'; });
+      }
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); api.submit(); }
       });
@@ -107,6 +120,7 @@
       host.__getValue = () => input.value.trim();
       host.__feedback = (res) => {
         const col = res && res.correct ? '#22c55e' : '#f85149';
+        input.readOnly = true;
         input.style.borderColor = col;
         if (blankCell) {
           blankCell.style.borderColor = col;

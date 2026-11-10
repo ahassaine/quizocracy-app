@@ -3,12 +3,17 @@
 {% set editing = pupil and pupil._id %}
 <h1>{% if editing %}{{ pupil.name }}'s settings{% else %}Add a child{% endif %}</h1>
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+{% if editing and request.query_params.get('saved') %}<div class="ok" role="status" data-testid="saved">Saved.{% if request.query_params.get('pin') %} PIN changed: {{ pupil.name }}'s new PIN works from now on, and the old one no longer does.{% endif %} <a href="/children/{{ pupil._id }}">See {{ pupil.name }}'s progress</a> · <a href="/home">Home</a></div>{% endif %}
 <form method="post" class="card">
   <div class="field"><label for="name">First name or nickname</label><input id="name" name="name" type="text" required maxlength="30" value="{{ pupil.name if pupil else '' }}"></div>
   <div class="field"><label for="year">School year (England)</label>
     <select id="year" name="year" required>{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="pin">{% if editing %}New 4-digit PIN <span class="mut">(leave blank to keep)</span>{% else %}4-digit PIN for your child{% endif %}</label>
-    <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off"></div>
+  {% if editing %}<div class="field"><b>{{ pupil.name }}'s PIN</b>
+    {% if pupil.pin_view %}<details data-testid="show-pin"><summary style="cursor:pointer;padding:6px 0">Show the PIN</summary><span class="display" style="font-size:1.6rem;font-weight:800;letter-spacing:6px" data-testid="pin-value">{{ pupil.pin_view }}</span></details>
+    {% else %}<div class="mut small">Set a new PIN below and it will be shown here, for anyone who minds {{ pupil.name }}.</div>{% endif %}</div>{% endif %}
+  <div class="field"><label for="pin">{% if editing %}New PIN <span class="mut">(leave blank to keep)</span>{% else %}PIN for your child{% endif %}</label>
+    <input id="pin" name="pin" type="text" inputmode="numeric" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off" aria-describedby="pin-hint" style="max-width:150px">
+    <div class="mut small" id="pin-hint">4 numbers, like 2580. You can see it again here later.</div></div>
   {% if plan.rewards %}
   <h2 style="display:flex;align-items:center;gap:8px"><img src="/static/img/trophy.png" alt="" style="width:30px">Own reward <span class="mut small" style="font-weight:400">(optional)</span></h2>
   <p class="mut small">Leave it empty to use the family reward from Settings{% if ctx.family.reward and ctx.family.reward.text %} ("{{ ctx.family.reward.text }}"){% endif %}.</p>
@@ -16,15 +21,47 @@
   <div class="field"><label for="reward_threshold">Earned at (% of the day)</label><input id="reward_threshold" name="reward_threshold" type="number" min="10" max="100" value="{{ pupil.reward.threshold if pupil and pupil.reward else 100 }}" style="max-width:120px"></div>
   {% endif %}
   <h2>Daily plan</h2>
-  <p class="mut small">Targets count correct answers. Activities the plan does not include, or that start above this school year, stay off.</p>
+  <p class="mut small">Only the ticked activities are in the day. Targets count correct answers. An activity for an older year can't be ticked yet.</p>
+  <p data-testid="plan-minutes" style="font-weight:700;margin:.2em 0 .6em">About <span id="planMin">{{ minutes_est if minutes_est is defined else '' }}</span> minutes a day</p>
+  {% if editing %}{% if started %}
+  <div class="card" style="padding:10px 14px;margin:0 0 10px" data-testid="plan-tomorrow"><b>Changes start tomorrow.</b>
+    <span class="mut small">{{ pupil.name }} has started today, so today keeps the plan {{ pupil.name }} started with ({% for a in today_items %}{{ a.title }} {{ a.target }}{% if not loop.last %}, {% endif %}{% endfor %}).</span>
+    <label class="check small" style="font-weight:400;margin-top:6px"><input type="checkbox" name="plan_today" value="1" data-testid="plan-today"> Change today's plan too. A reward {{ pupil.name }} has already earned today stays earned.</label></div>
+  {% else %}<p class="mut small" data-testid="plan-now">{{ pupil.name }} hasn't started today, so changes start straight away.</p>{% endif %}{% endif %}
   <input type="hidden" name="custom" value="1">
-  <table class="t">
+  <table class="t" id="planTable">
   {% for k in ORDER %}{% set a = ACTIVITIES[k] %}{% set cur = acts.get(k, {}) %}
-    <tr><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} data-testid="on-{{ k }}"> <img src="{{ a.img }}" alt="" style="width:30px;vertical-align:middle"> {{ a.title }}</label>
-      <div class="mut small">{% if not a.free %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
+    <tr data-act="{{ k }}"><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} {% if k not in plan.activities %}disabled{% endif %} data-testid="on-{{ k }}"> <img src="{{ a.img }}" alt="" style="width:30px;vertical-align:middle"> {{ a.title }}</label>
+      <div class="mut small">{% if not a.free and not (cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family') %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
       <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day</td></tr>
   {% endfor %}
   </table>
+  <script>
+  /* Tick the school year's default day on a new child, keep older-year activities unticked, and estimate the minutes. */
+  (function () {
+    const J = {{ PLAN_JS|tojson }}, NEW = {{ 'false' if editing else 'true' }};
+    const year = document.getElementById('year'), rows = document.querySelectorAll('#planTable tr[data-act]');
+    function est() {
+      const y = +year.value; let s = 0;
+      rows.forEach(r => { const k = r.dataset.act, on = r.querySelector('input[type=checkbox]');
+        if (on.checked && !on.disabled) s += J.seconds[k] * Math.max(1, +r.querySelector('input[type=number]').value || 0); });
+      document.getElementById('planMin').textContent = Math.max(s ? 1 : 0, Math.round(s * J.pace[y] / 60));
+    }
+    function forYear(reset) {
+      const y = +year.value, d = J.defaults[y];
+      rows.forEach(r => { const k = r.dataset.act, on = r.querySelector('input[type=checkbox]'), young = y < J.min_year[k];
+        if (on.dataset.planOff === undefined) on.dataset.planOff = on.disabled ? '1' : '';
+        on.disabled = young || on.dataset.planOff === '1';
+        if (young) on.checked = false;
+        else if (reset) { on.checked = d[k].on && !on.disabled; r.querySelector('input[type=number]').value = d[k].target; }
+      });
+      est();
+    }
+    year.addEventListener('change', () => forYear(NEW));
+    document.getElementById('planTable').addEventListener('input', est);
+    forYear(false);
+  })();
+  </script>
   <div class="row"><button class="btn primary" type="submit">Save</button><a class="btn" href="{{ '/children/' ~ pupil._id if editing else '/home' }}">Cancel</a></div>
 </form>
 {% if editing %}

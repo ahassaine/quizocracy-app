@@ -46,7 +46,7 @@ def test_signup_verify_login_logout(page):
     page.fill("#invite", "WRONG")
     page.check("#consent")
     page.click("button[type=submit]")
-    assert "invitation code is not valid" in page.content()
+    assert "invitation code is not right" in page.content()
     signup(page, email)
     assert "Your email is verified" in page.content()
     # the same email cannot sign up twice
@@ -129,7 +129,7 @@ def test_children_validation_edit_and_plan_limits(page):
     page.fill("#name", "Lina"); page.select_option("#year", "3"); page.fill("#pin", "12")
     page.eval_on_selector("form.card", "f => f.noValidate = true")      # test the server's own check
     page.click("form.card button[type=submit]")
-    assert "PIN must be 4 digits" in page.content()
+    assert "PIN is 4 numbers" in page.content()
     pid = add_child(page, "Lina", 3)
     assert "Lina is ready" in page.content()
     p = pupil(pid)
@@ -141,7 +141,7 @@ def test_children_validation_edit_and_plan_limits(page):
     page.fill("[data-testid=target-maths]", "7")
     page.uncheck("[data-testid=on-numbers]")
     page.click("form.card button[type=submit]")
-    page.wait_for_url(f"**/children/{pid}")
+    page.wait_for_url(f"**/children/{pid}/edit?saved=1")
     p = pupil(pid)
     assert p["year"] == 5 and p["activities"]["maths"]["target"] == 7 and not p["activities"]["numbers"]["on"]
     # free plan: one child, three activities
@@ -291,7 +291,10 @@ def test_maths_drill_each_year(page, year):
     for _ in range(3):
         page.click("#next")
         doc = wait_question(page, "maths", pid, doc["_id"])
-        if page.locator("#mHost input.m-input").count() and doc["answer_type"] in ("num", "int", "str", "frac"):
+        if page.locator("[data-testid=choices]").count() and page.locator("#mHost input.m-input").is_hidden():
+            page.click("[data-testid=choices] .opt[data-value='%s' i]" % str(doc["answer"]).lower())   # Years 1-4: tap the word
+            page.click("#check"); page.wait_for_selector("#feedback.yes, #feedback.no")
+        elif page.locator("#mHost input.m-input").count() and doc["answer_type"] in ("num", "int", "str", "frac"):
             page.fill("#mHost input.m-input", str(doc["answer"]))                       # type it like a child
             page.click("#check"); page.wait_for_selector("#feedback.yes, #feedback.no")
         else:
@@ -356,6 +359,8 @@ def test_reward_board_and_parent_view(page):
             elif key["t"] == "tap":
                 for i in key["hits"]:
                     page.click(f"[data-testid=word-{i}]")
+            elif page.locator("#answer").is_hidden():                    # Years 1-4: "yes or no" is two buttons
+                page.click("[data-testid=choices] .opt[data-value='%s' i]" % key["a"][0])
             else:
                 page.fill("#answer", str(key["a"] if key["t"] == "num" else key["a"][0]))
             page.click("#check")
@@ -458,9 +463,8 @@ def test_phone_layout(browser, devices, device):
         page.goto(path)
         page.wait_for_timeout(400)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), path
-    before = DB.items.find_one({"pupil_id": pid, "activity": "tables"}, sort=[("created", -1)])
     page.goto("/me/tables")
-    it = wait_question(page, "tables", pid, before["_id"] if before else None)
+    it = wait_question(page, "tables", pid)          # the question served above, still unanswered, comes back
     page.tap("#answer"); page.fill("#answer", str(it["answer"])); page.tap("#check")
     page.wait_for_selector("#feedback.yes")
     ctx.close()

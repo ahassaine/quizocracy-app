@@ -58,5 +58,5 @@
 
 <div class="card"><b>Safe by design.</b> <span class="mut">No adverts, no chat, nothing shared with other families. Children sign in with a PIN on your device, and they know you can see their work.</span></div>
 <div class="row" style="justify-content:center;margin:22px 0 6px"><a class="btn primary big" href="/signup">Start free</a></div>
-<p class="mut small" style="text-align:center">The free plan covers one child with maths, times tables and spelling.</p>
+<p class="mut small" style="text-align:center">{% if cfg.BETA_FAMILY_PLAN %}Free during the beta: every activity, for up to six children.{% else %}The free plan covers one child with maths, times tables and spelling.{% endif %}</p>
 {% endblock %}

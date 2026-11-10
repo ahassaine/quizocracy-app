@@ -90,6 +90,42 @@ def _near_1sf(A):
     return n if _r1sf(n) == A else A
 
 
+_PLACE_AFTER = {0: "tenths", 1: "hundredths", 2: "thousandths", 3: "ten-thousandths", 4: "hundred-thousandths"}
+
+
+def _why_dp(x, dp):
+    """Why x rounds as it does to dp decimal places, from the digit that decides it."""
+    frac = format(x if isinstance(x, Decimal) else Decimal(str(x)), "f").partition(".")[2]
+    nxt = int((frac + "0" * (dp + 1))[dp])
+    return "The %s digit is %d, %s, so %s rounds %s to %s." % (
+        _PLACE_AFTER[dp], nxt, "5 or more" if nxt >= 5 else "less than 5", _fmt(x),
+        "up" if nxt >= 5 else "down", format(_dround(x, dp), "f"))
+
+
+def _why_sf(x, sig):
+    """Why x rounds as it does to sig significant figures."""
+    d = abs(x if isinstance(x, Decimal) else Decimal(str(x)))
+    nxt = int(d.scaleb(sig - 1 - d.adjusted() + 1) % 10)
+    return "The next digit after %d significant figure%s is %d, %s, so round %s." % (
+        sig, "" if sig == 1 else "s", nxt, "5 or more" if nxt >= 5 else "less than 5", "up" if nxt >= 5 else "down")
+
+
+def _why_bigger(a, b):
+    """Why one decimal is bigger: the first place, from the left, where the digits differ."""
+    if (a < 0) != (b < 0):
+        return "A negative number is always less than a positive one."
+    if a < 0:
+        return "Both are negative, so the one further from zero (%s) is smaller." % _fmt(min(a, b))
+    if int(a) != int(b):
+        return "The whole numbers differ: %d and %d." % (int(a), int(b))
+    fa, fb = (format(Decimal(str(v)), "f").partition(".")[2] for v in (a, b))
+    n = max(len(fa), len(fb))
+    fa, fb = fa.ljust(n, "0"), fb.ljust(n, "0")
+    i = next(i for i in range(n) if fa[i] != fb[i])
+    return "Line up the decimal points: the first different digit is in the %s place, %s and %s." % (
+        _PLACE_AFTER[i], fa[i], fb[i])
+
+
 # ---- component question builders --------------------------------------------
 def _tb(prompt, ans, atype="int", spec=None, solution=None, tol=0):
     """A typed-answer question on the plain `number` component."""
@@ -292,7 +328,8 @@ def _(d=1):
         a, b = _pair()
         sym = "<" if a < b else ">"
         return _wq("Type the correct symbol, < or >, to complete:   %d ___ %d" % (a, b),
-                   sym, ["%d %s %d." % (a, sym, b)], "< or >")
+                   sym, ["%d is further %s on the number line than %d." % (a, "left" if a < b else "right", b),
+                         "%d %s %d." % (a, sym, b)], "< or >")
 
     def _winter():
         # real winter-dawn readings for these northern cities (about -30 to 8 °C);
@@ -328,12 +365,14 @@ def _(d=1):
     def t_greatest():
         xs = _many({0: 4, 1: 5, 2: 5}[d])
         return _tb("Which of these is the greatest?   %s" % _lst(xs), max(xs), "int", {},
-                   ["In order: %s." % _lst(sorted(xs)), "The greatest is %d." % max(xs)])
+                   ["In order: %s." % _lst(sorted(xs)),
+                    "The greatest is the one furthest right on the number line: %d." % max(xs)])
 
     def t_least():
         xs = _many({0: 4, 1: 5, 2: 5}[d])
         return _tb("Which of these is the least?   %s" % _lst(xs), min(xs), "int", {},
-                   ["In order: %s." % _lst(sorted(xs)), "The least is %d." % min(xs)])
+                   ["In order: %s." % _lst(sorted(xs)),
+                    "The least is the one furthest left on the number line: %d." % min(xs)])
 
     def t_nth():
         xs = _many(5)
@@ -373,7 +412,9 @@ def _(d=1):
         return _nl("Here are three integers: %s. Place the SMALLEST one on the line."
                    % _lst(sorted(xs, key=lambda _z: random.random())),
                    target, lo, hi, 1, 5,
-                   ["The smallest is %d." % target])
+                   ["In order: %s." % _lst(xs),
+                    "%d is furthest left on the number line, so it is the smallest%s." % (
+                        target, " (the negative furthest from zero)" if target < 0 else "")])
 
     return _pick_t([t_greater, t_smaller, t_symbol, t_temp, t_warmer_diff,
                     t_greatest, t_least, t_nth, t_set_greater],
@@ -437,20 +478,19 @@ def _(d=1):
         a, b = _pair()
         return _numq("Which is greater, %s or %s? Type the greater number."
                      % (_fmt(a), _fmt(b)), _fmt(max(a, b)),
-                     ["Line up the decimal points and compare place by place.",
-                      "%s is greater." % _fmt(max(a, b))])
+                     [_why_bigger(a, b), "%s is greater." % _fmt(max(a, b))])
 
     def t_smaller():
         a, b = _pair()
         return _numq("Which is smaller, %s or %s? Type the smaller number."
                      % (_fmt(a), _fmt(b)), _fmt(min(a, b)),
-                     ["%s is smaller." % _fmt(min(a, b))])
+                     [_why_bigger(a, b), "%s is smaller." % _fmt(min(a, b))])
 
     def t_symbol():
         a, b = _pair()
         sym = "<" if a < b else ">"
         return _wq("Type < or > to complete:   %s ___ %s" % (_fmt(a), _fmt(b)),
-                   sym, ["%s %s %s." % (_fmt(a), sym, _fmt(b))], "< or >")
+                   sym, [_why_bigger(a, b), "%s %s %s." % (_fmt(a), sym, _fmt(b))], "< or >")
 
     def t_order_smallest():
         xs = [_dec() for _ in range(4)]
@@ -538,16 +578,14 @@ def _(d=1):
             x = _dec()
         ans = _dround(x, dp)
         return _numq("Round %s to %d decimal place%s." % (_fmt(x), dp, "" if dp == 1 else "s"),
-                     _fmt(ans),
-                     ["Look at the digit in the next place along.",
-                      "%s to %d d.p. is %s." % (_fmt(x), dp, _fmt(ans))])
+                     format(ans, "f"),
+                     ["Look at the digit in the next place along.", _why_dp(x, dp)])
 
     def t_nearest():
         x = _dec()
         ans = _dround(x, 0)
         return _numq("Round %s to the nearest whole number." % _fmt(x), _fmt(ans),
-                     ["The first decimal digit decides.",
-                      "%s rounds to %s." % (_fmt(x), _fmt(ans))])
+                     ["The first decimal digit decides.", _why_dp(x, 0)])
 
     def t_sf_small():
         sig = random.randint(1, 3 if d else 2)
@@ -559,9 +597,9 @@ def _(d=1):
                 break
         ans = _sfround(x, sig)
         return _numq("Round %s to %d significant figure%s."
-                     % (_fmt(x), sig, "" if sig == 1 else "s"), _fmt(ans),
-                     ["Count significant figures from the first non-zero digit.",
-                      "%s to %d s.f. is %s." % (_fmt(x), sig, _fmt(ans))])
+                     % (_fmt(x), sig, "" if sig == 1 else "s"), format(ans, "f"),   # 5.90, not 5.9, to 3 s.f.
+                     ["Count significant figures from the first non-zero digit.", _why_sf(x, sig),
+                      "%s to %d s.f. is %s." % (_fmt(x), sig, format(ans, "f"))])
 
     def t_sf_big():
         while True:                                   # the number must need rounding
@@ -573,7 +611,7 @@ def _(d=1):
         return _numq("Round %d to %d significant figure%s."
                      % (n, sig, "" if sig == 1 else "s"), _fmt(ans),
                      ["Keep %d significant figure%s, the rest become zeros."
-                      % (sig, "" if sig == 1 else "s"),
+                      % (sig, "" if sig == 1 else "s"), _why_sf(n, sig),
                       "%d to %d s.f. is %s." % (n, sig, _fmt(ans))])
 
     def t_money():
@@ -583,9 +621,8 @@ def _(d=1):
             raw += Decimal(random.randint(1, 9)) / 10000
         ans = _dround(raw, 2)
         return _numq("A bill is shared, and the calculator shows each share as £%s. Round "
-                     "this to 2 decimal places (the nearest penny)." % _fmt(raw), _fmt(ans),
-                     ["2 d.p. gives an exact number of pence.",
-                      "£%s to 2 d.p. is £%s." % (_fmt(raw), _fmt(ans))], unit="£")
+                     "this to 2 decimal places (the nearest penny)." % _fmt(raw), format(ans, "f"),
+                     ["2 d.p. gives an exact number of pence.", _why_dp(raw, 2)], unit="£")
 
     def t_measure():
         if d == 2:                                    # stretch: 3 d.p., the thousandths can mislead
@@ -595,8 +632,8 @@ def _(d=1):
         who = pick(NAMES)
         ans = _dround(x, 1)
         return _numq("%s measures a plank as %s m. Round this length to 1 decimal "
-                     "place." % (who, _fmt(x)), _fmt(ans),
-                     ["%s m to 1 d.p. is %s m." % (_fmt(x), _fmt(ans))], unit="m")
+                     "place." % (who, _fmt(x)), format(ans, "f"),
+                     [_why_dp(x, 1)], unit="m")
 
     def t_which_rounds():
         base = Decimal(random.randint(1, 8) if d < 2 else random.randint(10, 99)) \
@@ -616,7 +653,9 @@ def _(d=1):
         random.shuffle(show)
         return _numq("Which of these rounds to %s when rounded to 1 decimal place?"
                      "   %s" % (_fmt(base), _lst(_fmt(o) for o in show)), _fmt(want),
-                     ["%s rounds to %s." % (_fmt(want), _fmt(base))])
+                     [_why_dp(want, 1),
+                      "The others round to something else: %s." % "; ".join(
+                          "%s → %s" % (_fmt(o), format(_dround(o, 1), "f")) for o in show if o != want)])
 
     def t_yes_no():
         x = _dec()
@@ -636,12 +675,12 @@ def _(d=1):
         xs = sorted({_dec() for _ in range(4)})
         while len(xs) < 4:
             xs = sorted({_dec() for _ in range(4)})
-        rows = [[_fmt(v), _fmt(_dround(v, 1))] for v in xs]
+        rows = [[_fmt(v), format(_dround(v, 1), "f")] for v in xs]     # 537.0, not 537: 1 d.p. shows one place
         r = random.randint(0, 3)
         return _dt("Complete the rounding table. What belongs in the empty cell "
                    "(rounded to 1 d.p.)?", ["Number", "To 1 d.p."], rows,
-                   _fmt(_dround(xs[r], 1)),
-                   ["%s to 1 d.p. is %s." % (_fmt(xs[r]), _fmt(_dround(xs[r], 1)))],
+                   format(_dround(xs[r], 1), "f"),
+                   [_why_dp(xs[r], 1)],
                    missing=[r, 1], atype="num")
 
     return _pick_t([t_dp, t_nearest, t_sf_small, t_sf_big, t_money, t_measure,
@@ -726,7 +765,8 @@ def _(d=1):
         lo = math.floor(x) - 1
         return _nl("Round %s to the nearest whole number, then place your answer on "
                    "the line." % _fmt(x), ans, lo, lo + 4, 1, 1,
-                   ["%s rounds to %s." % (_fmt(x), _fmt(ans))])
+                   [_why_dp(x, 0) if x > 0 else "%s is nearer to %s than to %s, so it rounds to %s."
+                    % (_fmt(x), _fmt(ans), _fmt(ans + (1 if ans <= x else -1)), _fmt(ans))])
 
     def t_midpoint():
         step = pick([[2, 10], [2, 4, 10], [Decimal("0.2"), Decimal("0.6"), 20]][d])
@@ -736,7 +776,8 @@ def _(d=1):
         ans = (a + b) / 2 if d == 2 else (a + b) // 2
         return _nl("Place the number that is exactly halfway between %s and %s."
                    % (_fmt(a), _fmt(b)), ans, lo, lo + 4 * step, step / 2 if d == 2 else step // 2, step,
-                   ["Halfway between %s and %s is %s." % (_fmt(a), _fmt(b), _fmt(ans))])
+                   ["Add them and halve: (%s + %s) ÷ 2 = %s." % (_fmt(a), _fmt(b), _fmt(ans)),
+                    "Halfway between %s and %s is %s." % (_fmt(a), _fmt(b), _fmt(ans))])
 
     def t_count_on():
         start = random.randint(*[(0, 6), (-6, 6), (-6, 6)][d])
@@ -787,13 +828,13 @@ def _(d=1):
             step, span = 1, {0: 5, 1: 10}[d]
         k = random.randint(1, span // step)
         ans = step * k * (1 if random.random() < 0.5 else -1)
-        return _nl("Graph the integer %d on the number line. On a VERTICAL number "
-                   "line the positive integers go up from zero and the negative "
-                   "integers go down below zero." % ans,
+        # the line is drawn across the page, so the question talks about right and left, not up and down
+        return _nl("Graph the integer %d on the number line. Positive integers are to the right of "
+                   "zero and negative integers are to the left." % ans,
                    ans, -span, span, step, step * 5,
-                   ["%d sits %d step%s %s zero."
-                    % (ans, k, "" if k == 1 else "s",
-                       "above" if ans > 0 else "below")])
+                   ["%d is %d step%s of %d to the %s of zero."
+                    % (ans, k, "" if k == 1 else "s", step,
+                       "right" if ans > 0 else "left")])
 
     return _pick_t([t_int_pos], [t_int_neg, t_dec_tenths, t_dec_neg, t_between,
                                  t_rounded, t_midpoint, t_count_on, t_temp_line,
@@ -829,7 +870,7 @@ def _(d=1):
         smaller = min(vals, key=lambda z: z[0])
         return _numq("Which is smaller, %s or %s? Type your answer as a decimal."
                      % (vals[0][1], vals[1][1]), _fmt(smaller[0]),
-                     ["%s = %s." % (_fmt_frac(f), _fmt(dv)),
+                     ["%s = %s." % (_fmt_frac(f), _fmt(dv)), _why_bigger(dv, other),
                       "The smaller value is %s." % _fmt(smaller[0])])
 
     def t_order_smallest():
@@ -843,7 +884,8 @@ def _(d=1):
         return _numq("Order these from smallest to largest, and type the smallest:"
                      "   %s" % _lst(toks), _fmt(min(vals)),
                      ["In order: %s." % _lst(_fmt(v) for v in sorted(vals)),
-                      "The smallest is %s." % _fmt(min(vals))])
+                      "The smallest is %s: %s" % (_fmt(min(vals)), "the negative furthest from zero."
+                                                  if min(vals) < 0 else "it is furthest left on the number line.")])
 
     def t_between():
         target = pick({0: [Fraction(1, 2), Fraction(1, 4), Fraction(3, 4)],
@@ -982,12 +1024,14 @@ def _(d=1):
     def t_int_sym():
         a, b = _int(), _int()
         return _wq("Type <, > or = to compare:   %d ___ %d" % (a, b), _sym(a, b),
-                   ["%d %s %d." % (a, _sym(a, b), b)], "< > or =")
+                   (["%d is further %s on the number line than %d." % (a, "left" if a < b else "right", b)]
+                    if a != b else []) + ["%d %s %d." % (a, _sym(a, b), b)], "< > or =")
 
     def t_dec_sym():
         a, b = _dec_pair()
         return _wq("Type <, > or = to compare:   %s ___ %s" % (_fmt(a), _fmt(b)),
-                   _sym(a, b), ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))], "< > or =")
+                   _sym(a, b), ([_why_bigger(a, b)] if a != b else [])
+                   + ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))], "< > or =")
 
     def t_equal_case():
         f = Fraction(random.randint(1, [3, 5, 9][d]), pick([[2, 4, 10], [2, 4, 5, 10], [8, 20, 25, 40]][d]))
@@ -1075,7 +1119,8 @@ def _(d=1):
         a, b = _dec_pair()
         return _dt("Type <, > or = for the empty cell to compare the two numbers.",
                    ["First", "Symbol", "Second"], [[_fmt(a), "?", _fmt(b)]],
-                   _sym(a, b), ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))],
+                   _sym(a, b), ([_why_bigger(a, b)] if a != b else [])
+                   + ["%s %s %s." % (_fmt(a), _sym(a, b), _fmt(b))],
                    missing=[0, 1], atype="str")
 
     return _pick_t([t_int_sym, t_dec_sym, t_equal_case, t_neg_vs_pos, t_expr,

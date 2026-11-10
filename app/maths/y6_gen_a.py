@@ -376,8 +376,9 @@ def _(d=1):
         digits = [str((m // p) % 10) for p, _w in ps]
         col = random.randint(0, len(ps) - 1)
         heads = [w.title() for _p, w in ps]
+        # the number is given in words, so the digit is read from them, not copied from the same number in figures
         return _dt("This place-value chart shows the number %s. Which digit belongs "
-                   "in the empty %s cell?" % (_c(m), ps[col][1]),
+                   "in the empty %s cell?" % (_wn(m), ps[col][1]),
                    heads, [digits], int(digits[col]),
                    ["%s = %s." % (_c(m), _parts_of(m)),
                     "The %s digit is %s." % (ps[col][1], digits[col])],

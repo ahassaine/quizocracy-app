@@ -7,13 +7,21 @@
   window.MComp["base_ten"] = {
     render(host, spec, api) {
       host.innerHTML = '';
+      // only the columns the number needs: Years 1-2 build numbers below 100, and "with tens and ones" says so;
+      // a Hundreds column there is just the first "+" a five-year-old taps (api: year, prompt from the page)
+      const year = (api && api.year) || 0;
+      const noHundreds = (year >= 1 && year <= 2) || /\btens and ones\b/i.test((api && api.prompt) || '');
       const cols = [
         { key: 'h', label: 'Hundreds', mult: 100, colour: '#4f8df7' },
         { key: 't', label: 'Tens', mult: 10, colour: '#22c55e' },
         { key: 'o', label: 'Ones', mult: 1, colour: '#e3b341' },
-      ];
+      ].filter(c => !(noHundreds && c.key === 'h'));
       const count = { h: 0, t: 0, o: 0 };
       let touched = false;
+      const tip = document.createElement('div');       // why "+" stopped: 10 ones make a ten
+      tip.setAttribute('role', 'status'); tip.setAttribute('data-testid', 'blocks-tip');
+      tip.style.cssText = 'min-height:1.3em;margin-top:8px;font-weight:700;color:#e3b341';
+      const TIP = { o: '10 ones make a ten — use the tens.', t: '10 tens make a hundred — use the hundreds.' };
       const wrap = document.createElement('div');
       wrap.style.cssText = 'display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap';
       const total = document.createElement('div');
@@ -48,13 +56,20 @@
         minus.type = 'button'; plus.type = 'button';
         minus.setAttribute('aria-label', 'Take away a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
         plus.setAttribute('aria-label', 'Add a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
-        minus.onclick = () => { touched = true; count[c.key] = Math.max(0, count[c.key] - 1); paint(); };
-        plus.onclick = () => { touched = true; count[c.key] = Math.min(spec.max ?? 9, count[c.key] + 1); paint(); };
+        minus.onclick = () => { touched = true; count[c.key] = Math.max(0, count[c.key] - 1); tip.textContent = ''; paint(); };
+        plus.onclick = () => {
+          touched = true;
+          const max = spec.max ?? 9, full = count[c.key] >= max;
+          count[c.key] = Math.min(max, count[c.key] + 1);
+          const up = cols.findIndex(x => x.key === c.key) > 0;          // a bigger column to swap ten of these for
+          tip.textContent = full ? (up && TIP[c.key] ? TIP[c.key] : 'That is as many as this column holds.') : '';
+          paint();
+        };
         ctrl.appendChild(minus); ctrl.appendChild(plus);
         col.appendChild(lab); col.appendChild(stack); col.appendChild(ctrl);
         wrap.appendChild(col);
       });
-      host.appendChild(wrap); host.appendChild(total); paint();
+      host.appendChild(wrap); host.appendChild(tip); host.appendChild(total); paint();
 
       host.__empty = 'Add some blocks first.';
       host.__getValue = () => touched ? count.h * 100 + count.t * 10 + count.o : null;

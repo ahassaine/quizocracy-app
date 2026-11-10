@@ -95,3 +95,45 @@ def test_ks3_years_mix_in_earlier_ks3(monkeypatch):
         assert all(k.startswith(("Y%d." % year,) + earlier) for k in seen), year
     _, seen, _ = _walk(monkeypatch, 7, 0.8, 600, seed=7)
     assert all(k.startswith("Y7.") for k in seen)
+
+
+def _run(monkeypatch, coro_fn):
+    monkeypatch.setattr(mm, "db", _DB())
+    with concurrent.futures.ThreadPoolExecutor(1) as ex:
+        return ex.submit(asyncio.run, coro_fn()).result()
+
+
+def test_right_first_time_secures_a_skill_in_five(monkeypatch):
+    async def go():
+        scores = [(await mm.record_attempt("sim", "Y6.0.a", True))["score"] for _ in range(5)]
+        slip = [(await mm.record_attempt("sim", "Y6.1.a", ok))["score"] for ok in (False, True, True, True, True, True)]
+        return scores, slip
+    scores, slip = _run(monkeypatch, go)
+    assert scores[-1] == mm.MASTERED and scores[-2] < mm.MASTERED, scores
+    assert slip[-1] < mm.MASTERED, slip                     # one slip: the usual, longer road
+
+
+def test_a_strong_pupil_meets_several_strands_and_skips_ahead(monkeypatch):
+    for year in (4, 6, 8):
+        random.seed(year)
+
+        async def go():
+            keys = []
+            for _ in range(30):
+                key, reason = await mm.next_skill("sim", year)
+                if reason == "new":
+                    await mm.probe("sim", year, key)       # as drills/maths does: a hard question opens it
+                keys.append(key)
+                await mm.record_attempt("sim", key, True)
+            return keys
+        keys = _run(monkeypatch, go)
+        strands = {k.rsplit(".", 1)[0] for k in keys if k.startswith("Y%d." % year)}
+        assert len(strands) >= 4, (year, strands)
+        assert len(set(keys)) >= 12, (year, len(set(keys)))    # placement: one right hard question secures a skill
+
+
+def test_skills_done_elsewhere_today_wait(monkeypatch):
+    async def go():
+        return [await mm.next_skill("sim", 5, avoid=mm.NUMBER_WORDS) for _ in range(20)]
+    picks = _run(monkeypatch, go)
+    assert not {k for k, _ in picks} & mm.NUMBER_WORDS

@@ -3,6 +3,8 @@ import random
 import re
 
 from .. import items, progress
+from ..db import db
+from . import typos
 
 ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
         "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
@@ -79,11 +81,20 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     it = await items.claim(pupil, "numbers", token)
     if not it:
         return None
+    slipped = []
     if it["meta"]["mode"] == "words":
         correct = _norm(value) == _norm(it["answer"])
+        if not correct:                  # the number is right but a word is misspelt: "eigth", "ninty"
+            slipped = typos.slips(_norm(value).split(), _norm(it["answer"]).split(), typos.NUMBER_WORDS)
     else:
         correct = re.sub(r"[\s,]", "", str(value or "")) == it["answer"]
+    if slipped and not it.get("retried"):
+        # one free retry, nothing recorded: the same question stays open
+        await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
+        return {"correct": False, "retry": True, "hint": typos.number_hint(slipped)}
     n, to_words = it["meta"]["n"], it["meta"]["mode"] == "words"
-    await progress.record(pupil, "numbers", correct, ms, str(n),
+    copied = correct and str(n) in await items.just_shown(pupil, "numbers")   # right straight after being shown it
+    await progress.record(pupil, "numbers", correct, ms, "" if copied else str(n),
                           ("Write %s in words" % f"{n:,}") if to_words else ("Write %s in digits" % words(n)), it["answer"], value)
-    return {"correct": correct, "expected": it["answer"]}
+    return {"correct": correct, "expected": it["answer"], **({"again_later": True} if copied else {}),
+            **({"hint": "Your number was right. " + typos.corrections(slipped)} if slipped else {})}

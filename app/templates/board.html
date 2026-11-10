@@ -3,9 +3,9 @@
 <div class="act-head rise"><img src="/static/img/family.png" alt=""><div><h1 style="margin:0">Today's board</h1><div class="mut">{{ today }}</div></div></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="board-{{ p.name }}">
-  <div class="kid"><span class="name">{{ p.name }}</span><span class="pct">{{ b.pct }}%</span></div>
+  <div class="kid"><span class="name">{{ p.name }}</span><span class="pct">{% if b.pct >= 100 %}<span class="small" style="color:var(--good);margin-right:8px" data-testid="all-done">All done for today</span>{% endif %}{{ b.pct }}%</span></div>
   <div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>
-  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
+  <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
   {% if b.reward_earned %}<div class="reward earned"><img src="/static/img/trophy.png" alt="">{{ b.reward.text }}</div>{% endif %}
 </div>
 {% else %}<div class="card">No children yet.</div>{% endfor %}

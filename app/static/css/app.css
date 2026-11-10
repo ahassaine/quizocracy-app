@@ -225,3 +225,36 @@ input.answer.wide { max-width:420px; text-align:left; font-size:1.25rem; }
 .tips details summary { cursor:pointer; list-style:none; }
 .tips details summary::-webkit-details-marker { display:none; }
 .tips details[open] summary { margin-bottom:6px; }
+
+/* read-aloud button (speak.js): big, top right of the question card; "Tap to hear" until the first tap */
+.speak-btn { float:right; margin:-6px -6px 8px 12px; min-width:56px; height:56px; padding:0 12px; border-radius:28px; border:2px solid #3B4A72;
+  background:#1B2338; color:#fff; font:inherit; font-size:1.6rem; line-height:1; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+.speak-btn b { display:none; font-size:1rem; font-weight:800; }
+.speak-btn.first { border-color:var(--sun); animation:speak-pulse 1.6s ease-in-out infinite; }
+.speak-btn.first b { display:inline; }
+.speak-btn.on { border-color:#8B7CFF; background:#2A2560; }
+@keyframes speak-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,.55); } 50% { box-shadow:0 0 0 10px rgba(245,158,11,0); } }
+/* "Correct": a star for Years 1-3, a tick after that (quiet from Year 7); kind words after a run of misses */
+.feedback.yes.joy { font-size:1.7rem; display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; }
+.joy-star { display:inline-grid; place-items:center; width:58px; height:58px; border-radius:50%; background:var(--sun); color:#fff;
+  font-size:2.2rem; line-height:1; animation:star-pop .8s cubic-bezier(.34,1.56,.64,1); box-shadow:0 0 0 6px rgba(245,158,11,.25); }
+.joy-praise { color:#FFD37A; }
+.feedback.joy .why { flex-basis:100%; }
+.feedback .tick { display:inline-block; animation:pop-in .45s cubic-bezier(.34,1.56,.64,1); }
+.feedback .tick.quiet { animation:none; }
+.feedback .kind { color:var(--sun); font-size:1.15rem; margin-top:8px; }
+@keyframes star-pop { 0% { transform:scale(0) rotate(-120deg); } 60% { transform:scale(1.3) rotate(12deg); } 100% { transform:scale(1) rotate(0); } }
+/* a few fixed words to tap instead of typing ("Yes" / "No") */
+.opts.choices { grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); max-width:520px; margin-top:10px; }
+.opts.choices .opt { text-align:center; font-size:1.25rem; font-weight:800; padding:14px; }
+/* "Put spaces between the words": letters with a tap target between each pair */
+.gaps { display:flex; flex-wrap:wrap; align-items:stretch; font-family:var(--display); font-size:2rem; font-weight:700; margin:6px 0 8px;
+  padding:10px 8px; border:2px solid #2C3650; border-radius:12px; background:#0B1120; }
+.gaps .letter { padding:4px 0; line-height:1.3; }
+.gaps .gap { width:20px; padding:0; margin:0; border:0; background:transparent; cursor:pointer; position:relative; transition:width .15s; }
+.gaps .gap::after { content:""; position:absolute; left:50%; top:22%; bottom:22%; border-left:2px dotted #3B4A72; }
+.gaps .gap.on { width:34px; }
+.gaps .gap.on::after { top:auto; bottom:6px; left:5px; right:5px; border-left:0; border-bottom:4px solid #8B7CFF; border-radius:2px; }
+.gaps.right { border-color:#22c55e; } .gaps.wrong { border-color:#f85149; }
+textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden; text-align:left; line-height:1.3; background:#0B1120;
+  border:2px solid #2C3650; color:#fff; border-radius:12px; font-size:1.5rem; font-family:var(--display); font-weight:700; }

@@ -7,8 +7,12 @@ Mastery score 0-100 per (pupil, skill):
                  so the last stretch demands consistency (as IXL's does).
   * 100 = mastered.
 
+  * right every time FAST_STREAK in a row (or right first time on a hard placement probe) -> secure at
+    once, and checked back on a later day.
+
 Adaptive selection walks the pupil's year ladder (Yn.0 -> Yn.9, OUT_OF_YEAR skills left out):
-it works the lowest level that is not yet ~mastered, preferring skills that are still moving,
+it works the lowest unfinished level of STRAND_WINDOW strands in turn (BLOCK questions at most before
+the next strand's turn), preferring skills that are still moving,
 spreads practice when skills plateau (PLATEAU_ATTEMPTS) or stall, finishes the skills each level
 left behind once every level has passed, and periodically resurfaces a mastered skill for spaced
 retention review (which IXL does not do). Years 8 and 9 also mix in earlier KS3 skills
@@ -26,10 +30,23 @@ REVIEW_CHANCE = 0.18        # chance of a spaced-review question
 REVIEW_AFTER_DAYS = 3
 STUCK_ATTEMPTS = 6        # rotate away after this many failed attempts on one skill
 PLATEAU_ATTEMPTS = 20     # ... and spread practice once a skill has this many without nearing mastery
+STRAND_WINDOW = 4         # unfinished strands worked side by side, so a child meets several in the first days
+BLOCK = 6                 # questions in a row on one skill before the next strand takes a turn
+FAST_STREAK = 5           # right every time this many in a row: the skill is secure (checked back another day)
+CHECK_BACK_CHANCE = 0.35  # share of questions that check back a skill secured fast, on a later day
+PROBE_AFTER_FAST = 2      # skills secured fast before new skills open with one hard placement question
+
+# Skills that are the Numbers-in-words activity under another name: on a day that activity is in the
+# child's plan, maths leaves them until last.
+NUMBER_WORDS = {"Y1.0.b", "Y2.0.d", "Y3.0.b", "Y3.0.c", "Y4.0.b", "Y5.0.a", "Y6.0.a", "Y6.0.b"}
 
 
 def _now():
     return datetime.datetime.utcnow()
+
+
+def _earlier_day(ts):
+    return bool(ts) and ts.date() < _now().date()
 
 
 def gain(score, streak):
@@ -92,21 +109,36 @@ async def record_attempt(pupil, skill_key, correct, value=None):
         })
     except Exception:
         pass
-    doc = await db.maths_mastery.find_one({"_id": "%s:%s" % (pupil, skill_key)}) or {}
+    mm = await _mastery_map(pupil)
+    doc = mm.get(skill_key) or {}
+    latest = max(mm.values(), key=lambda d: d.get("last") or datetime.datetime.min, default={})
     score = int(doc.get("score", 0))
     streak = int(doc.get("streak", 0))
+    attempts = int(doc.get("attempts", 0)) + 1
+    right = int(doc.get("correct_count", 0)) + (1 if correct else 0)
+    upd = {}
     if correct:
         streak += 1
         score = min(MASTERED, score + gain(score, streak))
+        slips = attempts - right
+        if doc.get("probing") or (slips <= 1 and streak >= FAST_STREAK + 2 * slips):
+            # right first time at the hardest tier (a placement probe), or right every time: secure now,
+            # checked back on a later day
+            score, upd["fast"] = MASTERED, True
+        if doc.get("fast") and int(doc.get("score", 0)) >= MASTERED and _earlier_day(doc.get("last")):
+            upd["checked"] = True
     else:
         streak = 0
         score = max(0, score - penalty(score))
-    upd = {
+        upd["fast"] = False
+    if doc.get("probing"):
+        upd.update({"probing": False, "probe": "right" if correct else "wrong"})
+    upd.update({
         "pupil": pupil, "skill": skill_key, "score": score, "streak": streak,
-        "attempts": int(doc.get("attempts", 0)) + 1,
-        "correct_count": int(doc.get("correct_count", 0)) + (1 if correct else 0),
-        "last": _now(),
-    }
+        "attempts": attempts, "correct_count": right, "last": _now(),
+        # questions in a row on this skill: after BLOCK the next strand takes a turn
+        "run": int(doc.get("run", 0)) + 1 if latest.get("skill") == skill_key else 1,
+    })
     if score >= MASTERED and not doc.get("mastered_at"):
         upd["mastered_at"] = _now()
     await db.maths_mastery.update_one({"_id": "%s:%s" % (pupil, skill_key)},
@@ -125,12 +157,58 @@ async def _mastery_map(pupil):
     return out
 
 
-async def next_skill(pupil, year=None):
-    """Adaptive pick: lowest unfinished level, in-progress first; sometimes a review."""
+def _strand_pick(in_strand, mm):
+    """The skill to work in one strand, or None when the strand is done enough to move up."""
+    mastered = [s for s in in_strand if mm.get(s["key"], {}).get("score", 0) >= MASTERED]
+    if len(mastered) >= max(1, int(len(in_strand) * LEVEL_PASS_RATIO)):
+        return None  # this level is done enough — move up
+    unfinished = [s for s in in_strand if mm.get(s["key"], {}).get("score", 0) < MASTERED]
+    if not unfinished:
+        return None
+    started = [s for s in unfinished if mm.get(s["key"], {}).get("score", 0) > 0]
+    unstarted = [s for s in unfinished if mm.get(s["key"], {}).get("score", 0) == 0]
+    # anti-stuck: if the pupil keeps failing one skill (many attempts, still 0),
+    # rotate to a fresh skill rather than trapping them on it forever.
+    stuck = [s for s in unfinished
+             if mm.get(s["key"], {}).get("score", 0) == 0
+             and mm.get(s["key"], {}).get("attempts", 0) >= STUCK_ATTEMPTS]
+    if stuck and unstarted:
+        fresh = [s for s in unstarted if s not in stuck]
+        if fresh:
+            return fresh[0]["key"], "new"
+    # plateau: long practice without reaching the challenge zone; spread practice
+    # across the level instead of holding a struggling pupil on one skill
+    plateau = [s for s in started if mm[s["key"]].get("attempts", 0) >= PLATEAU_ATTEMPTS
+               and mm[s["key"]]["score"] < CHALLENGE_ZONE]
+    moving = [s for s in started if s not in plateau]
+    if moving:
+        moving.sort(key=lambda s: mm[s["key"]]["score"])
+        return moving[0]["key"], "practice"
+    fresh = [s for s in unstarted if s not in stuck]
+    if fresh:
+        return fresh[0]["key"], "new"
+    # every skill here is on a plateau or stuck: rotate, least recently practised first
+    unfinished.sort(key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
+    s = unfinished[0]
+    return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
+
+
+async def next_skill(pupil, year=None, avoid=()):
+    """Adaptive pick: the lowest unfinished levels of several strands in turn, in-progress first; sometimes a
+    review. avoid: skills to leave until everything else is mastered (practised elsewhere today)."""
     skills = _year_skills(year)
     if not skills:
         return None
     mm = await _mastery_map(pupil)
+    rest = [s for s in skills if s["key"] not in set(avoid)]
+    if any(mm.get(s["key"], {}).get("score", 0) < MASTERED for s in rest):
+        skills = rest
+
+    # a skill secured fast is checked back on a later day
+    checks = [s["key"] for s in skills if mm.get(s["key"], {}).get("fast") and not mm[s["key"]].get("checked")
+              and mm[s["key"]].get("score", 0) >= MASTERED and _earlier_day(mm[s["key"]].get("last"))]
+    if checks and random.random() < CHECK_BACK_CHANCE:
+        return checks[0], "review"
 
     # spaced retention review of an already-mastered skill
     due = [s["key"] for s in skills
@@ -145,45 +223,30 @@ async def next_skill(pupil, year=None):
         open_ = [s["key"] for s in earlier if mm.get(s["key"], {}).get("score", 0) < MASTERED]
         return random.choice(open_ or [s["key"] for s in earlier]), "review"
 
-    # walk the ladder by strand (3.0 -> 3.9)
+    # walk the ladder by strand (3.0 -> 3.9), the first STRAND_WINDOW unfinished strands side by side:
+    # stay on a skill until it is mastered or has had BLOCK questions in a row, then the next strand's turn
     strands = []
     for s in skills:
         if s["strand"] not in strands:
             strands.append(s["strand"])
+    window = []
     for strand in strands:
-        in_strand = [s for s in skills if s["strand"] == strand]
-        mastered = [s for s in in_strand if mm.get(s["key"], {}).get("score", 0) >= MASTERED]
-        if len(mastered) >= max(1, int(len(in_strand) * LEVEL_PASS_RATIO)):
-            continue  # this level is done enough — move up
-        unfinished = [s for s in in_strand if mm.get(s["key"], {}).get("score", 0) < MASTERED]
-        if not unfinished:
-            continue
-        started = [s for s in unfinished if mm.get(s["key"], {}).get("score", 0) > 0]
-        unstarted = [s for s in unfinished if mm.get(s["key"], {}).get("score", 0) == 0]
-        # anti-stuck: if the pupil keeps failing one skill (many attempts, still 0),
-        # rotate to a fresh skill rather than trapping them on it forever.
-        stuck = [s for s in unfinished
-                 if mm.get(s["key"], {}).get("score", 0) == 0
-                 and mm.get(s["key"], {}).get("attempts", 0) >= STUCK_ATTEMPTS]
-        if stuck and unstarted:
-            fresh = [s for s in unstarted if s not in stuck]
-            if fresh:
-                return fresh[0]["key"], "new"
-        # plateau: long practice without reaching the challenge zone; spread practice
-        # across the level instead of holding a struggling pupil on one skill
-        plateau = [s for s in started if mm[s["key"]].get("attempts", 0) >= PLATEAU_ATTEMPTS
-                   and mm[s["key"]]["score"] < CHALLENGE_ZONE]
-        moving = [s for s in started if s not in plateau]
-        if moving:
-            moving.sort(key=lambda s: mm[s["key"]]["score"])
-            return moving[0]["key"], "practice"
-        fresh = [s for s in unstarted if s not in stuck]
-        if fresh:
-            return fresh[0]["key"], "new"
-        # every skill here is on a plateau or stuck: rotate, least recently practised first
-        unfinished.sort(key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
-        s = unfinished[0]
-        return s["key"], ("practice" if mm.get(s["key"], {}).get("score", 0) > 0 else "new")
+        pick = _strand_pick([s for s in skills if s["strand"] == strand], mm)
+        if pick:
+            window.append((strand, pick))
+        if len(window) >= STRAND_WINDOW:
+            break
+    if window:
+        by_key = {s["key"]: s for s in skills}
+        cur = max((d for k, d in mm.items() if k in by_key), key=lambda d: d.get("last") or datetime.datetime.min,
+                  default=None)
+        at = next((i for i, (strand, _) in enumerate(window) if cur and by_key[cur["skill"]]["strand"] == strand), None)
+        if at is None:
+            return window[0][1]
+        stuck = cur.get("score", 0) == 0 and cur.get("attempts", 0) >= STUCK_ATTEMPTS
+        if cur.get("score", 0) < MASTERED and cur.get("run", 0) < BLOCK and not stuck:
+            return cur["skill"], "practice"
+        return window[(at + 1) % len(window)][1]
 
     # every level passed: finish the skills each level left behind, in ladder order
     left = [s for s in skills if mm.get(s["key"], {}).get("score", 0) < MASTERED]
@@ -221,3 +284,25 @@ async def progress(pupil, year=None):
 async def skill_score(pupil, skill_key):
     d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)})
     return int((d or {}).get("score", 0))
+
+
+async def probe(pupil, year, skill_key):
+    """Placement for a strong pupil: once PROBE_AFTER_FAST skills of the year were secured fast, and the last
+    skill finished was one of them, a new skill opens with one question at the hardest tier. Right first time
+    secures it (checked back another day); wrong, and the skill is practised as usual. True = probing now."""
+    keys = {s["key"] for s in _year_skills(year)}
+    mm = {k: d for k, d in (await _mastery_map(pupil)).items() if k in keys}
+    if mm.get(skill_key, {}).get("attempts"):
+        return False
+    done = [d for d in mm.values() if d.get("mastered_at")]
+    if sum(1 for d in done if d.get("fast")) < PROBE_AFTER_FAST:
+        return False
+    last = max(done, key=lambda d: d["mastered_at"])
+    probed = max((d for d in mm.values() if d.get("probe")), key=lambda d: d.get("last") or datetime.datetime.min,
+                 default={})
+    if not last.get("fast") or (probed.get("probe") == "wrong" and probed.get("score", 0) < MASTERED):
+        return False
+    pupil = (pupil or "").lower()
+    await db.maths_mastery.update_one({"_id": "%s:%s" % (pupil, skill_key)},
+                                      {"$set": {"pupil": pupil, "skill": skill_key, "probing": True}}, upsert=True)
+    return True

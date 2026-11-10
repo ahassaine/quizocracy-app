@@ -25,6 +25,7 @@ async def ensure_indexes():
     await db.attempts.create_index([("pupil_id", ASCENDING), ("day", ASCENDING), ("activity", ASCENDING)])
     await db.attempts.create_index([("family_id", ASCENDING), ("day", DESCENDING)])
     await db.maths_lab_q.create_index([("created", ASCENDING)], expireAfterSeconds=7 * 86400)
+    await db.maths_lab_q.create_index([("pupil", ASCENDING), ("created", DESCENDING)])   # the question left unanswered
     await db.maths_mastery.create_index([("pupil", ASCENDING)])
     await db.maths_attempts.create_index([("pupil", ASCENDING), ("ts", DESCENDING)])
     for c in ("tables_facts", "spelling_words", "verbs_state", "bank_state", "items"):

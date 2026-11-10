@@ -7,8 +7,9 @@
   <div class="field"><label for="pp">Past participle <span class="mut">(I have …)</span></label><input id="pp" type="text" autocomplete="off" autocapitalize="off" style="max-width:260px"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/drill.js?v=11"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=16"></script><script>
 Drill({ activity: 'verbs',
+  speech(q) { return ['to ' + q.base]; },
   render(q) { document.getElementById('q').textContent = 'to ' + q.base; document.getElementById('level').textContent = q.level_label;
     ['past', 'pp'].forEach(i => { const e = document.getElementById(i); e.value = ''; e.style.borderColor = ''; }); document.getElementById('past').focus(); },
   read() { const p = document.getElementById('past').value.trim(), pp = document.getElementById('pp').value.trim(); return p && pp ? { past: p, pp } : null; },
