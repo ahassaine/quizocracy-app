@@ -4,7 +4,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.drills.spelling import CUES, KS3, LISTS, audio_file, list_for_year  # noqa: E402
+from app.drills.spelling import CUES, DECODABLE, KS3, LISTS, audio_file, list_for_year  # noqa: E402
 
 AUDIO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "static", "audio", "words")
 
@@ -14,8 +14,20 @@ def test_every_year_has_words_with_audio():
         words = list_for_year(year)
         assert len(words) >= 40, year
         assert len({w.lower() for w in words}) == len(words), year
-        missing = [w for w in words if not os.path.exists(os.path.join(AUDIO, audio_file(w)))]
+        # Year 1's sound-it-out words have no clip yet: the browser's voice says them, as for a school word
+        missing = [w for w in words if not os.path.exists(os.path.join(AUDIO, audio_file(w))) and w not in DECODABLE]
         assert not missing, (year, missing[:10])
+
+
+def test_year1_starts_with_words_to_sound_out():
+    words = list_for_year(1)
+    assert all(w in DECODABLE for w in words[:12]), words[:12]           # cat, dog, sit ... before any tricky word
+    assert words[:3] == ["cat", "dog", "sit"] and set(LISTS["Y1"]) <= set(words)
+    first_tricky = [i for i, w in enumerate(words) if w not in DECODABLE]
+    assert all(b - a >= 3 for a, b in zip(first_tricky, first_tricky[1:12])), first_tricky   # a few at a time
+    assert words.index("a") < words.index("said") and words.index("I") < words.index("friend")   # short ones first
+    for w, cue in DECODABLE.items():
+        assert cue.count("___") == 1 and w not in re.findall(r"[a-z]+", cue.lower()), (w, cue)
 
 
 def test_cues_have_one_gap():

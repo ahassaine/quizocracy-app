@@ -755,8 +755,10 @@ def _(d=1):
                       solution=["%s is shaped like %s." % (thing.capitalize(), _a(quad))])
 
     if t == 7:                                        # sorting
-        chosen = random.sample(_QUADS, _by_d(d, 3, 4, 5))
-        if d == 2 and random.random() < 0.5:          # stretch: a different property to sort by
+        two = not (d == 2 and random.random() < 0.5)
+        # "two pairs" leaves the trapezium out: whether one can have two depends on the definition taught
+        chosen = random.sample([q for q in _QUADS if not two or q[0] != "trapezium"], _by_d(d, 3, 4, 5))
+        if not two:                                   # stretch: a different property to sort by
             cnt = sum(1 for q in chosen if q[1] >= 1)
             return _num_q("Sort these quadrilaterals: %s. How many of them have AT LEAST ONE "
                           "pair of parallel sides?" % ", ".join(q[0] for q in chosen),
@@ -994,7 +996,7 @@ def _(d=1):
                                   [("square", 2, 4), ("rectangle", 2, 4),
                                    ("regular hexagon", 3, 0), ("regular octagon", 4, 0)],
                                   [("regular hexagon", 3, 0), ("regular octagon", 4, 0),
-                                   ("trapezium", 1, 0), ("parallelogram", 2, 0),
+                                   ("kite", 0, 0), ("parallelogram", 2, 0),
                                    ("triangle", 0, 0)]))
         return _num_q("How many pairs of parallel sides does %s have?%s"
                       % (_a(nm), " (type 0 if none)" if d == 2 else ""),

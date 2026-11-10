@@ -127,6 +127,13 @@
         }
       }
 
+      // dots: a ten frame (fraction_read, 2 × 5) shows a counter in each filled space instead of a shaded square
+      if (spec.dots && mode === 'fraction_read') {
+        shaded.forEach((on, i) => { if (on) cellG.appendChild(mk('circle', {
+          cx: gx + (i % cols + 0.5) * CELL, cy: gy + (Math.floor(i / cols) + 0.5) * CELL, r: CELL * 0.32,
+          fill: ACCENT, stroke: '#79b0ff', 'stroke-width': 1 })); });
+      }
+
       // ---- perimeter outline ----------------------------------------------
       const outlineG = mk('g', {});
       svg.appendChild(outlineG);
@@ -165,7 +172,7 @@
         for (let i = 0; i < rects.length; i++) {
           if (!rects[i]) continue;
           if (interactive || isFraction) {
-            rects[i].setAttribute('fill', shaded[i] ? on : EMPTY);
+            rects[i].setAttribute('fill', shaded[i] && !spec.dots ? on : EMPTY);
           } else {
             rects[i].setAttribute('fill', on);
           }
@@ -228,10 +235,11 @@
         wrap.style.cssText = 'margin-top:12px';
         input = document.createElement('input');
         input.type = 'text';
-        input.inputMode = (mode === 'fraction_read') ? 'text' : (spec.keypad || 'numeric');
+        input.inputMode = spec.keypad || ((mode === 'fraction_read') ? 'text' : 'numeric');
         input.className = 'm-input';
         input.autocomplete = 'off';
-        input.placeholder = spec.placeholder || ((mode === 'fraction_read') ? 'e.g. 3/8' : '');
+        // a picture asked about in a number or yes/no (a ten frame, "is half shaded?") gives its own placeholder
+        input.placeholder = spec.placeholder != null ? spec.placeholder : ((mode === 'fraction_read') ? 'e.g. 3/8' : '');
         input.setAttribute('aria-label', 'Your answer');
         input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:140px;background:' + BG + ';color:' + INK +
           ';border:2px solid ' + BORDER + ';border-radius:8px;text-align:center;outline:none';

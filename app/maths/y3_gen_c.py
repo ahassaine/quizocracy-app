@@ -2548,8 +2548,8 @@ def _(d=1):
                           quad, "str", text=True,
                           placeholder="square / rectangle / rhombus / trapezium",
                           solution=["%s has %s." % (_a(quad).capitalize(), attrs)])
-        quad, pairs = pick([("square", 2), ("rectangle", 2), ("rhombus", 2),
-                            ("trapezium", 1)])
+        # no trapezium: whether it can have 2 pairs depends on the definition the school teaches
+        quad, pairs = pick([("square", 2), ("rectangle", 2), ("rhombus", 2)])
         return _num_q("A %s is a quadrilateral, so it has 4 sides. How many pairs of "
                       "parallel sides does it have?" % quad,
                       pairs, "int", unit="pairs",

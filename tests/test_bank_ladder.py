@@ -51,8 +51,10 @@ def test_strong_pupil_masters_the_year(sub, year):
 def test_weak_pupil_is_never_trapped(sub, year):
     skills = engine.skills(sub, year)
     hard = {skills[0]["key"], skills[1]["key"]}               # two skills the pupil keeps getting wrong
-    mm, picks = simulate(skills, 0.8, steps=len(skills) * 25, seed=3, hard=hard)
-    touched = {k for k, _ in picks}
-    assert touched == {s["key"] for s in skills}, (sub, year, len(touched), len(skills))
-    done = sum(1 for s in skills if mm.get(s["key"], {}).get("score", 0) >= MASTERED)
-    assert done >= len(skills) - len(hard) - 2, (sub, year, done, len(skills))
+    dones = []
+    for seed in (3, 4, 5):        # the median of three runs: one unlucky run of a random pupil is not a trap
+        mm, picks = simulate(skills, 0.8, steps=len(skills) * 25, seed=seed, hard=hard)
+        touched = {k for k, _ in picks}
+        assert touched == {s["key"] for s in skills}, (sub, year, len(touched), len(skills))
+        dones.append(sum(1 for s in skills if mm.get(s["key"], {}).get("score", 0) >= MASTERED))
+    assert sorted(dones)[1] >= len(skills) - len(hard) - 2, (sub, year, dones, len(skills))

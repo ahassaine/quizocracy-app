@@ -706,7 +706,35 @@ def present(q, skill_key):
             elif a is not None and abs(a + d - 90) < 1e-9 and re.search(r"complement|right angle", prompt, re.I):
                 spec["unknown"] = "right"
     q["spec"] = spec
+    if isinstance(q.get("solution"), list):
+        # "4 x x = 4x": the letter x as a times sign reads as the unknown, so a number's " x " is shown as ×
+        q["solution"] = [_TIMES_X.sub(" × ", s) if isinstance(s, str) else s for s in q["solution"]]
+    rounding_step(q)
     return neutral_examples(q)
+
+
+_TIMES_X = re.compile(r"(?<=[\d)²³]) x (?=[\d(A-Za-z−-])")
+
+
+_LAST_NUM = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+def rounding_step(q):
+    """When the prompt asks for decimal places and the working ends on the unrounded value ("… = 1.875 minutes"
+    for an answer of 1.9), add the step that reaches the answer: "1.875 rounds to 1.9 (1 decimal place)."."""
+    sol, a = q.get("solution"), q.get("answer")
+    m = _DP_ASKED.search(q.get("prompt", ""))
+    if not m or not isinstance(sol, list) or not sol or isinstance(a, bool) or not isinstance(a, (int, float)):
+        return q
+    n = _DP_WORDS.get(m.group(1).lower()) or int(m.group(1))
+    nums = _LAST_NUM.findall(str(sol[-1]))
+    try:
+        last = float(nums[-1].replace(",", "")) if nums else None
+    except ValueError:
+        return q
+    if last is not None and abs(last - a) > 1e-9 and abs(round(last, n) - a) < 1e-9:
+        q["solution"] = sol + ["%s rounds to %.*f (%d decimal place%s)." % (nums[-1], n, a, n, "" if n == 1 else "s")]
+    return q
 
 
 _EX_DIGITS = re.compile(r"\d+")
@@ -756,11 +784,12 @@ def neutral_examples(q):
     return q
 
 
-async def new_question(skill_key, difficulty=1, pupil=None):
+async def new_question(skill_key, difficulty=1, pupil=None, made=None):
+    """made: a question this skill's generator already made (to keep one picked from several), else a new one."""
     fn = GENERATORS.get(skill_key)
     if not fn:
         return None
-    q = call_generator(fn, difficulty)
+    q = made or call_generator(fn, difficulty)
     # A coordinate_grid whose answer is NOT a coordinate is being used as a drawn
     # stimulus (read the gradient / y-value / intercept). The grid can only PLOT a
     # point, so such a question is unanswerable unless it also shows a typed box —

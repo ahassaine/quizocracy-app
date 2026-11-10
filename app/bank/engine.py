@@ -86,8 +86,8 @@ def load() -> dict:
             bank[subject].setdefault(int(sk["year"]), []).append(skill)
             _BY_KEY[sk["key"]] = skill
     for years in bank.values():
-        for lst in years.values():
-            lst.sort(key=lambda s: s["key"])
+        for lst in years.values():      # teaching order: by key, or straight after the skill named in "after"
+            lst.sort(key=lambda s: (s.get("after") or s["key"], s["key"]))
     _BANK = bank
     return bank
 
@@ -221,6 +221,16 @@ def fmt_num(x) -> str:
     return ("%g" % x) if isinstance(x, float) else str(x)
 
 
+def why_lines(q: dict | None, key: dict, value, again: bool = False) -> tuple[str, str]:
+    """(why the option picked is wrong, the explanation) for a wrong answer. An mcq option built on a common
+    misconception has its own line in "no" ({option: line}); a question missed before (again) gives "why2",
+    another way of putting it, when it has one."""
+    q = q or {}
+    why = (q.get("why2") if again else None) or q.get("why", "")
+    no = (q.get("no") or {}).get(given_text(key, value)) if key.get("t") == "mcq" else None
+    return no or "", why
+
+
 def expected_text(key: dict) -> str:
     t = key["t"]
     if t == "mcq":
@@ -296,6 +306,16 @@ _END_MARK_SKILLS = frozenset({
     "GP4.11", "GP4.12", "GP6.14", "GP7.12", "GP7.14", "GP7.18", "GP9.05"})
 
 
+# ... except where the skill is the choice of a word or a tense, not how its ending is made. Choosing a word (formal
+# words, synonyms, the names of terms): a one-letter slip gets its "Nearly" as anywhere ("aproximately"). Verb
+# tenses and voices: a slip inside the right word ("was cookng"), its start and ending right and no letter doubled
+# or undoubled (typos.inner_slip), so "hoping" for "hopping" or "jumpd" for "jumped" stay mistakes.
+_WORD_CHOICE_SKILLS = frozenset({"GP6.05", "GP6.06", "GP9.13"})
+_TENSE_SKILLS = frozenset({
+    "GP2.13", "GP2.14", "GP2.15", "GP2.16", "GP3.11", "GP4.05", "GP6.03", "GP6.08", "GP6.09", "GP7.02", "GP7.13",
+    "GP8.01", "GP8.02", "GP8.04"})
+
+
 def spelling_matters(sk: dict | None) -> bool:
     return not sk or sk.get("strand") in _SPELLING_STRANDS or sk.get("key") in _SPELLING_SKILLS
 
@@ -317,9 +337,14 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
     if key.get("t") != "text":
         return []
     never = _NEVER | set(re.findall(r"[a-z]+", prompt.lower()))
+    inner = False                    # only a slip inside the word (_TENSE_SKILLS)
     if not key.get("loose"):
-        if not sk or sk.get("subject") != "grammar" or spelling_matters(sk):
+        if not sk or sk.get("subject") != "grammar":
             return []
+        if spelling_matters(sk) and sk.get("key") not in _WORD_CHOICE_SKILLS:
+            if sk.get("key") not in _TENSE_SKILLS:
+                return []
+            inner = True
         never |= _GRAMMAR_WORDS | _skill_words(sk)
     words = lambda s: re.findall(r"[a-z]+", re.sub(r"^(a|an|the) (?=\S)", "", norm_text(s)))   # noqa: E731
     tv = words(value)
@@ -327,7 +352,7 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
         return []
     for a in key["a"] + key.get("full", []):
         pairs = typos.slips(tv, words(a), never)
-        if pairs:
+        if pairs and (not inner or all(typos.inner_slip(t, w) for t, w in pairs)):
             return pairs
     return []
 

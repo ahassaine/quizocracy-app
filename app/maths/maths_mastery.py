@@ -33,6 +33,7 @@ STUCK_ATTEMPTS = 6        # rotate away after this many failed attempts on one s
 PLATEAU_ATTEMPTS = 20     # ... and spread practice once a skill has this many without nearing mastery
 STRAND_WINDOW = 4         # unfinished strands worked side by side, so a child meets several in the first days
 BLOCK = 6                 # questions in a row on one skill before the next strand takes a turn
+YOUNG_BLOCK = 3           # ... in Years 1-3: a young child tires of one kind of question after 3 or 4
 FAST_STREAK = 5           # right every time this many in a row: the skill is secure (checked back another day)
 CHECK_BACK_CHANCE = 0.35  # share of questions that check back a skill secured fast, on a later day
 PROBE_AFTER_FAST = 2      # skills secured fast before new skills open with one hard placement question
@@ -217,7 +218,11 @@ async def next_skill(pupil, year=None, avoid=()):
     # "working on this at school": about two questions in three from that strand, picked as its turn would be
     strands = await _focus_strand(pupil)
     in_focus = [s for s in skills if s["strand"] in strands]
-    if in_focus and random.random() < FOCUS_SHARE:
+    # Years 1-3: after YOUNG_BLOCK in a row on one focus skill, the next question comes from the ladder instead
+    latest = max(mm.values(), key=lambda d: d.get("last") or datetime.datetime.min, default={})
+    tired = str(year or "") in ("1", "2", "3") and latest.get("run", 0) >= YOUNG_BLOCK \
+        and any(s["key"] == latest.get("skill") for s in in_focus)
+    if in_focus and not tired and random.random() < FOCUS_SHARE:
         pick = _strand_pick(in_focus, mm)
         if pick:
             return pick
@@ -267,7 +272,8 @@ async def next_skill(pupil, year=None, avoid=()):
         if at is None:
             return window[0][1]
         stuck = cur.get("score", 0) == 0 and cur.get("attempts", 0) >= STUCK_ATTEMPTS
-        if cur.get("score", 0) < MASTERED and cur.get("run", 0) < BLOCK and not stuck:
+        block = YOUNG_BLOCK if str(year or "") in ("1", "2", "3") else BLOCK
+        if cur.get("score", 0) < MASTERED and cur.get("run", 0) < block and not stuck:
             return cur["skill"], "practice"
         return window[(at + 1) % len(window)][1]
 

@@ -1,6 +1,7 @@
 """Spelling from the national-curriculum statutory lists, with spaced repetition (Leitner boxes)."""
 import base64
 import datetime
+import hashlib
 import json
 import random
 import re
@@ -23,21 +24,24 @@ VARIANTS = {"coordinates": ("co-ordinates",), "Mr": ("mr.",), "Mrs": ("mrs.",)}
 # word from the same list (from Year 3-4 on), and for homophones a sentence that fits only the target.
 CUES = {
     # Year 1
-    "the": "Look at ___ big dog.", "a": "I have ___ red ball.", "do": "What did you ___ today?",
+    "the": "___ moon shines at night.", "a": "I have ___ red ball.", "do": "What did you ___ today?",
     "to": "I walk ___ school.", "today": "It is hot ___.", "of": "I ate a bit ___ cake.",
-    "said": "Mum ___ yes.", "says": "Dad ___ hello to me every day.", "are": "You ___ my best pal.",
+    "said": "Yesterday, Mum ___ we could go to the park.", "says": "Dad ___ hello to me every day.",
+    "are": "You ___ my best pal.",
     "were": "We ___ at the park last week.", "was": "It ___ hot yesterday.", "is": "My cat ___ black.",
-    "his": "He lost ___ hat.", "has": "The cat ___ four legs.", "I": "___ am happy.",
+    "his": "Tom put on ___ own coat.", "has": "The cat ___ four legs.", "I": "___ am happy.",
     "you": "Thank ___ very much.", "your": "Is this ___ bag?", "they": "The boys said ___ were hungry.",
-    "be": "I want to ___ a vet.", "he": "Dad said ___ was tired.", "me": "Can you help ___?",
+    "be": "I want to ___ a vet.", "he": "Dad said ___ was tired.", "me": "Can you help ___? I am stuck.",
     "she": "My sister said ___ was cold.", "we": "___ went to the park.", "no": "___, thank you.",
-    "go": "Let's ___ to the park.", "so": "I am ___ happy!", "by": "Sit ___ me.", "my": "This is ___ dog.",
+    "go": "Let's ___ to the park.", "so": "I am ___ happy!", "by": "Sit down ___ the fire to get warm.",
+    "my": "This is ___ dog.",
     "here": "Come over ___.", "there": "Put it over ___.", "where": "___ is my coat?",
-    "love": "I ___ my mum.", "come": "Please ___ and play.", "some": "Can I have ___ water?",
-    "one": "I have ___ sister.", "once": "Ring the bell just ___.", "ask": "You can ___ the teacher.",
-    "friend": "Sam is my best ___.", "school": "We learn at ___.", "put": "___ your coat on.",
-    "push": "Can you ___ me on the swing?", "pull": "___ the rope hard!", "full": "My cup is ___ to the top.",
-    "house": "We live in a big ___.", "our": "This is ___ car.",
+    "love": "\"I ___ you!\" said Mum, and gave me a big hug.", "come": "Please ___ to my party!",
+    "some": "There is ___ water in the jug, but not much.",
+    "one": "I have ___ sister.", "once": "Ring the bell just ___.", "ask": "If you don't know, ___ the teacher.",
+    "friend": "Sam is my best ___.", "school": "We learn at ___.", "put": "___ your toys back in the box.",
+    "push": "Can you ___ me on the swing?", "pull": "___ the rope towards you!", "full": "My cup is ___ to the top.",
+    "house": "We live in a big ___.", "our": "We wash ___ car, and they wash theirs.",
     # Year 2
     "door": "Please shut the ___.", "floor": "The cup fell on the ___.", "poor": "The ___ man had no money.",
     "because": "I am happy ___ it is my birthday.", "find": "Can you ___ my shoe?",
@@ -48,7 +52,7 @@ CUES = {
     "old": "My grandad is very ___.", "cold": "Ice is very ___.", "gold": "She won a ___ medal.",
     "hold": "Can you ___ my hand?", "told": "Mum ___ me to tidy up.", "every": "I brush my teeth ___ day.",
     "everybody": "___ clapped at the end of the show.", "even": "Two, four and six are ___ numbers.",
-    "great": "We had a ___ day.", "break": "Be careful not to ___ the glass.",
+    "great": "Wales is in ___ Britain.", "break": "Be careful not to ___ the glass.",
     "steak": "He ate a ___ for dinner.", "pretty": "What a ___ dress.", "beautiful": "The sunset was ___.",
     "after": "We play ___ lunch.", "fast": "A horse can run very ___.", "last": "Z is the ___ letter.",
     "past": "We walked ___ the shop.", "father": "My mother and ___ came to watch.",
@@ -56,7 +60,7 @@ CUES = {
     "plant": "Water the ___.", "path": "Walk along the ___ to the gate.", "bath": "I have a ___ before bed.",
     "hour": "The film lasts an ___.", "move": "Please ___ your chair.", "prove": "Can you ___ it?",
     "improve": "Practice will help you ___.", "sure": "Are you ___?",
-    "sugar": "Do you take ___ in your tea?", "eye": "I closed one ___.", "could": "___ you help me?",
+    "sugar": "Do you take ___ in your tea?", "eye": "I closed one ___.", "could": "Gran ___ swim when she was young.",
     "should": "You ___ wear a coat.", "would": "___ you like some tea?", "who": "___ is at the door?",
     "whole": "She ate the ___ cake.", "any": "Have you got ___ pets?", "many": "How ___ sweets are left?",
     "clothes": "Put your ___ on.", "busy": "The shop is ___ on Saturdays.",
@@ -82,11 +86,11 @@ CUES = {
     "reign": "The queen's ___ was long.", "believe": "I can't ___ how tall you are!",
     "experiment": "In science we did an ___ with ice.", "mention": "Did she ___ the party?",
     "remember": "Can you ___ my name?", "bicycle": "He rides his ___ to school.",
-    "extreme": "The desert has ___ heat.", "minute": "Wait a ___.",
+    "extreme": "The desert has ___ heat.", "minute": "Wait a ___: there are sixty seconds in one.",
     "sentence": "Start every ___ with a capital letter.", "breath": "Take a deep ___.",
     "famous": "She is a ___ singer.", "natural": "It is ___ to feel sad sometimes.",
     "separate": "Put the red and blue beads in ___ boxes.", "breathe": "Try to ___ slowly and calmly.",
-    "favourite": "Blue is my ___ colour.", "naughty": "The ___ puppy chewed my shoe.",
+    "favourite": "Blue is my ___ colour.", "naughty": "The ___ puppy chewed my shoe, so it was told off.",
     "special": "Today is a ___ day.", "build": "We will ___ a sandcastle.",
     "February": "___ is the shortest month.", "notice": "Did you ___ the new sign?",
     "straight": "Draw a ___ line.", "business": "Her dad runs a small ___.",
@@ -174,24 +178,26 @@ CUES = {
     "opportunity": "This trip is a great ___ to learn.", "disastrous": "The flood was ___ for the town.",
     "parliament": "Laws are made in ___.", "available": "Is this seat ___, or is someone sitting here?",
     # KS3 Year 7
-    "absence": "Bring a note to explain your ___ from school.", "anxious": "I felt ___ before the test.",
+    "absence": "Bring a note to explain your ___ from school.",
+    "anxious": "The new boy is ___ to please, so he always offers to help.",
     "apparently": "___, the shop is closed today.", "appearance": "She changed her ___ with a new haircut.",
     "argument": "The brothers had an ___ about the remote.", "atmosphere": "The Earth's ___ is made of gases.",
     "audience": "The ___ clapped at the end of the play.", "autumn": "Leaves fall from the trees in ___.",
     "beginning": "Start reading from the ___ of the book.", "behaviour": "Good ___ earns house points.",
     "biscuit": "I dipped a ___ in my tea.", "ceiling": "A spider hung from the ___.",
     "chocolate": "I had a bar of ___.", "column": "Add up the numbers in each ___.",
-    "completely": "The glass was ___ empty.", "cupboard": "The cups are in the kitchen ___.",
+    "completely": "Finish the jigsaw ___, with no pieces missing.", "cupboard": "The cups are in the kitchen ___.",
     "decision": "It was a hard ___ to make.", "definitely": "I will ___ be there on time.",
     "description": "Write a ___ of your bedroom.", "diagram": "Label the parts of the plant on the ___.",
     "difference": "What is the ___ between 9 and 4?", "disappoint": "I don't want to ___ my team.",
     "discussion": "We had a class ___ about school uniform.", "encourage": "Fans ___ their team by cheering.",
     "extremely": "It was ___ cold on the mountain.", "fierce": "The tiger gave a ___ roar.",
-    "generally": "I ___ walk to school, but today I took the bus.", "happened": "What ___ at the party?",
+    "generally": "___ speaking, cats sleep a lot.", "happened": "What ___ at the party?",
     "heroes": "The firefighters were the ___ of the day.", "imaginary": "My little sister has an ___ friend.",
     "information": "The leaflet gives ___ about the museum.", "interesting": "That was a really ___ book.",
-    "listening": "Are you ___ to me?", "lonely": "The new boy felt ___ at break time.",
-    "meanwhile": "Mum cooked dinner; ___, Dad set the table.", "nervous": "He was ___ before his first match.",
+    "listening": "Are you ___ to me?", "lonely": "With no friends to play with, the new boy felt ___.",
+    "meanwhile": "Mum cooked dinner; ___, Dad set the table.",
+    "nervous": "The ___ system carries messages around your body.",
     "opinion": "In my ___, cats are better than dogs.", "paragraph": "Start a new ___ for a new idea.",
     "quiet": "Please be ___ in the library.", "safety": "Wear a helmet for ___.",
     "science": "In ___ we did an experiment with magnets.", "scissors": "Cut the paper with ___.",
@@ -235,7 +241,7 @@ CUES = {
     "theme": "The ___ of the story is friendship.", "vapour": "Water ___ rose from the hot bath.",
     "volcano": "Lava poured out of the ___.",
     # KS3 Year 8
-    "absolutely": "I am ___ sure.", "achievement": "Passing the exam was a great ___.",
+    "absolutely": "The cake was ___ delicious!", "achievement": "Passing the exam was a great ___.",
     "advertisement": "We saw an ___ for a new phone on TV.", "alcohol": "Hand gel contains ___ to kill germs.",
     "analyse": "Scientists ___ the results of the test.", "assessment": "We have a spelling ___ on Friday.",
     "benefit": "Fresh air is a ___ of living by the sea.", "campaign": "The class ran a ___ to stop litter.",
@@ -267,7 +273,8 @@ CUES = {
     "success": "The bake sale was a big ___.", "technique": "Practise the right swimming ___.",
     "technology": "Phones and computers are modern ___.",
     "unfortunately": "___, the match was cancelled because of rain.", "unnecessary": "Leave out ___ words.",
-    "vacuum": "Sound cannot travel through a ___.", "weird": "What a ___ noise!",
+    "vacuum": "Sound cannot travel through a ___.",
+    "weird": "It was ___: the clock ran backwards and the cat barked like a dog.",
     "alliteration": "'Seven slippery snakes' uses ___.", "onomatopoeia": "'Buzz' and 'pop' are examples of ___.",
     "narrator": "The ___ tells the story.", "stanza": "A poem is split into verses, each called a ___.",
     "persuasive": "Write a ___ letter to the head teacher.", "denominator": "In 3/4, the ___ is 4.",
@@ -306,7 +313,7 @@ CUES = {
     "entrepreneur": "The young ___ started her own company.", "exhilarate": "Roller coasters ___ and terrify me.",
     "extraordinary": "The view from the top was ___.", "fascinate": "Stars and planets ___ me.",
     "feasible": "Is the plan ___ in the time we have?", "fluorescent": "Cyclists wear ___ jackets to be seen.",
-    "foreseeable": "The bridge will be closed for the ___ future.", "gorgeous": "What a ___ sunset!",
+    "foreseeable": "The bridge will be closed for the ___ future.", "gorgeous": "She looked ___ in her party dress.",
     "grievous": "He made a ___ error.", "hierarchy": "In the army there is a strict ___ of ranks.",
     "hygiene": "Washing hands is good ___.",
     "hypocrisy": "Telling others not to litter while dropping litter is ___.",
@@ -334,7 +341,8 @@ CUES = {
     "soliloquy": "In a ___, a character speaks their thoughts alone on stage.",
     "stationary": "The car was ___ at the lights.", "stationery": "Pens and paper are ___.",
     "strategy": "Our team needs a better ___ to win.",
-    "subtle": "There is a ___ difference between the two shades.", "successful": "The launch was ___.",
+    "subtle": "There is a ___ difference between the two shades.",
+    "successful": "The rocket launch was ___ and reached space.",
     "supersede": "The new rules ___ the old ones.", "surveillance": "Cameras keep the car park under ___.",
     "susceptible": "Young children are more ___ to colds.",
     "symphony": "The orchestra played a long ___ in four parts.",
@@ -342,7 +350,8 @@ CUES = {
     "tragedy": "The sinking of the Titanic was a terrible ___.", "transferred": "She ___ to a new school in May.",
     "tyranny": "The people rose up against the king's ___.", "unanimous": "The vote was ___: everyone agreed.",
     "vicious": "The ___ dog had to be kept on a lead.", "vulnerable": "Baby birds are ___ to cats.",
-    "wholly": "I am ___ sure.", "withhold": "Don't ___ information from the police.",
+    "wholly": "The trip was paid for ___ by the school, every penny.",
+    "withhold": "Don't ___ information from the police.",
     "chlorophyll": "___ makes leaves green.", "coefficient": "In 5x, the ___ of x is 5.",
     "hypotenuse": "The ___ is the longest side of a right-angled triangle.",
     "trapezium": "A ___ has one pair of parallel sides.", "polygon": "A hexagon is a ___ with six sides.",
@@ -430,9 +439,65 @@ MEANINGS = {
 }
 
 
+# Year 1 starts with words a child can sound out (phonics), in the order schools teach them: CVC words (cat), then
+# words with two consonants together (frog, jump), then common digraphs (ship, rain). The statutory Year 1 words
+# that can't be sounded out ("tricky words": the, said, of) come in a few at a time, shortest first (YEAR1_ORDER).
+# Their sentences follow CUES' rules, and with the letter count only the target fits. They have no recorded clip
+# yet: the browser's voice says them, as for a school list's word.
+DECODABLE = {
+    # CVC
+    "cat": "The ___ says miaow.", "dog": "A ___ says woof.", "sit": "Please ___ on the mat.",
+    "hop": "Can you ___ on one leg?", "red": "A tomato is ___.", "bed": "I sleep in my ___.",
+    "pig": "A ___ says oink.", "sun": "The ___ is hot and bright.", "map": "Look at the ___ to find the way.",
+    "bus": "We wait at the ___ stop.", "hat": "A magician pulls a rabbit out of a ___.",
+    "pen": "I write with a ___.", "cup": "The team won the ___.", "top": "Climb to the ___ of the hill.",
+    "leg": "Stand on one ___.", "big": "An elephant is very ___.", "run": "I can ___ fast in a race.",
+    "fox": "The ___ has a bushy red tail.", "wet": "I got ___ in the rain.", "bin": "Put the rubbish in the ___.",
+    "mud": "The pig rolls in the ___.", "jam": "I like strawberry ___ on toast.", "hen": "A ___ lays eggs.",
+    "log": "Put a ___ on the fire.",
+    # two consonants together
+    "stop": "Red means ___.", "frog": "A ___ says ribbit.", "flag": "Each country has its own ___.",
+    "crab": "A ___ walks sideways on the sand.", "drum": "Bang the ___!", "spot": "Can you ___ a bird in the tree?",
+    "swim": "Fish ___ in the sea.", "clap": "If you're happy and you know it, ___ your hands.",
+    "step": "Mind the ___ at the door.", "plum": "A ___ is a purple fruit.", "jump": "Can you ___ over the puddle?",
+    "hand": "I wave my ___.", "milk": "Cows give us ___.", "tent": "We sleep in a ___ when we go camping.",
+    "lamp": "Turn on the ___ to read.", "best": "You are my ___ friend.", "desk": "I sit at my ___ in class.",
+    "pink": "Mix red and white to make ___.", "nest": "The bird sits on its ___.", "help": "Can you ___ me, please?",
+    # digraphs
+    "ship": "A ___ is much bigger than a boat.", "shop": "We buy food at the ___.", "fish": "A ___ swims in the pond.",
+    "chip": "I dip a ___ in ketchup.", "chin": "My ___ is under my mouth.", "much": "Thank you very ___.",
+    "thin": "A pencil is long and ___.", "moth": "A ___ flies round the lamp at night.",
+    "ring": "She wears a ___ on her finger.", "song": "Let's sing a ___.", "duck": "A ___ says quack.",
+    "back": "Sit at the ___ of the bus.", "sock": "Put a ___ on each foot.", "bell": "Ring the ___.",
+    "hill": "Roll down the ___.", "kiss": "Give Gran a hug and a ___.", "rain": "Take an umbrella: it will ___.",
+    "boat": "We row the ___ across the lake.", "feet": "I wear shoes on my ___.",
+    "moon": "Astronauts landed on the ___.",
+    "book": "I read a ___ at bedtime.", "car": "Mum parks the ___ outside the house.",
+    "farm": "Cows and pigs live on a ___.", "coin": "I put a ___ in my piggy bank.", "cow": "A ___ says moo.",
+    "star": "Twinkle, twinkle, little ___.", "night": "We go to bed at ___.",
+}
+CUES.update(DECODABLE)
+FIRST_PLAIN = 12          # Year 1: this many sound-it-out words before the first tricky word ...
+TRICKY_EVERY = 4          # ... then one tricky word in every 4
+
+
+def _year1_order() -> list:
+    plain = list(DECODABLE)
+    tricky = sorted(LISTS["Y1"], key=len)              # "a", "I", "to" before "said", "today", "friend"
+    out, rest = plain[:FIRST_PLAIN], plain[FIRST_PLAIN:]
+    while rest:
+        out += rest[:TRICKY_EVERY - 1] + tricky[:1]
+        rest, tricky = rest[TRICKY_EVERY - 1:], tricky[1:]
+    return out + tricky
+
+
+YEAR1_ORDER = _year1_order()
+EASY = set(list(DECODABLE)[:24])          # CVC words: what a Year 1 child is offered after a run of misses
+
+
 def list_for_year(year: int) -> list:
     if year <= 1:
-        return LISTS["Y1"]
+        return YEAR1_ORDER
     if year == 2:
         return LISTS["Y1"] + LISTS["Y2"]
     if year in (3, 4):
@@ -457,6 +522,110 @@ SCHOOL_WORD = re.compile(r"[A-Za-z]+(?:['-][A-Za-z]+)*")
 _CUE_SPLIT = re.compile(r"\s*[–—]\s*|\s+-\s*|\s*-\s+|\s*:\s*")
 _BULLET = re.compile(r"^\s*(?:\d+[.)]|[-•*·–—])\s+")
 _KNOWN = {w.lower(): w for lst in list(LISTS.values()) + list(KS3.values()) for w in lst}
+_OURS = set(_KNOWN) | {w.lower() for w in CUES} | set(MEANINGS)     # our words: a suggestion among them comes first
+_ENGLISH: set = set()
+_PLAIN: set = set()         # the words that may be suggested: not names
+_BY_LEN: dict = {}          # (first letter, length) -> those words
+
+
+def english() -> set:
+    """The plain English word list (app/data/english_words.txt, see its notes), in lower case, read once."""
+    if not _ENGLISH:
+        with open(BASE_DIR / "data" / "english_words.txt", encoding="utf-8") as f:
+            words = [w.strip() for w in f if w.strip() and not w.startswith("#")]
+        _PLAIN.update([w for w in words if w == w.lower()] + list(_OURS))
+        for w in _PLAIN:
+            _BY_LEN.setdefault((w[:1], len(w)), []).append(w)
+        _ENGLISH.update(w.lower() for w in words)
+        _ENGLISH.update(_OURS)
+    return _ENGLISH
+
+
+def is_word(w: str) -> bool:
+    """A real English word (each part of a hyphenated one): "friend", "well-known", "don't"; not "frend"."""
+    w = w.lower().replace("’", "'")
+    return w in english() or all(p in english() for p in w.split("-") if p)
+
+
+def _distance(a: str, b: str, most: int = 2) -> int:
+    """Letters added, left out, changed or two neighbours swapped between a and b (most + 1 once it is more)."""
+    if abs(len(a) - len(b)) > most:
+        return most + 1
+    prev2, prev = None, list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        cur = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        if min(cur) > most:
+            return most + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def suggest(word: str, n: int = 3) -> list:
+    """Real words close to a word that is not one ("frend" -> ["friend", "fiend", "trend"]): one or two letters
+    off, ours first (the spelling lists' words), then the nearest, then those with its first letter."""
+    w = word.lower()
+    if "-" in w and not is_word(w):                    # "well-knwn": the part that is wrong
+        parts = w.split("-")
+        bad = next(i for i, p in enumerate(parts) if p and not is_word(p))
+        return ["-".join(parts[:bad] + [s] + parts[bad + 1:]) for s in suggest(parts[bad], n)]
+    english()
+    pool = {c for k in range(len(w) - 2, len(w) + 3) for c in _BY_LEN.get((w[:1], k), [])}
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    pool |= {c + w[1:] for c in letters} | {c + w for c in letters} | {w[1:]}      # the first letter wrong
+    pool |= {w[1] + w[0] + w[2:]} if len(w) > 1 else set()
+    pool |= {w[:i] + "'" + w[i:] for i in range(1, len(w))}                  # "dont" -> "don't"
+    near = [(c, _distance(w, c)) for c in pool if c in _PLAIN and c != w]
+    near = [(c, d) for c, d in near if d <= (1 if len(w) <= 4 else 2)]
+    near.sort(key=lambda cd: (cd[1], "'" not in cd[0], cd[0] not in _OURS, cd[0][:1] != w[:1],
+                              abs(len(cd[0]) - len(w)), cd[0]))
+    return [_KNOWN.get(c, c) for c, _ in near[:n]]
+
+
+def school_unknown(words: list, kept=()) -> list:
+    """The words of a school list that are not real words, each with what it may have meant:
+    [{"w": "frend", "sugg": ["friend", ...]}]. kept: words the parent said to keep as they are (a name)."""
+    keep = {k.lower() for k in kept}
+    return [{"w": w["w"], "sugg": suggest(w["w"], 2)} for w in words
+            if w["w"].lower() not in keep and not is_word(w["w"])]
+
+
+def school_fixes(form) -> dict:
+    """The parent's choice for each word we did not know, from the form: {"frend": "friend", "zog": KEEP}."""
+    return {k[len("school_fix_"):]: str(v).strip() for k, v in form.items()
+            if k.startswith("school_fix_") and str(v).strip()}
+
+
+KEEP = "="          # a school_fix_<word> value: keep the word as it is
+
+
+def school_questions(pupil: dict, text: str | None = None, fixes: dict | None = None) -> list:
+    """For the form: each word of the list (text: as typed; None: the running list) that we don't know, with what
+    it may have meant and what the parent picked so far: [{"w", "sugg", "pick"}]. Words kept before are not asked."""
+    words = school_words(pupil) if text is None else parse_school_words(text)[0]
+    fixes = fixes or {}
+    kept = (pupil.get("school_words") or {}).get("kept") or []
+    return [{**u, "pick": fixes.get(u["w"].lower(), "")} for u in school_unknown(words, kept)]
+
+
+def apply_fixes(words: list, fixes: dict) -> tuple[list, dict, set]:
+    """The list with the parent's fixes made: (words, {old: new}, words kept as they are). A fix to a word already
+    in the list leaves one of it."""
+    out, fixed, kept, seen = [], {}, set(), set()
+    for w in words:
+        v = fixes.get(w["w"].lower(), "")
+        if v == KEEP:
+            kept.add(w["w"].lower())
+        elif v and SCHOOL_WORD.fullmatch(v) and v.lower() != w["w"].lower():
+            fixed[w["w"]] = v = _KNOWN.get(v.lower(), v)
+            w = {**w, "w": v}
+        if w["w"].lower() not in seen:
+            seen.add(w["w"].lower())
+            out.append(w)
+    return out, fixed, kept
 
 
 def _pieces(text: str) -> list:
@@ -575,14 +744,72 @@ def school_summary(words: list, name: str) -> dict:
             "ours": kinds.count("ours"), "ask": ask[:5]}
 
 
-def new_school_list(pupil: dict, words: list, start: str, until: str) -> dict:
+def new_school_list(pupil: dict, words: list, start: str, until: str, gone=(), kept=()) -> dict:
     """The stored list. "before": the words of earlier lists, so the parent sees last week's tricky ones and they
-    keep coming back in practice (carried_words)."""
+    keep coming back in practice (carried_words); never a word withdrawn (gone: see withdrawn). "kept": words we
+    did not know that the parent kept as they are (a name), so they are not asked about again."""
     sl = pupil.get("school_words") or {}
     now = {w["w"].lower() for w in words}
+    out = {w.lower() for w in gone}
     before = [w["w"] for w in sl.get("words") or []] + list(sl.get("before") or [])
-    before = [w for w in dict.fromkeys(before) if w.lower() not in now][:60]
-    return {"words": words, "from": start, "until": until, "before": before}
+    before = [w for w in dict.fromkeys(before) if w.lower() not in now and w.lower() not in out][:60]
+    keep = sorted({k.lower() for k in list(kept) + list(sl.get("kept") or [])} & now)
+    return {"words": words, "from": start, "until": until, "before": before, **({"kept": keep} if keep else {})}
+
+
+def same_list(pupil: dict, words: list) -> bool:
+    """A list saved while one runs is that week's list corrected when it keeps at least half of its words (and
+    then keeps its dates); otherwise it is a new week's list."""
+    old = [w["w"].lower() for w in school_words(pupil)]
+    now = {w["w"].lower() for w in words}
+    return bool(old) and 2 * sum(1 for w in old if w in now) >= len(old)
+
+
+def withdrawn(pupil: dict, words: list, fixed: dict) -> dict:
+    """Words of the running list that a new save takes back, as {word: what it was fixed to, or ""}: a word fixed
+    ("frend" -> "friend"), and a word left out when the new list is the same week's list corrected (it keeps at
+    least half of the running list's words) or when it was not a real word. A word left out of a new week's list
+    is not withdrawn: it carries on as last week's (new_school_list)."""
+    old = [w["w"] for w in school_words(pupil)]
+    now = {w["w"].lower() for w in words}
+    same_week = same_list(pupil, words)
+    kept = {k.lower() for k in (pupil.get("school_words") or {}).get("kept") or []}
+    out = {w: fixed[w] for w in fixed}
+    added = [w["w"] for w in words if w["w"].lower() not in {o.lower() for o in old}]
+    for w in old:
+        if w.lower() not in now and w not in out and (same_week or (not is_word(w) and w.lower() not in kept)):
+            # typed again in the box: the new word a letter or two from it is what it was meant to be
+            out[w] = next((a for a in added if _distance(a.lower(), w.lower()) <= 2), "")
+    return out
+
+
+async def withdraw(pupil: dict, words: dict) -> None:
+    """Take words back everywhere, as if never asked ({word: the right word, or ""}): a parent's typing slip in
+    the school list ("frend") or a word the parent removed. Its answers stop being mistakes (one that spelt the
+    right word counts as right), it leaves the review queue, "still tricky" and the reports, and a report the
+    child sent about it is closed."""
+    for word, right in words.items():
+        q = {"pupil_id": pupil["_id"], "activity": "spelling", "detail": word}
+        if right:
+            async for r in db.attempts.find({**q, "correct": False}, {"got": 1}):
+                if " ".join(str(r.get("got") or "").split()).lower() == right.lower():
+                    await db.attempts.update_one({"_id": r["_id"]}, {"$set": {"correct": True}})
+        await db.attempts.update_many(q, {"$set": {"detail": "", "withdrawn": word},
+                                          "$unset": {"q": "", "exp": "", "got": ""}})
+        if word not in list_for_year(pupil.get("year", 3)):
+            await db.spelling_words.delete_one({"_id": f"{pupil['_id']}:{word}"})
+        await db.items.delete_many({"pupil_id": pupil["_id"], "activity": "spelling", "answer": word, "done": False})
+        await db.reports.update_many(
+            {"pupil_id": pupil["_id"], "activity": "spelling", "expected": word, "status": "open"},
+            {"$set": {"status": "fixed", "status_at": datetime.datetime.utcnow(),
+                      "reply": (f"“{word}” was a slip in the school list: it is “{right}” now." if right
+                                else f"“{word}” is out of the school list now.")}})
+    if words:
+        sl = pupil.get("school_words") or {}
+        gone = {w.lower() for w in words}
+        before = [w for w in sl.get("before") or [] if w.lower() not in gone]
+        if sl and before != list(sl.get("before") or []):
+            await db.pupils.update_one({"_id": pupil["_id"]}, {"$set": {"school_words.before": before}})
 
 
 def carried_words(pupil: dict) -> list:
@@ -617,13 +844,15 @@ async def school_status(pupil: dict) -> dict | None:
     """For the parent: each word of the running school list and how far it is learned, and words of earlier
     lists not yet learned that were spelt wrong ("still tricky")."""
     words = school_words(pupil)
-    if not words:
-        return None
     old = carried_words(pupil)
+    if not words and not old:
+        return None
     state = {d["word"].lower(): d async for d in db.spelling_words.find(
         {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words] + old}})}
     last_tricky = [w for w in old if (st := state.get(w.lower())) and st.get("wrong")
                    and int(st.get("box", 0)) < LEARNED_BOX]
+    if not words:                 # the week is over: only earlier words still tricky, which the parent may take out
+        return {"words": [], "learned": 0, "total": 0, "until": "", "last_tricky": last_tricky} if last_tricky else None
     out = []
     for w in words:
         st = state.get(w["w"].lower())
@@ -639,6 +868,53 @@ def _today() -> datetime.date:
     return datetime.date.fromisoformat(progress.today())
 
 
+TRICKY = set(LISTS["Y1"]) | set(LISTS["Y2"])      # the statutory "common exception words"
+
+
+def other_word(typed: str, word: str) -> bool:
+    """The child typed a different real word, spelt right ("nervous" for "anxious"), not a misspelling of this
+    one: at least 3 letters off, not a word that sounds like it ("their" for "there" is the mistake the hint
+    sentence is there to catch) and not its American spelling."""
+    t = typed.strip().lower()
+    return (len(t) >= 3 and t != word.lower() and t not in [s.lower() for s in _SOUNDS.get(word.lower(), [])]
+            and not typos.american(word, t) and is_word(t) and _distance(t, word.lower()) > 2)
+
+
+NEW_WINDOW = 4             # Year 1: a new word is one of the next 4 of the list (it is in teaching order) ...
+NEW_WINDOW_LATER = 12      # ... later years: one of the next 12 (those lists go A to Z)
+MISSED_RUN = 3             # misses in a row (in this sitting) before spelling eases off
+EASE_NOTE = "Let's try an easier one."
+
+
+def _mix(pupil: dict, day: str, word: str) -> int:
+    """A number for each word that is the same all day for one child, and different for another child."""
+    return int.from_bytes(hashlib.sha1(f"{pupil['_id']}:{day}:{word}".encode()).digest()[:6], "big")
+
+
+async def _missed_run(pupil: dict) -> bool:
+    """The last MISSED_RUN spelling answers in this sitting were all wrong (a right one copied straight after the
+    correction does not break the run)."""
+    since = datetime.datetime.utcnow() - datetime.timedelta(seconds=items.RECALL_STALE)
+    rows = [r async for r in db.attempts.find(
+        {"pupil_id": pupil["_id"], "activity": "spelling", "ts": {"$gt": since}, "copied": {"$ne": True}},
+        {"correct": 1}).sort("ts", -1).limit(MISSED_RUN)]
+    return len(rows) == MISSED_RUN and not any(r["correct"] for r in rows)
+
+
+def _easier(pupil: dict, words: list, state: dict, away: set) -> str | None:
+    """After a run of misses: a word this child has spelt right before, the shortest first; else, in Year 1, the
+    first sound-it-out words; else the shortest of the year's words."""
+    pool = [w for w in words if w not in away]
+    if pupil.get("year", 3) <= 1:
+        pool = [w for w in pool if w in EASY] or pool
+    known = [w for w in pool if int((state.get(w) or {}).get("right", 0)) > 0]
+    if known:
+        return min(known, key=lambda w: (len(w), pool.index(w)))
+    if pupil.get("year", 3) <= 1:
+        return pool[0] if pool else None
+    return min(pool, key=len) if pool else None
+
+
 async def next_question(pupil: dict, focus: str | None = None) -> dict:
     """focus: a word to spell again (a mistake being put right)."""
     words = list_for_year(pupil.get("year", 3))
@@ -648,26 +924,32 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
     shown = await items.just_shown(pupil, "spelling")     # a missed word comes back later, not straight away
     carried = [w for w in carried_words(pupil) if w not in words]     # earlier school lists: due ones come back
     due = [w for w in words + carried if w in state and state[w].get("due", "") <= today and w != last and w not in shown]
-    new = [w for w in words if w not in state]
+    new = [w for w in words if w not in state and w != last and w not in shown]
     # the school's list comes first: its new words, and those due today (a missed one after its gap)
     school = [w["w"] for w in school_words(pupil)]
     school_due = [w for w in school if w != last and w not in shown
                   and (w not in state or state[w].get("due", "") <= today)]
-    if focus and (has_clip(focus) or focus in school):
+    mix = lambda w: _mix(pupil, today, w)        # noqa: E731  (each child's own order, the same all day)
+    ease, eased = not focus and await _missed_run(pupil), False
+    if focus and (has_clip(focus) or focus in school or focus in words or focus in carried):
         word = focus
+    elif ease and (easy := _easier(pupil, words, state, shown | {last})):
+        word = easy                           # three misses in a row: an easier word, and a kind word with it
+        eased = True
     elif school_due:
-        word = min(school_due, key=lambda w: (state[w].get("box", 0) if w in state else 0, school.index(w)))
+        word = min(school_due, key=lambda w: (state[w].get("box", 0) if w in state else 0, mix(w)))
     elif due:
-        due.sort(key=lambda w: (state[w].get("box", 0), state[w].get("due", "")))
-        word = due[0]
+        word = min(due, key=lambda w: (state[w].get("box", 0), state[w].get("due", ""), mix(w)))
     elif new:
-        word = new[0]
+        # the next few new words of the list, in this child's order: twins don't get the same word at the same time
+        word = min(new[:NEW_WINDOW if pupil.get("year", 3) <= 1 else NEW_WINDOW_LATER], key=mix)
     else:
         word = random.choice([w for w in words if w != last and w not in shown] or [w for w in words if w != last] or words)
     cue = _school_cue(pupil, word) if word in school else CUES.get(word, "")
     token = await items.issue(pupil, "spelling", word, {"cue": cue, "school": word in school})
     await db.pupils.update_one({"_id": pupil["_id"]}, {"$set": {"_last_spelling": word}})
-    q = {"token": token, "audio": f"/api/spelling/audio/{token}", "cue": cue, "letters": len(word)}
+    q = {"token": token, "audio": f"/api/spelling/audio/{token}", "cue": cue, "letters": len(word),
+         **({"ease": EASE_NOTE} if eased else {})}
     if not has_clip(word):
         # a school word with no recorded clip: the browser's voice says it (sent encoded, not as plain text)
         q.update({"audio": "", "say": base64.b64encode(word[::-1].encode()).decode()})
@@ -681,14 +963,23 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     word = it["answer"]
     typed = " ".join(str(value or "").split()).lower()
     correct = typed == word.lower() or typed in VARIANTS.get(word, ())
+    if not correct and other_word(typed, word):
+        # another real word, spelt right ("nervous" for "anxious" with the sound off): not a spelling mistake. It
+        # counts as neither right nor a mistake, and the word comes back after the usual gap, to be heard again.
+        await progress.record(pupil, "spelling", False, ms, word, copied=True)
+        msg = f"That is spelt right, but the word was {word}. Listen again."
+        return {"correct": False, "other": True, "expected": word, "hint": msg, "spoken": msg}
     if correct and word in await items.just_shown(pupil, "spelling"):
         # right, but straight after being shown it: counts for today, not as learned or as a mistake put right
         await progress.record(pupil, "spelling", correct, ms, "", "Spell the word you heard", word, value)
         return {"correct": True, "expected": word, "again_later": True}
     st = await db.spelling_words.find_one({"_id": f"{pupil['_id']}:{word}"}) or {}
+    # a word missed in this sitting and right again is practice: it climbs no box and comes back another day
+    missed = await progress.last_miss(pupil, "spelling", word) if correct else None
+    practice = bool(missed and datetime.datetime.utcnow() - missed < progress.PUT_RIGHT_AFTER)
     box = int(st.get("box", 0))
-    box = min(box + 1, len(INTERVALS) - 1) if correct else 0
-    days = INTERVALS[box] if correct else 0
+    box = box if practice else min(box + 1, len(INTERVALS) - 1) if correct else 0
+    days = (1 if practice else INTERVALS[box]) if correct else 0
     if box < LEARNED_BOX and word in {w["w"] for w in school_words(pupil)}:
         days = min(days, 1)                   # a school word comes back every day of its week until it is learned
     due = (_today() + datetime.timedelta(days=days)).isoformat()
@@ -696,7 +987,7 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         "$set": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": box, "due": due},
         "$inc": {"right" if correct else "wrong": 1}}, upsert=True)
     await progress.record(pupil, "spelling", correct, ms, word, "Spell the word you heard", word, value)
-    out = {"correct": correct, "expected": word}
+    out = {"correct": correct, "expected": word, **({"again_later": True} if practice else {})}
     if not correct and typed:
         # which letters were wrong, not only the right spelling: "acsident → accident: cs should be cc"
         if typos.american(word, typed):
@@ -706,6 +997,13 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
             if hint:
                 out["hint"] = hint
                 out["marks"] = typos.letter_marks(typed, word.lower())
+        if word in TRICKY or (pupil.get("year", 3) <= 2 and len(word) <= 6):
+            # a word that can't be sounded out (said, of), or any word for Years 1-2: its letters one by one, and
+            # the tricky part ("sed → said: e should be ai · said: s, a, i, d"), on screen and read out
+            part = out.get("hint", "").split(": ", 1)[1] if ": " in out.get("hint", "") else ""
+            out["hint"] = (out["hint"] + " · " if out.get("hint") else "") + typos.spelled(word)
+            out["spoken"] = (f"Not quite. {word} is spelt " + ", ".join(c.upper() for c in word if c.isalpha()) + "."
+                          + (f" The tricky part: {typos.say_letters(part)}." if part else ""))
     return out
 
 

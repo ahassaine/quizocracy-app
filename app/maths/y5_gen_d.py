@@ -480,7 +480,8 @@ def _(d=1):
         else:
             xs = [Decimal(random.randint(1, _by(d, 9, 99, 99))) / 10 for _ in range(3)]
         return _tb("Add: %s + %s + %s" % tuple(_ds(v) for v in xs), _ds(sum(xs)), "num", {},
-                   ["= %s." % _ds(sum(xs))])
+                   ["Line up the decimal points (write 0s in empty places) and add column by column, carrying "
+                    "when a column makes 10 or more: %s." % _ds(sum(xs))])
 
     def t_strip():
         return _strip("The bar model shows a whole of %s split into two parts. One part is %s. What is the other part?"

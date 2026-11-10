@@ -1,22 +1,22 @@
 {% extends "base.html" %}{% block title %}Maths · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
 <div class="stage rise rise-3" id="stage">
-  <div class="kid"><div><b id="skillTitle">Loading…</b> <span class="mut small" id="skillStrand"></span></div><span class="chip" id="badge"></span></div>
-  <div class="mut small" id="mastery"></div>
+  <div class="kid"><b id="skillTitle">Loading…</b><span class="chip" id="badge" hidden></span></div>
+  <div class="skill-bar" id="mastery" title="How sure you are of this skill"><i id="skillFill"></i></div>
   <div id="mStage"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
 {% block scripts %}
 <script src="/static/maths/components/angle.js?v=4"></script>
-<script src="/static/maths/components/area_grid.js?v=4"></script>
-<script src="/static/maths/components/array.js?v=4"></script>
+<script src="/static/maths/components/area_grid.js?v=5"></script>
+<script src="/static/maths/components/array.js?v=5"></script>
 <script src="/static/maths/components/bar_chart.js?v=5"></script>
-<script src="/static/maths/components/base_ten.js?v=5"></script>
+<script src="/static/maths/components/base_ten.js?v=6"></script>
 <script src="/static/maths/components/circle.js?v=4"></script>
 <script src="/static/maths/components/clock.js?v=4"></script>
 <script src="/static/maths/components/coordinate_grid.js?v=4"></script>
 <script src="/static/maths/components/data_table.js?v=6"></script>
-<script src="/static/maths/components/equal_groups.js?v=4"></script>
+<script src="/static/maths/components/equal_groups.js?v=5"></script>
 <script src="/static/maths/components/fraction_bar.js?v=4"></script>
 <script src="/static/maths/components/inequality_line.js?v=4"></script>
 <script src="/static/maths/components/io_table.js?v=6"></script>
@@ -29,19 +29,25 @@
 <script src="/static/maths/components/ruler.js?v=4"></script>
 <script src="/static/maths/components/scatter_plot.js?v=5"></script>
 <script src="/static/maths/components/shape.js?v=4"></script>
-<script src="/static/maths/components/strip_model.js?v=5"></script>
-<script src="/static/js/speak.js?v=2"></script><script src="/static/js/drill.js?v=20"></script><script>
+<script src="/static/maths/components/strip_model.js?v=6"></script>
+<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=23"></script><script>
 window.MComp = window.MComp || {};
 const YEAR = parseInt(document.getElementById('drillHead').dataset.year, 10) || 0;
 let choices = null;
-// Years 1-3 see how many skills they have mastered, not a score that drops in front of them after a miss
-const mastery = (score, p) => (YEAR >= 1 && YEAR <= 3 ? '' : 'Skill score ' + score + '/100 · ') + p.mastered + ' of ' + p.total + ' skills mastered';
+// The child sees the skill's name and a small bar, no scores or counts (those are on the parent's pages).
+// Years 1-3 see the bar move up only, never drop in front of them after a miss.
+let barAt = 0;
+function skillBar(score, secure) {
+  const b = document.getElementById('badge'), w = secure || score >= 100 ? 100 : Math.max(4, score || 0);
+  barAt = YEAR >= 1 && YEAR <= 3 ? Math.max(barAt, w) : w;
+  document.getElementById('skillFill').style.width = barAt + '%';
+  document.getElementById('mastery').classList.toggle('done', barAt >= 100);
+  b.textContent = barAt >= 100 ? '★ secure' : ''; b.hidden = barAt < 100;
+}
 Drill({ activity: 'maths',
   render(q) {
     document.getElementById('skillTitle').textContent = q.title;
-    document.getElementById('skillStrand').textContent = q.strand;
-    const b = document.getElementById('badge'); b.textContent = q.reason === 'new' ? 'new skill' : (q.reason === 'review' ? 'review' : 'practising');
-    document.getElementById('mastery').textContent = mastery(q.score, q.progress);
+    barAt = 0; skillBar(q.score, false);
     const stage = document.getElementById('mStage'); stage.innerHTML = '';
     const pr = document.createElement('div'); pr.className = 'm-prompt'; pr.textContent = q.prompt; stage.appendChild(pr);
     const host = document.createElement('div'); host.className = 'm-host'; host.id = 'mHost'; host.dataset.component = q.component; stage.appendChild(host);
@@ -60,6 +66,5 @@ Drill({ activity: 'maths',
   explain(r) { let s = 'Answer: <b>' + esc(r.expected) + '</b>';
     if (r.solution && r.solution.length) s += '<div class="m-sol">' + r.solution.map(esc).join('<br>') + '</div>'; return s; },
   after(r) { const h = document.getElementById('mHost'); if (h && h.__feedback) h.__feedback(r); if (choices) choices.__mark(r);
-    if (r.mastered) document.getElementById('feedback').innerHTML += ' · skill mastered';
-    document.getElementById('mastery').textContent = mastery(r.score, r.progress); } });
+    skillBar(r.score, r.mastered); } });
 </script>{% endblock %}

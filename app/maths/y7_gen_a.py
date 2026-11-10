@@ -469,8 +469,25 @@ def _(d=1):
                    ["Brackets show the adding comes first: %d(%s + %d)." % (k, v, c)], "e.g. 2(x+3)")
 
     def t_divide():
-        return _wq("Write an expression for %s divided by %d, using a slash (like x/3)." % (v, k), "%s/%d" % (v, k),
-                   ["%s ÷ %d is written %s/%d." % (v, k, v, k)], "e.g. x/3")
+        # the same idea in many settings, so the sentence is not the same one every day with a new letter
+        part = {2: "half", 3: "a third", 4: "a quarter", 5: "a fifth", 6: "a sixth", 7: "a seventh", 8: "an eighth",
+                9: "a ninth", 10: "a tenth", 11: "an eleventh", 12: "a twelfth"}[k]
+        who = _who()
+        u = "n" if v == "a" else v                    # "Sara has a stickers" would read as English
+        ask = pick([
+            "Write an expression for %s divided by %d, using a slash (like x/3)." % (u, k),
+            "Write %s of %s as an expression. Use a slash for dividing." % (part, u),
+            "%s has %s stickers and shares them equally between %d friends. Write an expression for how many "
+            "each friend gets (use / for divide)." % (who, u, k),
+            "A ribbon %s cm long is cut into %d equal pieces. Write an expression for the length of one piece, "
+            "using a slash." % (u, k),
+            "%d tickets cost %s pounds altogether. Write an expression for the cost of one ticket in pounds, "
+            "using / to divide." % (k, u),
+            "Write the expression for: think of a number %s, then divide it by %d. Use a slash." % (u, k),
+        ])
+        return _wq(ask, "%s/%d" % (u, k),
+                   ["Dividing by %d, or splitting into %d equal parts, is %s ÷ %d. In algebra it is written %s/%d."
+                    % (k, k, u, k, u, k)], "e.g. x/3")
 
     def t_word():
         who = _who()
@@ -656,7 +673,8 @@ def _(d=1):
                    {}, ["%d ÷ %d = %d; − %d = %d." % (m * q, m, q, c, q - c)])
 
     def t_three_step():
-        a, b, e = random.randint(1, 9), random.randint(2, 5), random.randint(1, 9)
+        a, b = random.randint(1, 9), random.randint(2, 5)
+        e = random.randint(1, min(9, (x + a) * b))      # never below 0: Year 7 meets directed numbers later
         return _tb("A function machine does: + %d, then × %d, then − %d. What comes out when %d goes in?" % (a, b, e, x),
                    (x + a) * b - e, "int", {}, ["%d + %d = %d; × %d = %d; − %d = %d." % (x, a, x + a, b, (x + a) * b, e, (x + a) * b - e)])
 

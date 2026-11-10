@@ -98,7 +98,7 @@ def test_plan_change_starts_tomorrow_and_reward_is_kept(page):
     page.goto("/home")
     card = page.locator("[data-testid='kid-Leo']")
     assert "Spelling 0/" in card.inner_text()
-    assert card.locator("[data-testid=pct]").inner_text() == "1%"                 # 1 of 30 tables, no spelling yet
+    assert card.locator("[data-testid=pct]").inner_text() == "2%"     # 1 of 38 planned answers (30 tables, 8 spelling)
     assert "Leo earned: Screen time" in card.inner_text()
     page.goto("/board")
     assert "Times tables 1/30" in page.inner_text("[data-testid='board-Leo']")      # words, not only icons

@@ -94,7 +94,7 @@ def test_every_question_type_works_on_the_page(browser):
     kid.goto(f"/children/{pid}")
     for sub in ("grammar", "science"):
         card = kid.inner_text(f"[data-testid=card-{sub}]")
-        assert "Year 6 skills mastered" in card, card
+        assert "of " in card and "Year 6 skills" in card and "started" in card, card
     assert "to go over" in kid.inner_text("[data-testid=mistakes-day]")
     kid.context.close()
     pg.context.close()

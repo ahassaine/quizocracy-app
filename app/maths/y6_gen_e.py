@@ -402,7 +402,7 @@ def _(d=1):
         ("A regular polygon has equal angles", "always"),
         ("Every square is a rectangle", "always"),
         ("Every rectangle is a square", "sometimes"),
-        ("A trapezium has two pairs of parallel sides", "never"),
+        ("A trapezium has at least one pair of parallel sides", "always"),
         ("A parallelogram has right angles", "sometimes"),
         ("A quadrilateral with four equal sides is a square", "sometimes"),
         ("A hexagon has interior angles that add up to 720°", "always"),
@@ -675,17 +675,15 @@ def _(d=1):
                               "circumference": "The distance all the way round the edge is "
                                                "the circumference."}[part]]}
 
-    if t == 3:                                        # visual: circumference from diameter
-        dia = 2 * rr
-        c = round(3.14 * dia, 2)
-        return {"prompt": "Take π as 3.14. The circle has a diameter of %d cm. "
-                          "What is its circumference, in cm?" % dia,
+    # (Working out a circumference with π is KS3, not Year 6: Year 6 names the parts and uses diameter = 2 × radius.)
+    if t == 3:                                        # visual: the square a circle fits in
+        return {"prompt": "This circle has a radius of %d cm. It fits exactly inside a square, touching all four "
+                          "sides. How long is each side of the square, in cm?" % rr,
                 "component": "circle",
-                "spec": {"radius": rr, "show": "circumference",
-                         "label": "d = %d cm" % dia},
-                "answer": c, "answer_type": "num", "tolerance": 0.01,
-                "solution": ["Circumference = π × diameter.",
-                             "3.14 × %d = %s cm." % (dia, _f(c))]}
+                "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
+                "answer": 2 * rr, "answer_type": "int",
+                "solution": ["The side of the square is as long as the circle is wide: its diameter.",
+                             "Diameter = 2 × radius = 2 × %d = %d cm." % (rr, 2 * rr)]}
 
     if t == 4:                                        # part from description (typed)
         desc, ans = pick([
@@ -712,36 +710,33 @@ def _(d=1):
                       solution=["Radius = diameter ÷ 2.",
                                 "%d ÷ 2 = %d mm." % (dia, rr)])
 
-    if t == 6:                                        # circumference from radius
-        c = round(2 * 3.14 * rr, 2)
-        return _num_q("Take π as 3.14. A circle has a radius of %d cm. What is its "
-                      "circumference, in cm?" % rr,
-                      c, "num", unit="cm", tolerance=0.01,
-                      solution=["Circumference = π × diameter = π × 2 × radius.",
-                                "3.14 × %d = %s cm." % (2 * rr, _f(c))])
+    if t == 6:                                        # circles touching in a row
+        k = random.randint(2, _by_d(d, 3, 5, 8))
+        return _num_q("%d equal circles are drawn in a straight row, each touching the next. Each circle "
+                      "has a radius of %d cm. How long is the row, from end to end, in cm?" % (k, rr),
+                      2 * rr * k, "int", unit="cm",
+                      solution=["Each circle is one diameter wide: 2 × %d = %d cm." % (rr, 2 * rr),
+                                "%d circles: %d × %d = %d cm." % (k, k, 2 * rr, 2 * rr * k)])
 
-    if t == 7:                                        # word problem: wheel
+    if t == 7:                                        # word problem: coins in a line
         who = pick(NAMES)
-        dia = pick([40, 50, 60, 70, 80])
-        turns = random.randint(2, _by_d(d, 4, 8, 20))
-        c = round(3.14 * dia, 2)
-        total = round(c * turns, 2)
-        return _num_q("Take π as 3.14. A bicycle wheel has a diameter of %d cm. %s rides "
-                      "so that the wheel turns exactly %d times. How far does the wheel "
-                      "roll, in cm?" % (dia, who, turns),
-                      total, "num", unit="cm", tolerance=0.05,
-                      solution=["One turn covers the circumference: 3.14 × %d = %s cm."
-                                % (dia, _f(c)),
-                                "%s × %d = %s cm." % (_f(c), turns, _f(total))])
+        r_mm = pick(_by_d(d, [5, 10], [10, 11, 12], [11, 12, 13, 14]))
+        k = random.randint(_by_d(d, 3, 5, 8), _by_d(d, 6, 12, 25))
+        return _num_q("%s lays coins in a straight line, each touching the next. Each coin has a radius of "
+                      "%d mm. The line is %d mm long. How many coins are in the line?" % (who, r_mm, 2 * r_mm * k),
+                      k, "int", unit="coins",
+                      solution=["Each coin is one diameter long: 2 × %d = %d mm." % (r_mm, 2 * r_mm),
+                                "%d ÷ %d = %d coins." % (2 * r_mm * k, 2 * r_mm, k)])
 
-    if t == 8:                                        # inverse: circumference -> diameter
-        dia = pick(_by_d(d, [10, 20, 100], [10, 20, 30, 40, 50, 100], [15, 25, 35, 45, 60, 80]))
-        c = round(3.14 * dia, 1)
-        return _num_q("Take π as 3.14. A circle has a circumference of %s cm. "
-                      "What is its diameter, in cm?" % _f(c),
-                      dia, "num", unit="cm", tolerance=0.1,
-                      solution=["Diameter = circumference ÷ π.",
-                                "%s ÷ 3.14 = %d cm." % (_f(c), dia)])
+    if t == 8:                                        # inverse: from the edge to the centre
+        dia = pick(_by_d(d, [4, 6, 10], [8, 12, 14, 18], [15, 25, 35, 9]))
+        thing = pick(["round pond", "round flower bed", "circular paddling pool"])
+        rad = dia / 2.0
+        return _num_q("A %s has a diameter of %d m. A post stands at its centre. How far is it from the "
+                      "post to the edge, in metres?" % (thing, dia),
+                      rad, "num", unit="m", tolerance=0.005,
+                      solution=["From the centre to the edge is the radius: half the diameter.",
+                                "%d ÷ 2 = %s m." % (dia, _f(rad))])
 
     # reasoning: comparing radius and diameter of two circles
     lo, hi = _by_d(d, (3, 8), (3, 12), (10, 25))
@@ -4894,66 +4889,48 @@ def _(d=1):
     random.shuffle(vals)
     total = sum(vals)
 
-    if t == 10:                                       # identify statistical questions
-        q, ans = pick([
-            ("How many minutes does each pupil in Year 6 spend reading each day?", "yes"),
-            ("How tall is each child in Class 6?", "yes"),
-            ("How many pets does each family in Year 6 own?", "yes"),
-            ("How long does each pupil in Year 6 take to get to school?", "yes"),
-            ("What are the shoe sizes of the children in Year 6?", "yes"),
-            ("How many minutes are there in one hour?", "no"),
-            ("How many days are there in September?", "no"),
-            ("How many pupils are on the register in Class 6 today?", "no"),
-            ("How many millimetres are there in one metre?", "no"),
-            ("What is the mass of this particular book?", "no"),
-        ])
-        return _num_q("A statistical question is one that is answered by collecting data "
-                      "that varies from person to person or from case to case. Identify "
-                      "whether this is a statistical question: “%s” (type yes or no)" % q,
-                      ans, "str", text=True, placeholder="yes / no",
-                      solution=["Ask whether the answer needs data that varies, or is a "
-                                "single fixed fact.",
-                                "The answer is %s." % ans])
+    if t == 10:                                       # interpret: which group has the greater mean
+        team = pick([("Red team", "Blue team"), ("Team Hawk", "Team Owl"), ("Green team", "Yellow team")])
+        m2 = mean + pick([-3, -2, -1, 1, 2, 3])
+        n2 = n - 1 if n > 3 else n + 1
+        v2 = [m2 + random.randint(-3, 3) for _ in range(n2 - 1)]
+        v2.append(n2 * m2 - sum(v2))
+        while min(v2) < 1:
+            v2 = [m2 + random.randint(-3, 3) for _ in range(n2 - 1)]
+            v2.append(n2 * m2 - sum(v2))
+        ans = team[0] if mean > m2 else team[1]
+        return _num_q("Two teams play a quiz. %s scores %s. %s scores %s. The teams have different "
+                      "numbers of players, so compare the means. Which team has the greater mean "
+                      "score? (type the team's name)"
+                      % (team[0], ", ".join(str(v) for v in vals), team[1], ", ".join(str(v) for v in v2)),
+                      ans, "str", text=True, placeholder="%s / %s" % team,
+                      solution=["%s: %d ÷ %d = %d." % (team[0], total, n, mean),
+                                "%s: %d ÷ %d = %d." % (team[1], sum(v2), n2, m2),
+                                "%d is greater than %d, so %s has the greater mean."
+                                % (max(mean, m2), min(mean, m2), ans)])
 
-    if t == 11:                                       # random or biased sample
-        case, ans = pick([
-            ("every pupil's name is put into a hat and 30 names are drawn out", "random"),
-            ("a computer picks 40 pupils from the whole school register at random",
-             "random"),
-            ("25 names are drawn at random from a box holding every pupil's name",
-             "random"),
-            ("only the members of the football team are asked about favourite sports",
-             "biased"),
-            ("only the pupils leaving the school library are asked how much they enjoy "
-             "reading", "biased"),
-            ("only the pupils who own a bicycle are asked how they travel to school",
-             "biased"),
-            ("only the pupils in the school choir are asked about favourite subjects",
-             "biased"),
-        ])
-        return _num_q("A school wants to survey its pupils. In this sample, %s. Identify "
-                      "the sample: is it random or biased? (type one word)" % case,
-                      ans, "str", text=True, placeholder="random / biased",
-                      solution=["A random sample gives every pupil the same chance of "
-                                "being chosen; a biased sample favours one group.",
-                                "This sample is %s." % ans])
+    if t == 11:                                       # mean price in pounds
+        thing = pick(["books", "T-shirts", "board games", "lunch boxes"])
+        return _num_q("%d %s cost £%s. What is the mean price, in pounds?"
+                      % (n, thing, ", £".join(str(v) for v in vals)),
+                      mean, "num", unit="£", tolerance=0.005,
+                      solution=["Add the prices: £%s = £%d." % (" + £".join(str(v) for v in vals), total),
+                                "Share the total equally between the %d %s: £%d ÷ %d = £%d."
+                                % (n, thing, total, n, mean)])
 
-    if t == 12:                                       # representative sample
-        case, ans = pick([
-            ("50 pupils chosen at random from every year group in the school", "yes"),
-            ("20 pupils chosen at random from the whole school register", "yes"),
-            ("only the pupils in Year 1", "no"),
-            ("only the pupils who play a musical instrument", "no"),
-            ("only the members of the netball team", "no"),
-            ("100 pupils chosen at random from the whole school register", "yes"),
-        ])
-        return _num_q("A survey asks about the favourite lunch of pupils in a school. The "
-                      "sample is %s. Is this sample representative of all the pupils in "
-                      "the school? (type yes or no)" % case,
-                      ans, "str", text=True, placeholder="yes / no",
-                      solution=["A representative sample looks like the whole group it "
-                                "stands for.",
-                                "The answer is %s." % ans])
+    if t == 12:                                       # the mean after one value is taken away
+        # a number other than the mean, so the mean really changes
+        ks = ([k for k in range(n) if (total - vals[k]) % (n - 1) == 0 and vals[k] != mean]
+              or [k for k in range(n) if vals[k] != mean] or [0])
+        x = vals[ks[0]]
+        rest = (total - x) / float(n - 1)
+        ans_r, instr_r, tol_r = _dec_ask(rest)
+        return _num_q("The mean of %d numbers is %d. The number %d is taken away. What is the mean "
+                      "of the %d numbers left? %s" % (n, mean, x, n - 1, instr_r),
+                      ans_r, "num", tolerance=tol_r,
+                      solution=["Total of all %d = %d × %d = %d." % (n, n, mean, total),
+                                "Take away %d: %d − %d = %d." % (x, total, x, total - x),
+                                "%d ÷ %d = %s." % (total - x, n - 1, _f(rest))])
 
     if t == 0:                                        # mean of a list
         return _num_q("Work out the mean of these numbers: %s."
@@ -5495,60 +5472,35 @@ def _(d=1):
         return _by_d(d, 50 * random.randint(max(1, lo // 50), hi // 50),
                      random.randint(lo, hi), random.randint(lo, 2 * hi))
 
-    if t == 10:                                       # advantages and disadvantages
-        feats = [
-            ("an advantage", "no bank account is needed to pay this way", "cash"),
-            ("a disadvantage", "if it is lost or stolen it usually cannot be replaced",
-             "cash"),
-            ("an advantage",
-             "the money comes straight out of the bank account, so no debt is built up",
-             "debit card"),
-            ("a disadvantage",
-             "the payment is refused if there is not enough money in the bank account",
-             "debit card"),
-            ("an advantage",
-             "it allows something to be bought now and paid back to the bank later",
-             "credit card"),
-            ("a disadvantage",
-             "interest has to be paid if the bill is not paid off in full",
-             "credit card"),
-            ("an advantage",
-             "money put aside in this account earns interest while it waits to be spent",
-             "savings account"),
-            ("a disadvantage",
-             "the money has to be built up first, so the purchase must wait",
-             "savings account"),
-        ]
-        kind, feature, ans = pick(_by_d(d, feats[0::2], feats, feats[1::2] + feats[4:5]))
-        return _num_q("Identify the payment method. Which payment method has %s: “%s”? "
-                      "(type cash, debit card, credit card or savings account)"
-                      % (kind, feature),
-                      ans, "str", text=True,
-                      placeholder="cash / debit card / credit card / savings account",
-                      solution=["Compare how each payment method takes the money.",
-                                "That is %s of using %s." % (kind, ans)])
+    # (Choosing how to pay, or whether to wait, is a judgement for PSHE, not KS2 maths: these two are the
+    # calculations behind such a choice.)
+    if t == 10:                                       # saving up: how many weeks
+        thing, price = pick(_by_d(d, [("a coat", 40), ("a football", 18), ("a game", 30)],
+                                  [("a bike", 120), ("a coat", 45), ("a tablet case", 26), ("a game", 35)],
+                                  [("a bike", 185), ("a keyboard", 76), ("a tent", 134)]))
+        has = random.randint(2, price // 3)
+        week = pick(_by_d(d, [2, 5], [3, 4, 6], [4, 7, 9]))
+        need = price - has
+        weeks = -(-need // week)
+        return _num_q("%s wants to buy %s costing £%d. %s has £%d saved and saves £%d more every week. "
+                      "How many weeks until %s has enough?" % (who, thing, price, who, has, week, who),
+                      weeks, "int", unit="weeks",
+                      solution=["Still needed: £%d − £%d = £%d." % (price, has, need),
+                                ("£%d ÷ £%d = %d, so exactly %s." % (need, week, weeks, _pl(weeks, "week"))
+                                 if need % week == 0 else
+                                 "£%d ÷ £%d = %d remainder %d, so %s is not quite enough: round up to %s."
+                                 % (need, week, need // week, need % week, _pl(weeks - 1, "week"), _pl(weeks, "week")))])
 
-    if t == 11:                                       # evaluate payment methods
-        price = pick(_by_d(d, [4000, 6000, 10000], [4500, 6000, 8500, 12000, 20000],
-                           [4599, 6249, 8575, 11999, 19950]))
-        enough = random.random() < 0.5
-        gaps = _by_d(d, [1000, 2000, 3000], [500, 1500, 3000], [1, 25, 99, 150])
-        bal = price + pick(gaps) if enough else price - pick(gaps)
-        if bal < 0:
-            bal = price + 500
-            enough = True
-        ans = "debit card" if bal >= price else "save"
-        return _num_q("%s wants to buy a coat costing %s and has %s in the bank "
-                      "account. %s does not want to borrow money. Should %s pay by debit "
-                      "card today, or wait and save up first? (type debit card or save)"
-                      % (who, money(price), money(bal), who, who),
-                      ans, "str", text=True, placeholder="debit card / save",
-                      solution=["The coat costs %s and the account holds %s."
-                                % (money(price), money(bal)),
-                                ("There is enough money in the account, so %s can pay by debit card."
-                                 % who) if bal >= price else
-                                ("There is not enough money, and a credit card would be borrowing, so %s "
-                                 "should wait and save the other %s first." % (who, money(price - bal)))])
+    if t == 11:                                       # a multipack or single items: the saving
+        thing, k, one = pick(_by_d(d, [("cartons of juice", 4, 50), ("pens", 5, 40)],
+                                   [("cartons of juice", 6, 65), ("pens", 10, 45), ("cans of beans", 4, 85)],
+                                   [("cartons of juice", 12, 58), ("pens", 15, 39), ("cans of beans", 6, 79)]))
+        pack = k * one - pick(_by_d(d, [50, 100], [35, 60, 90], [47, 83, 126]))
+        return _num_q("Single %s cost %s each. A pack of %d costs %s. How much is saved by buying the pack "
+                      "instead of %d single ones? Answer in pence." % (thing, money(one), k, money(pack), k),
+                      k * one - pack, "int", unit="p",
+                      solution=["%d single ones: %d × %dp = %dp." % (k, k, one, k * one),
+                                "%dp − %dp = %dp saved." % (k * one, pack, k * one - pack)])
 
     if t == 0:                                        # budget table: total spending
         cats = random.sample(_SPEND, _by_d(d, 3, 4, 5))

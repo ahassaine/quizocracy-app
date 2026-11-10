@@ -72,7 +72,13 @@ def signup(page, email=None, family="Test family"):
     return email
 
 
-def add_child(page, name="Sami", year=4, pin="1234", targets=None, year_defaults=False):
+def pin_for(name):
+    """The test PIN of a child: one per name, as two children of a family may not share a PIN."""
+    return "%04d" % (1000 + sum(ord(c) * (i + 7) for i, c in enumerate(name)) % 9000)
+
+
+def add_child(page, name="Sami", year=4, pin=None, targets=None, year_defaults=False):
+    pin = pin or pin_for(name)
     page.goto("/children/new")
     page.fill("#name", name)
     page.select_option("#year", str(year))
@@ -92,7 +98,8 @@ def add_child(page, name="Sami", year=4, pin="1234", targets=None, year_defaults
     return page.url.split("/children/")[1].split("?")[0]
 
 
-def enter_child(page, name, pin="1234"):
+def enter_child(page, name, pin=None):
+    pin = pin or pin_for(name)
     page.goto("/learn")
     form = page.get_by_test_id(f"pin-{name}")          # no CSS quoting, so names like D'Arcy work
     form.locator("input[name=pin]").fill(pin)

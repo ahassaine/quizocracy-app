@@ -706,7 +706,7 @@ def _(d=1):
             ("square", "all its sides equal", "yes"),
             ("rectangle", "all its sides equal", "no"),
             ("rhombus", "all its sides equal", "yes"),
-            ("trapezium", "two pairs of parallel sides", "no"),
+            ("trapezium", "at least one pair of parallel sides", "yes"),
             ("parallelogram", "two pairs of parallel sides", "yes"),
             ("kite", "any parallel sides", "no"),
         ] if d < 2 else [                             # stretch: diagonal and symmetry facts
@@ -725,16 +725,17 @@ def _(d=1):
                                 "The answer is %s." % ans])
 
     if t == 6:                                        # count parallel side pairs
-        nm, pairs = pick(_by_d(d, [("square", 2), ("rectangle", 2), ("trapezium", 1)],
+        # no trapezium: whether it can have 2 pairs depends on the definition the school teaches
+        nm, pairs = pick(_by_d(d, [("square", 2), ("rectangle", 2), ("kite", 0)],
                                [("square", 2), ("rectangle", 2), ("rhombus", 2),
-                                ("parallelogram", 2), ("trapezium", 1), ("kite", 0)],
+                                ("parallelogram", 2), ("kite", 0), ("regular hexagon", 3)],
                                [("rhombus", 2), ("parallelogram", 2), ("kite", 0),
                                 ("regular hexagon", 3), ("regular octagon", 4),
                                 ("regular pentagon", 0)]))
         return _num_q("How many PAIRS of parallel sides does %s have?" % _a(nm),
                       pairs, "int",
                       solution=["A square, rectangle, rhombus and parallelogram have 2 "
-                                "pairs; a trapezium has 1; a kite has 0. A regular polygon "
+                                "pairs; a trapezium has at least 1; a kite has 0. A regular polygon "
                                 "with an even number of sides has a parallel pair for every "
                                 "2 sides; one with an odd number has none.",
                                 "%s has %d." % (_a(nm).capitalize(), pairs)])

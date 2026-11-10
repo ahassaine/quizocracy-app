@@ -4,6 +4,7 @@ Such an answer earns one free retry with "Nearly — check your spelling" before
 use this. A typed word that is itself another answer word ("eighty" for "eight", "no" for "yes") is never a slip.
 """
 import difflib
+import re
 
 NUMBER_WORDS = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
                 "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
@@ -29,6 +30,20 @@ def one_slip(typed: str, want: str) -> bool:
         return False
     short, long_ = (a, b) if len(a) < len(b) else (b, a)
     return any(long_[:i] + long_[i + 1:] == short for i in range(len(long_)))
+
+
+def inner_slip(typed: str, want: str) -> bool:
+    """A slip inside the word (one_slip), its first two and last two letters right, and no letter doubled or
+    undoubled: "cookng" for "cooking", "aproximately" for "approximately"; not "hoping" for "hopping", "jumpd"
+    for "jumped". For skills where the word's ending is part of what is taught, around a right choice of word."""
+    if not one_slip(typed, want) or typed[:2] != want[:2] or typed[-2:] != want[-2:]:
+        return False
+    if len(typed) != len(want):
+        short, long_ = (typed, want) if len(typed) < len(want) else (want, typed)
+        i = next((k for k in range(len(short)) if short[k] != long_[k]), len(short))
+        if long_[i] in (long_[i - 1:i] + long_[i + 1:i + 2]):            # "hop|p|ing": a doubled letter
+            return False
+    return True
 
 
 def slips(typed_words: list, want_words: list, never=frozenset()) -> list:
@@ -134,7 +149,9 @@ def letter_hint(typed: str, word: str) -> str:
         return ""
     t, w = typed.lower(), word.lower()
     sm = difflib.SequenceMatcher(None, t, w, autojunk=False)
-    if sm.ratio() < 0.6:                                        # a different word altogether: no letter hint
+    # a different word altogether: no letter hint. A short word ("sed" for "said", "ov" for "of") is still close
+    # when only a letter or two differ.
+    if sm.ratio() < (0.4 if len(w) <= 4 and len(t) <= len(w) + 1 else 0.6):
         return ""
     bits = []
     k = swapped(t, w)
@@ -168,3 +185,23 @@ def letter_hint(typed: str, word: str) -> str:
             else:
                 bits.append("take out the %s" % gone)
     return "%s → %s: %s" % (typed, word, "; ".join(bits))
+
+
+def spelled(word: str) -> str:
+    """The word letter by letter, as a child is shown it: "said: s, a, i, d"."""
+    return "%s: %s" % (word, ", ".join(word))
+
+
+_LETTERS = re.compile(r"\b(should be|add|after|take out the|swap the|and|it starts with) ([a-z']+)")
+
+
+def say_letters(text: str) -> str:
+    """A letter hint as it is read out: each group of letters as letter names ("e should be ai" -> "E should be
+    A, I"), as a voice would read "ai" as a word. Only the letters our own hints name (letter_hint) change."""
+    def one(m):
+        return m.group(1) + " " + ", ".join(c.upper() for c in m.group(2) if c != "'")
+    text = re.sub(r"(^|: |; )([a-z']+) should be", lambda m: m.group(1) + ", ".join(c.upper() for c in m.group(2)
+                                                                                   if c != "'") + " should be", text)
+    text = re.sub(r"\(([^)]*)\)", lambda m: "(" + re.sub(r"\b[a-z]\b", lambda x: x.group(0).upper(), m.group(1)) + ")",
+                  text)                                    # "(i before e, except after c)"
+    return _LETTERS.sub(one, text)

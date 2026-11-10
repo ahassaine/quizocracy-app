@@ -10,7 +10,7 @@ from .maths_engine import n_words, pick, NAMES
 
 __all__ = ["random", "Fraction", "Decimal", "pick", "NAMES", "_d", "_by", "_c", "_words", "_rom",
            "_fs", "_mixed", "_ds", "_dec", "_tb", "_wq", "_fq", "_nl", "_nld", "_io", "_dt", "_lg",
-           "_bar", "_strip", "_area", "_pick_t", "_who", "_pl", "_r", "_distinct"]
+           "_bar", "_strip", "_area", "_pick_t", "_who", "_jump", "_pl", "_r", "_distinct"]
 
 
 def _d(d):
@@ -189,6 +189,23 @@ def _pick_t(plain, visual=()):
 
 def _who():
     return pick(NAMES)
+
+
+def _jump(a, b, back=False):
+    """A number-line jump from a, b on (or back), in one of several plain sentences, so three in a row never read
+    "Start at 30. Jump on 10." word for word."""
+    who = pick(NAMES)
+    if back:
+        return pick(["Start at %d and jump back %d. Where do you land?" % (a, b),
+                     "A frog sits on %d. It jumps back %d. Where does it land?" % (a, b),
+                     "Count back %d from %d. Mark where you stop." % (b, a),
+                     "What is %d less than %d? Mark it on the line." % (b, a),
+                     "%s is on %d and takes %s back. Where does %s stop?" % (who, a, _pl(b, "step"), who)])
+    return pick(["Start at %d. Jump on %d. Where do you land?" % (a, b),
+                 "A frog sits on %d. It jumps on %d. Where does it land?" % (a, b),
+                 "Count on %d from %d. Mark where you stop." % (b, a),
+                 "What is %d more than %d? Mark it on the line." % (b, a),
+                 "%s is on %d and takes %s on. Where does %s stop?" % (who, a, _pl(b, "step"), who)])
 
 
 def _pl(n, word, plural=None):

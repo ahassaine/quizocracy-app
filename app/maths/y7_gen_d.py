@@ -23,6 +23,20 @@ def _a(x):
 
 
 
+def _add_why(a, b, sign=1):
+    """The steps of a/b ± c/d: the common denominator, each fraction renamed, then the sum or difference
+    simplified (and as a mixed number when it is more than 1)."""
+    den = a.denominator * b.denominator // _gcd(a.denominator, b.denominator)
+    na, nb = a.numerator * den // a.denominator, b.numerator * den // b.denominator
+    s = a + b if sign > 0 else a - b
+    raw = "%d/%d" % (na + nb if sign > 0 else na - nb, den)
+    out = ["Use a common denominator, %d: %s = %d/%d and %s = %d/%d." % (den, _fs(a), na, den, _fs(b), nb, den),
+           "%d/%d %s %d/%d = %s." % (na, den, "+" if sign > 0 else "−", nb, den, raw)]
+    if raw != _mixed(s):
+        out.append("In its simplest form: %s." % _mixed(s))
+    return out
+
+
 def _rf(d, proper=True):
     den = pick(_by(d, [2, 3, 4, 5, 6], [3, 4, 5, 6, 8, 9, 10], [6, 7, 8, 9, 10, 12, 15]))
     num = random.randint(1, den - 1) if proper else random.randint(den + 1, 3 * den)
@@ -40,18 +54,18 @@ def _(d=1):
 
     def t_add():
         return _fq("Work out  %d/%d + %d/%d" % (an, ad, bn, bd), a + b,
-                   ["Common denominator %d." % (ad * bd // _gcd(ad, bd)), "= %s." % _fs(a + b)])
+                   _add_why(a, b))
 
     def t_sub():
         x, y = max(a, b), min(a, b)
         if x == y:                                    # 1/2 − 2/4 would be 0
             return t_add()
-        return _fq("Work out  %s − %s" % (_fs(x), _fs(y)), x - y, ["Use a common denominator: %s." % _fs(x - y)])
+        return _fq("Work out  %s − %s" % (_fs(x), _fs(y)), x - y, _add_why(x, y, -1))
 
     def t_simplest():
         s = a + b
         return _wq("Work out %d/%d + %d/%d. Give the answer in its simplest form (as a mixed number if it is more than 1)."
-                   % (an, ad, bn, bd), _mixed(s), ["= %s." % _mixed(s)], "e.g. 1 1/6")
+                   % (an, ad, bn, bd), _mixed(s), _add_why(Fraction(an, ad), Fraction(bn, bd)), "e.g. 1 1/6")
 
     def t_missing():
         s = a + b
@@ -121,7 +135,9 @@ def _(d=1):
 
     def t_add():
         return _wq("Work out %s + %s. Give a mixed number in its simplest form." % (_mixed(A), _mixed(B)), _mixed(A + B),
-                   ["= %s." % _mixed(A + B)], "e.g. 5 1/4")
+                   ["Add the whole numbers: %d + %d = %d." % (int(A), int(B), int(A) + int(B))]
+                   + _add_why(A - int(A), B - int(B))
+                   + ["Put them together: %s." % _mixed(A + B)], "e.g. 5 1/4")
 
     def t_sub():
         x, y = max(A, B), min(A, B)
@@ -134,7 +150,10 @@ def _(d=1):
     def t_whole_minus():
         w = random.randint(3, 8)
         f = _rf(d)[0]
-        return _fq("Work out %d − %s." % (w, _mixed(1 + f)), w - 1 - f, ["= %s." % _mixed(w - 1 - f)], "e.g. 2 1/3")
+        return _fq("Work out %d − %s." % (w, _mixed(1 + f)), w - 1 - f,
+                   ["Take away the whole 1 first: %d − 1 = %d." % (w, w - 1),
+                    "Then take away %s: write 1 of the %d as %d/%d, so %d − %s = %s." % (
+                        _fs(f), w - 1, f.denominator, f.denominator, w - 1, _fs(f), _mixed(w - 1 - f))], "e.g. 2 1/3")
 
     def t_word():
         return _wq("A plank is %s m long. %s m is cut off. How much is left, in metres? (mixed number, simplest form)"
@@ -210,14 +229,19 @@ def _(d=1):
 
     def t_int():
         k = random.randint(2, 12)
-        return _fq("Work out  %d × %d/%d" % (k, an, ad), k * a, ["%d × %d = %d, so %d/%d = %s." % (k, an, k * an, k * an, ad,
-                                                                                              _fs(k * a))])
+        whole = "%d/%d" % (k * an, ad)
+        return _fq("Work out  %d × %d/%d" % (k, an, ad), k * a,
+                   ["Multiply the top by %d and keep the bottom: %d × %d = %d, so it is %s%s." % (
+                       k, k, an, k * an, whole, "" if whole == _fs(k * a) else ", which simplifies to %s" % _fs(k * a))])
 
     def t_mixed():
         M = random.randint(1, 3) + a
         k = random.randint(2, 5)
         return _wq("Work out %s × %d. Give a mixed number (or whole number) in its simplest form." % (_mixed(M), k),
-                   _mixed(M * k), ["= %s." % _mixed(M * k)], "e.g. 4 1/2")
+                   _mixed(M * k), ["Multiply the whole number and the fraction separately: %d × %d = %d and %d × %s = %s."
+                                   % (k, int(M), k * int(M), k, _fs(M - int(M)), _mixed(k * (M - int(M)))),
+                                   "Add them: %d + %s = %s." % (k * int(M), _mixed(k * (M - int(M))), _mixed(M * k))],
+                   "e.g. 4 1/2")
 
     def t_area():
         return _fq("A rectangle is %d/%d m by %d/%d m. What is its area, in m²?" % (an, ad, bn, bd), a * b,
@@ -228,7 +252,9 @@ def _(d=1):
         q = random.randint(2, 7)
         r = random.randint(2, 7)
         return _fq("Work out  %d/%d × %d/%d  (cancel first if you can)" % (p, q * r, r, p * 2), Fraction(p, q * r) * Fraction(r, p * 2),
-                   ["= %s." % _fs(Fraction(p, q * r) * Fraction(r, p * 2))])
+                   ["Cancel first: the %d on top and the %d underneath, and the %d on top and the %d underneath."
+                    % (p, p * 2, r, q * r),
+                    "That leaves 1/%d × 1/2 = %s." % (q, _fs(Fraction(p, q * r) * Fraction(r, p * 2)))])
 
     def t_mixed_mixed():
         M = random.randint(1, 2) + Fraction(1, pick([2, 3, 4]))
@@ -873,7 +899,7 @@ def _(d=1):
 
     def t_pairs():
         q, ans = pick([("How many pairs of parallel sides does a rectangle have?", 2),
-                       ("How many pairs of parallel sides does a trapezium have?", 1),
+                       ("How many pairs of parallel sides does a parallelogram have?", 2),
                        ("How many pairs of parallel sides does a regular hexagon have?", 3),
                        ("How many right angles does a rectangle have?", 4),
                        ("How many pairs of parallel sides does a kite have?", 0),

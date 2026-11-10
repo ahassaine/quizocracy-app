@@ -15,7 +15,7 @@ from ..drills import maths, spelling, tables, verbs
 from ..maths import maths_engine, maths_mastery
 from .. import progress
 from ..web import page
-from .parent import _skill_views
+from .parent import _skill_views, work_on
 
 router = APIRouter()
 
@@ -62,7 +62,7 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     rng = rng if rng in RANGES else "30"
     days = report_days(rng, progress.first_day(p))
     c = (await progress.counts([p["_id"]], days)).get(p["_id"], {})
-    st = (await progress.day_stats([p["_id"]], days)).get(p["_id"], {})
+    st = (await progress.day_stats([p["_id"]], days, progress.plan_targets([p], ctx.family, days))).get(p["_id"], {})
     tot = {k: sum(s[k] for s in st.values()) for k in ("answers", "first", "first_right", "minutes", "rushed", "copied")}
     done = sum(1 for d in days if c.get(d) and progress.day_status(p, ctx.family, c[d], d)["pct"] >= 100)
     acts = {}
@@ -77,8 +77,7 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     for s in ("grammar", "science"):
         new[s] = await db.bank_mastery.count_documents({"pupil_id": p["_id"], "subject": s, "mastered_at": {"$gte": since}})
     skills = await _skill_views(p, on)
-    weak = sorted(((subj, sk) for subj, groups in skills.items() for g in groups for sk in g["skills"]
-                   if sk["state"] == "practising"), key=lambda x: x[1]["score"])[:8]
+    weak = [(w["subject"], w) for w in await work_on(p, on, 8)]     # real weakness: wrong answers, not a low score
     open_m = await progress.open_mistakes(p, max(len(days), 1))
     words = spelling.list_for_year(p.get("year", 3))
     learned = sorted([w["word"] async for w in db.spelling_words.find(
@@ -185,7 +184,7 @@ async def examples(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
         more = 0
     if subject == "maths":
         year = maths.engine_year(p["year"])
-        skills = [s for s in maths_mastery._year_skills(year) if s["strand"] == strand]
+        skills = [s for s in maths_mastery._year_skills(year) + maths_mastery._earlier_ks3(year) if s["strand"] == strand]
         qs = [_maths_example(s) for s in _spread(skills, EXAMPLES)] if skills else []
     elif subject in ("grammar", "science"):
         year = bank_engine.bank_year(subject, p["year"])

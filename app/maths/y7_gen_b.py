@@ -236,7 +236,8 @@ def _(d=1):
 
     def t_one_var():
         return _wq("Simplify  %s + %s" % (_lin(abs(a), 0), _lin(abs(c), 0)), _lin(abs(a) + abs(c), 0),
-                   ["%s = %s." % (_add(abs(a), abs(c), "x"), _lin(abs(a) + abs(c), 0))], "e.g. 7x")
+                   ["Both are x terms, so add the numbers in front of x: %d + %d = %d." % (abs(a), abs(c), abs(a) + abs(c)),
+                    "%s = %s." % (_add(abs(a), abs(c), "x"), _lin(abs(a) + abs(c), 0))], "e.g. 7x")
 
     def t_with_const():
         return _wq("Simplify  %s %s %s %s  (write it like 5x+3)" % (_lin(a, 0), _sgn(b),
@@ -254,7 +255,8 @@ def _(d=1):
     def t_subtract():
         p, r = random.randint(5, 15), random.randint(1, 4)
         return _wq("Simplify  %da − %s" % (p, "a" if r == 1 else "%da" % r), "%da" % (p - r) if p - r != 1 else "a",
-                   ["%da − %s = %s." % (p, _lin(r, 0, "a"), _lin(p - r, 0, "a"))],
+                   ["Take the numbers in front of a: %d − %d = %d." % (p, r, p - r),
+                    "%da − %s = %s." % (p, _lin(r, 0, "a"), _lin(p - r, 0, "a"))],
                    "e.g. 4a")
 
     def t_perimeter():
@@ -361,6 +363,21 @@ def _g(a, b):
 
 
 # ================================================================== 7.3 ======
+def _shift_why(x, k, times):
+    """The real step of × or ÷ by 10, 100, 1000 (or 0.1, 0.01, 0.001): which way the digits move, and how far.
+    "÷ 1000: every digit moves 3 places to the right, so 996.52 becomes 0.99652." """
+    k = Decimal(str(k))
+    small = k < 1                                       # × 0.1 is ÷ 10, and ÷ 0.1 is × 10
+    n = len(str(int(1 / k if small else k))) - 1
+    left = times != small
+    res = x * k if times else x / k
+    head = "%s %s" % ("×" if times else "÷", _ds(k))
+    if small:
+        head += " is the same as %s %s" % ("÷" if times else "×", _c(int(1 / k)))
+    return "%s: every digit moves %d place%s to the %s, so %s becomes %s." % (
+        head, n, "" if n == 1 else "s", "left" if left else "right", _ds(x), _ds(res))
+
+
 @skill("Y7.3.a", "Place value in integers and decimals of any size", S3)
 def _(d=1):
     d = _d(d)
@@ -374,7 +391,8 @@ def _(d=1):
                 break
         place = 10 ** (len(s) - 1 - i)
         return _tb("What is the value of the digit %s in %s?" % (s[i], _c(n)), int(s[i]) * place, "int", {},
-                   ["It is worth %s." % _c(int(s[i]) * place)])
+                   ["The %s is in the %s column: %s × %s = %s." % (s[i], _c(place) + "s", s[i], _c(place),
+                                                                   _c(int(s[i]) * place))])
 
     def t_value_small():
         while True:
@@ -400,17 +418,18 @@ def _(d=1):
         x = Decimal(random.randint(1, _by(d, 99, 999, 9999))) / _by(d, 10, 100, 1000)
         k = pick(_by(d, [10, 100, 1000], [10, 100, 1000, Decimal("0.1"), Decimal("0.01")],
                      [1000, Decimal("0.1"), Decimal("0.01"), Decimal("0.001")]))
-        return _tb("Work out %s × %s." % (_ds(x), _ds(k)), _ds(x * k), "num", {}, ["= %s." % _ds(x * k)])
+        return _tb("Work out %s × %s." % (_ds(x), _ds(k)), _ds(x * k), "num", {}, [_shift_why(x, k, True)])
 
     def t_divide():
         x = Decimal(random.randint(1, _by(d, 999, 9999, 99999))) / _by(d, 1, 10, 100)
         k = pick(_by(d, [10, 100], [10, 100, 1000], [100, 1000]))
-        return _tb("Work out %s ÷ %d." % (_ds(x), k), _ds(x / k), "num", {}, ["= %s." % _ds(x / k)])
+        return _tb("Work out %s ÷ %d." % (_ds(x), k), _ds(x / k), "num", {}, [_shift_why(x, k, False)])
 
     def t_units():
         x = Decimal(random.randint(1, _by(d, 999, 9999, 99999))) / _by(d, 10, 100, 1000)
         a, b, f = pick([("km", "m", 1000), ("m", "cm", 100), ("kg", "g", 1000), ("cm", "mm", 10)])
-        return _tb("Convert %s %s to %s." % (_ds(x), a, b), _ds(x * f), "num", {"unit": b}, ["× %d." % f])
+        return _tb("Convert %s %s to %s." % (_ds(x), a, b), _ds(x * f), "num", {"unit": b},
+                   ["1 %s = %s %s, so multiply by %s." % (a, _c(f), b, _c(f)), _shift_why(x, f, True)])
 
     def t_times_bigger():
         dg = random.randint(1, 9)
@@ -430,7 +449,13 @@ def _(d=1):
         n = random.randint(_by(d, 100_000, 1_000_000, 10_000_000), _by(d, 999_999, 9_999_999, 999_999_999))
         if random.random() < 0.5:
             n = n // 1000 * 1000 + random.randint(0, 99)
-        return _tb("Write in figures: %s." % _words(n), n, "int", {}, ["= %s." % _c(n)])
+        mil, th, rest = n // 1_000_000, n // 1000 % 1000, n % 1000
+        parts = ["%s million = %s" % (_c(mil), _c(mil * 1_000_000))] if mil else []
+        parts += ["%s thousand = %s" % (_c(th), _c(th * 1000))] if th else []
+        parts += ["and %s" % _c(rest)] if rest else []
+        return _tb("Write in figures: %s." % _words(n), n, "int", {},
+                   ["Take it in parts: %s." % ", ".join(parts), "Put them together, with a 0 for every empty place: %s."
+                    % _c(n)])
 
     def t_line_big():
         m = random.randint(1, 9)

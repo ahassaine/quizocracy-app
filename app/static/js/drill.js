@@ -52,7 +52,7 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-  let reached = null, rewarded = null;
+  let reached = null, rewarded = null, allDone = null;
   const FIX = new URLSearchParams(location.search).has('fix');      // ?fix=1: wrong answers come back first
   const FIX_CHECK = FIX && new URLSearchParams(location.search).has('check');   // &check=1: only the Year 4 check's misses
   const FIX_MOVED = FIX && new URLSearchParams(location.search).has('moved');   // &moved=1: on from another subject
@@ -69,9 +69,13 @@
   // after a run of misses (2 for Years 1-3, 3 after that) a kind word comes with the answer
   const KIND = TEEN ? 'Keep going: the next one is a fresh start.' : 'Good try! Let’s try another one.';
   let misses = 0;
+  /* The day's line and bar. Returns what this answer changed: now (this activity's target is reached), hit (just
+     reached), all (the whole day just reached 100%), won (the reward was just earned), reward (its text). */
   function setDay(d) {
-    if (!d) return;
+    if (!d) return {};
     const now = d.done >= d.target;
+    const out = { now, hit: reached === false && now, all: allDone === false && d.day_pct >= 100,
+      won: rewarded === false && !!d.reward, reward: d.reward || '' };
     if (reached === false && now && window.QZ) QZ.confetti(140);     // the moment the target is reached
     reached = now;
     const pct = d.target ? Math.min(100, Math.floor(100 * d.done / d.target)) : 0;
@@ -83,16 +87,33 @@
     const rw = $('dayReward');
     if (rw && d.reward) {
       if (rw.hidden && rewarded === false && window.QZ) QZ.confetti(220);   // the moment the reward is earned
+      // earned before this page opened: one slim line, so the question and Check stay in view on a phone
+      if (rw.hidden && rewarded === null) rw.classList.add('slim');
       rw.querySelector('span').textContent = 'You earned: ' + d.reward;
       rw.hidden = false;
     }
-    rewarded = !!d.reward;
+    rewarded = !!d.reward; allDone = d.day_pct >= 100;
+    return out;
+  }
+  /* Once this activity's target is reached, the main button after an answer is "Back to My day", with a smaller
+     "Keep going" (#next) beside it: a child who can't read the day line still sees that this part is finished. */
+  function finishButtons(on) {
+    let back = $('backDay');
+    const nx = $('next');
+    if (on && !back) {
+      back = document.createElement('a'); back.id = 'backDay'; back.className = 'btn primary big'; back.href = '/me';
+      back.setAttribute('data-testid', 'back-day'); back.textContent = 'Back to My day';
+      nx.parentNode.insertBefore(back, nx);
+    }
+    if (back) back.style.display = on ? '' : 'none';
+    nx.classList.toggle('big', !on); nx.textContent = on ? 'Keep going' : 'Next →';
   }
 
   window.Drill = function (opts) {
     const act = opts.activity, api = opts.api || ('/api/' + act + '/');   // opts.api: another endpoint (team testing page)
     let token = null, answered = false, shownAt = 0, busy = false, seq = 0, gone = false;
     let lastVal = null;                  // what was last sent to Check for this question (for a report)
+    let skillName = '';                  // the skill of the question on screen (maths: title; grammar, science: skill)
     function switched(res) {        // another child signed in on this device (e.g. in another tab): stop here
       if (!res || res.error !== 'switched') return false;
       gone = true; token = null; ++seq;
@@ -152,7 +173,7 @@
       // the answered question, its "Correct" and Next stay on screen until the new question has arrived
       const my = ++seq; loading = busy = true;
       const body = opts.nextBody ? opts.nextBody() : (FIX ? (FIX_CHECK ? { fix: 1, check: 1 } : { fix: 1 }) : {});
-      const q = await send(api + 'next', body, () => my === seq && !gone);
+      const q = await send(api + 'next', body, () => my === seq && !gone, 'No connection. The next question comes when you are back online…');
       if (my === seq) loading = false;
       if (my !== seq || !q) return;        // a newer request superseded this one
       busy = false;
@@ -160,8 +181,9 @@
       answered = false; lastVal = null; reportReset();
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
+      if ($('backDay')) $('backDay').style.display = 'none';
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
-      token = q.token; setDay(q.day);
+      token = q.token; setDay(q.day); skillName = q.title || q.skill || '';
       // "Practise my mistakes" runs through every subject: none ready here, so on to the next subject that has some
       if (FIX && !q.fixing && q.fix_next) { location.href = '/me/' + q.fix_next + '?fix=1&moved=1'; return; }
       fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left; fixDone = q.fix_done || '';
@@ -189,13 +211,16 @@
         return;
       }
       busy = checking = true; lastVal = val;
-      const my = seq, ms = Date.now() - shownAt;
+      const my = seq, ms = Date.now() - shownAt, sentFor = token;
       let tries = 0;
       // each try sends what is on screen then, so an answer changed while offline is the one marked
       const res = await send(api + 'check', () => {
         if (tries++) { const v = opts.read(); if (v !== null) lastVal = v; }
-        return Object.assign({ token, ms }, lastVal);
+        const b = Object.assign({ token, ms }, lastVal);
+        if (!opts.api) hold(api + 'check', b);        // kept until answered: if the connection drops, a refresh or another page sends it (ui.js)
+        return b;
       }, () => my === seq && !gone);
+      if (res && !opts.api) hold(null, { token: sentFor });
       busy = checking = false;
       if (!res || my !== seq) return;
       if (switched(res)) return;
@@ -208,23 +233,37 @@
         if (window.Speak) Speak.feedback(fb.textContent);
         return;
       }
-      answered = true; setDay(res.day);
+      answered = true; const day = setDay(res.day);
       if (fixing && res.correct && $('fixMsg')) {     // the count drops the moment a mistake is put right
         fixing = false; fixLeft = Math.max(0, fixLeft - 1);
-        if (fixLeft) fixNote('Mistake put right · ' + fixLeft + ' left');
+        // right again in the same sitting: practised, and it comes back in a later one to count as put right
+        if (fixLeft) fixNote((res.again_later ? 'Practised, it comes back later' : 'Mistake put right') + ' · ' + fixLeft + ' left');
       }
       $('check').disabled = true; $('next').style.display = '';
+      finishButtons(!!day.now);
       const fb = $('feedback');
-      fb.className = 'feedback ' + (res.correct ? 'yes' : 'no') + (res.correct && YOUNG ? ' joy' : '');
+      // res.other: another real word, spelt right (spelling): not a mistake, so no "Not quite" and no shake
+      fb.className = 'feedback ' + (res.correct ? 'yes' : res.other ? 'warn' : 'no') + (res.correct && YOUNG ? ' joy' : '');
       const st = $('stage');
-      if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; st.classList.add(res.correct ? 'flash' : 'shake'); }
-      misses = res.correct ? 0 : misses + 1;
+      if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; if (!res.other) st.classList.add(res.correct ? 'flash' : 'shake'); }
+      misses = res.correct ? 0 : res.other ? misses : misses + 1;
       fb.innerHTML = res.correct ? cheer() + (res.again_later ? (YOUNG ? ' ' : '. ') + 'It comes back later, to check you remember it.' : '')
           + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '')
-        : 'Not quite. ' + opts.explain(res) + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '') + (misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
+        : (res.other ? '' : 'Not quite. ') + opts.explain(res) + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '') + (misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
       if (opts.after) opts.after(res);
-      if (window.Speak) Speak.feedback((fb.innerText || fb.textContent).replace('★', '').replace(/\s*\n+\s*/g, '. '));    // Years 1-2 hear it too
-      if (res.correct && opts.autoNext) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
+      // moments that grow: a skill secure for the first time, an old mistake put right (the server says which)
+      const wins = (res.mastered ? ['★ New skill secure' + (skillName ? ': ' + skillName : '') + '!'] : [])
+        .concat(res.put_right ? ['★ You put right a mistake from before. Well done!'] : []);
+      if (wins.length) {
+        fb.insertAdjacentHTML('beforeend', wins.map(w => '<div class="win-moment" data-testid="win-moment">' + esc(w) + '</div>').join(''));
+        if (window.QZ && !day.hit) QZ.confetti(res.mastered ? 120 : 60);
+      }
+      // Years 1-2 hear it too, and hear when they have finished: they may not read the day line or the reward
+      const done = day.all ? ' All done for today!' + (day.reward ? ' You earned: ' + day.reward + '.' : '')
+        : day.won ? ' You earned: ' + day.reward + '.' : day.hit ? ' That is all for today here. Tap Back to My day.' : '';
+      // opts.spoken(res): what to say instead of the screen's words (spelling says the letters one by one)
+      if (window.Speak) Speak.feedback(((opts.spoken && opts.spoken(res)) || (fb.innerText || fb.textContent).replace(/★/g, '').replace(/\s*\n+\s*/g, '. ')) + done);
+      if (res.correct && opts.autoNext && !day.hit) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
       else $('next').focus();
     }
     $('check').addEventListener('click', check);
@@ -235,9 +274,21 @@
       e.preventDefault();
       answered ? next() : check();
     });
-    next();
+    // an answer kept from a page that lost its connection goes first, so this page does not ask that question again
+    const kept = window.QZ && QZ.flushPending && !opts.api ? QZ.flushPending() : Promise.resolve(false);
+    kept.then(sent => next(sent ? 'Your answer from before has been sent.' : undefined));
     return { next, check, esc };
   };
+  /* The answer of a Check that had no connection, in localStorage until the server has it (url null: it has).
+     Only one at a time: a newer answer replaces it. Not for the team's testing pages (opts.api). */
+  function hold(url, body) {
+    try {
+      const key = (window.QZ && QZ.PKEY) || 'qz_pending';
+      if (url) { localStorage.setItem(key, JSON.stringify({ url, body: Object.assign({ pupil: PUPIL }, body), at: Date.now() })); return; }
+      const p = JSON.parse(localStorage.getItem(key) || 'null');
+      if (p && p.body && p.body.token === body.token) localStorage.removeItem(key);
+    } catch (e) {}
+  }
   window.esc = esc;
 
   /* A typed answer that can only be one of a few words the question itself names ("(type yes or no)",

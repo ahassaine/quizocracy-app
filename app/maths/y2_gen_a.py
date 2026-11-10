@@ -385,7 +385,7 @@ def _(d=1):
                    ["%d + %d = %d." % (10 * p, 10 * q, 10 * (p + q))], "yes / no")
 
     def t_line():
-        return _nl("Start at %d. Jump on %d. Where do you land?" % (10 * p, 10 * q), 10 * (p + q), 10, 10,
+        return _nl(_jump(10 * p, 10 * q), 10 * (p + q), 10, 10,
                    ["%d + %d = %d." % (10 * p, 10 * q, 10 * (p + q))], lo=0, hi=100)
 
     return _pick_t([t_fact, t_sub_fact, t_tens, t_bond100, t_related, t_sub_tens, t_bond20, t_from100, t_word, t_double_tens, t_true],
@@ -430,7 +430,7 @@ def _(d=1):
 
     def t_line():
         k = _ones(False, 2)
-        return _nl("Start at %d and jump on %d. Where do you land?" % (n, k), n + k, 1, 10, ["%d + %d = %d." % (n, k, n + k)],
+        return _nl(_jump(n, k), n + k, 1, 10, ["%d + %d = %d." % (n, k, n + k)],
                    lo=(n // 10) * 10, hi=(n // 10) * 10 + 20)
 
     def t_bridge():
@@ -463,7 +463,7 @@ def _(d=1):
 
     def t_line_back():
         k = _ones(True, 2)
-        return _nl("Start at %d and jump back %d. Where do you land?" % (n, k), n - k, 1, 10, ["%d − %d = %d." % (n, k, n - k)],
+        return _nl(_jump(n, k, back=True), n - k, 1, 10, ["%d − %d = %d." % (n, k, n - k)],
                    lo=max(0, (n // 10) * 10 - 10), hi=max(0, (n // 10) * 10 - 10) + 20)
 
     def t_money():
@@ -951,9 +951,11 @@ def _(d=1):
         sh = random.randint(1, 2)
         n = pick([3, 4])
         right = (n == 3 and sh == 1)
-        return _wq("A bar is cut into %d equal parts and %d %s shaded. Is one third shaded? (yes or no)"
-                   % (n, sh, "is" if sh == 1 else "are"), "yes" if right else "no",
-                   ["One third is 1 of 3 equal parts." if not right else "1 of 3 equal parts is one third."], "yes / no")
+        return _area("A bar is cut into %d equal parts and %d %s shaded. Is one third shaded? (yes or no)"
+                     % (n, sh, "is" if sh == 1 else "are"),
+                     {"mode": "fraction_read", "parts": n, "rows": 1, "cols": n, "shaded": sh, "placeholder": "yes / no"},
+                     "yes" if right else "no",
+                     ["One third is 1 of 3 equal parts." if not right else "1 of 3 equal parts is one third."], atype="str")
 
     def t_name():
         f, w = pick([("1/3", "one third"), ("1/4", "one quarter"), ("3/4", "three quarters"), ("2/4", "two quarters")])
@@ -965,8 +967,9 @@ def _(d=1):
 
     def t_how_many_more():
         f = pick(_by(d, [(1, 4), (2, 4)], [(1, 4), (2, 4), (1, 3)], [(1, 4), (3, 4), (1, 3)]))
-        return _tb("%d/%d of a bar is shaded. How many more %s must be shaded to fill it?" % (f[0], f[1], "quarters" if f[1] == 4 else "thirds"),
-                   f[1] - f[0], "int", {}, ["%d/%d + %d/%d = 1 whole." % (f[0], f[1], f[1] - f[0], f[1])])
+        return _area("%d/%d of a bar is shaded. How many more %s must be shaded to fill it?" % (f[0], f[1], "quarters" if f[1] == 4 else "thirds"),
+                     {"mode": "fraction_read", "parts": f[1], "rows": 1, "cols": f[1], "shaded": f[0], "placeholder": ""},
+                     f[1] - f[0], ["%d/%d + %d/%d = 1 whole." % (f[0], f[1], f[1] - f[0], f[1])])
 
     def t_half_quarters():
         return _tb("How many quarters are the same as one half?", 2, "int", {}, ["2/4 = 1/2."])

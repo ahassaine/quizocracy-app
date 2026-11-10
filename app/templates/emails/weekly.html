@@ -10,13 +10,13 @@
 {% if c.answers %}
 <p style="margin:0 0 8px"><b>{{ c.done }} of {{ c.days }} days</b> done · {{ c.answers }} answers{% if c.first_pct is not none %} · <b>{{ c.first_pct }}%</b> right first time{% endif %} · {{ c.minutes }} minutes</p>
 <p style="margin:0 0 8px">{{ c.line }}</p>
-{% if c.mastered %}<p style="margin:0 0 6px"><b>Mastered this week:</b> {{ c.mastered|join("; ") }}</p>{% endif %}
-{% if c.weak %}<p style="margin:0 0 6px"><b>Worth practising:</b> {{ c.weak|join("; ") }}</p>{% endif %}
-{% if c.flags %}<p style="margin:0 0 6px;color:#92400E"><b>Worth a look:</b> {{ c.flags|join("; ") }}</p>{% endif %}
+{% if c.mastered %}<p style="margin:0 0 6px"><b>Learned this week:</b> {{ c.mastered|join("; ") }}</p>{% endif %}
+{% if c.weak %}<p style="margin:0 0 6px"><b>Help {{ c.name }} with:</b> {{ c.weak|join("; ") }}</p>{% endif %}
+{% if c.flags %}<p style="margin:0 0 6px;color:#92400E"><b>Please look at:</b> {{ c.flags|join("; ") }}</p>{% endif %}
 {% else %}<p style="margin:0 0 8px">{{ c.line }}</p>{% endif %}
 <p style="margin:10px 0 0"><a href="{{ c.url }}" style="color:#4F46E5;font-weight:bold">See {{ c.name }}'s progress</a></p>
 </div>
 {% endfor %}
 <p style="margin:16px 0">Have a good week,<br>Quizocracy</p>
-<p style="font-size:12px;color:#6B7280;margin:20px 0 0">You get this email because "Email me a weekly summary" is on in your Settings.<br><a href="{{ unsub_url }}" style="color:#6B7280">Stop these emails</a></p>
+<p style="font-size:12px;color:#6B7280;margin:20px 0 0">You get this email because "Email me a weekly summary" is ticked in your Settings.<br><a href="{{ unsub_url }}" style="color:#6B7280">Stop these emails</a></p>
 </div></body></html>

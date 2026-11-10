@@ -19,12 +19,12 @@
   <p style="margin:8px 0 0;overflow-wrap:anywhere">{{ ctx.account.email }} <span class="chip" data-testid="my-role">{{ role_title }}</span></p>
   {% if ctx.full %}<div class="row" style="margin-top:8px"><a class="btn" href="/account/email" data-testid="change-email">Change email</a></div>{% endif %}
   <form method="post" action="/settings/weekly" style="margin-top:14px">
-    <label class="check" for="weekly" style="font-weight:600"><input id="weekly" name="weekly" type="checkbox" value="1" {% if weekly %}checked{% endif %} onchange="this.form.submit()" data-testid="weekly">
+    <label class="check" for="weekly" style="font-weight:600"><input id="weekly" name="weekly" type="checkbox" value="1" {% if weekly %}checked{% endif %} data-autosave data-testid="weekly">
       <span>Email me a weekly summary <span class="mut small" style="display:block;font-weight:400">On Sunday evening: how each child's week went, and what to help with.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
   <form method="post" action="/settings/report-emails" style="margin-top:10px">
-    <label class="check" for="report_emails" style="font-weight:600"><input id="report_emails" name="on" type="checkbox" value="1" {% if report_emails %}checked{% endif %} onchange="this.form.submit()" data-testid="report-emails">
+    <label class="check" for="report_emails" style="font-weight:600"><input id="report_emails" name="on" type="checkbox" value="1" {% if report_emails %}checked{% endif %} data-autosave data-testid="report-emails">
       <span>Email me when a question a child reported has been checked <span class="mut small" style="display:block;font-weight:400">Either way, each child's reports and what we found are on their progress page.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
@@ -72,4 +72,25 @@
   <button class="btn danger" type="submit">Delete everything</button>
 </form>
 {% endif %}
+<script>
+  /* The email ticks save on their own, without reloading the page, so nothing typed elsewhere on it (a reward not
+     saved yet) is lost; "Saved" shows next to the tick. Without the script, the Save button under each does it. */
+  document.querySelectorAll('input[data-autosave]').forEach(box => {
+    const note = document.createElement('span');
+    note.className = 'small'; note.setAttribute('role', 'status'); note.dataset.testid = 'autosaved';
+    note.style.cssText = 'margin-left:8px;color:var(--good);font-weight:700';
+    box.closest('label').querySelector('span').append(note);
+    box.addEventListener('change', async () => {
+      note.textContent = '';
+      try {
+        const r = await fetch(box.form.action, {method: 'POST', body: new FormData(box.form), credentials: 'same-origin'});
+        if (!r.ok || new URL(r.url).pathname !== '/settings') throw new Error(r.status);   // not saved: signed out or locked
+        note.style.color = 'var(--good)'; note.textContent = 'Saved';
+      } catch (e) {
+        note.style.color = 'var(--bad)'; note.textContent = 'Not saved. Reload the page and tick it again.';
+        box.checked = !box.checked;
+      }
+    });
+  });
+</script>
 {% endblock %}

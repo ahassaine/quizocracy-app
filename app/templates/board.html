@@ -9,6 +9,7 @@
   <div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>
   <div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}</span>{% endfor %}</div>
   {% with name = p.name %}{% include "_rest_line.html" %}{% endwith %}{% endif %}
+  {% if (streaks or {}).get(p._id, 0) >= 2 %}<div class="streak small" style="margin-top:6px" data-testid="streak">★ {{ streaks[p._id] }} days in a row</div>{% endif %}
   {% if b.reward_earned %}<div class="reward earned"><img src="/static/img/trophy.png" alt="">{{ b.reward.text }}</div>{% endif %}
 </div>
 {% else %}<div class="card">No children yet.</div>{% endfor %}

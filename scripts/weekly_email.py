@@ -52,14 +52,14 @@ def plural(n: int, one: str, many: str | None = None) -> str:
 
 def warm_line(name: str, done: int, days: int, answers: int) -> str:
     if not answers:
-        return f"No practice this week. A short go on Monday is a good restart for {name}."
+        return f"No practice this week. A short go on Monday is a good way for {name} to start again."
     if done >= days:
-        return f"Every day done: a great habit, and worth a word of praise for {name}."
+        return f"Every day done. That is a great habit: tell {name} well done!"
     if 2 * done >= days:
-        return f"A good week. Most days done; well done, {name}."
+        return f"A good week: most days done. Well done, {name}."
     if done:
         return f"Some days done. A few minutes at the same time each day helps {name} most."
-    return f"{name} practised, but did not finish a day's plan this week. A shorter plan can make finishing easier."
+    return f"{name} practised, but did not finish a day's plan this week. A smaller plan can make finishing easier."
 
 
 async def child_summary(p: dict, fam: dict, days: list, today: str, start_utc, end_utc) -> dict:

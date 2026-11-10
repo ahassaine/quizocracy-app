@@ -60,10 +60,10 @@
 {% for subj, groups in skills.items() %}
 <div class="card" data-testid="report-skills-{{ subj }}" style="overflow-x:auto">
   <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>
-  <span class="small mut">· {{ groups|sum(attribute='secure') }} of {{ groups|sum(attribute='secure') + groups|sum(attribute='practising') + groups|sum(attribute='new') }} skills secure{% if new.get(subj) %}, {{ new[subj] }} newly mastered in this period{% endif %}</span>
+  {% set yg = groups|rejectattr('review')|list %}<span class="small mut">· {{ yg|sum(attribute='secure') }} of {{ yg|sum(attribute='secure') + yg|sum(attribute='practising') + yg|sum(attribute='new') }} skills secure{% if new.get(subj) %}, {{ new[subj] }} newly mastered in this period{% endif %}</span>
   <table class="t small" style="margin-top:6px">
     <tr><th>Strand</th><th>Secure</th><th>Practising</th><th>Not started</th></tr>
-    {% for g in groups %}<tr><td>{{ g.strand }}</td><td><b>{{ g.secure }}</b></td><td>{{ g.practising }}</td><td class="mut">{{ g.new }}</td></tr>{% endfor %}
+    {% for g in groups %}<tr><td>{{ g.strand }}{% if g.review %} <span class="mut">· Year {{ g.review }} review</span>{% endif %}</td><td><b>{{ g.secure }}</b></td><td>{{ g.practising }}</td><td class="mut">{{ g.new }}</td></tr>{% endfor %}
   </table>
 </div>{% endfor %}
 {% if tables or verbs %}<div class="card small">
@@ -88,8 +88,8 @@
 <h2>To work on next</h2>
 <div class="card" data-testid="report-focus">
 {% if weak or to_fix %}
-  {% if weak %}<div class="small"><b>Skills still being practised</b> (weakest first):</div>
-  <ul class="small" style="margin:4px 0 8px;padding-left:18px">{% for subj, s in weak %}<li>{{ skill_names[subj] }}: {{ s.title }} <span class="mut">(score {{ s.score }}/100)</span></li>{% endfor %}</ul>{% endif %}
+  {% if weak %}<div class="small"><b>Skills with wrong answers</b> (the lowest share right first; a skill answered only right is never listed):</div>
+  <ul class="small" style="margin:4px 0 8px;padding-left:18px">{% for subj, s in weak %}<li>{{ skill_names[subj] }}: {{ s.title }} <span class="mut">({{ s.wrong }} wrong of {{ s.attempts }})</span></li>{% endfor %}</ul>{% endif %}
   {% for k, items in to_fix.items() %}<div class="small"><b>{{ ACTIVITIES[k].title }} still to put right:</b> {{ items[:20]|map('replace', 'x', ' × ')|join(', ') if k == 'tables' else items[:20]|join(', ') }}{% if items|length > 20 %} and {{ items|length - 20 }} more{% endif %}</div>{% endfor %}
 {% else %}<div class="small mut">Nothing stands out: no skill is lagging and every mistake in this period has been put right.</div>{% endif %}
 </div>

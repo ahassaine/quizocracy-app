@@ -14,6 +14,7 @@ from conftest import BASE, DB, add_child, enter_child, signup, unlock_parent
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.drills.tables import tip  # noqa: E402
+from app.items import RECALL_ITEMS  # noqa: E402
 from app.progress import alike  # noqa: E402
 
 ALL = ("maths", "tables", "spelling", "grammar", "science", "numbers", "verbs")
@@ -58,6 +59,10 @@ def test_alike_and_tips_are_structural_and_hand_written():
     assert not alike("Work out 1/4 + 1/2 × 1/2.", "Work out 3/6 + 1/6 + 1/6.")          # another order of operations
     assert not alike("Books borrowed. Use the bar chart. What is the total of all the bars?",
                      "Books borrowed. Use the bar chart. Add Mon and Wed together, then take away Fri. What is the result?")
+    # a sign that belongs to a number, and an ordinal, are part of the number (they never came back before)
+    assert alike("Put these in order, smallest first. Which number is 4th?   -24, 7, -3, 12, -9",
+                 "Put these in order, smallest first. Which number is 2nd?   5, -18, -9, 30, -2")
+    assert not alike("Work out 10 − 4.", "Work out 10 + 4.")
     assert tip(6, 9) == "9 × 6: one less than 6 is 5, and 5 + 4 = 9 → 54."
     assert "5, 6, 7, 8 → 56" in tip(8, 7) and "48" in tip(8, 7)
     for a in range(1, 13):
@@ -125,6 +130,91 @@ def test_practise_my_mistakes_never_asks_the_same_question_twice_in_a_row(page):
     it = DB.items.find_one({"_id": f["token"]})
     assert (it["meta"]["skill"], it["meta"]["qid"]) != (missed["skill"], missed["qid"])
     assert f["fix_msg"] == "" and f["fix_total"] == 0
+
+
+def _fill(s, act, n=RECALL_ITEMS):
+    """The other questions a missed one waits behind, answered right."""
+    for _ in range(n):
+        f = _next(s, act, fix=1)
+        it = DB.items.find_one({"_id": f["token"]})
+        _check(s, act, f["token"], it["answer"] if act == "spelling" else _good(it["answer"]))
+
+
+def test_right_again_in_the_same_sitting_is_practice_and_put_right_only_later(page):
+    pid, s = _kid(page, 4, acts=("grammar",))
+    q = _next(s, "grammar")
+    missed = DB.items.find_one({"_id": q["token"]})["meta"]
+    assert _check(s, "grammar", q["token"], "zzqx")["correct"] is False
+    _fill(s, "grammar")
+    _age(pid)                                     # ten minutes on: the gap is over, but the same sitting
+    f = _next(s, "grammar", fix=1)
+    it = DB.items.find_one({"_id": f["token"]})
+    assert f["fixing"] and (it["meta"]["skill"], it["meta"]["qid"]) == (missed["skill"], missed["qid"])
+    r = _check(s, "grammar", f["token"], _good(it["answer"]))
+    assert r["correct"] and r["again_later"] and not r["mastered"], r      # practice: it comes back later
+    f = _next(s, "grammar", fix=1)                # nothing more to put right in this sitting
+    assert f["fix_total"] == 0 and f["fix_msg"] == "", f
+    it = DB.items.find_one({"_id": f["token"]})
+    assert (it["meta"]["skill"], it["meta"]["qid"]) != (missed["skill"], missed["qid"])
+    _check(s, "grammar", f["token"], _good(it["answer"]))
+    unlock_parent(page)
+    page.goto(f"/children/{pid}")
+    day = page.locator("[data-testid=mistakes-day]").first
+    assert "1 to go over" in day.inner_text() and "put right since" not in day.inner_text(), day.inner_text()
+    assert "right again soon after" in day.locator("[data-testid=practised]").inner_text()
+    enter_child(page, "Rami")
+    _age(pid, 60)                                 # a later sitting: it comes back, and now it counts
+    f = _next(s, "grammar", fix=1)
+    it = DB.items.find_one({"_id": f["token"]})
+    assert f["fixing"] and f["fix_total"] == 1 and (it["meta"]["skill"], it["meta"]["qid"]) == (missed["skill"], missed["qid"])
+    r = _check(s, "grammar", f["token"], _good(it["answer"]))
+    assert r["correct"] and not r.get("again_later"), r
+    unlock_parent(page)
+    page.goto(f"/children/{pid}")
+    day = page.locator("[data-testid=mistakes-day]").first.inner_text()
+    assert "1 put right since" in day and "0 to go over" in day, day
+
+
+def test_a_missed_question_right_later_never_makes_a_skill_mastered(page):
+    from app.bank import engine
+    pid, s = _kid(page, 4, acts=("grammar",))
+    fam = DB.pupils.find_one({"_id": pid})["family_id"]
+    q = _next(s, "grammar")
+    it = DB.items.find_one({"_id": q["token"]})
+    meta, key = it["meta"], it["answer"]
+    assert _check(s, "grammar", q["token"], "zzqx")["correct"] is False
+    _age(pid, 120)                                # another sitting
+    DB.bank_mastery.update_one({"_id": f"{pid}:{meta['skill']}"}, {"$set": {"score": 96, "streak": 4}})
+
+    def ask(qid, k):
+        tok = f"rep{qid}-{pid}"
+        DB.items.insert_one({"_id": tok, "pupil_id": pid, "family_id": fam, "activity": "grammar", "answer": k,
+                             "meta": {"skill": meta["skill"], "qid": qid, "reason": "retry"},
+                             "created": datetime.datetime.utcnow(), "done": False})
+        return _check(s, "grammar", tok, _good(k))
+    r = ask(meta["qid"], key)                     # the missed question, right: put right, the score grows, not mastered
+    assert r["correct"] and not r["mastered"] and r["score"] == 99 and not r.get("again_later"), r
+    other = next(x for x in engine.skill(meta["skill"])["qs"] if x["id"] != meta["qid"])
+    r = ask(other["id"], engine.serve(other)[1])  # a question never missed can make it mastered
+    assert r["correct"] and r["mastered"], r
+    unlock_parent(page)
+    page.goto(f"/children/{pid}")
+    assert "re-checked on a later day" in page.locator("[data-testid=skills-grammar]").text_content()
+
+
+def test_a_spelling_word_right_again_in_the_same_sitting_climbs_no_box(page):
+    pid, s = _kid(page, 4, acts=("spelling",))
+    q = _next(s, "spelling")
+    word = DB.items.find_one({"_id": q["token"]})["answer"]
+    assert _check(s, "spelling", q["token"], "zzqx")["correct"] is False
+    _fill(s, "spelling")
+    _age(pid)
+    f = _next(s, "spelling", fix=1)
+    assert f["fixing"] and DB.items.find_one({"_id": f["token"]})["answer"] == word, f
+    r = _check(s, "spelling", f["token"], word)
+    assert r["correct"] and r["again_later"], r
+    st = DB.spelling_words.find_one({"_id": f"{pid}:{word}"})
+    assert st["box"] == 0 and st["due"] > datetime.date.today().isoformat(), st
 
 
 def _check_run(s, wrong):
@@ -224,7 +314,7 @@ def test_a_check_a_day_can_be_part_of_the_times_tables_target(page):
     assert "Part of today's times tables" in page.inner_text("[data-testid=mtc-card]")
     q = _next(s, "tables")
     r = _check(s, "tables", q["token"], str(DB.items.find_one({"_id": q["token"]})["answer"]))
-    assert r["day"]["day_pct"] == 50, r["day"]               # the target, but not the check yet
+    assert r["day"]["day_pct"] == 16, r["day"]   # the target, not the check yet (it counts as 5 answers: 1 of 6)
     _, r = _check_run(s, 0)
     assert r["day"]["day_pct"] == 100, r
     page.goto("/me")

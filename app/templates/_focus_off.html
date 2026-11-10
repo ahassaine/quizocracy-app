@@ -1,0 +1,6 @@
+{# A school focus in a subject that is not in the plan does nothing: say so, with a one-click fix (routes/parent.py
+   plan_add). focus_off = parent._focus_off(); back = "edit" or "progress", where the button comes back to. #}
+{% for f in focus_off or [] %}<div class="card" role="status" data-testid="focus-off" style="border:2px solid var(--sun);padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center">
+  <span style="flex:1 1 220px"><b>{{ f.title }} isn't in {{ pupil.name }}'s plan</b>, so the school topic you picked in it does nothing yet.{% if f.can and ctx.full %} Add it?{% endif %}</span>
+  {% if f.can and ctx.full %}<form method="post" action="/children/{{ pupil._id }}/plan-add" style="margin:0"><input type="hidden" name="activity" value="{{ f.key }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn primary" type="submit" data-testid="focus-add">Add {{ f.title }} to the plan</button></form>{% endif %}
+</div>{% endfor %}

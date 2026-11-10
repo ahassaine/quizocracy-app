@@ -15,6 +15,11 @@ def _t(c):
     return ("+ %d" % c) if c >= 0 else ("− %d" % -c)
 
 
+def _m(v):
+    """A number with a proper minus sign: −15, not -15."""
+    return ("−%d" % -v) if v < 0 else "%d" % v
+
+
 def _k(k, v="x"):
     """3x, x, −x for display."""
     return v if k == 1 else ("−" + v) if k == -1 else "%d%s" % (k, v)
@@ -43,9 +48,19 @@ def _(d=1):
         b += 1
         e += 1
 
+    def undo(n, v="x"):
+        """The inverse step that clears the number n from the side with the unknown."""
+        return ("Take %d from both sides" % n) if n > 0 else ("Add %d to both sides" % -n)
+
+    def steps(kx, n, rhs, v="x"):
+        """kx + n = rhs, solved by inverse steps: clear the number, then divide."""
+        return ["%s: %s = %s." % (undo(n), _k(kx, v), _m(rhs - n)),
+                "Divide both sides by %d: %s = %s." % (kx, v, _m((rhs - n) // kx))]
+
     def t_both():
         return _tb("Solve  %s %s = %s %s" % (_k(a), _t(b), _k(c), _t(e)), x, "int", {},
-                   ["%dx − %dx = %d − (%d)." % (a, c, e, b), "%dx = %d, x = %d." % (a - c, e - b, x)])
+                   ["Take %s from both sides, so the x terms are on one side: %s %s = %s." % (_k(c), _k(a - c), _t(b), _m(e))]
+                   + steps(a - c, b, e))
 
     def t_brackets():
         k, m = random.randint(*_by(d, (3, 5), (3, 6), (3, 9))), random.choice([v for v in range(*_by(d, (1, 7), (-6, 7), (-9, 10))) if v])
@@ -53,7 +68,8 @@ def _(d=1):
         if rhs == 0:
             return t_both()
         return _tb("Solve  %d(x %s) = 2x %s" % (k, _t(m), _t(rhs)), x, "int", {},
-                   ["%dx %s = 2x %s." % (k, _t(k * m), _t(rhs)), "x = %d." % x])
+                   ["Multiply out the bracket: %dx %s = 2x %s." % (k, _t(k * m), _t(rhs)),
+                    "Take 2x from both sides: %s %s = %s." % (_k(k - 2), _t(k * m), _m(rhs))] + steps(k - 2, k * m, rhs))
 
     def t_two_brackets():
         p, q = random.randint(*_by(d, (2, 5), (2, 5), (3, 8))), random.randint(*_by(d, (1, 4), (1, 4), (2, 6)))
@@ -66,18 +82,24 @@ def _(d=1):
             return t_both()
         xx = (rhs_c - lhs_c) // (p - q)
         return _tb("Solve  %d(x %s) = %d(x %s)" % (p, _t(r), q, _t(s2)), xx, "int", {},
-                   ["%dx %s = %dx %s." % (p, _t(lhs_c), q, _t(rhs_c)), "x = %d." % xx])
+                   ["Multiply out both brackets: %dx %s = %dx %s." % (p, _t(lhs_c), q, _t(rhs_c)),
+                    "Take %dx from both sides: %s %s = %s." % (q, _k(p - q), _t(lhs_c), _m(rhs_c))] + steps(p - q, lhs_c, rhs_c))
 
     def t_negative_coef():
         k = random.randint(2, 6)
-        return _tb("Solve  %d − %dx = %d" % (b, k, b - k * x), x, "int", {}, ["−%dx = %d, x = %d." % (k, -k * x, x)])
+        return _tb("Solve  %d − %dx = %d" % (b, k, b - k * x), x, "int", {},
+                   ["%s: −%dx = %s." % (undo(b), k, _m(-k * x)),
+                    "Divide both sides by −%d (a negative divided by a negative is positive): x = %d." % (k, x)
+                    if x > 0 else "Divide both sides by −%d: x = %s." % (k, _m(x))])
 
     def t_word():
         y = random.randint(*_by(d, (2, 10), (3, 15), (6, 25)))
         p, s, q = _by(d, (4, 1, 2), (5, 3, 2), (7, 4, 3))     # pn − s = qn + K
         kk = (p - q) * y - s
         return _tb("I think of a number, multiply it by %d and subtract %d. I get the same as when I multiply it by %d and add %d. What is "
-                   "the number?" % (p, s, q, kk), y, "int", {}, ["%dn − %d = %dn + %d." % (p, s, q, kk), "%dn = %d, n = %d." % (p - q, kk + s, y)])
+                   "the number?" % (p, s, q, kk), y, "int", {},
+                   ["Call the number n: %dn − %d = %dn + %d." % (p, s, q, kk),
+                    "Take %dn from both sides: %s − %d = %d." % (q, _k(p - q, "n"), s, kk)] + steps(p - q, -s, kk, "n"))
 
     plain = [t_both, t_brackets, t_two_brackets, t_negative_coef, t_word]
     if d == 0:

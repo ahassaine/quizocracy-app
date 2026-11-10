@@ -196,7 +196,11 @@ def _(d=1):
                             [("the diameter of a virus, in metres", Decimal("0.00000012")),
                              ("the wavelength of red light, in metres", Decimal("0.00000068")),
                              ("the mass of a mosquito, in kilograms", Decimal("0.0000025"))]))
-        return _wq("Write %s, %s, in standard form (like 3.2x10^-4)." % (thing, _ds(x)), _sf(x)[0], ["= %s." % _sf(x)[0]], "e.g. 3.2x10^-4")
+        m, e = _sf(x)[0].split("x10^")
+        return _wq("Write %s, %s, in standard form (like 3.2x10^-4)." % (thing, _ds(x)), _sf(x)[0],
+                   ["Move the decimal point to just after the first digit that is not 0: %s." % m,
+                    "It moved %d places to the right, so the power of 10 is %s: %s." % (-int(e), e.replace("-", "−"), _sf(x)[0])],
+                   "e.g. 3.2x10^-4")
 
     return _pick_t([t_small_to_sf, t_sf_to_small, t_order, t_power, t_context])
 
@@ -381,20 +385,35 @@ def _(d=1):
     lo, hi = _by(d, 1, -9, -12), _by(d, 9, 9, 12)
     p, q = [random.choice([v for v in range(lo, hi + 1) if v]) for _ in range(2)]
 
+    def _n(v):                                   # a number as it is multiplied: 7, (−3)
+        return "(−%d)" % -v if v < 0 else str(v)
+
+    def _xt(v):                                  # v lots of x: 7x, −3x, x
+        return ("x" if v == 1 else "−x" if v == -1 else "%dx" % v).replace("-", "−")
+
+    def four(a, b):
+        """The four products of (x + a)(x + b), then the x terms collected: the working, not only the result."""
+        return ["Multiply each term of the first bracket by each term of the second: x × x = x², x × %s = %s, "
+                "%s × x = %s, %s × %s = %s." % (_n(b), _xt(b), _n(a), _xt(a), _n(a), _n(b), str(a * b).replace("-", "−")),
+                "Collect the x terms: %s + %s = %s." % (_xt(b), _xt(a), _xt(a + b) if a + b else "0")]
+
     def t_expand():
         return _wq("Expand and simplify %s%s (like x^2+5x-3)." % (_bracket(p), _bracket(q)), _poly(p + q, p * q),
-                   ["x² %s %s %s %s %s %d." % ("+" if p > 0 else "−", ("" if abs(p) == 1 else abs(p)) and "%dx" % abs(p) or "x", "+" if q > 0 else "−", ("" if abs(q) == 1 else abs(q)) and "%dx" % abs(q) or "x", "+" if p * q > 0 else "−", abs(p * q)), "= %s." % _poly(p + q, p * q)], "e.g. x^2+5x-3")
+                   four(p, q) + ["So %s%s = %s." % (_bracket(p), _bracket(q), _poly(p + q, p * q))], "e.g. x^2+5x-3")
 
     def t_coef():
         return _tb("Expand %s%s. What is the coefficient of x?" % (_bracket(p), _bracket(q)), p + q, "int", {},
-                   ["%d + %d = %d." % (p, q, p + q)])
+                   four(p, q) + ["The coefficient of x is the number in front of x: %d." % (p + q)])
 
     def t_const():
-        return _tb("Expand %s%s. What is the constant term?" % (_bracket(p), _bracket(q)), p * q, "int", {}, ["%d × %d = %d." % (p, q, p * q)])
+        return _tb("Expand %s%s. What is the constant term?" % (_bracket(p), _bracket(q)), p * q, "int", {},
+                   ["The constant term is the number with no x: it comes only from the two numbers multiplied.",
+                    "%s × %s = %d." % (_n(p), _n(q), p * q)])
 
     def t_square():
-        return _wq("Expand %s² (like x^2+5x+4)." % _bracket(p), _poly(2 * p, p * p), ["%s%s = %s." % (_bracket(p), _bracket(p), _poly(2 * p, p * p))],
-                   "e.g. x^2+5x+4")
+        return _wq("Expand %s² (like x^2+5x+4)." % _bracket(p), _poly(2 * p, p * p),
+                   ["%s² means %s%s, not x² + %d." % (_bracket(p), _bracket(p), _bracket(p), p * p)] + four(p, p)
+                   + ["So %s² = %s." % (_bracket(p), _poly(2 * p, p * p))], "e.g. x^2+5x+4")
 
     def t_coef2():
         a = random.randint(2, 4)

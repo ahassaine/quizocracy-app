@@ -272,8 +272,8 @@ def test_school_list_is_checked_shown_back_and_last_weeks_tricky_words_stay(page
     _save(page, pid)
     assert DB.pupils.find_one({"_id": pid})["school_words"]["before"][:2] == ["because", "people"]
     page.goto(f"/children/{pid}")
-    assert page.inner_text("[data-testid=school-last-tricky]") == (
-        "Last week's words still tricky: because (they keep coming back in spelling)")      # people is learned
+    assert page.inner_text("[data-testid=school-last-tricky]").startswith("Last week's words still tricky: because")
+    assert [t.strip("✕ \n") for t in page.locator("[data-testid=tricky-word]").all_inner_texts()] == ["because"]  # people is learned
     enter_child(page, "Sam")
     s = _session(page)
     got = []

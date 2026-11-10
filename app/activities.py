@@ -42,7 +42,7 @@ def new_family_plan() -> str:
 # The default day for each school year: the few activities that matter most at that age, about 15 minutes
 # (see minutes()). Anything else the parent can switch on.
 YEAR_DEFAULTS = {
-    1: {"maths": 8, "spelling": 6},
+    1: {"maths": 8, "spelling": 5},       # 5 right: within reach of a child just learning to sound words out
     2: {"maths": 6, "tables": 15, "spelling": 6},
     3: {"maths": 8, "tables": 20, "spelling": 8},
     4: {"maths": 8, "tables": 20, "spelling": 8},

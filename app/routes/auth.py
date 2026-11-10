@@ -52,8 +52,8 @@ async def _send_code(account: dict) -> None:
     await db.codes.insert_one({"email": account["email"], "purpose": "verify", "hash": hash_secret(code),
                                "tries": 0, "expires": _now() + datetime.timedelta(minutes=30)})
     await mailer.send(account["email"], f"Your Quizocracy code: {code}",
-                      f"Your verification code is {code}\n\nIt expires in 30 minutes. "
-                      f"If you did not sign up to Quizocracy, ignore this email.\n", secret=code)
+                      f"Your code is {code}\n\nType it in Quizocracy within 30 minutes.\n\n"
+                      f"Didn't sign up to Quizocracy? Then ignore this email.\n", secret=code)
 
 
 @router.get("/signup")
@@ -156,17 +156,20 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
     acc = await db.accounts.find_one({"email": email})
     if not acc or not verify_secret(password, acc["pw"]):
         await db.login_failures.insert_one({"email": email, "ts": _now()})
-        return page(request, "login.html", email=email, error="Email or password is not right.", status_code=400)
+        # which one is wrong is not said (that would tell a stranger which emails have an account); the email typed
+        # is shown big, as a typo in it is the common mistake
+        return page(request, "login.html", email=email, error="Email or password is not right.", check_email=True,
+                    status_code=400)
     resp = RedirectResponse("/home" if acc.get("verified_at") else "/verify", 303)
     await create_session(resp, acc)
     if await note_device(request, resp, acc) and acc.get("verified_at"):
         what = device_text(request.headers.get("user-agent", ""))
         await log_event(acc["family_id"], "device", f"{adult_name(acc)} signed in on a new device ({what})")
         await mailer.send(email, "New sign-in to your Quizocracy account",
-                          f"Your Quizocracy login ({email}) was used to sign in on a new device ({what}) on "
+                          f"Someone signed in to your Quizocracy account ({email}) on a new device ({what}) on "
                           f"{local_time(_now()):%d %B %Y at %H:%M}.\n\n"
-                          f"If this was you, there is nothing to do. If this wasn't you, choose a new password now at "
-                          f"{config.PUBLIC_URL}/forgot (it signs every device out) and write to us at "
+                          f"If it was you, there is nothing to do.\n\nIf this wasn't you, choose a new password now at "
+                          f"{config.PUBLIC_URL}/forgot (this signs out every device). Then write to us at "
                           f"{config.SUPPORT_EMAIL}.\n")
     return resp
 
@@ -198,8 +201,9 @@ async def forgot(request: Request, email: str = Form(...)):
         await db.codes.insert_one({"email": email, "purpose": "reset", "hash": token_key(tok),
                                    "expires": _now() + datetime.timedelta(hours=1)})
         await mailer.send(email, "Reset your Quizocracy password",
-                          f"Use this link within an hour to choose a new password:\n\n"
-                          f"{config.PUBLIC_URL}/reset?token={tok}\n\nIf you did not ask for this, ignore this email.\n",
+                          f"Open this link within 1 hour to choose a new password:\n\n"
+                          f"{config.PUBLIC_URL}/reset?token={tok}\n\nDidn't ask for this? Then ignore this email. "
+                          f"Your password stays the same.\n",
                           secret=tok)
     return page(request, "forgot.html", sent=True)
 
@@ -226,9 +230,9 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
     # Tell the account: anyone with the inbox (or a minder) can reset, and the other adults need to know.
     await mailer.send(rec["email"], "Your Quizocracy password was changed",
                       f"The password for your Quizocracy account ({rec['email']}) was changed on "
-                      f"{local_time(_now()):%d %B %Y at %H:%M}. Everyone signed in was signed out; "
-                      f"sign in again with the new password.\n\n"
-                      f"If you did not change it, choose a new password now at {config.PUBLIC_URL}/forgot "
+                      f"{local_time(_now()):%d %B %Y at %H:%M}. Every device was signed out. "
+                      f"Sign in again with the new password.\n\n"
+                      f"Didn't change it? Choose a new password now at {config.PUBLIC_URL}/forgot "
                       f"and write to us at {config.SUPPORT_EMAIL}.\n")
     return RedirectResponse("/login?reset=1", 303)
 
@@ -320,12 +324,12 @@ async def invite(request: Request, ctx: Ctx = Depends(full_page), email: str = F
     if (ctx.account.get("name") or "").strip():
         who = f"{ctx.account['name'].strip()} ({who})"
     await mailer.send(email, f"{who} invited you to {fam} on Quizocracy",
-                      f"Hello,\n\n{who} has invited you to join {fam} on Quizocracy, where their children do a "
-                      f"short daily practice in maths, spelling and more.\n\n"
+                      f"Hello,\n\n{who} invites you to join {fam} on Quizocracy. Their children practise maths, "
+                      f"spelling and more there, a few minutes a day.\n\n"
                       f"You are invited as a {role}. You will be able to {ROLE_CAN[role]}.\n\n"
-                      f"To accept, open this link within {INVITE_DAYS} days and choose your own password:\n\n"
+                      f"To say yes, open this link within {INVITE_DAYS} days and choose your own password:\n\n"
                       f"{config.PUBLIC_URL}/invite?token={tok}\n\n"
-                      f"If you were not expecting this, you can ignore this email.\n", secret=tok)
+                      f"Not expecting this? Then ignore this email.\n", secret=tok)
     return RedirectResponse("/settings?invited=1#adults", 303)
 
 
@@ -347,8 +351,8 @@ async def adult_remove(request: Request, aid: str, ctx: Ctx = Depends(full_page)
     await log_event(ctx.family["_id"], "adult", f"{adult_name(ctx.account)} removed {adult_name(acc)} "
                                                 f"({ROLE_TITLES.get(acc.get('role'), 'Carer')})")
     await mailer.send(acc["email"], f"You were removed from {ctx.family['name']} on Quizocracy",
-                      f"Hello,\n\n{ctx.account['email']} removed you from {ctx.family['name']} on Quizocracy, so "
-                      f"your login there no longer works.\n\nIf you think this is a mistake, ask them to invite "
+                      f"Hello,\n\n{ctx.account['email']} removed you from {ctx.family['name']} on Quizocracy. "
+                      f"Your login there no longer works.\n\nIf you think this is a mistake, ask them to invite "
                       f"you again.\n")
     return RedirectResponse("/settings?removed=1#adults", 303)
 
@@ -433,8 +437,8 @@ async def invite_accept(request: Request, token: str = Form(...), password: str 
     await mailer.to_family(fam["_id"], f"{acc['email']} joined {fam['name']} on Quizocracy",
                            f"Hello,\n\n{acc['email']} has joined {fam['name']} on Quizocracy as a {inv['role']}"
                            + (f", invited by {adult_name(by)}" if by else "") + ".\n\n"
-                           f"You can see every grown-up, change their role or remove them in Settings: "
-                           f"{config.PUBLIC_URL}/settings#adults\n\nIf you don't know this person, remove them there.\n",
+                           f"In Settings you can see every grown-up, change their role or remove them: "
+                           f"{config.PUBLIC_URL}/settings#adults\n\nDon't know this person? Remove them there.\n",
                            skip=(acc["_id"],))
     return resp
 
@@ -475,9 +479,9 @@ async def _send_change_code(account: dict, new_email: str) -> None:
                                "family_id": account["family_id"], "hash": hash_secret(code), "tries": 0,
                                "expires": _now() + datetime.timedelta(minutes=30)})
     await mailer.send(new_email, f"Your Quizocracy code: {code}",
-                      f"Your code is {code}\n\nEnter it in Quizocracy to make {new_email} the email address for your "
-                      f"account. It expires in 30 minutes.\n\nIf you did not ask for this, ignore this email: "
-                      f"nothing changes.\n", secret=code)
+                      f"Your code is {code}\n\nType it in Quizocracy to make {new_email} the email you sign in "
+                      f"with. It works for 30 minutes.\n\nDidn't ask for this? Then ignore this email. "
+                      f"Nothing changes.\n", secret=code)
 
 
 @router.post("/account/email/resend")
@@ -521,9 +525,9 @@ async def email_confirm(request: Request, ctx: Ctx = Depends(full_page), code: s
                     error="That email has just been used for another Quizocracy account. Choose another address.")
     await db.codes.delete_many({"account_id": aid, "purpose": "email_change"})
     await mailer.send(old, "Your Quizocracy email was changed",
-                      f"The email address for your Quizocracy account was changed from {old} to {new} on "
+                      f"The email you sign in to Quizocracy with was changed from {old} to {new} on "
                       f"{local_time(_now()):%d %B %Y at %H:%M}. From now on, sign in with {new}.\n\n"
-                      f"If this wasn't you, reply to this email straight away (or write to {config.SUPPORT_EMAIL}) "
+                      f"If this wasn't you, reply to this email now (or write to {config.SUPPORT_EMAIL}) "
                       f"and we will put it right.\n", headers={"Reply-To": config.SUPPORT_EMAIL})
     return RedirectResponse("/settings?email_changed=1", 303)
 

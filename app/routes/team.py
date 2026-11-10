@@ -205,8 +205,8 @@ async def reports(request: Request, member_slug: str, status: str = "open"):
                 statuses=REPORT_STATUSES, counts=counts, reasons=REPORT_REASONS)
 
 
-REPORT_OUTCOME_MAIL = {"fixed": "We have fixed it. Thank you: reports like this make the questions better.",
-                       "not_a_problem": "We checked it, and the question and its answer are right."}
+REPORT_OUTCOME_MAIL = {"fixed": "We fixed it. Thank you: reports like this make the questions better.",
+                       "not_a_problem": "We checked it: the question and its answer are right."}
 
 
 @router.post("/{member_slug}/reports/{rid}/status")
@@ -229,13 +229,15 @@ async def report_status(member_slug: str, rid: str, status: str = Form(...), bac
         await db.reports.update_one({"_id": r["_id"]}, {"$set": {"mailed_" + status: _now()}})
         note = upd.get("reply") or r.get("reply") or ""
         q = " ".join(str((r.get("served") or {}).get("prompt") or r.get("expected") or "").split())[:120]
-        await mailer.to_family(r["family_id"], f"We checked the question {p['name']} reported",
-                               f"Hello,\n\n{p['name']} reported a question on {r['ts']:%d %B}"
+        who = r.get("by_name") or p["name"]          # a grown-up's report from "Mistakes to go over", or the child's
+        await mailer.to_family(r["family_id"], f"We checked the question {who} reported",
+                               f"Hello,\n\n{who} reported a question"
+                               + (f" from {p['name']}'s practice" if r.get("by_name") else "") + f" on {r['ts']:%d %B}"
                                + (f": “{q}”" if q else "") + (f" (“{r['note']}”)" if r.get("note") else "") + ".\n\n"
                                + REPORT_OUTCOME_MAIL[status] + (f"\n\nA note from us: {note}" if note else "")
-                               + f"\n\nYou can see {p['name']}'s reports on the progress page: "
+                               + f"\n\nSee {p['name']}'s reports on the progress page: "
                                f"{config.PUBLIC_URL}/children/{r['pupil_id']}#reports\n\n"
-                               f"You get this because you ticked it in Settings: {config.PUBLIC_URL}/settings#login\n",
+                               f"You get this email because you ticked it in Settings: {config.PUBLIC_URL}/settings#login\n",
                                roles=("owner", "parent", "carer"), flag="report_emails")
     return RedirectResponse(f"/team/{member_slug}/reports?status={back if back in REPORT_STATUSES else 'all'}#r{rid}", 303)
 

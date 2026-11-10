@@ -142,6 +142,14 @@ table.t th, table.t td { text-align:left; padding:8px 8px; border-bottom:1px sol
   animation:pop-in .6s cubic-bezier(.34,1.56,.64,1); }
 .reward.earned img { animation:pop-in .6s ease; }
 .reward[hidden] { display:none; }
+.reward.slim { padding:5px 12px; margin:6px 0; gap:8px; font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; animation:none; }
+.skill-bar { height:6px; border-radius:6px; background:#2C3650; margin:6px 0 2px; max-width:240px; overflow:hidden; }   /* act_maths.html */
+.skill-bar > i { display:block; height:100%; width:0; border-radius:6px; background:linear-gradient(90deg,var(--violet),var(--sky)); transition:width .6s ease; }
+.skill-bar.done > i { background:linear-gradient(90deg,var(--mint),#3BE2A8); }
+.grow-line { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-top:10px; }     /* streak, this week (me.html) */
+.streak { font-weight:800; color:var(--coral); }
+.win-moment { margin-top:8px; padding:8px 12px; border-radius:12px; background:rgba(59,226,168,.14); color:#3BE2A8; font-weight:800; }   /* skill secure, mistake put right (drill.js) */
+.reward.slim img { width:22px; height:22px; animation:none; } .reward.slim span { overflow:hidden; text-overflow:ellipsis; }
 
 /* drills */
 .stage { background:var(--board); color:#EDEBFF; border-radius:var(--r); padding:22px; border:1px solid var(--board-line); box-shadow:var(--shadow-lg); }

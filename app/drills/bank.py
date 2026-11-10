@@ -15,7 +15,9 @@ from ..maths.maths_mastery import CHALLENGE_ZONE, MASTERED, gain, penalty
 from .. import items, progress
 from . import typos
 
-WINDOW = 3                 # unmastered skills practised side by side
+WINDOW = 3                 # unmastered skills practised side by side ...
+STRAND_WINDOW = 2          # ... at most this many from one strand while other strands have skills open
+STRAND_RUN = 3             # questions in a row from one strand before the next comes from another
 PLATEAU_ATTEMPTS = 25      # a skill this long without nearing mastery steps aside for the next one
 RETRY_GAP = items.RECALL_ITEMS          # questions before a wrong one comes back ...
 RETRY_SECONDS = items.RECALL_SECONDS    # ... and seconds, so it is remembered, not copied; then once more another day
@@ -43,9 +45,23 @@ async def _state(pupil: dict, subject: str) -> dict:
     return st
 
 
-def pick_skill(skills: list, mm: dict, rnd=random) -> tuple[dict, str]:
-    """Which skill comes next, and why ("new", "practice" or "review")."""
+def _spread(skills: list, n: int) -> list:
+    """The first n skills in teaching order, but no more than STRAND_WINDOW of them from one strand while other
+    strands have skills to offer: Year 9 science is not twelve Health questions before anything else."""
+    out, per = [], {}
+    for s in skills:
+        if len(out) < n and per.get(s["strand"], 0) < STRAND_WINDOW:
+            out.append(s)
+            per[s["strand"]] = per.get(s["strand"], 0) + 1
+    return out + [s for s in skills if s not in out][:n - len(out)]
+
+
+def pick_skill(skills: list, mm: dict, rnd=random, avoid: str | None = None) -> tuple[dict, str]:
+    """Which skill comes next, and why ("new", "practice" or "review"). avoid: a strand just met STRAND_RUN times
+    in a row; the next skill comes from another strand when there is one."""
     score = lambda s: mm.get(s["key"], {}).get("score", 0)                      # noqa: E731
+    if avoid and any(s["strand"] != avoid for s in skills):
+        skills = [s for s in skills if s["strand"] != avoid]
     open_ = [s for s in skills if score(s) < MASTERED]
     done = [s for s in skills if score(s) >= MASTERED]
     due = [s for s in done if (_now() - mm[s["key"]].get("last", _now())).days >= REVIEW_AFTER_DAYS]
@@ -55,7 +71,7 @@ def pick_skill(skills: list, mm: dict, rnd=random) -> tuple[dict, str]:
         return pool[0], "review"
     plateau = lambda s: (mm.get(s["key"], {}).get("attempts", 0) >= PLATEAU_ATTEMPTS        # noqa: E731
                          and score(s) < CHALLENGE_ZONE)
-    window = [s for s in open_ if not plateau(s)][:WINDOW] or open_
+    window = _spread([s for s in open_ if not plateau(s)], WINDOW) or open_
     window.sort(key=lambda s: mm.get(s["key"], {}).get("last") or datetime.datetime.min)
     s = window[0]
     return s, ("practice" if s["key"] in mm else "new")
@@ -136,12 +152,15 @@ def make(subject: str):
             pool = close or (in_focus if in_focus and random.random() < FOCUS_SHARE else None)
             if not pool:            # in teaching order up to the day's target; after it, the strands in turn
                 pool = spread_strands(skills, mm) if await past_target(pupil, subject) else skills
-            sk, reason = pick_skill(pool, mm)
+            run = st.get("strands", [])[-STRAND_RUN:]       # one strand three times running: another one next,
+            avoid = run[0] if len(run) == STRAND_RUN and len(set(run)) == 1 and run[0] not in strands else None
+            sk, reason = pick_skill(pool, mm, avoid=avoid)  # unless the grown-up chose that strand as the focus
             q = pick_question(sk, mm.get(sk["key"], {}).get("seen", [])
                               + [a.split("#", 1)[1] for a in away if a.startswith(sk["key"] + "#")])
         pub, key = engine.serve(q)
         token = await items.issue(pupil, subject, key, {"skill": sk["key"], "qid": q["id"], "reason": reason})
-        await db.bank_state.update_one({"_id": st["_id"]}, {"$inc": {"n": 1}})
+        await db.bank_state.update_one({"_id": st["_id"]}, {"$inc": {"n": 1},
+                                                           "$push": {"strands": {"$each": [sk["strand"]], "$slice": -5}}})
         return {"token": token, **pub, "skill": sk["title"], "strand": sk["strand"], "reason": reason,
                 "score": mm.get(sk["key"], {}).get("score", 0)}
 
@@ -164,9 +183,15 @@ def make(subject: str):
             return await _copied(pupil, subject, key, value, q, ms, detail)
         doc = await db.bank_mastery.find_one({"_id": f"{pupil['_id']}:{meta['skill']}"}) or {}
         score, streak = int(doc.get("score", 0)), int(doc.get("streak", 0))
-        if correct:
+        missed = await progress.last_miss(pupil, subject, detail) if correct else None
+        practice = bool(missed and _now() - missed < progress.PUT_RIGHT_AFTER)
+        if practice:
+            pass        # a question missed in this sitting, right again: practice, the score and streak stay
+        elif correct:
             streak += 1
             score = min(MASTERED, score + gain(score, streak))
+            if missed:  # a question missed before, right later: the score grows, but only a question never
+                score = min(score, max(int(doc.get("score", 0)), MASTERED - 1))     # missed makes it mastered
         else:
             streak = 0
             score = max(0, score - penalty(score))
@@ -185,14 +210,18 @@ def make(subject: str):
         if not correct and tries < MAX_RETRIES:
             retry.append({"key": meta["skill"], "qid": meta["qid"], "due": st["n"] + RETRY_GAP, "tries": tries + 1,
                           "after": _now() + datetime.timedelta(seconds=RETRY_SECONDS)})
-        elif correct and meta.get("reason") == "retry" and tries < MAX_RETRIES:
+        elif correct and meta.get("reason") in ("retry", "fix") and tries < MAX_RETRIES:
             # put right after a gap: asked once more on a later day, to see that it stayed
             retry.append({"key": meta["skill"], "qid": meta["qid"], "due": 0, "tries": MAX_RETRIES,
                           "day": progress.today()})
         await db.bank_state.update_one({"_id": st["_id"]}, {"$set": {"retry": retry[-10:]}})
         out = await _feedback(pupil, subject, key, value, q, ms, detail, correct)
+        if not correct:     # why the option picked is wrong; a question missed before is explained another way
+            out["whynot"], out["why"] = engine.why_lines(q, key, value, meta.get("reason") in ("retry", "fix"))
         out.update({"mastered": score >= MASTERED and not doc.get("mastered_at"), "score": score})
-        if slipped:                          # after the retry: which word was misspelt
+        if practice:                         # not put right yet: asked again in a later sitting
+            out["again_later"] = True
+        if slipped:                         # after the retry: which word was misspelt
             out["hint"] = typos.corrections(slipped)
         if ends:                             # the grammar was right: say what was missing, not why the grammar is so
             out["hint"], out["why"] = ends["after"], ""

@@ -70,6 +70,8 @@ async def me(request: Request, ctx: Ctx = Depends(child_page)):
              and set(open_[a["key"]]) - set(await items.waits(ctx.child, a["key"]))]
     tabs = next((a for a in b[0]["items"] if a["key"] == "tables"), None)
     return page(request, "me.html", ctx, status=b[0], reward=b[0]["reward"], fix=fix,
+                streak=(await progress.streaks(ctx.family, [ctx.child]))[ctx.child["_id"]],
+                wins=await progress.week_wins(ctx.child),
                 fix_first=(ready or [a["key"] for a in b[0]["items"] if fix.get(a["key"])] or [None])[0],
                 check_card=tabs if tabs and ctx.child.get("year") in progress.CHECK_YEARS else None,
                 checks=tables.mtc_history(ctx.child))
@@ -238,12 +240,16 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
         raise HTTPException(403, "activity not available")
     ms = payload.get("ms")
     ms = int(ms) if isinstance(ms, (int, float)) else None
+    # the mistakes open before this answer: if a right answer puts one right, the child sees that moment (put_right)
+    before = set((await progress.open_mistakes(ctx.child)).get(activity, []))
     if activity == "verbs":
         res = await verbs.check(ctx.child, payload.get("token"), payload.get("past", ""), payload.get("pp", ""), ms)
     else:
         res = await DRILLS[activity].check(ctx.child, payload.get("token"), payload.get("value"), ms)
     if res is None:
         return JSONResponse({"ok": False, "error": "expired"}, status_code=409)
+    if before and res.get("correct") and not res.get("retry"):
+        res["put_right"] = bool(before - set((await progress.open_mistakes(ctx.child)).get(activity, [])))
     return {"ok": True, **res, "day": await _day(ctx, activity)}
 
 

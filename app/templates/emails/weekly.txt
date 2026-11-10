@@ -5,14 +5,14 @@ Here is how {{ week_label }} went on Quizocracy.
 {{ c.name|upper }} (Year {{ c.year }})
 {% if c.answers %}Done {{ c.done }} of {{ c.days }} days · {{ c.answers }} answers{% if c.first_pct is not none %} · {{ c.first_pct }}% right first time{% endif %} · {{ c.minutes }} minutes
 {{ c.line }}
-{% if c.mastered %}Mastered this week: {{ c.mastered|join("; ") }}
-{% endif %}{% if c.weak %}Worth practising: {{ c.weak|join("; ") }}
-{% endif %}{% if c.flags %}Worth a look: {{ c.flags|join("; ") }}
+{% if c.mastered %}Learned this week: {{ c.mastered|join("; ") }}
+{% endif %}{% if c.weak %}Help {{ c.name }} with: {{ c.weak|join("; ") }}
+{% endif %}{% if c.flags %}Please look at: {{ c.flags|join("; ") }}
 {% endif %}{% else %}{{ c.line }}
 {% endif %}{{ c.name }}'s progress: {{ c.url }}
 {% endfor %}
 Have a good week,
 Quizocracy
 
-You get this email because "Email me a weekly summary" is on in your Settings.
-Stop these emails: {{ unsub_url }}
+You get this email because "Email me a weekly summary" is ticked in your Settings.
+To stop these emails, open: {{ unsub_url }}

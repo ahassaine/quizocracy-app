@@ -15,7 +15,9 @@ COOKIE = "qz_s"
 # Idle limits. Parent mode on a device a child has used (a PIN was typed or the parent unlocked it) locks itself;
 # a parent's own sign-in, never handed over, does not. A child left signed in goes back to "Who's learning?".
 PARENT_IDLE = datetime.timedelta(minutes=5)
-CHILD_IDLE = datetime.timedelta(minutes=60)
+# Ten minutes for a child: on a shared tablet a sibling must not carry on in their account. (The rule is for a child
+# with a PIN or with siblings; every child has a PIN, so it is every child. ui.js goes back to the picker too.)
+CHILD_IDLE = datetime.timedelta(minutes=10)
 SEEN_EVERY = datetime.timedelta(seconds=20)         # how stale `seen_at` may get before a request rewrites it
 # Wrong PINs: this many in PIN_LOCK lock that child's tile for PIN_LOCK (a 4-digit family PIN, guessed by siblings).
 PIN_FAILS, PIN_LOCK = 6, datetime.timedelta(minutes=5)

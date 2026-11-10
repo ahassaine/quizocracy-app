@@ -176,8 +176,11 @@ def _(d=1):
 
     def t_line():
         f = pick(TERM[: _by(d, 7, 12, 14)])
-        return _nld("Place %s on the number line from 0 to 1." % pick([_fs(f), "%s%%" % _ds(f * 100)]), f, 0, 1,
-                    Decimal("0.025"), Decimal("0.1"), ["It is %s." % _ds(f)])
+        shown = pick([_fs(f), "%s%%" % _ds(f * 100)])
+        why = ("%s means %s out of 100: %s ÷ 100 = %s." % (shown, _ds(f * 100), _ds(f * 100), _ds(f)) if "%" in shown
+               else "%s = %d ÷ %d = %s." % (shown, f.numerator, f.denominator, _ds(f)))
+        return _nld("Place %s on the number line from 0 to 1." % shown, f, 0, 1,
+                    Decimal("0.025"), Decimal("0.1"), [why, "Each labelled step is 0.1, so find %s between them." % _ds(f)])
 
     return _pick_t([t_largest, t_smallest, t_compare], [t_line])
 
@@ -494,7 +497,14 @@ def _(d=1):
     def t_dec_mult():
         a = Decimal(pick([v for v in range(11, _by(d, 99, 999, 999) + 1) if v % 10])) / 10
         b = random.randint(2, _by(d, 5, 9, 9)) if d < 2 else Decimal(random.randint(2, 9)) / 10
-        return _tb("Work out %s × %s." % (_ds(a), _ds(b)), _ds(a * b), "num", {}, ["= %s." % _ds(a * b)])
+        whole_a, whole_b = int(a * 10), int(b * 10) if b < 1 else int(b)
+        places = 1 + (1 if b < 1 else 0)
+        return _tb("Work out %s × %s." % (_ds(a), _ds(b)), _ds(a * b), "num", {},
+                   ["Leave out the decimal points: %d × %d = %s." % (whole_a, whole_b, _c(whole_a * whole_b)),
+                    "There %s %d decimal place%s in the question, so put %d back: %s."
+                    % ("is" if places == 1 else "are", places, "" if places == 1 else "s", places,
+                       format(Decimal(whole_a * whole_b).scaleb(-places), "f")
+                       + ("" if format(Decimal(whole_a * whole_b).scaleb(-places), "f") == _ds(a * b) else " = " + _ds(a * b)))])
 
     def t_long_div():
         # easy: short division by a single digit; hard: 3-digit answers, divisors to 49
@@ -505,7 +515,9 @@ def _(d=1):
     def t_dec_div():
         q = Decimal(random.randint(_by(d, 11, 11, 101), _by(d, 99, 999, 9999))) / _by(d, 10, 100, 1000)
         k = random.randint(2, _by(d, 5, 9, 12))
-        return _tb("Work out %s ÷ %d." % (_ds(q * k), k), _ds(q), "num", {}, ["= %s." % _ds(q)])
+        return _tb("Work out %s ÷ %d." % (_ds(q * k), k), _ds(q), "num", {},
+                   ["Divide as if there were no decimal point, and keep the point in the same place in the answer.",
+                    "%s ÷ %d = %s; check: %s × %d = %s." % (_ds(q * k), k, _ds(q), _ds(q), k, _ds(q * k))])
 
     def t_dec_by_dec():
         q = random.randint(2, _by(d, 20, 90, 90))

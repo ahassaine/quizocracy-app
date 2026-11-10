@@ -272,5 +272,5 @@ def test_weekly_email_once_per_week_with_unsubscribe(page):
     page.goto("/settings")
     assert not page.get_by_test_id("weekly").is_checked()
     page.get_by_test_id("weekly").check()
-    page.wait_for_url("**/settings?saved=1*")
+    page.get_by_text("Saved", exact=True).first.wait_for()                 # saved without a reload
     assert DB.accounts.find_one({"email": email})["weekly_email"] is True

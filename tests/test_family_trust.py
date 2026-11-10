@@ -134,8 +134,8 @@ def test_change_role_keeps_the_login_and_a_carer_types_the_school_list(page, bro
     jo, jo_email = _join(page, browser, "parent", name="Jo")
     assert last_mail(owner, "joined")["subject"] == f"{jo_email} joined Test family on Quizocracy"
     jo.goto("/settings")
-    jo.uncheck("[data-testid=weekly]")                     # Jo had turned her weekly email off
-    jo.wait_for_url("**/settings?saved=1*")
+    jo.uncheck("[data-testid=weekly]")                     # Jo had turned her weekly email off (saved without a reload)
+    jo.get_by_text("Saved", exact=True).first.wait_for()
     page.goto("/settings")
     row = page.locator("[data-testid=adult]", has_text=jo_email)
     assert "invited by" in row.inner_text()
@@ -237,7 +237,7 @@ def test_question_reports_reach_the_family_with_the_outcome(page, browser):
     page.goto("/settings")
     assert not page.is_checked("[data-testid=report-emails]")
     page.check("[data-testid=report-emails]")
-    page.wait_for_url("**/settings?saved=1*")
+    page.get_by_text("Saved", exact=True).first.wait_for()
     slug = "".join(secrets.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(10))
     DB.team_members.insert_one({"_id": slug, "name": "Meriem", "initials": "Me", "role": "member", "telegram_chat_id": None,
                                 "active": True, "created": datetime.datetime.utcnow()})
@@ -285,7 +285,7 @@ def test_change_todays_plan_too_reopens_the_day_and_rest_days_agree(page):
     assert "You earned: Minecraft" in page.inner_text("[data-testid=reward]")
     unlock_parent(page)
     page.goto("/home")
-    assert page.inner_text("[data-testid='kid-Leo'] [data-testid=pct]") == "50%"
+    assert page.inner_text("[data-testid='kid-Leo'] [data-testid=pct]") == "16%"     # 1 of 6 planned answers
     # tomorrow is a day off: Home, the Board, the child page and My day all say so
     page.goto(f"/children/{pid}/edit")
     page.fill("[data-testid=off-from]", (TODAY + datetime.timedelta(days=1)).isoformat())

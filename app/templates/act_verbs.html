@@ -7,7 +7,7 @@
   <div class="field"><label for="pp">Past participle <span class="mut">(I have …)</span></label><input id="pp" type="text" autocomplete="off" autocapitalize="off" style="max-width:260px"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=2"></script><script src="/static/js/drill.js?v=20"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=23"></script><script>
 Drill({ activity: 'verbs',
   speech(q) { return ['to ' + q.base]; },
   render(q) { document.getElementById('q').textContent = 'to ' + q.base; document.getElementById('level').textContent = q.level_label;

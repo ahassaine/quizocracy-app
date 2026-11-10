@@ -73,7 +73,8 @@
         const y0 = top + bandH + 10, h = H - y0 - 10;
         const cw = (W - 20) / rings, R = Math.max(12, Math.min(cw / 2 - 6, h / 2));
         for (let i = 0; i < rings; i++) {
-          svg.appendChild(mk('circle', { cx: 10 + cw * (i + 0.5), cy: y0 + h / 2, r: R, fill: 'rgba(79,141,247,0.06)', stroke: BORDER, 'stroke-width': 2, 'stroke-dasharray': '5 4' }));
+          // solid, like the rings of a finished picture: a dashed "drop here" ring made children try to drag counters in
+          svg.appendChild(mk('circle', { cx: 10 + cw * (i + 0.5), cy: y0 + h / 2, r: R, fill: 'rgba(79,141,247,0.06)', stroke: BORDER, 'stroke-width': 2 }));
         }
       }
 
@@ -155,6 +156,9 @@
         });
         inputWrap.appendChild(input);
         wrap.appendChild(inputWrap);
+        // a picture to count, not to move: a tap on it goes to the answer box
+        svg.style.cursor = 'default';
+        svg.addEventListener('click', () => input.focus());
 
         host.__getValue = () => input.value.trim();
         host.__feedback = (res) => { input.style.borderColor = res && res.correct ? GOOD : BAD; };
@@ -177,7 +181,7 @@
         const val = document.createElement('span');
         val.style.cssText = 'min-width:30px;text-align:center;font-weight:700;font-size:1.15rem';
         [minus, plus].forEach(b => {
-          b.style.cssText = 'width:38px;height:38px;font-size:1.2rem;font-weight:700;background:#161b22;color:' +
+          b.style.cssText = 'width:48px;height:48px;font-size:1.5rem;font-weight:700;background:#161b22;color:' +
             INK + ';border:1px solid ' + BORDER + ';border-radius:8px;cursor:pointer;touch-action:manipulation';
         });
         const bump = (d) => { touched = true; set(get() + d); val.textContent = get(); paint(); readout(); };

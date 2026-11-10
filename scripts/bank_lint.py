@@ -52,10 +52,24 @@ def check_q(q, where, out):
             out.append(f"{where}: missing {f}")
     if not isinstance(q.get("id"), str) or not ID_RE.match(q["id"]):
         out.append(f"{where}: missing or malformed id (run scripts/bank_ids.py)")
-    extra = set(q) - {"id", "t", "q", "why", "opts", "s", "a", "tol", "unit"}
+    extra = set(q) - {"id", "t", "q", "why", "why2", "no", "opts", "s", "a", "tol", "unit"}
     if extra:
         out.append(f"{where}: unknown fields {sorted(extra)}")
-    text = " ".join(str(q.get(k, "")) for k in ("q", "s", "why")) + " " + " ".join(map(str, q.get("opts", [])))
+    if "why2" in q and (not isinstance(q["why2"], str) or len(q["why2"].strip()) < 3 or norm(q["why2"]) == norm(q.get("why", ""))):
+        out.append(f"{where}: why2 must be a different explanation")
+    if "no" in q:
+        no = q["no"]
+        wrong = {norm(x) for x in (q.get("opts") or [])[1:]}
+        if t != "mcq" or not isinstance(no, dict) or not no:
+            out.append(f"{where}: 'no' is a dict of wrong mcq options and why each is wrong")
+        else:
+            for o, line in no.items():
+                if norm(o) not in wrong:
+                    out.append(f"{where}: 'no' names {o!r}, which is not a wrong option")
+                if not isinstance(line, str) or len(line.strip()) < 3:
+                    out.append(f"{where}: 'no' line for {o!r} is empty")
+    text = " ".join(str(q.get(k, "")) for k in ("q", "s", "why", "why2")) + " " + " ".join(map(str, q.get("opts", [])))
+    text += " " + " ".join(map(str, (q.get("no") or {}).values())) if isinstance(q.get("no"), dict) else ""
     if BANNED.search(text):
         out.append(f"{where}: banned wording ({BANNED.search(text).group(0)})")
     if AMERICAN.search(text):
@@ -123,6 +137,8 @@ def check_module(name, seen_keys, seen_ids=None):
         for f in ("strand", "title", "nc"):
             if not isinstance(s.get(f), str) or not s[f].strip():
                 out.append(f"{k}: missing {f}")
+        if "after" in s and s["after"] not in {x.get("key") for x in skills if x is not s}:
+            out.append(f"{k}: 'after' names {s['after']!r}, not a skill of this file")
         qs = s.get("qs") or []
         nq += len(qs)
         if len(qs) < MIN_QS:

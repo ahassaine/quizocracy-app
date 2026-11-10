@@ -114,7 +114,8 @@ def test_progress_report_for_one_child(page):
     assert "Rania · progress report" in body and "Year 3" in body and "Last 30 days" in body
     assert page.inner_text("[data-testid=days-practised]") == "1"
     assert page.inner_text("[data-testid=answers]") == "6"
-    assert page.inner_text("[data-testid=first-pct]") == "83%"               # 5 of 6 first tries right
+    # the 3 tables and 1 spelling of the plan, all right first time: the 2 tables after the target are extra
+    assert page.inner_text("[data-testid=first-pct]") == "100%"
     assert "Times tables" in page.inner_text("[data-testid=report-acts]")
     assert "words from the Year 3 word list learned" in page.inner_text("[data-testid=report-spelling]")
     assert "still to put right" in page.inner_text("[data-testid=report-focus]")

@@ -33,7 +33,7 @@
     });
   }
   window.QZ = {
-    fillBars, countUp,
+    fillBars, countUp, flushPending, PKEY: 'qz_pending',
     confetti(n) {
       if (reduce) return;
       const box = document.createElement('div'); box.className = 'confetti';
@@ -51,6 +51,38 @@
       setTimeout(() => box.remove(), 3800);
     },
   };
+  /* An answer whose Check had no connection (drill.js keeps it in localStorage until the server has it) is sent on
+     the next page load (the offline page reloads itself once back online): "your answer is safe" holds after a
+     refresh or leaving the page. Only for the child it belongs to (the server refuses another child anyway), within
+     12 hours. A page that is still trying (drill.js) sends it itself. */
+  const PKEY = 'qz_pending';
+  let flushing = null;
+  function flushPending() {
+    if (flushing) return flushing;
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) {}
+    const pupil = document.body && document.body.dataset.pupil;
+    if (!p || !p.url || !p.body || !pupil || p.body.pupil !== pupil) return Promise.resolve(false);
+    const drop = () => { try { const q = JSON.parse(localStorage.getItem(PKEY) || 'null');
+      if (q && q.body && q.body.token === p.body.token) localStorage.removeItem(PKEY); } catch (e) {} };
+    if (Date.now() - (p.at || 0) > 12 * 3600 * 1000) { drop(); return Promise.resolve(false); }
+    flushing = fetch(p.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body),
+      credentials: 'same-origin' })
+      .then(r => { if (r.status === 401 || r.status >= 502) return false; drop(); return r.ok; })    // 409: marked already
+      .catch(() => false).finally(() => { flushing = null; });
+    return flushing;
+  }
+  if (document.body && document.body.dataset.pupil) {
+    flushPending();
+  }
+  // A child left signed in goes back to "Who's learning?" after 10 minutes without a tap or a key (deps.CHILD_IDLE),
+  // so a brother or sister picking up the tablet needs their own PIN. Nothing is lost: an unanswered question comes back.
+  if (document.body && document.body.dataset.pupil) {
+    let idleT = 0;
+    const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { location.href = '/learn'; }, 10 * 60 * 1000); };
+    ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, idle, { passive: true, capture: true }));
+    idle();
+  }
   document.addEventListener('DOMContentLoaded', () => { fillBars(); countUp(); });
   if (document.readyState !== 'loading') { fillBars(); countUp(); }
 })();

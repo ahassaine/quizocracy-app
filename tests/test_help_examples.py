@@ -30,12 +30,12 @@ def test_help_search_finds_what_parents_type(page):
 
 def test_help_says_where_a_carer_sees_pins_and_how_put_right_works(page):
     page.goto("/help")
-    pins = page.inner_text("#pins")
+    pins = page.text_content("#pins")                                # the details are folded under "More"
     assert "can't" not in pins.split("Showing:")[1].split("Locked:")[0], pins       # no more "a carer can't"
     assert "Children's PINs" in pins and "carer" in pins
-    back = page.inner_text("#comes-back")
+    back = page.text_content("#comes-back")
     assert "that same question" in back and "a question like this was right later" in back
-    assert "Test review" in page.inner_text("#sats") and "Make carer" in page.inner_text("#adults")
+    assert "Test review" in page.text_content("#sats") and "Make carer" in page.text_content("#adults")
 
 
 def test_landing_mentions_the_family_features(page):
@@ -134,7 +134,36 @@ def test_grammar_after_the_target_takes_the_strands_in_turn(browser):
         it = DB.items.find_one({"_id": q["token"]})
         r = s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": _right(it["answer"])}).json()
         assert r["correct"], r
-    assert len(set(strands[:3])) == 1, strands             # up to the target: the learning order (the first strand)
+    assert not any(len(set(strands[i:i + 4])) == 1 for i in range(len(strands) - 3)), strands  # never 4 in a row
     assert len(set(strands[3:])) >= 3, strands             # after it: the year's strands in turn
     kid.context.close()
     pg.context.close()
+
+
+def test_help_gives_a_short_answer_first_and_search_finds_the_new_answers(page):
+    page.goto("/help")
+    for s in page.locator(".help-q").all():                     # one short plain sentence first, the details folded
+        first = s.locator("h2 + *")
+        assert "help-short" in (first.get_attribute("class") or ""), s.get_attribute("id")
+        assert first.is_visible() and len(first.inner_text()) < 200, (s.get_attribute("id"), first.inner_text())
+        more = s.locator("details.help-more")
+        assert more.count() == 0 or more.get_attribute("open") is None, s.get_attribute("id")
+    assert page.inner_text("#cost .help-short") == ("It is free during the beta. Before any paid plan starts, we will "
+                                                     "email you, and you can keep or delete your account.")
+    for words, section in [("price", "cost"), ("pay", "cost"), ("streak", "streak"), ("modal", "modal"),
+                           ("wrong word", "wrong-word"), ("frend", "wrong-word"), ("SATs papers", "sats-papers"),
+                           ("weak", "needs-help"), ("progress", "needs-help")]:
+        shown = _search(page, words)
+        assert shown and shown[0] == section, (words, shown)     # the best answer comes first
+    # a word only in the details: the short answer stays, with the sentence the word is in
+    _search(page, "asdf")
+    hit = page.locator("#first-time [data-testid=help-hit]")
+    assert hit.is_visible() and "asdf" in hit.inner_text() and page.locator("#first-time .help-short").is_visible()
+    assert page.locator("#first-time details.help-more").get_attribute("open") is None
+    page.fill("[data-testid=help-search]", "")
+    ids = [s.get_attribute("id") for s in page.locator(".help-q").all()]
+    assert ids[:3] == ["day-plan", "needs-help", "mastered"]     # the page order is back
+    # a link to one answer opens its details
+    page.goto("/help#pins")
+    assert page.locator("#pins details.help-more").get_attribute("open") is not None
+    assert page.locator("#pins").get_by_text("Children's PINs").is_visible()

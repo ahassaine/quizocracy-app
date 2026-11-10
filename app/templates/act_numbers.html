@@ -6,7 +6,7 @@
   <textarea class="answer grow" id="answer" rows="1" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Your answer"></textarea>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=2"></script><script src="/static/js/drill.js?v=20"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=23"></script><script>
 // a long number in words wraps onto more lines instead of scrolling its start out of sight
 function fit() { const a = document.getElementById('answer'); a.style.height = 'auto'; a.style.height = a.scrollHeight + 'px'; }
 document.getElementById('answer').addEventListener('input', fit);

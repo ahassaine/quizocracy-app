@@ -625,9 +625,10 @@ def _(d=1):
         ns = [_distinct(max(d, 1)) for _ in range(3)]
         rows = [[_c(x), " + ".join(_expanded(x))] for x in ns]
         r = random.randint(0, 2)
-        return _dt("This table shows numbers in standard form and expanded form. "
+        # "standard form" means 3.2 × 10⁴ in England (KS3), so the column says "In figures"
+        return _dt("This table shows numbers in figures and in expanded form. "
                    "What number belongs in the empty cell?",
-                   ["Standard form", "Expanded form"], rows, ns[r],
+                   ["In figures", "Expanded form"], rows, ns[r],
                    ["%s = %s." % (" + ".join(_expanded(ns[r])), _c(ns[r]))],
                    missing=[r, 0])
 

@@ -79,7 +79,8 @@ def test_year8_gets_the_button_only_and_a_quiet_correct(browser):
     pg.click("#check")
     pg.wait_for_selector("#feedback.yes")
     assert pg.locator("#feedback.joy").count() == 0 and pg.locator("#feedback .tick.quiet").count() == 1
-    assert "Skill score" in pg.inner_text("#mastery")
+    # every year sees the skill and a small bar; scores and counts are on the parent's pages
+    assert "Skill score" not in pg.inner_text("#stage") and pg.is_visible("#mastery")
     pg.context.close()
 
 

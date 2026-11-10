@@ -23,7 +23,7 @@
       tip.style.cssText = 'min-height:1.3em;margin-top:8px;font-weight:700;color:#e3b341';
       const TIP = { o: '10 ones make a ten — use the tens.', t: '10 tens make a hundred — use the hundreds.' };
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap';
+      wrap.style.cssText = 'display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap';
       const total = document.createElement('div');
       total.style.cssText = 'font-size:1.6rem;font-weight:800;margin:10px 0';
 
@@ -38,38 +38,39 @@
           }
         });
       }
-      // the number the blocks make is written only after Check: reading the blocks is the skill
+      // the number the blocks make so far, as they are added (a fast tap that missed shows at once)
       function showTotal() {
         const v = count.h * 100 + count.t * 10 + count.o;
-        total.innerHTML = 'Your number: <span style="color:inherit">' + v + '</span>';
+        total.innerHTML = 'Your number: <span style="color:inherit" data-testid="blocks-total">' + v + '</span>';
       }
 
       cols.forEach(c => {
         const col = document.createElement('div');
-        col.style.cssText = 'text-align:center;min-width:96px';
+        // fixed sizes: the column never widens or grows as blocks go in, so "+" stays under the finger
+        col.style.cssText = 'text-align:center;width:96px';
         const lab = document.createElement('div'); lab.textContent = c.label; lab.style.cssText = 'color:#8b949e;font-size:.75rem;margin-bottom:4px';
         const stack = document.createElement('div'); stack.id = 'bt-' + c.key;
-        stack.style.cssText = 'min-height:120px;max-width:110px;background:#0b0f14;border:1px dashed #30363d;border-radius:8px;padding:4px;display:flex;flex-wrap:wrap;align-content:flex-end;justify-content:center';
+        stack.style.cssText = 'box-sizing:border-box;height:124px;width:96px;overflow:hidden;background:#0b0f14;border:1px dashed #30363d;border-radius:8px;padding:4px;display:flex;flex-wrap:wrap;align-content:flex-end;justify-content:center';
         const ctrl = document.createElement('div'); ctrl.style.cssText = 'margin-top:6px';
         const minus = document.createElement('button'); minus.textContent = '−'; minus.className = 'btn ghost'; minus.style.padding = '4px 10px';
         const plus = document.createElement('button'); plus.textContent = '+'; plus.className = 'btn primary'; plus.style.padding = '4px 10px'; plus.style.marginLeft = '6px';
         minus.type = 'button'; plus.type = 'button';
         minus.setAttribute('aria-label', 'Take away a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
         plus.setAttribute('aria-label', 'Add a ' + c.label.toLowerCase().replace(/s$/, '') + ' block');
-        minus.onclick = () => { touched = true; count[c.key] = Math.max(0, count[c.key] - 1); tip.textContent = ''; paint(); };
+        minus.onclick = () => { touched = true; count[c.key] = Math.max(0, count[c.key] - 1); tip.textContent = ''; paint(); showTotal(); };
         plus.onclick = () => {
           touched = true;
           const max = spec.max ?? 9, full = count[c.key] >= max;
           count[c.key] = Math.min(max, count[c.key] + 1);
           const up = cols.findIndex(x => x.key === c.key) > 0;          // a bigger column to swap ten of these for
           tip.textContent = full ? (up && TIP[c.key] ? TIP[c.key] : 'That is as many as this column holds.') : '';
-          paint();
+          paint(); showTotal();
         };
         ctrl.appendChild(minus); ctrl.appendChild(plus);
         col.appendChild(lab); col.appendChild(stack); col.appendChild(ctrl);
         wrap.appendChild(col);
       });
-      host.appendChild(wrap); host.appendChild(tip); host.appendChild(total); paint();
+      host.appendChild(wrap); host.appendChild(tip); host.appendChild(total); paint(); showTotal();
 
       host.__empty = 'Add some blocks first.';
       host.__getValue = () => touched ? count.h * 100 + count.t * 10 + count.o : null;

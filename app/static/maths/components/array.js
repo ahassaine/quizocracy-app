@@ -12,7 +12,9 @@
   window.MComp["array"] = {
     render(host, spec, api) {
       host.innerHTML = '';
-      const maxRows = spec.maxRows ?? 10, maxCols = spec.maxCols ?? 10;
+      // room for the array asked for either way round ("3 rows of 10" built as 10 rows of 3 must fit too)
+      const need = Math.max(spec.targetRows || 0, spec.targetCols || 0);
+      const maxRows = Math.min(12, Math.max(spec.maxRows ?? 10, need)), maxCols = Math.min(12, Math.max(spec.maxCols ?? 10, need));
       let rows = 0, cols = 0, touched = false;
 
       const wrap = document.createElement('div');
@@ -55,7 +57,7 @@
         const minus = document.createElement('button'); minus.textContent = '−';
         const val = document.createElement('span'); val.style.cssText = 'min-width:28px;text-align:center;font-weight:700;font-size:1.1rem';
         const plus = document.createElement('button'); plus.textContent = '+';
-        [minus, plus].forEach(b => b.style.cssText = 'width:34px;height:34px;font-size:1.2rem;font-weight:700;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:8px;cursor:pointer');
+        [minus, plus].forEach(b => b.style.cssText = 'width:48px;height:48px;font-size:1.5rem;touch-action:manipulation;font-weight:700;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:8px;cursor:pointer');
         minus.type = 'button'; plus.type = 'button';
         minus.setAttribute('aria-label', 'Fewer ' + label.toLowerCase()); plus.setAttribute('aria-label', 'More ' + label.toLowerCase());
         function refresh() { val.textContent = get(); }

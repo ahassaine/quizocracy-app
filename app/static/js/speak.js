@@ -25,9 +25,10 @@
     s = s.replace(/([A-Za-z]+)_{2,}/g, '$1, blank');                               // "i__" (a word to finish)
     s = s.replace(/_{2,}(\s+_{2,})*/g, ' blank ');                                 // "___"
     s = s.replace(/(\d)\s*\/\s*(\d+)(?!\d)/g, (m, n, d) => frac(+n, +d));          // 3/4 -> 3 quarters
-    s = s.replace(/(\d)\s*[x×]\s*(?=\d)/g, '$1 times ').replace(/×/g, ' times ').replace(/÷/g, ' divided by ');
-    s = s.replace(/(\d)\s+[−–-]\s+(?=\d)/g, '$1 minus ');                          // 9 − 4
+    s = s.replace(/(\d)\s*[x×]\s*(?=\d|blank\b)/g, '$1 times ').replace(/×/g, ' times ').replace(/÷/g, ' divided by ');
+    s = s.replace(/(\d|\bblank)\s+[−–-]\s+(?=\d|blank\b)/g, '$1 minus ');          // 9 − 4, 10 − ___, ___ − 4
     s = s.replace(/(^|[\s(=,:])[−-](?=\d)/g, '$1minus ');                          // −62
+    s = s.replace(/\s*−\s*/g, ' minus ');                                          // the minus sign is never a dash
     s = s.replace(/\s*≤\s*/g, ' is less than or equal to ').replace(/\s*≥\s*/g, ' is greater than or equal to ');
     s = s.replace(/\s*<\s*/g, ' is less than ').replace(/\s*>\s*/g, ' is greater than ');
     s = s.replace(/\s*\+\s*/g, ' plus ').replace(/\s*=\s*/g, ' equals ');

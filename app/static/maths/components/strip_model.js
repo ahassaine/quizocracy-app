@@ -212,6 +212,9 @@
       });
       wrap.appendChild(input);
       host.appendChild(wrap);
+      // the picture is not an answer box, but a young child taps the big "?": that goes to the box to type in
+      svg.style.cursor = 'pointer';
+      svg.addEventListener('click', () => { if (!input.disabled) input.focus(); });
 
       host.__getValue = () => input.value.trim();
       host.__feedback = (res) => {

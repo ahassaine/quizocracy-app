@@ -65,9 +65,13 @@ function BankDrill(activity) {
       } else if (q.kind === 'write' && SPACES.test(q.prompt)) {
         gaps = spacer(q.s);
       } else if (q.kind === 'write') {
+        // the sentence to change is already in the box: say so, or a child types the answer after it
+        const lab = document.createElement('label'); lab.htmlFor = 'answer'; lab.className = 'mut small';
+        lab.setAttribute('data-testid', 'write-tip'); lab.style.display = 'block'; lab.style.marginBottom = '6px';
+        lab.textContent = 'The sentence is in the box. Change it there, then press Check.';
         const t = document.createElement('textarea'); t.id = 'answer'; t.className = 'write'; t.rows = 2;
         t.value = q.s; t.setAttribute('spellcheck', 'false'); t.setAttribute('autocapitalize', 'off');
-        area.appendChild(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+        area.appendChild(lab); area.appendChild(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
       } else {
         const row = document.createElement('div'); row.className = 'row';
         const i = input(q.kind === 'num' ? { inputMode: 'decimal', className: 'answer' } : { className: 'answer wide' });
@@ -106,7 +110,8 @@ function BankDrill(activity) {
         : r.marks ? 'The answer is <b>' + marked(r.marks.word, true) + '</b>' + end
           + '<div class="small" data-testid="you-wrote" style="margin-top:4px">You wrote: ' + marked(r.marks.typed, false) + '</div>'
         : 'The answer is <b>' + esc(r.expected) + '</b>' + end;
-      return lead + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
+      return lead + (r.whynot ? '<div class="why" data-testid="why-not">' + esc(r.whynot) + '</div>' : '')
+        + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
     },
     after(r) {
       area.querySelectorAll('button').forEach(b => { b.disabled = true; });

@@ -330,8 +330,10 @@ def _(d=1):
         return _tb("___ + %d = 10" % a, 10 - a, "int", {}, ["%d and %d make 10." % (10 - a, a)])
 
     def t_frame():
-        return _tb("A ten frame has %s. How many empty spaces are there?" % _pn(a, "dot"), 10 - a, "int", {},
-                   ["A ten frame has 10 spaces: 10 − %d = %d." % (a, 10 - a)])
+        # the frame is drawn: 2 rows of 5 spaces, `a` of them with a dot (a 5-year-old can't picture it from words)
+        return _area("A ten frame has %s. How many empty spaces are there?" % _pn(a, "dot"),
+                     {"mode": "fraction_read", "parts": 10, "rows": 2, "cols": 5, "shaded": a, "dots": True,
+                      "placeholder": ""}, 10 - a, ["A ten frame has 10 spaces: 10 − %d = %d." % (a, 10 - a)])
 
     def t_bar():
         return _strip("The whole is 10. One part is %d. What is the other part?" % a,
@@ -438,7 +440,7 @@ def _(d=1):
                    ["%d + ___ = %d, so %d." % (a, tot, tot - a)])
 
     def t_line():
-        return _nl("Start at %d. Jump on %d. Where do you land?" % (a, tot - a), tot, 1, 5, ["%d + %d = %d." % (a, tot - a, tot)],
+        return _nl(_jump(a, tot - a), tot, 1, 5, ["%d + %d = %d." % (a, tot - a, tot)],
                    lo=0, hi=20)
 
     def t_true():
@@ -477,12 +479,12 @@ def _(d=1):
         return _tb("%d − %d = ___" % (x, b), a, "int", {}, ["Count back %d from %d." % (b, x)])
 
     def t_line_add():
-        return _nl("Start at %d and jump on %d. Where do you land?" % (a, b), a + b, 1, 5, ["%d + %d = %d." % (a, b, a + b)],
+        return _nl(_jump(a, b), a + b, 1, 5, ["%d + %d = %d." % (a, b, a + b)],
                    lo=0, hi=20)
 
     def t_line_sub():
         x = a + b
-        return _nl("Start at %d and jump back %d. Where do you land?" % (x, b), a, 1, 5, ["%d − %d = %d." % (x, b, a)],
+        return _nl(_jump(x, b, back=True), a, 1, 5, ["%d − %d = %d." % (x, b, a)],
                    lo=0, hi=20)
 
     def t_zero():
@@ -822,8 +824,9 @@ def _(d=1):
     def t_is_half():
         parts = pick(_by(d, [4], [4, 6, 8], [6, 8, 10]))
         sh = pick([parts // 2, parts // 2, parts // 2 - 1, parts // 2 + 1])
-        return _wq("%d of the %d equal parts %s shaded. Is half shaded? (yes or no)" % (sh, parts, "is" if sh == 1 else "are"), "yes" if 2 * sh == parts else "no",
-                   ["Half of %d is %d." % (parts, parts // 2)], "yes / no")
+        return _area("%d of the %d equal parts %s shaded. Is half shaded? (yes or no)" % (sh, parts, "is" if sh == 1 else "are"),
+                     {"mode": "fraction_read", "parts": parts, "rows": 1, "cols": parts, "shaded": sh, "placeholder": "yes / no"},
+                     "yes" if 2 * sh == parts else "no", ["Half of %d is %d." % (parts, parts // 2)], atype="str")
 
     def t_length():
         n = 2 * random.randint(_by(d, 1, 2, 5), _by(d, 5, 10, 10))
@@ -896,9 +899,10 @@ def _(d=1):
     def t_is_quarter():
         parts = 4
         sh = random.randint(1, 3)
-        return _wq("A square is cut into 4 equal parts. %d %s shaded. Is that one quarter? (yes or no)"
-                   % (sh, "part is" if sh == 1 else "parts are"), "yes" if sh == 1 else "no",
-                   ["One quarter is 1 of %d equal parts." % parts], "yes / no")
+        return _area("A square is cut into 4 equal parts. %d %s shaded. Is that one quarter? (yes or no)"
+                     % (sh, "part is" if sh == 1 else "parts are"),
+                     {"mode": "fraction_read", "parts": 4, "rows": 2, "cols": 2, "shaded": sh, "placeholder": "yes / no"},
+                     "yes" if sh == 1 else "no", ["One quarter is 1 of %d equal parts." % parts], atype="str")
 
     def t_length():
         n = 4 * random.randint(_by(d, 1, 1, 2), _by(d, 3, 5, 5))

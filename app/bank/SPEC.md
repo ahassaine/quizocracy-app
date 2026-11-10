@@ -22,7 +22,11 @@ SKILLS = [
 ]
 ```
 
-* Order within a year matters: the child meets skills in key order, so put foundations first.
+* Order within a year matters: the child meets skills in key order, so put foundations first. A skill added
+  later can take its place in the order with `"after": "GP6.01"` (it is taught straight after that skill), so
+  published keys never need renumbering.
+* The child works up to three skills side by side, at most two from one strand, and never more than three
+  questions in a row from one strand unless a grown-up chose it as the "working on this at school" focus.
 * Each skill has **at least 20 questions** (aim for 22–25) and **at least 3 question types**: this is a
   production bank that a child works through for a whole school year, not a sample.
 * Keys are unique across the whole bank. Do not renumber published keys later (progress is stored by key).
@@ -50,6 +54,14 @@ teaches the point; the child sees it after a wrong answer, under the right answe
 | `text` | types a short answer (1–4 words) | `a`: list of accepted answers. Marking ignores capitals, spaces and a final . ? or ! |
 | `write` | rewrites a sentence | `s`: the sentence to fix; `a`: list of exactly-correct versions. Marking is exact (capitals and punctuation count); only spaces and curly/straight quotes are normalised |
 | `num` | types a number | `a`: the number; optional `tol` (allowed error, default 0) and `unit` (shown next to the box, e.g. `"m/s"`) |
+
+Two optional fields teach after a wrong answer:
+
+* `"no"` (mcq only): `{"wrong option": "why it is wrong"}` for options built on a common misconception. The
+  child who picks that option reads why it is wrong first ("'and' joins two main clauses, so neither one is
+  subordinate."), then the `why`. Use the option's exact text.
+* `"why2"`: a different explanation (another example, another angle), shown instead of `why` when the child
+  misses the question again.
 
 Rules for each type:
 

@@ -223,6 +223,16 @@ async def mtc_finish(pupil: dict, token: str, answers: list, counts: bool) -> di
     it = await items.claim(pupil, "mtc", token)
     if not it:
         return None
+    if not any(isinstance(a, dict) and str(a.get("value") or "").strip() for a in answers):
+        # not one answer typed (walked away, or a sibling took the tablet): "started, not finished". No score, no
+        # mistakes and nothing in the times-tables record; the parent sees it as that (mtc_open, last few).
+        row = {"at": it["created"], "day": progress.today()}
+        await db.pupils.update_one({"_id": pupil["_id"]}, {"$push": {"mtc_open": {"$each": [row], "$slice": -MTC_KEEP}}})
+        pupil["mtc_open"] = ((pupil.get("mtc_open") or []) + [row])[-MTC_KEEP:]
+        return {"unfinished": True, "score": 0, "of": len(it["meta"]["facts"]), "missed": [], "counted": False,
+                "last": [r["score"] for r in (pupil.get("mtc") or [])[-3:]], "new_best": False,
+                "best": max((r["score"] for r in pupil.get("mtc") or []), default=None),
+                "checks": len(pupil.get("mtc") or [])}
     m, score, missed = it["meta"], 0, []
     shown = await items.just_shown(pupil, "tables")     # answers seen in practice a moment ago: no streak, as in check()
     for i, (answer, fact, prompt) in enumerate(zip(it["answer"], m["facts"], m["prompts"])):

@@ -24,7 +24,7 @@
     </div>
   </div>
   <div id="done" hidden data-testid="mtc-done">
-    <div class="display" id="newBest" hidden data-testid="mtc-new-best" style="font-size:1.5rem;font-weight:800;color:var(--good)">★ New best!</div>
+    <div class="display" id="newBest" hidden data-testid="mtc-new-best" style="font-size:1.8rem;font-weight:800;color:var(--good)">★ New best!</div>
     <div class="mut">You scored</div>
     <div class="pct" style="font-size:2.6rem" data-testid="mtc-score"><span id="score"></span> <span class="mut" style="font-size:1.4rem">out of <span id="of">25</span></span></div>
     <div id="missedBox"></div>
@@ -108,6 +108,8 @@
     const r = await post('/api/mtc/finish', { token, answers });
     $('run').hidden = true;
     if (!r.ok) { $('intro').hidden = false; $('msg').textContent = r.error === 'switched' ? 'Someone else is signed in now.' : 'That check could not be marked. Try again.'; return; }
+    /* not one answer typed: nothing counts, no score and no mistakes (the parent sees "started, not finished") */
+    if (r.unfinished) { $('intro').hidden = false; $('msg').textContent = 'No answers were typed, so this check does not count. Press Start when you are ready.'; return; }
     $('score').textContent = r.score; $('of').textContent = r.of;
     const box = $('missedBox');
     if (r.missed.length) {
@@ -118,7 +120,8 @@
     $('counted').textContent = (r.missed.length ? 'These come up more often in your times tables practice now. ' : '')
       + (r.counted ? 'Your ' + r.score + ' right ' + (r.score === 1 ? 'answer counts' : 'answers count') + ' towards today’s times tables.' : '');
     $('lastScores').textContent = 'Year 4 check practice: ' + r.last.join(', ') + ' /25'
-      + (r.best != null ? ' · your best ' + (r.new_best ? 'was ' : 'is ') + r.best + '/25' : '');
+      + (r.best != null ? (r.new_best ? ' · your new best: ' + r.score + '/25 (before: ' + r.best + ')' : ' · your best is ' + r.best + '/25') : '');
+    $('newBest').textContent = '★ New best! ' + r.score + ' beats your old best of ' + r.best + '.';
     $('newBest').hidden = !r.new_best;
     if (r.new_best && window.QZ) QZ.confetti(160);
     if ($('fixBtn')) $('fixBtn').style.display = r.counted && r.missed.length ? '' : 'none';
