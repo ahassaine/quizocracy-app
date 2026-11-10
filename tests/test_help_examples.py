@@ -162,7 +162,7 @@ def test_help_gives_a_short_answer_first_and_search_finds_the_new_answers(page):
     assert page.locator("#first-time details.help-more").get_attribute("open") is None
     page.fill("[data-testid=help-search]", "")
     ids = [s.get_attribute("id") for s in page.locator(".help-q").all()]
-    assert ids[:4] == ["day-plan", "needs-help", "easy", "mastered"]     # the page order is back
+    assert ids[:5] == ["day-plan", "needs-help", "easy", "hard", "mastered"]     # the page order is back
     # a link to one answer opens its details
     page.goto("/help#pins")
     assert page.locator("#pins details.help-more").get_attribute("open") is not None

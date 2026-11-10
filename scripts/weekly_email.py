@@ -72,7 +72,8 @@ async def child_summary(p: dict, fam: dict, days: list, today: str, start_utc, e
     first = progress.first_day(p)
     counted = [d for d in days if d >= first and d <= today]
     c = (await progress.counts([pid], days)).get(pid, {})
-    st = (await progress.day_stats([pid], days)).get(pid, {})
+    # right first time by the same rule as Home, Progress and the report: the answers up to each day's target
+    st = (await progress.day_stats([pid], days, progress.plan_targets([p], fam, days))).get(pid, {})
     done = sum(1 for d in counted if progress.day_status(p, fam, c.get(d, {}), d)["pct"] >= 100)
     tot = {k: sum(int(s.get(k) or 0) for s in st.values())
            for k in ("answers", "first", "first_right", "minutes", "rushed", "copied")}

@@ -62,7 +62,9 @@ def test_day_percent_weighs_planned_answers_and_shows_unplanned_work():
 
 
 def test_guesses_are_structure_only():
-    assert progress._guessed("idk", "56") and progress._guessed("I don't know", "because")
+    assert progress._guessed("???", "56") and progress._guessed("whatever", "because")
+    # "I don't know" is honest, not a guess (wave 6): counted apart, said neutrally
+    assert not progress._guessed("idk", "56") and progress._said_idk("I don’t know.") and progress._said_idk("idk")
     assert progress._guessed("thick, layer, fat", "fat")                 # every word tapped
     assert progress._guessed("250 255 261 238 364", "250, 364")         # every number in the list typed
     assert not progress._guessed("I do not know. dont", "I don't know.")
@@ -114,7 +116,7 @@ def test_glance_extras_guesses_and_cards_after_one_day(page):
         assert _answer(s, "tables")[3]["correct"]
     for _ in range(2):                                         # after the target: extra effort
         assert not _answer(s, "tables", right=False)[3]["correct"]
-    _, _, _, r = _answer(s, "spelling", value="idk")           # a believable non-answer
+    _, _, _, r = _answer(s, "spelling", value="???")           # a believable non-answer
     assert not r["correct"]
     unlock_parent(page)
     page.goto("/home")
@@ -207,7 +209,7 @@ def test_email_ticks_save_without_losing_a_typed_reward(page):
     page.fill("#reward_text", "30 minutes on the Switch")
     was = page.is_checked("[data-testid=weekly]")
     page.click("[data-testid=weekly]")                               # on by default: this turns it off
-    page.get_by_text("Saved", exact=True).first.wait_for()
+    page.get_by_text("Weekly summary: off", exact=True).first.wait_for()
     assert DB.accounts.find_one({"email": page.inner_text("[data-testid=login-card] p").split()[0]})["weekly_email"] is (not was)
     assert page.url.endswith("/settings")                            # no reload
     assert page.input_value("#reward_text") == "30 minutes on the Switch"

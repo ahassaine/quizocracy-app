@@ -20,7 +20,7 @@
 <p class="mut small" id="helpNone" hidden data-testid="help-none">Nothing matches. Try another word, or write to us.</p>
 <nav class="card" aria-label="Questions" id="helpToc"><ol class="help-toc small">
   {% for id, q in [("day-plan", "What is a day's plan and how long does it take?"), ("needs-help", "Progress: which child needs help, and with what?"), ("easy", "My child finds it easy"),
-     ("mastered", "How does something get learned (mastered)?"),
+     ("hard", "My child finds it hard"), ("mastered", "How does something get learned (mastered)?"),
      ("comes-back", "Why does a missed question come back later?"), ("first-time", "What do “right first time”, “rushed” and “copied” mean?"),
      ("pins", "PINs: setting, showing, a locked child and unlocking"), ("changes", "Changing targets: “Changes start tomorrow”"),
      ("school-list", "The school's spelling list"), ("wrong-word", "A wrong word in my school spelling list"),
@@ -28,7 +28,7 @@
      ("days-off", "Days off, rest days, sick days and holidays"), ("reading", "Reading settings and dyslexia"),
      ("rewards", "Rewards"), ("streak", "Streaks: “3 days in a row”"), ("handover", "Handing the device to a child, and parent mode"), ("siblings", "Siblings on one device"),
      ("own-phone", "A child using their own phone or tablet"), ("adults", "A second parent or a carer"),
-     ("read-aloud", "Read-aloud"), ("curriculum", "Which curriculum does it follow?"), ("sats", "SATs and other tests (KS1, KS2)"),
+     ("read-aloud", "Read-aloud"), ("key-words", "Key words: what does this word mean?"), ("curriculum", "Which curriculum does it follow?"), ("sats", "SATs and other tests (KS1, KS2)"),
      ("sats-papers", "SATs papers on the progress page (Year 6)"), ("modal", "Modal verbs and other Year 6 grammar"),
      ("question-reports", "“Something wrong with this question?”"), ("report", "A progress report for a teacher"),
      ("weekly", "The weekly email"), ("install", "Putting Quizocracy on your home screen"), ("beta", "What does the beta include?"),
@@ -62,14 +62,29 @@
 </section>
 
 <section class="card help-q" id="easy" data-keys="easy too easy bored boring able gifted ahead stretch challenge harder top set bright next year working at level"><h2>My child finds it easy<a class="anchor" href="#easy" aria-label="Link to this answer">#</a></h2>
-  <p class="help-short" data-testid="help-short">Set “Working at” to the next year in the child's Settings. The school year stays, and progress so far is kept.</p>
+  <p class="help-short" data-testid="help-short">In the child's Settings, set that subject's “Working at” to the next year. The other subjects and the school year stay as they are.</p>
   <details class="help-more"><summary>More</summary>
   <ul>
     <li>Maths already moves up quickly within the year when the first answers are right, so give it a few days first.</li>
-    <li>When your child gets most answers right first time (85% or more, over 40 first tries in a week), the progress page suggests working a year ahead.</li>
-    <li>In <b>Settings</b> for the child, choose <b>Working at: Year 9 level</b> (for example). The questions then come from that year. Every page and the printed report say “Year 8, working at Year 9 level”, so a teacher sees both.</li>
+    <li>When your child gets most answers right first time in maths, grammar or science (85% or more, over 30 first tries in a week), the progress page suggests that subject a year up.</li>
+    <li>In <b>Settings</b> for the child, under <b>Working at, subject by subject</b>, choose for example <b>Maths: Year 9 level</b>. Maths questions then come from Year 9; grammar and science stay at the school year unless you change them too. Spelling, times tables and the Year 4 check always follow the school year.</li>
+    <li>Pages and the printed report show a level only where it differs: “Year 8 · Maths: Year 9 level”. You can leave the levels off the printed report (a tick under “Working at”).</li>
     <li>Nothing is lost: the work of the year before shows as “review” on the progress page, and you can set it back at any time.</li>
     <li>A school topic set for the old year moves to the same topic of the new year, if there is one. If not, we tell you, so you can pick a new one.</li>
+  </ul>
+  </details>
+</section>
+
+<section class="card help-q" id="hard" data-keys="hard too hard difficult struggling struggle behind lower easier dyscalculia sen send anxious anxiety upset cries crying low score needs help working at level target smaller shorter"><h2>My child finds it hard<a class="anchor" href="#hard" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-short">Lower just that subject's “Working at” in the child's Settings, or make its daily target smaller. Progress so far is kept.</p>
+  <details class="help-more"><summary>More</summary>
+  <ul>
+    <li><b>One subject only:</b> in the child's <b>Settings</b>, under <b>Working at, subject by subject</b>, choose for example <b>Maths: Year 6 level</b> for a Year 8 child. Only maths questions change; grammar and science stay at Year 8. This suits a child who is uneven: dyscalculia, a child new to English, a strong reader who finds numbers hard.</li>
+    <li><b>A smaller target:</b> in the daily plan, lower the target of the activity that is hard (Maths 10 → 5). The day gets shorter, and the day's % and the reward follow the new target.</li>
+    <li>When an activity “needs help” and is under 60% right first time, the progress page suggests one of these, with a link.</li>
+    <li>Pages show the level only where it differs (“Maths: Year 6 level”). If you'd rather a teacher didn't see it, untick <b>Show these levels on the printed report</b>.</li>
+    <li>Extra practice after the target never makes a subject “needs help”, and good extra practice shows next to it (“plus 25 extra, 80% right”).</li>
+    <li>You can move it back up at any time; nothing is lost.</li>
   </ul>
   </details>
 </section>
@@ -96,9 +111,10 @@
   <ul>
     <li>After a wrong answer, the child sees the right one. It comes back after at least 5 other questions and 3 minutes. Grammar and science questions also come back once more on another day.</li>
     <li><b>“Nearly”:</b> in grammar and science, the right word typed with a one-letter slip (“was cookng” for “was cooking”), or a rewritten sentence missing only its full stop or capital letter, gets one “Nearly” and a second try. This works for answers of one word or a few words. Where the spelling is the point of the question (adding “-ed” or “-ing”, for example), only a slip in the middle of the word gets a “Nearly”.</li>
-    <li><b>Spelling:</b> if your child types a real word, spelt right, that is not the word asked (“would” for “could”), we say so and play the word again. It is not a spelling mistake. After 3 misses in a row, an easier word comes next, with “Let's try an easier one.”</li>
+    <li><b>Spelling:</b> if your child types a clearly different real word, spelt right (“supervise” for “accompany”), we say so, play the word again and give one more go. It is not a spelling mistake and does not count in the %, but the word stays to learn and you see it on the progress page (“wrote supervise for accompany”). Informal spellings (“thru”), American spellings (“color”) and words that sound like the one asked are marked wrong as usual. After 3 misses in a row, an easier word comes next, with “Let's try an easier one.”</li>
+    <li><b>A hard day stays short:</b> in Years 1 to 4 each activity, and spelling in every year, also ends after twice its target in answers, right or wrong.</li>
     <li><b>Year 1 spelling</b> starts with words a child can sound out (cat, frog, ship). Tricky words such as “said” and “the” come in a few at a time.</li>
-    <li><b>Practise my mistakes:</b> a button on the child's own page. It asks the missed questions again (in maths, a question like each one).</li>
+    <li><b>Practise my mistakes:</b> a button on the child's own page. It asks the missed questions again (in maths, a question like each one), in short rounds of up to 10, taking the subjects in turn. Moving to the next subject shows a “Next: Spelling →” card that waits for a press. More rounds can follow another time.</li>
     <li><b>Mistakes to go over:</b> on the child's progress page, the mistakes of the last 7 days.</li>
     <li><b>Put right since:</b> a mistake moves here only when the child later gets <b>that same question</b> right: the same word, times-table fact, verb, or grammar or science question. Maths questions are new each time, so in maths a mistake moves when a question like it (the same kind, with new numbers) is right later. The page then says “a question like this was right later”.</li>
     <li><b>Later, not straight away:</b> grammar, science and spelling ask the same question again, word for word. Right again in the same sitting is practice. It counts as put right only when it is right again an hour or more after the mistake (a later sitting or another day). Until then the parent page says “right again soon after”, and the question comes back later.</li>
@@ -114,7 +130,8 @@
     <li><b>Right first time:</b> out of all first tries, how many were right. A question asked again after a mistake is not a first try.</li>
     <li><b>Rushed:</b> a wrong answer given in under 1.5 seconds, left empty, or typed as random keys (like “asdf”). A few are normal. Many can mean the child is racing to finish. Press the “rushed” line on Home or the progress page to see which answers. Time running out in the timed Year 4 check is never “rushed”.</li>
     <li><b>Copied?:</b> a right answer typed within a minute of being shown it after a mistake. It counts for the day's target, but we mark it so you can see what was remembered and what was copied.</li>
-    <li><b>Guess?:</b> a wrong answer like “idk” or “don't know”, or every option ticked at once.</li>
+    <li><b>Guess?:</b> a wrong answer like “???” or “whatever”, or every option ticked at once.</li>
+    <li><b>“I don't know”:</b> maths, grammar and science have an “I don't know” button beside Check. It shows the answer and why. It counts as a miss to put right later, but never as rushed or a guess: the parent page just says “said I don't know”. Typing “idk” counts the same way. For an anxious child it is a good, honest way out.</li>
     <li><b>Time:</b> when a day is done much faster than planned, the parent page says so, for example “49 answers in 7 min; the plan expects about 17 min”.</li>
     <li>Extra answers after the targets are met are not part of “right first time” for the day; they show on their own line.</li>
   </ul>
@@ -122,13 +139,13 @@
 </section>
 
 <section class="card help-q" id="pins" data-keys="pin code password locked lock unlock forgot forgotten"><h2>PINs: setting, showing, a locked child and unlocking<a class="anchor" href="#pins" aria-label="Link to this answer">#</a></h2>
-  <p class="help-short" data-testid="help-short">Each child has a 4-number PIN. A parent can see or change it in the child's Settings.</p>
+  <p class="help-short" data-testid="help-short">Each child has a 4-number PIN. Every grown-up of the family, parent or carer, can see it in their own <a href="/settings#pins">Settings</a>.</p>
   <details class="help-more"><summary>More</summary>
   <ul>
     <li><b>Setting:</b> you choose a 4-number PIN when you add a child. To change it, a parent opens the child's <b>Settings</b> and types a new PIN. The new one works at once and the old one stops.</li>
-    <li><b>Showing:</b> forgotten it? A parent presses <b>Show the PIN</b> in the child's Settings. A carer with their own login can see the PINs too: in <a href="/settings">Settings</a> (the carer's own Settings page), under <b>Children's PINs</b>, press <b>Show</b> next to the child.</li>
-    <li><b>Locked:</b> after 6 wrong PINs in 5 minutes, that child's tile locks for 5 minutes, so a brother or sister can't keep guessing. The tile says until when.</li>
-    <li><b>Unlocking:</b> wait, or press <b>Unlock</b> next to the child on Home. Or, on “Who's learning?”, open <b>Grown-up? Unlock … now</b> under the child's name and type your password (any grown-up in the family can use their own). Changing the PIN also ends the lock.</li>
+    <li><b>Showing:</b> forgotten it? Parents and carers alike: open <a href="/settings#pins">Settings</a> (your own Settings page) and press <b>Show</b> next to the child under <b>Children's PINs</b>. A parent also sees it in the child's Settings.</li>
+    <li><b>Locked:</b> after 6 wrong PINs in 5 minutes, that child's tile locks for 5 minutes, so a brother or sister can't keep guessing. The tile says how many minutes are left.</li>
+    <li><b>Unlocking:</b> wait, or press <b>Unlock</b> next to the child on Home (with <b>Show the PIN</b> beside it). Or, on “Who's learning?”, open <b>Grown-up? Unlock … now</b> under the child's name and type your password (any grown-up in the family can use their own): <b>Grown-up: show …'s PIN</b> then appears on the tile for a few minutes, so you can tell the child. Changing the PIN also ends the lock.</li>
   </ul>
   </details>
 </section>
@@ -153,7 +170,9 @@
     <li>Open the child's <b>Settings</b> and find <b>This week's spelling list from school</b> (Home has a link to it under each child). Type or paste the words, then press <b>Save</b>. Commas, spaces or one word a line all work. A numbered list copied from a school letter is fine.</li>
     <li>For the next 7 days the child practises those words first, then goes back to their year's words.</li>
     <li>Saving a new list starts a new week. Emptying the box stops it.</li>
-    <li>Words from earlier lists that are still tricky keep coming back until they are learned. The progress page shows how each word is going, and <b>✕</b> next to a still-tricky word takes it out.</li>
+    <li>The progress page shows each word in one of four states: <b>learned ✓✓✓</b> (right on 3 different days), <b>on its way</b> ✓ or ✓✓ (the days right so far), <b>tricky ✗</b> (asked, not right on a later day yet) or <b>not asked yet</b>. The printed report has the same list, word by word, with the list's dates.</li>
+    <li>Words from earlier lists keep coming back until they are learned, and stay on the progress page until then. <b>✕</b> next to one takes it out.</li>
+    <li>Informal spellings such as “thru”, “nite” or “enuf” are marked wrong, like any misspelling.</li>
     <li>When you save, we check each word and ask about any we don't know: see <a href="#wrong-word">A wrong word in my school spelling list</a>.</li>
     <li><b>Words that sound alike</b> (there, their and they're; where and wear; went and want): add a short sentence after a dash, so the child knows which one you mean. For example <code>their - it is their dog</code>. We hide the word in the sentence (“it is ___ dog”) and show it with the question. Put each word with a sentence on its own line, or between commas: <code>their - it is their dog, should, could</code>. If a word sounds like another and has no sentence, the form asks you about it.</li>
   </ul>
@@ -208,10 +227,28 @@
     <li><b>Bigger text</b></li>
     <li><b>Easy-to-read letters</b>, a font that is good for dyslexia</li>
     <li><b>More space</b> between letters and lines</li>
-    <li><b>Less movement</b> (no stars or bouncing) and <b>stronger colours</b></li>
+    <li><b>Stronger colours</b></li>
   </ul>
+  <p>For no confetti and nothing moving, see <a href="#calm">Calm screen</a>.</p>
   <p>These settings belong to the child, so they follow them to every phone, tablet and computer. A brother or sister on the same tablet keeps their own. The child can change them too, with the <b>Aa</b> button at the top of their page and of every question. With no child signed in, the <b>Aa</b> button changes that device only.</p>
   <p>Every question can also be read out: see <a href="#read-aloud">Read-aloud</a>.</p>
+  </details>
+</section>
+
+<section class="card help-q" id="calm" data-keys="calm calm screen autism autistic asd sensory sensitive adhd animation animations confetti motion movement moving reduce motion less movement stars bouncing celebrations predictable same routine overwhelmed quiet praise auto advance moves on by itself"><h2>Calm screen: no confetti, nothing moving by itself<a class="anchor" href="#calm" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-short">In the child's Settings (or when you add a child), tick <b>Calm screen</b>. Only a grown-up can turn it off.</p>
+  <details class="help-more"><summary>More</summary>
+  <ul>
+    <li>No confetti, and nothing spins, bounces or pulses.</li>
+    <li>The same plain “Correct.” after every right answer, instead of “Super!” or “Brilliant!”.</li>
+    <li>A quieter line at the top of each question.</li>
+    <li>Nothing moves on until your child presses a button. Without a calm screen, times tables go to the next sum by themselves after a right answer for quick practice (never in Years 1 and 2, never while a button is on screen, and never in “Practise my mistakes”).</li>
+    <li>“Practise my mistakes” never changes to another activity by itself: a “Next: Spelling →” card waits for a press.</li>
+    <li>It belongs to the child, on every device. The <b>Aa</b> button shows it as “set by a grown-up”, so your child can't untick it.</li>
+    <li>A phone, tablet or computer set to reduce motion (in its accessibility settings) gets a calm screen by itself.</li>
+    <li>When a child in the family has a calm screen, the family <b>Board</b> is calm too.</li>
+  </ul>
+  <p>To choose how much is read out, or to read more slowly, see <a href="#read-aloud">Read-aloud</a>. Dark mode (the moon button) also makes the screen calmer.</p>
   </details>
 </section>
 
@@ -256,7 +293,8 @@
     <li><b>Switch</b> signs one child out. The next child types their own PIN.</li>
     <li>Each child needs a different PIN. The app won't save a PIN another child in the family already uses. So nobody can practise on a sibling's account without the sibling's PIN.</li>
     <li>When the day is done, “My day” says “Done? Tap Switch so nobody else uses your account.” A child who forgets is signed out after 10 minutes without use.</li>
-    <li>The <b>Board</b> shows everyone's day side by side.</li>
+    <li>The <b>Board</b> shows everyone's day side by side. It is the family's screen: opening it signs the child out, like Switch.</li>
+    <li>The “Who's learning?” tiles show how far each child's day is (“Ben 42%”). My day carries on with a half-done activity (“Carry on: Times tables”), and an unanswered question is waiting.</li>
   </ul>
   </details>
 </section>
@@ -290,17 +328,29 @@
   </details>
 </section>
 
-<section class="card help-q" id="read-aloud" data-keys="reading voice speak speaker listen sound audio"><h2>Read-aloud<a class="anchor" href="#read-aloud" aria-label="Link to this answer">#</a></h2>
-  <p class="help-short" data-testid="help-short">Press the speaker button to hear any question. In Years 1 and 2, questions are read out by themselves.</p>
+<section class="card help-q" id="read-aloud" data-keys="reading voice speak speaker listen sound audio mute quiet turn off off silence talking spoken feedback slower slow speed volume"><h2>Read-aloud<a class="anchor" href="#read-aloud" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-short">Press the speaker button to hear any question. In Years 1 and 2, questions are read out by themselves. In the child's Settings you can choose on, questions only, or off, and a slower voice.</p>
   <details class="help-more"><summary>More</summary>
   <ul>
     <li>The device's own voice reads the question (a British English voice where the device has one).</li>
     <li>Children in Years 1 and 2 hear each question as it appears, and hear the feedback.</li>
+    <li><b>Read-aloud</b>, in the child's Settings under “Calm screen and read-aloud”: <b>On</b> (questions and feedback), <b>Questions only</b> (no spoken “Correct” or “Not quite”), or <b>Off</b> (nothing is read out, and there is no speaker button). <b>Speed</b>: normal or slower. Volume is the device's own.</li>
     <li>On iPhone and iPad the device only speaks after a first tap, so the button says “Tap to hear” until then.</li>
     <li>Spelling always plays the word to spell.</li>
     <li>If a device has no voice, there is no speaker button, and everything else works as normal.</li>
   </ul>
   <p>For bigger text or an easier font, see <a href="#reading">Reading settings</a>.</p>
+  </details>
+</section>
+
+<section class="card help-q" id="key-words" data-keys="glossary key words keywords word meaning meanings definition define vocabulary terms language english second language eal new to english translate translation french understand"><h2>Key words: what does this word mean?<a class="anchor" href="#key-words" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-short">In grammar and science, a key word with a dotted underline (filtrate, determiner…) shows its meaning when your child taps it.</p>
+  <details class="help-more"><summary>More</summary>
+  <ul>
+    <li>From Year 3, the key words of a question and its explanation have a dotted underline. A tap shows one plain line, for example “filtrate: the liquid that has passed through filter paper”. A word that would give the answer away is not underlined until the question is answered.</li>
+    <li>On the child's progress page, <b>How to help → Grammar</b> or <b>Science</b> has “Learn the key words”: the list for your child's year, topic by topic. Each topic's <b>See example questions</b> page lists its key words too.</li>
+    <li>For a child new to English, going through a topic's words together before the questions helps most. There is no translation: the meanings are in plain English.</li>
+  </ul>
   </details>
 </section>
 
@@ -370,7 +420,7 @@
 <section class="card help-q" id="report" data-keys="teacher school print pdf report share"><h2>A progress report for a teacher<a class="anchor" href="#report" aria-label="Link to this answer">#</a></h2>
   <p class="help-short" data-testid="help-short">On a child's progress page, press “Print / save as PDF” for a report you can give to a teacher.</p>
   <details class="help-more"><summary>More</summary>
-  <p>The report shows the days practised, answers, right first time, minutes, the skills learned in each subject, what to work on next and the spellings learned. Choose the last 7 days, the last 30 days or this term so far. Press <b>Print / save as PDF</b> again there to print it or save it to share.</p>
+  <p>The report shows the days practised, answers, right first time, minutes, the skills learned in each subject, what to work on next, the spellings learned and the school's spelling list word by word (learned, on its way, tricky, not asked yet), with each list's dates. Choose the last 7 days, the last 30 days or this term so far. Press <b>Print / save as PDF</b> again there to print it or save it to share.</p>
   </details>
 </section>
 

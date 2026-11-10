@@ -188,11 +188,12 @@ def test_new_year_carries_the_topic_across_or_says_why_not_and_working_at(page):
     page.select_option("[data-testid=focus-1]", "maths:8.7 Equations, inequalities & linear graphs")      # not in Year 9
     page.click("form#childForm button[type=submit]")
     page.goto(f"/children/{pid}/edit")
-    page.select_option("[data-testid=level]", "9")                            # working at Year 9, school year 8
+    for s in ("maths", "grammar", "science"):                                 # working at Year 9, school year 8
+        page.select_option(f"[data-testid=level-{s}]", "9")
     page.click("form#childForm button[type=submit]")
     page.wait_for_url("**saved=1*")
     p = DB.pupils.find_one({"_id": pid})
-    assert p["year"] == 9 and p["school_year"] == 8
+    assert p["year"] == 8 and p["levels"] == {"maths": 9, "grammar": 9, "science": 9} and "school_year" not in p
     assert [i["strand"] for i in p["focus"]] == ["Energy"]
     assert "was for Year 8" in page.get_by_test_id("focus-lost").inner_text()
     page.goto("/home")
@@ -200,7 +201,8 @@ def test_new_year_carries_the_topic_across_or_says_why_not_and_working_at(page):
     page.goto(f"/children/{pid}/report")
     assert "Year 8, working at Year 9 level" in page.get_by_test_id("report-year").inner_text()
     page.goto("/home")
-    assert "moved Chloe to Year 8, working at Year 9 level" in page.get_by_test_id("family-log").text_content()
+    assert "set Chloe's maths at Year 9 level, grammar at Year 9 level, science at Year 9 level (school year: Year 8)" \
+        in page.get_by_test_id("family-log").text_content()
 
 
 def test_a_bounced_save_keeps_every_field(page):
@@ -270,7 +272,7 @@ def test_changes_are_seen_by_the_other_parent_and_the_child(page, browser):
     dad, dad_email = _join(browser, page)
     page.goto("/settings")
     page.check("[data-testid=plan-emails]")                   # Mum asks for an email when Dad changes a plan
-    page.wait_for_selector("[data-testid=autosaved]:has-text('Saved')")
+    page.wait_for_selector("[data-testid=autosaved]:has-text('Emails about plan changes: on')")
     # Ruby starts her day, then Dad adds Science and changes today's plan too
     enter_child(dad, "Ruby")
     unlock_parent(dad)

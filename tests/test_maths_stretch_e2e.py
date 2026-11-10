@@ -1,5 +1,5 @@
 """In the browser: a missed column calculation shows its written method in a fixed-width block, and a question from
-an earlier year's skill carries a small "Year 7 review" tag on the child's card."""
+an earlier year's skill carries a small "Warm-up" tag (no year number) on the child's card."""
 import datetime
 import os
 import sys
@@ -58,7 +58,7 @@ def test_earlier_year_question_is_tagged_review(page):
         prev = doc["_id"]
         tag = page.locator("#reviewTag")
         if doc["skill"].startswith(("Y7.", "Y8.")):
-            assert tag.is_visible() and tag.inner_text() == "Year %s review" % doc["skill"][1], doc["skill"]
+            assert tag.is_visible() and tag.inner_text() == "Warm-up", doc["skill"]
             tagged = doc["skill"]
             page.screenshot(path=os.environ.get("QZ_SHOTS", "/tmp") + "/stretch_review_390.png")
             break

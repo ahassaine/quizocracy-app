@@ -13,9 +13,9 @@ from ..db import db
 from ..deps import Ctx, load, own_pupil, parent_page
 from ..drills import maths, spelling, tables, verbs
 from ..maths import maths_engine, maths_mastery
-from .. import progress
+from .. import levels, progress
 from ..web import page
-from .parent import _skill_views, work_on
+from .parent import _skill_views, accuracy, work_on
 
 router = APIRouter()
 
@@ -91,11 +91,14 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
                 practised=sum(1 for s in st.values() if s["answers"]), done_days=done, tot=tot,
                 first_pct=(100 * tot["first_right"] // tot["first"]) if tot["first"] else None,
                 acts=[(k, acts[k]) for k in ORDER if k in acts], skills=skills, new=new, weak=weak,
+                # right first time per activity: the same rule as Home and Progress (parent.accuracy)
+                acc={a["key"]: a for a in accuracy([{"stats": s} for s in st.values()])},
                 to_fix={k: v for k, v in open_m.items() if k in ("tables", "spelling", "verbs", "numbers")},
                 words_total=len(words), learned=learned, spelling_on="spelling" in on,
+                school_lists=await spelling.school_report(p, days[0] if days else "") if "spelling" in on else [],
                 tables=await tables.mastered_count(p) if "tables" in on else None,
                 verbs=await verbs.summary(p) if "verbs" in on else None,
-                maths_year=maths.engine_year(p["year"]), printed=_nice(progress.today()),
+                maths_year=maths.engine_year(levels.level(p, "maths")), printed=_nice(progress.today()),
                 period=f"{_nice(days[0])} to {_nice(days[-1])}" if days else "", ACTIVITIES=ACTIVITIES)
 
 
@@ -187,17 +190,35 @@ async def examples(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     except ValueError:
         more = 0
     if subject == "maths":
-        year = maths.engine_year(p["year"])
+        year = maths.engine_year(levels.level(p, "maths"))
         skills = [s for s in maths_mastery._year_skills(year) + maths_mastery._earlier_ks3(year) if s["strand"] == strand]
         qs = [_maths_example(s) for s in _spread(skills, EXAMPLES)] if skills else []
     elif subject in ("grammar", "science"):
-        year = bank_engine.bank_year(subject, p["year"])
-        skills = [s for s in bank_engine.skills(subject, p["year"]) if s["strand"] == strand and s["qs"]]
+        year = bank_engine.bank_year(subject, levels.level(p, subject))
+        skills = [s for s in bank_engine.skills(subject, levels.level(p, subject)) if s["strand"] == strand and s["qs"]]
         used: set = set()
         qs = [_bank_example(s, used) for s in _spread(skills, EXAMPLES)] if skills else []
     else:
         skills = qs = []
     if not qs:
         raise HTTPException(404, "not found")
+    words = bank_engine.strand_key_words(subject, skills) if subject in ("grammar", "science") else []
     return page(request, "examples.html", ctx, pupil=p, subject=subject, subject_title=ACTIVITIES[subject]["title"],
-                strand=strand, strand_name=strand_label(strand), year=year, qs=qs, more=more)
+                strand=strand, strand_name=strand_label(strand), year=year, qs=qs, more=more, words=words)
+
+
+@router.get("/children/{pid}/keywords")
+async def key_words(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+    """The key words of grammar or science for the child's level, strand by strand, each with its one-line meaning
+    (app/bank/glossary.py): the list behind "Learn the key words". Grown-ups only; nothing is recorded."""
+    p = await own_pupil(ctx, pid)
+    subject = request.query_params.get("subject", "")
+    if subject not in ("grammar", "science"):
+        raise HTTPException(404, "not found")
+    lvl = levels.level(p, subject)
+    by: dict = {}
+    for s in bank_engine.skills(subject, lvl):
+        by.setdefault(s["strand"], []).append(s)
+    strands = [(st, strand_label(st), bank_engine.strand_key_words(subject, sks)) for st, sks in by.items()]
+    return page(request, "keywords.html", ctx, pupil=p, subject=subject, subject_title=ACTIVITIES[subject]["title"],
+                year=bank_engine.bank_year(subject, lvl), strands=[s for s in strands if s[2]])

@@ -7,7 +7,7 @@ from fractions import Fraction
 from zoneinfo import ZoneInfo
 
 from . import config
-from .activities import ACTIVITIES, YOUNG_CAP, acts_on, back_on, minutes, next_day, plan_of, rest_day, todays_plan
+from .activities import ACTIVITIES, YOUNG_CAP, acts_on, has_cap, back_on, minutes, next_day, plan_of, rest_day, todays_plan
 from .db import db
 
 TZ = ZoneInfo(config.TIMEZONE)
@@ -102,12 +102,13 @@ async def _scan(pupil: dict, days: list) -> list:
     async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": days}, "detail": {"$nin": ["", None]},
                                      "copied": {"$ne": True}},
                                     {"activity": 1, "detail": 1, "correct": 1, "ts": 1, "q": 1, "lq": 1, "nolike": 1,
-                                     "exp": 1, "got": 1, "day": 1}).sort("ts", 1):
+                                     "exp": 1, "got": 1, "day": 1, "idk": 1}).sort("ts", 1):
         k = (r["activity"], same_item(r["activity"], r["detail"]))
         if not r["correct"]:
             m = {"id": r["_id"], "activity": r["activity"], "detail": r["detail"], "ts": r["ts"], "q": r.get("q", ""),
                  "fixed": None, "nolike": bool(r.get("nolike")), "practised": None, "day": r.get("day", ""),
-                 "exp": r.get("exp", ""), "got": r.get("got", ""), "asked": "q" in r}
+                 "exp": r.get("exp", ""), "got": r.get("got", ""), "asked": "q" in r,
+                 "idk": bool(r.get("idk")) or _said_idk(r.get("got", ""))}     # "I don't know": said neutrally
             out.append(m)
             waiting.setdefault(k, []).append(m)
             continue
@@ -234,7 +235,8 @@ async def mistakes(pupil: dict, days: list) -> list:
         for x in e["misses"][:-1]:
             if x["got"] != m["got"] and x["got"] not in earlier:
                 earlier.append(x["got"])
-        it = {"activity": e["activity"], "q": m["q"] or m["detail"], "exp": m["exp"], "got": m["got"], "earlier": earlier,
+        it = {"activity": e["activity"], "q": m["q"] or m["detail"], "exp": m["exp"], "got": m["got"], "idk": m.get("idk"),
+              "earlier": earlier,
               "times": len(e["misses"]), "like": e["activity"] == "maths", "fixed": bool(e["fixed"]),
               "practised": e["practised"], "later": e["state"] == "later", "again": e["again"], "nolike": m["nolike"],
               "rid": str(m["id"]), "rids": [str(x["id"]) for x in e["misses"]],
@@ -270,9 +272,10 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
     for a in plan:
         c = day_counts.get(a["key"], {"correct": 0, "answered": 0})
         done = min(a["target"], c["correct"])
-        # Years 1-2: the activity also ends after YOUNG_CAP times its target in answers, so a child who finds it hard
-        # is not given the longest day of all (capped: done for today, though not every answer was right)
-        capped = (pupil.get("year") in (1, 2) and not rest and done < a["target"]
+        # Years 1-4 (and spelling in every year): the activity also ends after YOUNG_CAP times its target in answers,
+        # so a child who finds it hard is not given the longest day of all (capped: done for today, though not every
+        # answer was right; activities.has_cap)
+        capped = (has_cap(pupil, a["key"]) and not rest and done < a["target"]
                   and c["answered"] >= YOUNG_CAP * a["target"])
         if capped:
             done = a["target"]
@@ -378,6 +381,9 @@ def plan_targets(pupils: list, family: dict, days: list) -> dict:
 
 
 QUICK_MS = 1500           # a wrong answer this fast was not really tried
+# A wrong pick (an option, or a word tapped: the row has "pick") this fast from the question appearing to Check:
+# a tap of about a second and the press of Check, so the question was not read
+PICK_MS = 2500
 COPY_MS = 60000           # a right answer this soon after being shown the answer may be a copy
 ROWS = "qwertyuiop", "asdfghjkl", "zxcvbnm"
 GAP_MS = 120000           # longer pauses between answers do not count as time spent
@@ -385,8 +391,8 @@ GAP_MS = 120000           # longer pauses between answers do not count as time s
 
 def _no_stats() -> dict:
     return {"answers": 0, "first": 0, "first_right": 0, "first_pct": None, "minutes": 0, "rushed": 0, "copied": 0,
-            "guesses": 0, "extra": 0, "extra_first": 0, "extra_right": 0, "extra_pct": None, "plan_min": 0, "acts": {},
-            "rushed_list": [], "extra_at": "", "extra_after_day": False}
+            "guesses": 0, "extra": 0, "extra_first": 0, "extra_right": 0, "extra_pct": None, "plan_min": 0, "acts": {}, "acts_extra": {},
+            "rushed_list": [], "idk": 0, "extra_at": "", "extra_after_day": False}
 
 
 RUSHED_SHOW = 12          # rushed answers listed under "N wrong answers look rushed"
@@ -417,9 +423,16 @@ def _mashed(got: str, exp: str) -> bool:
     return len(g) == 1 and len(str(exp or "").strip()) >= 6
 
 
-# Typed instead of trying (a fixed list of non-answers, compared whole, never searched for inside an answer)
-NON_ANSWERS = {"idk", "i dk", "i dont know", "i don't know", "dont know", "don't know", "dunno", "i dunno", "no idea",
-               "?", "??", "???", "pass", "skip", "no clue", "whatever", "nothing", "not sure", "dk", "idc"}
+# Typed instead of trying (a fixed list of non-answers, compared whole, never searched for inside an answer).
+# Saying "I don't know" is honest, not a guess: those (IDK_WORDS, and the "I don't know" button) are counted
+# apart, and the parent reads them neutrally ("said I don't know").
+IDK_WORDS = {"idk", "i dk", "i dont know", "i don't know", "i do not know", "dont know", "don't know", "dunno",
+             "i dunno", "no idea", "no clue", "not sure", "dk", "i'm not sure", "im not sure"}
+NON_ANSWERS = {"?", "??", "???", "pass", "skip", "whatever", "nothing", "idc"}
+
+
+def _said_idk(got: str) -> bool:
+    return " ".join(str(got or "").lower().replace("’", "'").split()).strip(" .!") in IDK_WORDS
 
 
 def _guessed(got: str, exp: str) -> bool:
@@ -442,20 +455,22 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
     """How each day went, beyond the target: {pupil_id: {day: {answers, first (answers that were a first try),
     first_right, first_pct, minutes, rushed, guesses, copied, extra..., plan_min, acts}}}. A first try is an answer
     not straight after a wrong answer to the same item; minutes add up the time between answers, without long
-    pauses; rushed = wrong answers given in under QUICK_MS or that look like random keys; guesses = other wrong
+    pauses; rushed = wrong answers given in under QUICK_MS (an option or a word picked: PICK_MS) or that look like
+    random keys; guesses = other wrong
     answers that are a non-answer or every option (_guessed); copied = right answers to an item within COPY_MS
     of getting it wrong (the answer was on screen). With targets (plan_targets), answers in an activity after its
     target is reached are extra: they stay out of first/first_pct (more effort never lowers the day's score) and
     are counted in extra, extra_first, extra_right, extra_pct; plan_min is the plan's minutes. acts: first tries
     per activity, {activity: [first, first_right]}, extra answers left out like the headline (so extra practice
-    never turns an activity "needs help"), and so are Year 4 check facts beyond the child's year (_in_year).
+    never turns an activity "needs help"), and so are Year 4 check facts beyond the child's year (_in_year);
+    acts_extra: the same for the extra answers (accuracy in routes/parent.py shows them beside it).
     rushed_list: the rushed answers ({time, activity, q, got, exp}); a time-out in the timed Year 4 check is
     never rushed. extra_at: when the extra answers were given ("19:08" or "19:08–19:20", UK time), and
     extra_after_day: they all came after the whole day's targets were met."""
     out: dict = {}
     rows = db.attempts.find({"pupil_id": {"$in": pupil_ids}, "day": {"$in": days}},
                             {"pupil_id": 1, "day": 1, "activity": 1, "detail": 1, "correct": 1, "ms": 1, "ts": 1,
-                             "got": 1, "exp": 1, "copied": 1, "q": 1, "src": 1}).sort("ts", 1)
+                             "got": 1, "exp": 1, "copied": 1, "q": 1, "src": 1, "other": 1, "pick": 1, "idk": 1}).sort("ts", 1)
     wrong_at: dict = {}
     last_ts: dict = {}
     right_so_far: dict = {}
@@ -484,12 +499,17 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
         gap = (r["ts"] - last_ts[lk]).total_seconds() * 1000 if lk in last_ts else (ms or 0)
         s["minutes"] += min(max(gap, 0), GAP_MS) / 60000
         last_ts[lk] = r["ts"]
+        if r.get("other"):
+            continue        # another real word, spelt right (spelling.check): its time counts, never as right or wrong
         if extra:
             s["extra"] += 1
         if prev_wrong is None:
             if extra:
                 s["extra_first"] += 1
                 s["extra_right"] += 1 if r["correct"] else 0
+                a = s["acts_extra"].setdefault(r["activity"], [0, 0])     # "plus 25 extra answers, 80% right"
+                a[0] += 1
+                a[1] += 1 if r["correct"] else 0
             else:
                 s["first"] += 1
                 s["first_right"] += 1 if r["correct"] else 0
@@ -501,14 +521,18 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
             s["copied"] += 1
         if not r["correct"]:
             wrong_at[key] = r["ts"]
-            if r.get("src") == "mtc":
+            if r.get("idk") or ("got" in r and _said_idk(r.get("got"))):
+                s["idk"] += 1                      # "I don't know" (the button, or typed): honest, never rushed or a guess
+            elif r.get("src") == "mtc":
                 pass                               # the timed check: a time-out or a quick slip is not rushing
-            elif (ms is not None and ms < QUICK_MS) or ("got" in r and _mashed(r.get("got"), r.get("exp"))):
+            elif (ms is not None and ms < (PICK_MS if r.get("pick") else QUICK_MS)) \
+                    or ("got" in r and _mashed(r.get("got"), r.get("exp"))):
                 s["rushed"] += 1
+                quick = ms is not None and ms < (PICK_MS if r.get("pick") else QUICK_MS)
                 if len(s["rushed_list"]) < RUSHED_SHOW:
                     s["rushed_list"].append({"time": f"{r['ts'].replace(tzinfo=datetime.timezone.utc).astimezone(TZ):%H:%M}",
                                              "activity": r["activity"], "q": r.get("q", ""), "got": r.get("got", ""),
-                                             "exp": r.get("exp", ""), "quick": ms is not None and ms < QUICK_MS})
+                                             "exp": r.get("exp", ""), "quick": quick, "tap": quick and bool(r.get("pick"))})
             elif "got" in r and _guessed(r.get("got"), r.get("exp")):
                 s["guesses"] += 1
         else:

@@ -39,6 +39,92 @@ def _a(word):
     return ("an " if word[0] in "aeiou" else "a ") + word
 
 
+# Division whys for Year 2: the counting or the multiplication fact first (÷ is new), then the ÷ fact.
+def _groups_why(tot, t, what):
+    """How many groups of t make tot: "Count in 5s to 20: 5, 10, 15, 20. That is 4 bags." """
+    k = tot // t
+    if k <= 12:
+        return "Count in %ds to %d: %s. That is %s." % (t, tot, ", ".join(str(t * i) for i in range(1, k + 1)), _pn(k, what))
+    return "%d × %d = %d, so that is %s." % (k, t, tot, _pn(k, what))
+
+
+def _share_why(tot, g, what="each"):
+    """tot shared into g equal groups: "4 × 5 = 20, so 20 shared between 4 is 5 each." """
+    k = tot // g
+    return "%d × %d = %d, so %d shared into %d equal groups is %d %s." % (g, k, tot, tot, g, k, what)
+
+
+# Why a unit fits, for each everyday thing a Year 2 question names (a word of the question is the key).
+_SIZE_WHY = [("pencil", "A pencil is short enough to measure with a ruler, so centimetres."),
+             ("potatoes", "A bag of potatoes is heavy to carry, so kilograms."),
+             ("bath", "A bath holds a lot of water, so litres."),
+             ("door", "A door is taller than a grown-up: about 2 metres."),
+             ("sweet", "A sweet is very light, so grams."),
+             ("medicine", "A spoon holds only a little, so millilitres."),
+             ("playground", "A playground is many big steps long, so metres."),
+             ("book", "A book is narrower than a ruler is long, so centimetres."),
+             ("apple", "An apple is light: about 100 grams."),
+             ("car", "A car is very heavy, so kilograms."),
+             ("fish tank", "A fish tank holds a lot of water, so litres."),
+             ("glass of milk", "A glass holds only a little, so millilitres."),
+             ("paper clip", "A paper clip is tiny, much shorter than a ruler: about 3 centimetres."),
+             ("hot summer", "95 °C is nearly as hot as boiling water. A hot summer day is about 25 °C."),
+             ("cold winter", "40 °C would be a very hot day. A cold winter day is about 2 °C."),
+             ("sugar", "A bag of sugar is heavy for its size: about 1 kilogram. 1 gram is as light as a paper clip."),
+             ("cup holds", "200 litres would fill a bath. A cup holds about 200 millilitres."),
+             ("child", "A child is much heavier than 25 grams (a few sweets): about 25 kilograms."),
+             ("bucket", "10 millilitres is only two spoons. A bucket holds about 10 litres."),
+             ("classroom", "8 centimetres is shorter than your hand. A classroom is about 8 metres long.")]
+
+
+def _half_symbols(n, key):
+    """A pictogram with half symbols: "2 whole symbols make 4, and half a symbol is 1 more: 5." """
+    w, half = divmod(n, key)
+    whole = "Each whole symbol is %d, so %s make%s %d" % (key, _pn(w, "whole symbol"), "s" if w == 1 else "", w * key)
+    return whole + "." if not half else whole + ", and half a symbol is %d more: %d." % (half, n)
+
+
+def _size_why(q):
+    return next(w for k, w in _SIZE_WHY if k in q.lower())
+
+
+# What each flat face looks like, for the faces of solids a Year 2 question asks about (the question is the key).
+FACE_WHY = {"What 2-D shape is the flat face of a cylinder?": "A cylinder has a flat circle at each end.",
+            "What 2-D shape are the faces of a cube?": "Every face of a cube is a square.",
+            "What 2-D shape are the sloping faces of a pyramid?": "The sloping faces are triangles that meet at the top.",
+            "What 2-D shape is the flat face of a cone?": "The flat face at the bottom of a cone is a circle.",
+            "What 2-D shape are the two end faces of a triangular prism?": "A triangular prism has a triangle at each end.",
+            "What 2-D shape is the bottom face of a square-based pyramid?": "Square-based means the bottom face is a square.",
+            "What 2-D shape are the long side faces of a triangular prism?": "The long faces joining the two triangles are rectangles.",
+            "Which 2-D shape do you see at each end of a cylinder?": "A cylinder has a flat circle at each end.",
+            "Which 2-D shape is the bottom of a square-based pyramid?": "Square-based means the bottom face is a square.",
+            "Which 2-D shape is at each end of a triangular prism?": "A triangular prism has a triangle at each end.",
+            "Which 2-D shape is every face of a cube?": "Every face of a cube is a square."}
+
+
+def _sub_steps(x, y):
+    """A two-digit take-away in steps: "Take away the tens: 43 − 20 = 23. Then the ones: 23 − 9 = 14." """
+    tens, ones = y // 10 * 10, y % 10
+    if not tens or not ones:
+        return "Take away the %s: %d − %d = %d." % ("tens" if tens else "ones", x, y, x - y)
+    return "Take away the tens: %d − %d = %d. Then the ones: %d − %d = %d." % (x, tens, x - tens, x - tens, ones, x - y)
+
+
+# Why one fraction of the same cake is bigger than another (Year 2: halves, thirds and quarters).
+def _bigger_why(a, b):
+    na, da = (int(x) for x in a.split("/"))
+    nb, db = (int(x) for x in b.split("/"))
+    names = {2: "halves", 3: "thirds", 4: "quarters"}
+    if da == db:
+        one = lambda n: "%d %s" % (n, names[da][:-1] if n == 1 else names[da])    # noqa: E731
+        return "Both are %s of the same cake: %s %s more than %s." % (names[da], one(na), "is" if na == 1 else "are", one(nb))
+    if na == nb == 1:
+        return "Cut into %d equal parts, each part is bigger than when it is cut into %d. So %s is bigger." % (da, db, a)
+    if (na, da) == (3, 4) and (nb, db) == (1, 2):
+        return "1/2 is the same as 2/4, and 3 quarters is more than 2 quarters. So 3/4 is bigger."
+    return "%s is bigger." % a
+
+
 def _vals(d, lo, hi, k):
     """k different numbers in [lo, hi): at least 3 apart when easy, bunched together when hard."""
     if d == 0:
@@ -84,7 +170,7 @@ def _(d=1):
 
     def t_line():
         return _nl("Start at 0 and make %s of %d. Where do you land?" % (_pn(k, "jump"), step), k * step, step, 10,
-                   ["%s of %d = %d." % (_pn(k, "jump"), step, k * step)], lo=0, hi=min(100, max(30, (k * step // 10 + 1) * 10)))
+                   ["%s of %d: count in %ds, %s." % (_pn(k, "jump"), step, step, ", ".join(str(step * i) for i in range(1, k + 1)))], lo=0, hi=min(100, max(30, (k * step // 10 + 1) * 10)))
 
     def t_back_tens():
         start = random.randint(1, 9) + 10 * random.randint(5, 9)
@@ -94,7 +180,7 @@ def _(d=1):
     def t_threes():
         n = random.randint(2, 8)
         return _tb("A tricycle has 3 wheels. How many wheels are on %s? Count in 3s." % _pn(n, "tricycle"), 3 * n, "int", {},
-                   ["%s." % ", ".join(str(3 * i) for i in range(1, n + 1))])
+                   ["Count in %ds: %s. That makes %d." % (3, ", ".join(str(3 * i) for i in range(1, n + 1)), 3 * n)])
 
     def t_jumps():
         return _tb("How many jumps of %d take you from 0 to %d?" % (step, k * step), k, "int", {},
@@ -267,7 +353,7 @@ def _(d=1):
         t = random.randint(2, 9)
         m = 10 * t + random.choice([-3, -2, -1, 1, 2, 3])
         return _tb("Which is greater: %d tens or %d? Type the greater number." % (t, m), max(10 * t, m), "int", {},
-                   ["%d tens is %d." % (t, 10 * t)])
+                   ["%d tens is %d, and %d is %s than %d." % (t, 10 * t, 10 * t, "more" if 10 * t > m else "less", m)])
 
     def t_true():
         x, y = _vals(d, 10, _by(d, 50, 100, 100), 2)
@@ -459,7 +545,7 @@ def _(d=1):
     def t_blocks():
         k = _tens()
         return {"prompt": "Work out %d + %d. Make the answer with the blocks." % (n, k), "component": "base_ten",
-                "spec": {"mode": "build", "max": 9}, "answer": n + k, "answer_type": "int", "solution": ["%d." % (n + k)]}
+                "spec": {"mode": "build", "max": 9}, "answer": n + k, "answer_type": "int", "solution": ["Adding %d puts %s more: %d + %d = %d." % (k, _pn(k // 10, "ten"), n, k, n + k)]}
 
     def t_line_back():
         k = _ones(True, 2)
@@ -498,7 +584,7 @@ def _(d=1):
 
     def t_sub():
         x, y = max(a, b), min(a, b)
-        return _tb("%d − %d = ___" % (x, y), x - y, "int", {}, ["%d − %d = %d." % (x, y, x - y)])
+        return _tb("%d − %d = ___" % (x, y), x - y, "int", {}, [_sub_steps(x, y)])
 
     def t_three():
         x, y, z = random.randint(s1, s2), random.randint(s1, s2), random.randint(s1, s2)
@@ -509,7 +595,7 @@ def _(d=1):
         if s > 99:
             return t_add()
         return {"prompt": "Work out %d + %d and make the answer with the blocks." % (a, b), "component": "base_ten",
-                "spec": {"mode": "build", "max": 9}, "answer": s, "answer_type": "int", "solution": ["%d." % s]}
+                "spec": {"mode": "build", "max": 9}, "answer": s, "answer_type": "int", "solution": ["Add the tens, then the ones: %d + %d = %d, then %d + %d = %d." % (a, b // 10 * 10, a + b // 10 * 10, a + b // 10 * 10, b % 10, s)]}
 
     def t_word():
         kid = _kid()
@@ -625,9 +711,10 @@ def _(d=1):
         return _tb("A class had %d pencils. %d were lost. How many are left?" % (a, b), a - b, "int", {}, ["%d − %d = %d." % (a, b, a - b)])
 
     def t_two_step():
-        a, b, c = random.randint(20, _by(d, 50, 50, 70)), random.randint(5, _by(d, 20, 20, 29)), random.randint(5, _by(d, 20, 20, 29))
+        a, c = random.randint(20, _by(d, 50, 50, 70)), random.randint(5, _by(d, 20, 20, 29))
+        b = random.randint(5, min(_by(d, 20, 20, 29), a - 5))           # never more get off than are on the train
         return _tb("There were %d people on a train. %d got off and %d got on. How many now?" % (a, b, c), a - b + c, "int", {},
-                   ["%d − %d = %d; + %d = %d." % (a, b, a - b, c, a - b + c)])
+                   ["%d − %d = %d stay on; then %d + %d = %d." % (a, b, a - b, a - b, c, a - b + c)])
 
     def t_bar():
         whole, part = random.randint(_by(d, 20, 30, 50), _by(d, 50, 90, 99)), random.randint(10, _by(d, 15, 25, 39))
@@ -656,13 +743,14 @@ def _(d=1):
     k = min(k, 100 // t)                                # products stay within 100 (10 × 10 at most)
 
     def t_mult():
-        return _tb("%d × %d = ___" % (k, t), k * t, "int", {}, ["%s of %d." % (_pn(k, "lot"), t)])
+        return _tb("%d × %d = ___" % (k, t), k * t, "int", {}, ["%s of %d: count in %ds to %d." % (_pn(k, "lot"), t, t, k * t)])
 
     def t_div():
         return _tb("%d ÷ %d = ___" % (k * t, t), k, "int", {}, ["How many %ss make %d? %d." % (t, k * t, k)])
 
     def t_missing():
-        return _tb("___ × %d = %d" % (t, k * t), k, "int", {}, ["%d ÷ %d = %d." % (k * t, t, k)])
+        return _tb("___ × %d = %d" % (t, k * t), k, "int", {}, ["Count in %ds to %d: %s." % (t, k * t, ", ".join(str(t * i) for i in range(1, k + 1))),
+                                                               "%d × %d = %d, so the missing number is %d." % (k, t, k * t, k)])
 
     def t_groups():
         g = random.randint(2, _by(d, 4, 6, 9))
@@ -691,7 +779,7 @@ def _(d=1):
         return _tb("How many %s are in %d %s?" % (what[2], k, what[0] if k == 1 else what[1]), k * t, "int", {}, ["%d × %d = %d." % (k, t, k * t)])
 
     def t_line():
-        return _nl("Count in %ds. Mark %d × %d on the number line." % (t, k, t), k * t, t, 10, ["%d × %d = %d." % (k, t, k * t)],
+        return _nl("Count in %ds. Mark %d × %d on the number line." % (t, k, t), k * t, t, 10, ["Count in %ds: %s. So %d × %d = %d." % (t, ", ".join(str(t * i) for i in range(1, k + 1)), k, t, k * t)],
                    lo=0, hi=min(100, max(30, (k * t // 10 + 1) * 10)))
 
     def t_double():
@@ -722,13 +810,14 @@ def _(d=1):
     def t_next_even():
         n = random.randint(_by(d, 1, 1, 21), _by(d, 18, 98, 98))
         nxt = n + 1 if n % 2 else n + 2
-        return _tb("What is the next even number after %d?" % n, nxt, "int", {}, ["%d." % nxt])
+        return _tb("What is the next even number after %d?" % n, nxt, "int", {}, ["Even numbers end in 0, 2, 4, 6 or 8: the next one after %d is %d." % (n, nxt)])
 
     def t_count():
         lo = random.randint(1, _by(d, 10, 20, 60))
         hi = lo + random.randint(_by(d, 4, 5, 9), _by(d, 6, 10, 15))
         return _tb("How many odd numbers are there from %d to %d?" % (lo, hi), sum(1 for x in range(lo, hi + 1) if x % 2),
-                   "int", {}, ["%s." % ", ".join(str(x) for x in range(lo, hi + 1) if x % 2)])
+                   "int", {}, ["The odd numbers are %s: count them, %d." % (", ".join(str(x) for x in range(lo, hi + 1) if x % 2),
+                                                                         sum(1 for x in range(lo, hi + 1) if x % 2))])
 
     def t_pairs():
         n = random.randint(4, _by(d, 12, 30, 50))
@@ -743,7 +832,7 @@ def _(d=1):
     def t_prev_even():
         n = random.randint(_by(d, 3, 3, 21), _by(d, 20, 100, 100))
         prv = n - 1 if n % 2 else n - 2
-        return _tb("What is the even number just before %d?" % n, prv, "int", {}, ["%d." % prv])
+        return _tb("What is the even number just before %d?" % n, prv, "int", {}, ["Even numbers end in 0, 2, 4, 6 or 8: just before %d, that is %d." % (n, prv)])
 
     def t_houses():
         k = random.randint(3, _by(d, 6, 12, 20))
@@ -775,16 +864,16 @@ def _(d=1):
     def t_teams():
         n = random.randint(6, _by(d, 20, 30, 60))
         return _wq("%d children get into pairs. Is anyone left without a partner? (yes or no)" % n, "yes" if n % 2 else "no",
-                   ["%d is %s." % (n, "odd" if n % 2 else "even")], "yes / no")
+                   ["%d is %s, so %s." % (n, "odd" if n % 2 else "even", "one child is left without a partner" if n % 2 else "everyone has a partner")], "yes / no")
 
     def t_sum_odd():
         x, y = random.randint(1, _by(d, 10, 20, 50)), random.randint(1, _by(d, 10, 20, 50))
-        return _wq("Is %d + %d odd or even?" % (x, y), "even" if (x + y) % 2 == 0 else "odd", ["%d + %d = %d." % (x, y, x + y)], "odd / even")
+        return _wq("Is %d + %d odd or even?" % (x, y), "even" if (x + y) % 2 == 0 else "odd", ["%d + %d = %d, which ends in %d, so it is %s." % (x, y, x + y, (x + y) % 10, "even" if (x + y) % 2 == 0 else "odd")], "odd / even")
 
     def t_line_even():
         n = random.randint(1, _by(d, 18, 48, 98))
         nxt = n + 1 if n % 2 else n + 2
-        return _nl("Mark the first even number after %d on the number line." % n, nxt, 1, 10, ["%d is even." % nxt], lo=0,
+        return _nl("Mark the first even number after %d on the number line." % n, nxt, 1, 10, ["%d ends in %d, so it is even; %d is odd." % (nxt, nxt % 10, nxt - 1)], lo=0,
                    hi=_by(d, 20, 50, 100))
 
     plain = [t_is, t_next_even, t_count, t_pairs, t_next_odd, t_prev_even, t_houses, t_biggest_even, t_teams, t_sum_odd]
@@ -817,13 +906,14 @@ def _(d=1):
         return _tb("%s = ___" % " + ".join([str(a)] * b), a * b, "int", {}, ["%s of %d = %d × %d = %d." % (_pn(b, "lot"), a, b, a, a * b)])
 
     def t_fact_family():
-        return _tb("%d × %d = %d. So %d ÷ %d = ___" % (a, b, a * b, a * b, b), a, "int", {}, ["Division undoes multiplication."])
+        return _tb("%d × %d = %d. So %d ÷ %d = ___" % (a, b, a * b, a * b, b), a, "int", {},
+                   ["%d × %d = %d, so %d groups of %d make %d: %d ÷ %d = %d. Dividing undoes multiplying." % (a, b, a * b, a, b, a * b, a * b, b, a)])
 
     def t_write():
         return _tb("What is %d groups of %d?" % (b, a), a * b, "int", {}, ["%d × %d = %d." % (b, a, a * b)])
 
     def t_missing():
-        return _tb("%d × ___ = %d" % (a, a * b), b, "int", {}, ["%d ÷ %d = %d." % (a * b, a, b)])
+        return _tb("%d × ___ = %d" % (a, a * b), b, "int", {}, ["%d × %d = %d, so the missing number is %d." % (a, b, a * b, b)])
 
     def t_div_write():
         return _tb("%d × %d = %d. Finish this division fact: %d ÷ %d = ___" % (b, a, a * b, a * b, a), b, "int", {},
@@ -847,13 +937,13 @@ def _(d=1):
 
     def t_share():
         return _tb("%d sweets are shared equally between %d children. How many each?" % (k * t, t), k, "int", {},
-                   ["%d ÷ %d = %d." % (k * t, t, k)])
+                   [_share_why(k * t, t)])
 
     def t_coins():
         return _tb("How much are %d %dp coins worth, in pence?" % (k, t), k * t, "int", {"unit": "p"}, ["%d × %d = %d." % (k, t, k * t)])
 
     def t_teams():
-        return _tb("%d children make teams of %d. How many teams?" % (k * t, t), k, "int", {}, ["%d ÷ %d = %d." % (k * t, t, k)])
+        return _tb("%d children make teams of %d. How many teams?" % (k * t, t), k, "int", {}, [_groups_why(k * t, t, "team")])
 
     def t_bar():
         return _strip("%d children each have %d stickers. How many stickers altogether?" % (k, t),
@@ -870,17 +960,17 @@ def _(d=1):
     def t_how_many_bought():
         kid = _kid()
         return _tb("Stickers cost %dp each. %s spends %dp. How many stickers does %s buy?" % (t, kid, k * t, kid), k, "int", {},
-                   ["%d ÷ %d = %d." % (k * t, t, k)])
+                   [_groups_why(k * t, t, "sticker")])
 
     def t_share_bar():
         return _strip("%d cakes are shared equally onto %d plates. How many on each plate?" % (k * t, t),
                       {"mode": "equal_parts", "parts": t, "partLabel": "?", "totalLabel": str(k * t), "unknown": "part"}, k,
-                      ["%d ÷ %d = %d." % (k * t, t, k)]) if t <= 5 else t_share()
+                      [_share_why(k * t, t, "on each plate")]) if t <= 5 else t_share()
 
     def t_groups():
         return {"prompt": "%d sweets are put into bags of %d. How many bags?" % (k * t, t), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": k, "per": t}, "answer": k, "answer_type": "int",
-                "solution": ["%d ÷ %d = %d." % (k * t, t, k)]}
+                "solution": [_groups_why(k * t, t, "bag")]}
 
     def t_array():
         return {"prompt": "Chairs are in %d rows of %d. Build the array. How many chairs?" % (k, t), "component": "array",
@@ -945,7 +1035,7 @@ def _(d=1):
                         [("1/3", "1/4"), ("1/2", "1/4"), ("1/2", "1/3"), ("3/4", "1/4"), ("2/4", "1/4"), ("3/4", "1/2")],
                         [("1/3", "1/4"), ("1/2", "1/3"), ("3/4", "1/2"), ("3/4", "2/4")]))
         x, y = (a, b) if random.random() < 0.5 else (b, a)
-        return _fq("Which is bigger, %s or %s of the same cake?" % (x, y), Fraction(a), ["%s is bigger." % a])
+        return _fq("Which is bigger, %s or %s of the same cake?" % (x, y), Fraction(a), [_bigger_why(a, b)])
 
     def t_is_third():
         sh = random.randint(1, 2)
@@ -1012,7 +1102,7 @@ def _(d=1):
     def t_length():
         n = 4 * random.randint(2, _by(d, 5, 6, 10))
         return _tb("A ribbon is %d cm long. %s cuts off 1/4 of it. How long is the piece cut off, in cm?" % (n, _kid()), n // 4,
-                   "int", {"unit": "cm"}, ["%d ÷ 4 = %d." % (n, n // 4)])
+                   "int", {"unit": "cm"}, ["1/4 means 1 of 4 equal parts. " + _share_why(n, 4, "cm in each part")])
 
     def t_two_quarters():
         n = 4 * random.randint(_by(d, 1, 1, 3), _by(d, 5, 8, 10))
@@ -1022,7 +1112,7 @@ def _(d=1):
         n = 3 * random.randint(2, _by(d, 5, 8, 12))
         kid = _kid()
         return _tb("%s has %d marbles and gives 1/3 of them away. How many marbles are given away?" % (kid, n), n // 3, "int", {},
-                   ["%d ÷ 3 = %d." % (n, n // 3)])
+                   ["1/3 means 1 of 3 equal parts. " + _share_why(n, 3, "in each part")])
 
     def t_left():
         n = 4 * random.randint(2, _by(d, 5, 6, 10))
@@ -1033,7 +1123,7 @@ def _(d=1):
         g = pick([3, 4])
         k = random.randint(2, _by(d, 5, 9, 9))
         return _strip("What is 1/%d of %d?" % (g, g * k), {"mode": "equal_parts", "parts": g, "partLabel": "?", "totalLabel": str(g * k),
-                                                         "unknown": "part"}, k, ["%d ÷ %d = %d." % (g * k, g, k)])
+                                                         "unknown": "part"}, k, [_share_why(g * k, g, "in each part")])
 
     def t_whole():
         k = random.randint(2, _by(d, 5, 10, 12))
@@ -1043,7 +1133,7 @@ def _(d=1):
     def t_money():
         n = (pick([12, 20, 40, 60, 80, 100]) if random.random() < 0.5 else 4 * random.randint(2, 10)) if d else 4 * random.randint(2, 5)
         return _tb("%s has %dp and spends 1/4 of it. How much is spent, in pence?" % (_kid(), n), n // 4, "int", {"unit": "p"},
-                   ["%d ÷ 4 = %d." % (n, n // 4)])
+                   ["1/4 means 1 of 4 equal parts. " + _share_why(n, 4, "pence in each part")])
 
     plain = [t_third, t_quarter, t_three_quarters, t_half_of, t_length, t_two_quarters, t_word_third, t_left, t_whole, t_money]
     if d == 0:     # unit fractions of small numbers
@@ -1074,25 +1164,25 @@ def _(d=1):
                          ("Would you weigh a car in g or kg?", "kg"),
                          ("Would you measure the water in a fish tank in ml or litres?", "litres"),
                          ("Would you measure a glass of milk in ml or litres?", "ml")]))       # hard: less obvious objects
-        return _wq(q, a, ["Choose the unit that fits the size."], "unit")
+        return _wq(q, a, [_size_why(q)], "unit")
 
     def t_ruler():
         mx = _by(d, 10, 20, 30)
         cm = random.randint(_by(d, 2, 3, 11), mx - 1)
         return {"prompt": "How long is it, in cm?", "component": "ruler", "spec": {"mode": "length", "value": cm, "max": mx, "unit": "cm"},
-                "answer": cm, "answer_type": "num", "tolerance": 0.5, "solution": ["%d cm." % cm]}
+                "answer": cm, "answer_type": "num", "tolerance": 0.5, "solution": ["Start at 0: it ends at %d cm." % cm]}
 
     def t_scale():
         mx = _by(d, 10, pick([10, 20]), 50)
         v = 2 * random.randint(1, 24) if d == 2 else random.randint(1, mx - 1)      # hard: a 0-50 dial marked in 2s
         return {"prompt": "Read the scale. How many kg?", "component": "ruler", "spec": {"mode": "mass", "value": v, "max": mx, "unit": "kg"},
-                "answer": v, "answer_type": "num", "tolerance": 0.5, "solution": ["%d kg." % v]}
+                "answer": v, "answer_type": "num", "tolerance": 0.5, "solution": ["The pointer is on %d kg." % v]}
 
     def t_jug():                                        # readings stay within 100
         v = random.randint(1, 19) * 5 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 10     # hard: 5 ml lines
         return {"prompt": "How much water is in the jug, in ml?", "component": "ruler",
                 "spec": {"mode": "capacity", "value": v, "max": _by(d, 50, 100, 100), "unit": "ml"}, "answer": v, "answer_type": "num",
-                "tolerance": _by(d, 5, 5, 2), "solution": ["%d ml." % v]}
+                "tolerance": _by(d, 5, 5, 2), "solution": ["The water is level with the %d ml line." % v]}
 
     def t_thermo():
         t = random.randint(_by(d, 0, 0, 12), _by(d, 10, 30, 35))
@@ -1133,13 +1223,13 @@ def _(d=1):
                          ("A bucket holds about 10 ___. Is it ml or litres?", "litres"),
                          ("A classroom is about 8 ___ long. Is it m or cm?", "m"),
                          ("A cold winter day is about ___ °C. Is it 2 or 40?", "2")]))
-        return _wq(q, a, ["Think about how big the real thing is."], "type it")
+        return _wq(q, a, [_size_why(q)], "type it")
 
     def t_grams():
         v = random.randint(1, 19) * 5 if d == 2 else random.randint(1, _by(d, 4, 9, 9)) * 10     # hard: 5 g marks
         return {"prompt": "Read the scale. How many grams?", "component": "ruler",
                 "spec": {"mode": "mass", "value": v, "max": _by(d, 50, 100, 100), "unit": "g"},
-                "answer": v, "answer_type": "num", "tolerance": _by(d, 5, 5, 2), "solution": ["%d g." % v]}
+                "answer": v, "answer_type": "num", "tolerance": _by(d, 5, 5, 2), "solution": ["The pointer is on %d g." % v]}
 
     def t_long_ruler():
         cm = random.randint(_by(d, 5, 5, 15), _by(d, 15, 29, 29))
@@ -1178,7 +1268,7 @@ def _(d=1):
     def t_symbol():
         unit = pick(["cm", "kg", "ml", "m", "g", "litres"])
         a, b = _vals(d, 2, _by(d, 30, 99, 99), 2)
-        return _wq("Write < or > :  %d %s ___ %d %s" % (a, unit, b, unit), "<" if a < b else ">", ["Compare the numbers."], "< or >")
+        return _wq("Write < or > :  %d %s ___ %d %s" % (a, unit, b, unit), "<" if a < b else ">", ["%d %s is %s than %d %s." % (a, unit, "less" if a < b else "more", b, unit)], "< or >")
 
     def t_longest():
         names = ["red", "blue", "green"]
@@ -1201,7 +1291,7 @@ def _(d=1):
         a = random.randint(10, _by(d, 30, 60, 90))
         b = a + pick(_by(d, [-10, 0, 10], [-5, 0, 5], [-1, 0, 1]))
         sym = "<" if a < b else (">" if a > b else "=")
-        return _wq("Write <, > or = :  %d %s ___ %d %s" % (a, unit, b, unit), sym, ["Compare the numbers."], "<, > or =")
+        return _wq("Write <, > or = :  %d %s ___ %d %s" % (a, unit, b, unit), sym, ["%d %s is %s %d %s." % (a, unit, {"<": "less than", ">": "more than", "=": "the same as"}[sym], b, unit)], "<, > or =")
 
     def t_heaviest():
         names = ["red", "blue", "green"]
@@ -1209,7 +1299,7 @@ def _(d=1):
         k = pick(["heaviest", "lightest"])
         ans = names[v.index(max(v))] if k == "heaviest" else names[v.index(min(v))]
         return _dt("The table shows the mass of three parcels. Which parcel is the %s?" % k, ["Parcel", "Mass (kg)"],
-                   [[names[i], v[i]] for i in range(3)], ans, ["Compare the masses."], atype="str", placeholder="colour")
+                   [[names[i], v[i]] for i in range(3)], ans, ["The %s parcel is %d kg, the %s." % (ans, max(v) if k == "heaviest" else min(v), "most" if k == "heaviest" else "least")], atype="str", placeholder="colour")
 
     def t_order_cap():
         v = _vals(d, 1, _by(d, 10, 10, 20), 3)
@@ -1295,7 +1385,7 @@ def _(d=1):
         c, tot = pick(_by(d, [(2, 10), (5, 20), (10, 50), (10, 30), (5, 10)],
                           [(5, 20), (5, 30), (10, 50), (10, 70), (2, 10), (2, 16), (20, 100), (5, 50), (10, 100)],
                           [(20, 100), (5, 50), (10, 100), (2, 18), (5, 45), (2, 20), (20, 80), (5, 35)]))
-        return _tb("How many %dp coins make %s?" % (c, _m(tot)), tot // c, "int", {}, ["%d ÷ %d = %d." % (tot, c, tot // c)])
+        return _tb("How many %dp coins make %s?" % (c, _m(tot)), tot // c, "int", {}, [_groups_why(tot, c, "coin")])
 
     def t_missing_coin():
         c = pick(coins)
@@ -1313,7 +1403,7 @@ def _(d=1):
         a = random.sample(_by(d, [1, 2, 5, 10], [1, 2, 5, 10, 20], [1, 2, 5, 10, 20, 50]), _by(d, 2, 3, 4))
         b = sum(a) + pick([0, 0, 1, 5])
         return _wq("Mia has %s. Ben has %dp. Do they have the same amount? (yes or no)" % (" + ".join("%dp" % x for x in a), b),
-                   "yes" if sum(a) == b else "no", ["%s = %dp." % (" + ".join(map(str, a)), sum(a))], "yes / no")
+                   "yes" if sum(a) == b else "no", ["%s = %dp%s." % (" + ".join(map(str, a)), sum(a), "" if sum(a) == b else ", not %dp" % b)], "yes / no")
 
     def t_whole_pounds():                               # combine coins, then how far short of £1 (all within 100p)
         cs = random.sample(_by(d, [10, 20, 50], [5, 10, 20, 50], [1, 2, 5, 10, 20, 50]), _by(d, 2, 2, 3))
@@ -1450,13 +1540,16 @@ def _(d=1):
     def t_facts():
         q, a = pick([("How many minutes are in an hour?", 60), ("How many hours are in a day?", 24),
                      ("How many minutes are in half an hour?", 30), ("How many minutes are in a quarter of an hour?", 15)])
-        return _tb(q, a, "int", {}, ["%d." % a])
+        return _tb(q, a, "int", {}, [{60: "The long hand goes all the way round the clock in 60 minutes.",
+                                      24: "From midnight to midnight is 24 hours: 12 in the morning and 12 after midday.",
+                                      30: "Half an hour is the long hand going half way round: 30 minutes.",
+                                      15: "A quarter of an hour is the long hand going a quarter of the way round: 15 minutes."}[a]])
 
     def t_later():
         h = random.randint(_by(d, 1, 1, 9), _by(d, 8, 10, 12))
         k = random.randint(_by(d, 1, 1, 3), _by(d, 2, 3, 6))     # stretch: goes past 12 o'clock
         return _tb("It is %d o'clock. What time will it be in %d hour%s? Type the hour." % (h, k, "" if k == 1 else "s"),
-                   (h + k - 1) % 12 + 1, "int", {}, ["Count on %d." % k])
+                   (h + k - 1) % 12 + 1, "int", {}, ["Count on %s: %s." % (_pn(k, "hour"), ", ".join(str((h + i - 1) % 12 + 1) for i in range(1, k + 1)))])
 
     def t_compare():
         a, b = random.sample([10, 15, 20, 30, 45, 50], 2)
@@ -1596,12 +1689,14 @@ def _(d=1):
                   ("What 2-D shape are the long side faces of a triangular prism?", "rectangle"),
                   ("What 2-D shape are the sloping faces of a pyramid?", "triangle")]
         q, a = pick(qs)
-        return _wq(q, a, ["Look at the flat faces."], "shape name")
+        return _wq(q, a, [FACE_WHY[q]], "shape name")
 
     def t_roll():
         q, a = pick([("Can a sphere roll? (yes or no)", "yes"), ("Can a cube roll? (yes or no)", "no"),
                      ("Does a sphere have any flat faces? (yes or no)", "no")])
-        return _wq(q, a, ["Curved surfaces roll."], "yes / no")
+        return _wq(q, a, [{"Can a sphere roll? (yes or no)": "A sphere is curved all over, so it rolls.",
+                           "Can a cube roll? (yes or no)": "A cube has only flat faces, so it slides but does not roll.",
+                           "Does a sphere have any flat faces? (yes or no)": "A sphere is curved all over, so it has no flat faces."}[q]], "yes / no")
 
     def t_sort():
         shapes = random.sample(["cube", "sphere", "cylinder", "cone", "cuboid", "pyramid"], _by(d, 3, 4, 5))
@@ -1745,7 +1840,7 @@ def _(d=1):
         k = random.randrange(m)
         return {"prompt": "Each whole symbol stands for %d. Half a symbol stands for %d. How many %s?" % (key, key // 2, cats[k].lower()),
                 "component": "pictogram", "spec": {"categories": cats, "values": vals, "key": key, "symbol": "circle"},
-                "answer": vals[k], "answer_type": "int", "solution": ["%d." % vals[k]]}
+                "answer": vals[k], "answer_type": "int", "solution": [_half_symbols(vals[k], key)]}
 
     def t_least():
         key = _by(d, 1, 1, 2)

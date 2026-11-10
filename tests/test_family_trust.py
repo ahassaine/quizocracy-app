@@ -135,7 +135,7 @@ def test_change_role_keeps_the_login_and_a_carer_types_the_school_list(page, bro
     assert last_mail(owner, "joined")["subject"] == f"{jo_email} joined Test family on Quizocracy"
     jo.goto("/settings")
     jo.uncheck("[data-testid=weekly]")                     # Jo had turned her weekly email off (saved without a reload)
-    jo.get_by_text("Saved", exact=True).first.wait_for()
+    jo.get_by_text("Weekly summary: off", exact=True).first.wait_for()
     page.goto("/settings")
     row = page.locator("[data-testid=adult]", has_text=jo_email)
     assert "invited by" in row.inner_text()
@@ -186,7 +186,7 @@ def test_lockouts_unlocks_pin_changes_and_new_devices_are_logged(page, browser):
         form = pat.get_by_test_id("pin-Ruby")
         form.locator("input[name=pin]").fill("9999")
         form.locator("button").click()
-    assert "locked until" in pat.inner_text("[data-testid=locked-Ruby]")
+    assert "locked for 5 more minutes" in pat.inner_text("[data-testid=locked-Ruby]")
     s = _session(pat)
     r = s.post(BASE + f"/children/{pid}/pin-unlock", data={"password": "pat-minds-ruby"}, allow_redirects=False)
     assert r.status_code == 303

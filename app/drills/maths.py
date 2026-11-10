@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from ..activities import todays_plan
 from ..db import db
+from ..levels import level
 from ..maths import maths_engine, maths_mastery
 from .. import items, progress
 
@@ -30,9 +31,10 @@ def engine_year(year: int) -> int:
 
 def review_tag(skill_key: str, year: int) -> str | None:
     """A question from an earlier year's skill (Years 8 and 9 mix in earlier KS3 work) says so on the child's
-    card: "Year 7 review"."""
+    card as a "Warm-up", with no year number: "Year 7 review" read to an anxious child as "last year's work and
+    you still can't do it". The parent pages still name the year."""
     m = re.match(r"Y(\d)\.", skill_key or "")
-    return "Year %s review" % m.group(1) if m and int(m.group(1)) < int(year or 0) else None
+    return "Warm-up" if m and int(m.group(1)) < int(year or 0) else None
 
 
 LIKE_TRIES = 800      # questions made in memory, at most, to find one like a mistake (progress.alike)
@@ -66,7 +68,7 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
     """focus: a mistake to put right ("skill@attempt id"): a question like it, the same kind with new numbers
     (a generator never makes the same question twice). If none can be made, the mistake is marked nolike (it
     stays on the parent's list, not in "Practise my mistakes") and the question is a practice one (no_like)."""
-    pid, year = pupil["_id"], engine_year(pupil.get("year", 3))
+    pid, year = pupil["_id"], engine_year(level(pupil, "maths"))      # "working at" for maths, else the school year
     miss = await _mistake(focus)
     picked = (miss["detail"], "fix") if miss else \
         await maths_mastery.next_skill(pid, year, avoid=await _done_elsewhere(pupil))
@@ -118,9 +120,12 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
             **({"no_like": True} if no_like else {})}
 
 
-async def check(pupil: dict, token: str, value, ms: int | None) -> dict | None:
+async def check(pupil: dict, token: str, value, ms: int | None, idk: bool = False) -> dict | None:
+    """idk: the child pressed "I don't know": a miss marked idk (not a guess, not rushed), with the answer and why."""
     pid = pupil["_id"]
     served = await db.maths_lab_q.find_one({"_id": str(token or "")}, {"difficulty": 1})
+    if idk:
+        value = ""
     res = await maths_engine.check(token, value, pid)
     if not res.get("ok"):
         return None
@@ -132,12 +137,12 @@ async def check(pupil: dict, token: str, value, ms: int | None) -> dict | None:
     # a right answer keeps its question (like), so it can put right an earlier mistake like it;
     # a mistake keeps how hard it was (dif), so the question that puts it right is as hard
     await progress.record(pupil, "maths", res["correct"], ms, res["skill"], prompt, res["expected"], value,
-                          like=prompt, extra={"dif": (served or {}).get("difficulty")})
+                          like=prompt, extra={"dif": (served or {}).get("difficulty"), **({"idk": True} if idk else {})})
     # mastered: only the answer that makes the skill secure for the first time (a moment, not every right answer after)
     res.update({"score": m["score"], "mastered": bool(m.get("mastered") and m.get("mastered_at")),
-                "progress": await maths_mastery.progress(pid, engine_year(pupil.get("year", 3)))})
+                "progress": await maths_mastery.progress(pid, engine_year(level(pupil, "maths")))})
     return res
 
 
 async def summary(pupil: dict) -> dict:
-    return await maths_mastery.progress(pupil["_id"], engine_year(pupil.get("year", 3)))
+    return await maths_mastery.progress(pupil["_id"], engine_year(level(pupil, "maths")))

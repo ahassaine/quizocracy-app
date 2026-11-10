@@ -5,7 +5,12 @@
  * Where speech is missing, the button is not shown and nothing else changes. */
 (function () {
   const synth = window.speechSynthesis;
-  const ok = !!(synth && window.SpeechSynthesisUtterance);
+  // the grown-up's read-aloud setting (child_form.html, on <body>): "on" (questions and feedback), "questions"
+  // (no spoken feedback) or "off" (nothing is said, and there is no 🔊 button); speed "slower" or "normal"
+  const MODE = (document.body && document.body.dataset.voice) || 'on';
+  const SLOW = !!(document.body && document.body.dataset.voiceRate === 'slower');
+  const ok = !!(synth && window.SpeechSynthesisUtterance) && MODE !== 'off';
+  const talk = MODE === 'on';                                      // feedback is spoken too
   const head = document.getElementById('drillHead');
   const year = parseInt(head && head.dataset.year, 10) || 0;     // the child's school year (0: not known)
   const young = year >= 1 && year <= 2;                            // read each question out without being asked
@@ -69,11 +74,16 @@
       const u = new SpeechSynthesisUtterance(t);
       u.lang = (voice && voice.lang) || 'en-GB';
       if (voice) u.voice = voice;
-      u.rate = year && year <= 3 ? 0.88 : 0.95;
-      if (i === 0) u.onstart = () => { if (my === run) { setOn(true); if (onstart) onstart(); } };
+      u.rate = (year && year <= 3 ? 0.88 : 0.95) * (SLOW ? 0.8 : 1);
+      if (i === 0) u.onstart = started;
       if (i === list.length - 1) u.onend = u.onerror = () => { if (my === run) setOn(false); };
       synth.speak(u);
     });
+    // some browsers never fire onstart (Chrome on Linux): speech that is under way counts as started all the same,
+    // so the question is not read a second time at the first tap, and "Tap to hear" goes
+    let once = false;
+    function started() { if (once || my !== run) return; once = true; setOn(true); if (onstart) onstart(); }
+    setTimeout(() => { if (synth.speaking) started(); }, 300);
   }
   function setOn(on) { if (btn) btn.classList.toggle('on', on); }
   function unlock() {                    // inside a tap: from now on the page may speak by itself
@@ -89,9 +99,10 @@
     btn.style.minWidth = btn.offsetWidth + 'px';
     btn.classList.remove('first');
   }, 600); }
-  function play(c) {                     // the question, after its own sound (a spelling word) if it has one
+  function play(c, rest) {               // the question, after its own sound (a spelling word) if it has one
     if (!c) return;
     c.heard = true;
+    if (rest && c.leadHeard) { speak(c.parts); return; }      // the word already played by itself: only the hint
     if (c.lead) Promise.resolve(c.lead()).then(() => { if (cur === c) speak(c.parts); });
     else speak(c.parts);
   }
@@ -116,12 +127,14 @@
     if (unlocked) return;
     unlock();
     const t = e.target && e.target.closest ? e.target : null;
-    if (young && cur && !cur.heard && !(t && t.closest('[data-speaks]'))) play(cur);
+    if (synth.speaking || synth.pending) return;                 // it is being read now: never twice
+    if (young && cur && !cur.heard && !(t && t.closest('[data-speaks]'))) play(cur, true);
   }
   if (ok) ['click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, firstGesture, true));
 
   window.Speak = {
     ok, year, young, natural,
+    talks: ok && talk && young,          // feedback is spoken by itself (Years 1-2, read-aloud "on")
     /* the question now on screen. what: [text, ...] or { parts, lead, after }: lead() makes the question's own
        sound (returns a promise) and runs when the child asks; after is that sound already playing by itself */
     set(what) {
@@ -129,9 +142,12 @@
       if (!ok) return;
       const w = Array.isArray(what) ? { parts: what } : (what || { parts: [] });
       ++run; synth.cancel(); setOn(false);
-      cur = { parts: (w.parts || []).filter(Boolean), lead: w.lead || null, heard: false };
-      if (!young || !cur.parts.length) return;
+      cur = { parts: (w.parts || []).filter(Boolean), lead: w.lead || null, heard: false, leadHeard: false };
       const c = cur;
+      // the question's own sound playing by itself (a spelling word's clip): true once it has played
+      if (w.after) Promise.resolve(w.after).then(played => { if (played === true) {
+        c.leadHeard = true; if (!c.parts.length) { c.heard = true; unlocked = true; settle(); } } });
+      if (!young || !cur.parts.length) return;
       if (!unlocked && btn) btn.classList.add('first');
       Promise.resolve(w.after).then(() => {
         if (cur !== c) return;
@@ -139,7 +155,7 @@
         speak(c.parts, () => { c.heard = true; unlocked = true; settle(); });
       });
     },
-    feedback(text) { if (ok && young && unlocked) speak([text]); },        // "Not quite. Good try! ..."
+    feedback(text) { if (ok && talk && young && unlocked) speak([text]); },  // "Not quite. Good try! ..." (not with "questions only")
     word(text) { if (ok && young && unlocked) speak([text]); },            // an option the child tapped
     stop() { if (ok) { ++run; synth.cancel(); setOn(false); } },
   };

@@ -6,7 +6,7 @@
 {% if ctx.full %}
 <form method="post" action="/settings" class="card">
   <div class="field"><label for="family_name">Family name</label><input id="family_name" name="family_name" type="text" value="{{ ctx.family.name }}"></div>
-  <h2 style="display:flex;align-items:center;gap:8px"><img src="/static/img/trophy.png" alt="" style="width:34px">Reward</h2>
+  <h2 id="family-reward" style="display:flex;align-items:center;gap:8px;scroll-margin-top:76px"><img src="/static/img/trophy.png" alt="" style="width:34px">Reward</h2>
   {% if plan.rewards %}
   <p class="mut small">What your children earn when they finish enough of their day.</p>
   {% call explain() %}They see it on their page and on the family board. A child's own reward (in that child's Settings) comes first. Every change to a reward shows under Family activity on Home, so the other grown-ups see it.{% endcall %}
@@ -20,17 +20,17 @@
   <p style="margin:8px 0 0;overflow-wrap:anywhere">{{ ctx.account.email }} <span class="chip" data-testid="my-role">{{ role_title }}</span></p>
   {% if ctx.full %}<div class="row" style="margin-top:8px"><a class="btn" href="/account/email" data-testid="change-email">Change email</a></div>{% endif %}
   <form method="post" action="/settings/weekly" style="margin-top:14px">
-    <label class="check" for="weekly" style="font-weight:600"><input id="weekly" name="weekly" type="checkbox" value="1" {% if weekly %}checked{% endif %} data-autosave data-testid="weekly">
+    <label class="check" for="weekly" style="font-weight:600"><input id="weekly" name="weekly" type="checkbox" value="1" {% if weekly %}checked{% endif %} data-autosave data-what="Weekly summary" data-testid="weekly">
       <span>Email me a weekly summary <span class="mut small" style="display:block;font-weight:400">On Sunday evening: how each child's week went, and what to help with.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
   <form method="post" action="/settings/report-emails" style="margin-top:10px">
-    <label class="check" for="report_emails" style="font-weight:600"><input id="report_emails" name="on" type="checkbox" value="1" {% if report_emails %}checked{% endif %} data-autosave data-testid="report-emails">
+    <label class="check" for="report_emails" style="font-weight:600"><input id="report_emails" name="on" type="checkbox" value="1" {% if report_emails %}checked{% endif %} data-autosave data-what="Emails about reported questions" data-testid="report-emails">
       <span>Email me when a question a child reported has been checked <span class="mut small" style="display:block;font-weight:400">Either way, each child's reports and what we found are on their progress page.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
   <form method="post" action="/settings/plan-emails" style="margin-top:10px">
-    <label class="check" for="plan_emails" style="font-weight:600"><input id="plan_emails" name="on" type="checkbox" value="1" {% if plan_emails %}checked{% endif %} data-autosave data-testid="plan-emails">
+    <label class="check" for="plan_emails" style="font-weight:600"><input id="plan_emails" name="on" type="checkbox" value="1" {% if plan_emails %}checked{% endif %} data-autosave data-what="Emails about plan changes" data-testid="plan-emails">
       <span>Email me when another grown-up changes a plan <span class="mut small" style="display:block;font-weight:400">Targets, rewards, days off, spelling lists and topics. Either way, every change is under Family activity on Home.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
@@ -40,8 +40,8 @@
     <button class="btn" type="submit">Save name</button>
   </form>
 </div>
-{% if pins %}<div class="card" data-testid="pins"><b>Children's PINs</b><p class="mut small">Each child types their PIN on "Who's learning?".</p>
-  {% for p in pins %}<div class="kid" style="padding:6px 0"><span>{{ p.name }}</span><details><summary style="cursor:pointer">Show</summary><span class="display" style="font-size:1.4rem;font-weight:800;letter-spacing:6px" data-testid="pin-{{ p.name }}">{{ p.pin }}</span></details></div>{% endfor %}
+{% if pins %}<div class="card" id="pins" data-testid="pins" style="scroll-margin-top:76px"><b>Children's PINs</b><p class="mut small">Each child types their PIN on "Who's learning?". Every grown-up of the family finds them here.{% if ctx.full %} To change one, open the child's Settings.{% endif %}</p>
+  {% for p in pins %}<div class="kid" style="padding:6px 0"><span>{{ p.name }}</span>{% if p.pin %}<details><summary style="cursor:pointer">Show</summary><span class="display" style="font-size:1.4rem;font-weight:800;letter-spacing:6px" data-testid="pin-{{ p.name }}">{{ p.pin }}</span></details>{% else %}<span class="mut small">{% if ctx.full %}<a href="/children/{{ p.id }}/edit">Set a new PIN</a> to see it here{% else %}A parent sets a new PIN to show it here{% endif %}</span>{% endif %}</div>{% endfor %}
 </div>{% endif %}
 <div class="card" id="adults" data-testid="adults"><b>Grown-ups on this family</b>
   {% if request.query_params.get('invited') %}<div class="ok" role="status">Invitation sent. It works for 7 days.</div>{% endif %}
@@ -99,7 +99,8 @@
       try {
         const r = await fetch(box.form.action, {method: 'POST', body: new FormData(box.form), credentials: 'same-origin'});
         if (!r.ok || new URL(r.url).pathname !== '/settings') throw new Error(r.status);   // not saved: signed out or locked
-        note.style.color = 'var(--good)'; note.textContent = 'Saved';
+        note.style.color = 'var(--good)';
+        note.textContent = (box.dataset.what || 'Saved') + (box.dataset.what ? ': ' + (box.checked ? 'on' : 'off') : '');   // "Weekly summary: off"
       } catch (e) {
         note.style.color = 'var(--bad)'; note.textContent = 'Not saved. Reload the page and tick it again.';
         box.checked = !box.checked;

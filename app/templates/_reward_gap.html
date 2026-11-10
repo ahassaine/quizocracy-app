@@ -1,0 +1,8 @@
+{# "Ava and Max have no reward. Use the family reward?": gap = routes/parent.py reward_gap(), back = a child's id or "". #}
+{% if gap and ctx.full %}<div class="card small" data-testid="reward-gap" style="border:2px solid var(--sun);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">
+  <div style="flex:1 1 240px"><b>{{ gap.without }} {{ 'has' if gap.n == 1 else 'have' }} no reward.</b> Use the family reward? Then every child without a reward of their own earns the same one, so nobody is left out.</div>
+  <form method="post" action="/settings/family-reward" style="margin:0"><input type="hidden" name="reward_text" value="{{ gap.reward.text }}"><input type="hidden" name="reward_threshold" value="{{ gap.reward.threshold or 100 }}"><input type="hidden" name="back" value="{{ back or '' }}">
+    <button class="btn primary" type="submit" data-testid="reward-gap-use">Use “{{ gap.reward.text }}” for {{ gap.without }} too</button></form>
+  <a class="small" href="/settings#family-reward" data-testid="reward-gap-other">Or set another family reward</a>
+</div>{% endif %}
+{% if request.query_params.get('family_reward') %}<div class="ok" role="status" data-testid="family-reward-saved">Family reward saved: every child without a reward of their own earns it now.</div>{% endif %}

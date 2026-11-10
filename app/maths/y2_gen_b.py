@@ -4,7 +4,7 @@
 # and everyday objects.  Short prompts for young readers.
 from .maths_engine import skill
 from .y5_common import *  # noqa: F401,F403
-from .y2_gen_a import S0, S6, KIDS, _pn, _tn, _a
+from .y2_gen_a import S0, S6, KIDS, _pn, _tn, _a, FACE_WHY
 
 
 @skill("Y2.0.e", "Use place value and number facts to solve problems", S0)
@@ -187,14 +187,15 @@ def _(d=1):
                      ("Which 2-D shape is the bottom of a square-based pyramid?", "square"),
                      ("Which 2-D shape is at each end of a triangular prism?", "triangle"),
                      ("Which 2-D shape is every face of a cube?", "square")])
-        return _wq(q, a, ["Look at the flat faces."], "shape name")
+        return _wq(q, a, [FACE_WHY[q]], "shape name")
 
     def t_sides_sort():
         shapes = random.sample(["triangle", "square", "rectangle", "pentagon", "hexagon", "circle"], _by(d, 4, 5, 6))
         n = random.choice(_by(d, [3, 4], [3, 4], [4, 5, 6]))
         k = sum(1 for x in shapes if FLAT[x][0] == n)
         return _tb("Sort these shapes. How many have exactly %d sides?  %s" % (n, ", ".join(shapes)), k, "int", {},
-                   ["%s." % ", ".join(x for x in shapes if FLAT[x][0] == n) if k else "No shape in the list has %d sides." % n])
+                   ["Only %s %s %d sides: %d." % (" and ".join("the " + x for x in shapes if FLAT[x][0] == n), "has" if k == 1 else "have", n, k)
+                    if k else "No shape in the list has %d sides." % n])
 
     return _pick_t(_by(d, [t_object, t_count_solid, t_odd_one, t_more_sides, t_stack, t_face_on_solid],
                        [t_object, t_count_solid, t_odd_one, t_more_sides, t_faces_compare, t_stack, t_face_on_solid, t_sides_sort],

@@ -164,7 +164,8 @@ input.answer { font-size:1.6rem; max-width:340px; text-align:center; font-family
 .feedback.yes { color:#3BE2A8; animation:pop-in .45s cubic-bezier(.34,1.56,.64,1); } .feedback.no { color:#FF8FA6; } .feedback.warn { color:var(--sun); }
 .stage.shake { animation:shake .45s; } .stage.flash { animation:flash .6s ease-out; }
 .daybar { margin:6px 0 16px; }
-.day-extra { color:var(--violet); font-weight:800; white-space:nowrap; }
+.day-extra { white-space:nowrap; }     /* the day line is one short line in one colour (drill.js setDay) */
+.btn.idk { font-size:.95rem; }         /* "I don't know", beside Check (drill.js opts.idk) */
 .act-head { display:flex; align-items:center; gap:12px; } .act-head img { width:48px; height:48px; }
 .m-prompt { font-size:1.2rem; font-weight:700; margin:10px 0 14px; } .m-host { margin:8px 0 14px; } .m-sol { color:#9AA4BB; font-size:.88rem; margin-top:6px; }
 .stage .chip { background:#1B2338; border-color:#2C3650; color:#C7CFE2; }
@@ -231,7 +232,7 @@ input.answer.wide { max-width:420px; text-align:left; font-size:1.25rem; }
 .unit { font-weight:700; font-size:1.2rem; align-self:center; }
 .why { font-weight:600; font-size:.98rem; color:#C7CFE2; margin-top:6px; }
 .tofix { color:var(--bad); font-weight:800; }
-#fixMsg { color:var(--sun); margin-top:4px; min-height:0; }
+#fixMsg { color:var(--mut); margin-top:4px; min-height:0; }
 .tips details summary { cursor:pointer; list-style:none; }
 .tips details summary::-webkit-details-marker { display:none; }
 .tips details[open] summary { margin-bottom:6px; }
@@ -330,6 +331,10 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 :root.a11y-dys input, :root.a11y-dys textarea, :root.a11y-dys button, :root.a11y-space input, :root.a11y-space textarea { letter-spacing:inherit; word-spacing:inherit; }
 :root.a11y-calm *, :root.a11y-calm *::before, :root.a11y-calm *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
 :root.a11y-calm .confetti { display:none; }
+/* "Calm screen": a quieter top line (a reward earned before is on My day, not on every question), plain colours */
+:root.a11y-calm .reward.slim, :root.a11y-calm #dayReward.slim { display:none; }
+:root.a11y-calm .win-moment { background:none; color:inherit; padding:0; font-weight:700; }
+:root.a11y-calm .stage.flash, :root.a11y-calm .stage.shake { box-shadow:none; }
 @media (prefers-reduced-motion: reduce) { .confetti { display:none; } }
 :root.a11y-contrast { --ink:#000; --mut:#1F2937; --line:#111827; --bg:#FFFFFF; --bg-2:#E5E7EB; --card:#FFFFFF; --card-2:#FFFFFF; --field:#FFFFFF;
   --violet:#3730A3; --good:#065F46; --bad:#9F1239; --glow:none; --board:#000; --board-line:#FFFFFF; }

@@ -3,8 +3,9 @@
 {% set editing = pupil and pupil._id %}{% from "_explain.html" import explain %}
 <h1>{% if editing %}{{ pupil.name }}'s settings{% else %}Add a child{% endif %}</h1>
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
-{% if editing and request.query_params.get('saved') %}<div class="ok" role="status" data-testid="saved">Saved.{% if request.query_params.get('pin') %} PIN changed: {{ pupil.name }}'s new PIN works from now on, and the old one no longer does.{% if easy %} <b data-testid="pin-easy-saved" style="color:var(--sun)">It is easy to guess, though: a brother or sister could try it.</b>{% endif %}{% endif %} <a href="/children/{{ pupil._id }}">See {{ pupil.name }}'s progress</a> · <a href="/home">Home</a></div>{% endif %}
+{% if editing and request.query_params.get('saved') %}<div class="ok" role="status" data-testid="saved">Saved.{% if request.query_params.get('earned') %} <span data-testid="saved-earned">{{ pupil.name }} has already earned today's reward, so this change won't be needed for it today.</span>{% endif %}{% if request.query_params.get('pin') %} PIN changed: {{ pupil.name }}'s new PIN works from now on, and the old one no longer does.{% if easy %} <b data-testid="pin-easy-saved" style="color:var(--sun)">It is easy to guess, though: a brother or sister could try it.</b>{% endif %}{% endif %} <a href="/children/{{ pupil._id }}">See {{ pupil.name }}'s progress</a> · <a href="/home">Home</a></div>{% endif %}
 {% if save_note %}<div class="ok" role="status" data-testid="save-note">{{ save_note }}</div>{% endif %}
+{% if editing %}{% with gap = reward_gap if request.query_params.get('saved') or request.query_params.get('family_reward') else none, back = pupil._id %}{% include "_reward_gap.html" %}{% endwith %}{% endif %}
 {% if editing %}{% with back = 'edit' %}{% include "_focus_off.html" %}{% endwith %}{% endif %}
 {% if limited %}<p class="mut small" data-testid="carer-limited">As a carer you can type in the school's spelling list and mark days off. A parent changes the rest.</p>{% endif %}
 {% if last_edit and not save_note %}<p class="mut small" data-testid="last-edit">Last changed by {{ last_edit.who }} on {{ last_edit.when }} ({{ last_edit.what|join(', ') }}).</p>{% endif %}
@@ -22,11 +23,23 @@
   {% elif school_sum %}<div class="small" data-testid="school-summary" style="margin:-4px 0 10px"><b>{% if request.query_params.get('saved') %}Saved: {% endif %}{{ school_sum.n }} word{{ 's' if school_sum.n != 1 }}:</b> {{ school_sum.words|join(', ') }}{% if school_sum.yours %} · {{ school_sum.yours }} with your sentence{% endif %}{% if school_sum.ours %} · {{ school_sum.ours }} with a hint sentence from us{% endif %}
     {% for a in school_sum.ask %}<div class="mut" data-testid="school-ask" style="margin-top:4px">{{ a }}</div>{% endfor %}</div>{% endif %}
 {% endmacro %}
+{% macro calm_fields(who) %}{% set vc = (pupil.voice if pupil and pupil.voice else {}) %}
+  <input type="hidden" name="calm_form" value="1">
+  <label class="check" style="font-weight:600"><input type="checkbox" name="calm" value="1" {% if pupil and (pupil.calm if 'calm' in pupil else (pupil.reading or {}).calm) %}checked{% endif %} data-testid="calm"> Calm screen</label>
+  <p class="mut small" style="margin:0 0 10px 34px">No confetti, nothing spins, bounces or pulses, the same plain “Correct.” every time, and a quieter top line. Nothing moves on until {{ who }} presses a button. Only a grown-up can turn it off (the <b>Aa</b> button shows it as set by a grown-up). A device set to reduce motion gets it anyway.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:0 14px">
+  <div class="field" style="margin:6px 0"><label for="voice">Read-aloud</label>
+    <select id="voice" name="voice" data-testid="voice" style="max-width:280px">{% for v, t in [("on", "On: questions and feedback"), ("questions", "Questions only (no spoken feedback)"), ("off", "Off")] %}<option value="{{ v }}" {% if (vc.mode or 'on') == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="field" style="margin:6px 0"><label for="voice_rate">Speed</label>
+    <select id="voice_rate" name="voice_rate" data-testid="voice-rate" style="max-width:160px">{% for v, t in [("normal", "Normal"), ("slower", "Slower")] %}<option value="{{ v }}" {% if (vc.rate or 'normal') == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  </div>
+  <p class="mut small" style="margin:0">Years 1–2 hear each question by itself; every year has the 🔊 button. “Off” takes the button away too.</p>
+{% endmacro %}
 <form method="post" class="card" id="childForm"{% if draft or dirty %} data-dirty="{{ ((draft or {}).keys()|list + (dirty or []))|join(' ') }}"{% endif %}>
   {% if editing %}<input type="hidden" name="loaded" value="{{ loaded }}"><input type="hidden" name="orig" value="">{% endif %}
   {% if not limited %}
   <div class="field"><label for="name">First name or nickname</label><input id="name" name="name" type="text" required maxlength="30" value="{{ pupil.name if pupil else '' }}"></div>
-  {% set sy = (pupil.school_year or pupil.year) if pupil else none %}
+  {% set sy = pupil.year if pupil else none %}
   <div class="field"><label for="year">School year (England)</label>
     <select id="year" name="year" required aria-describedby="year-hint">{% for y in years %}<option value="{{ y }}" {% if sy == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select>
     <div class="mut small" id="year-hint" data-testid="year-hint">Follows the national curriculum in England (Years 1–9).{% if not editing %} In Scotland, Wales or Northern Ireland, pick the year for your child's age: P4 in Scotland is about Year 3 (<a href="/help#curriculum" target="_blank" rel="noopener">see the table</a>).{% endif %}</div>
@@ -54,14 +67,26 @@
         m.addEventListener('change', suggest); y.addEventListener('change', suggest);
       })();
     </script></div>
-  {% if editing %}<div class="field" id="working-at" style="scroll-margin-top:76px"><label for="level">Working at</label>
-    <select id="level" name="level" aria-describedby="level-hint" data-testid="level"><option value="">The school year</option>{% for y in years %}<option value="{{ y }}" {% if pupil.school_year and pupil.year == y %}selected{% endif %}>Year {{ y }} level</option>{% endfor %}</select>
-    <div class="mut small" id="level-hint">For a child who finds their year easy (or hard): the questions come from this year instead. The school year stays as it is on every page and report ("Year 8, working at Year 9 level"), and progress so far is kept.</div></div>
+  {% if editing %}{% set lvs = pupil.levels or {} %}<fieldset class="field" id="working-at" data-testid="working-at" style="scroll-margin-top:76px;border:0;padding:0;margin:0 0 14px;min-width:0"><legend style="font-weight:700;padding:0">Working at, subject by subject</legend>
+    <input type="hidden" name="level_form" value="1">
+    <div style="display:flex;flex-wrap:wrap;gap:0 14px">{% for s, t in [("maths", "Maths"), ("grammar", "Grammar and punctuation"), ("science", "Science")] %}
+      <div class="field" style="margin:6px 0;flex:1 1 180px"><label for="level_{{ s }}">{{ t }}</label>
+      <select id="level_{{ s }}" name="level_{{ s }}" aria-describedby="level-hint" data-testid="level-{{ s }}"><option value="" data-at-school>At the school year (Year {{ pupil.year }})</option>{% for y in years %}<option value="{{ y }}" {% if lvs.get(s) == y %}selected{% endif %}>Year {{ y }} level</option>{% endfor %}</select></div>{% endfor %}</div>
+    <div class="mut small" id="level-hint">For a child who finds one subject easy or hard: that subject's questions come from another year, and the others stay at the school year. Progress so far is kept. Pages and the report show a level only where it differs ("Maths: Year 6 level"). See <a href="/help#hard">My child finds it hard</a>.</div>
+    <label class="check small" style="font-weight:400;margin-top:6px"><input type="checkbox" name="level_report" value="1" {% if pupil.levels_on_report is not sameas false %}checked{% endif %} data-testid="level-report"> Show these levels on the printed report for the teacher</label>
+    <script>
+      /* "At the school year (Year 8)" follows the school year chosen above. */
+      (function () {
+        const year = document.getElementById('year');
+        year.addEventListener('change', () => document.querySelectorAll('#working-at option[data-at-school]')
+          .forEach(o => { o.textContent = 'At the school year (Year ' + year.value + ')'; }));
+      })();
+    </script></fieldset>
   <div class="field"><b>{{ pupil.name }}'s PIN</b>
     {% if pupil.pin_view %}<details data-testid="show-pin"><summary style="cursor:pointer;padding:6px 0">Show the PIN</summary><span class="display" style="font-size:1.6rem;font-weight:800;letter-spacing:6px" data-testid="pin-value">{{ pupil.pin_view }}</span></details>
     {% else %}<div class="mut small">Set a new PIN below and it will be shown here, for anyone who minds {{ pupil.name }}.</div>{% endif %}</div>{% endif %}
   <div class="field"><label for="pin">{% if editing %}New PIN <span class="mut">(leave blank to keep)</span>{% else %}PIN for your child{% endif %}</label>
-    <input id="pin" name="pin" type="text" inputmode="numeric" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off" aria-describedby="pin-hint" style="max-width:150px">
+    <input id="pin" name="pin" type="text" inputmode="numeric" maxlength="4" {% if not editing %}required{% endif %} autocomplete="off" aria-describedby="pin-hint" style="max-width:150px" value="{{ pin_typed or '' }}" data-testid="pin-input">
     <div class="mut small" id="pin-hint">4 numbers, like 4739: one your child knows and a brother or sister doesn't. You can see it again here later.</div>
     <div class="small" id="pin-easy" role="status" data-testid="pin-easy" hidden style="color:var(--sun);font-weight:600">Easy to guess: a brother or sister could try it. Numbers like 1111, 1234 or 0000 are the first ones they try.</div>
     <script>
@@ -88,11 +113,15 @@
   <p class="mut small">Only the ticked activities are in the day. Targets count right answers.</p>
   {% call explain(testid="plan-weighting") %}An activity for an older year can't be ticked yet. The day's % counts every planned answer the same: with Maths 20 and Science 5, the 5 science answers are 20% of the day, not half. A bigger target gives an activity more weight.{% endcall %}
   <p data-testid="plan-minutes" style="font-weight:700;margin:.2em 0 .6em">About <span id="planMin">{{ minutes_est if minutes_est is defined else '' }}</span> minutes a day</p>
-  <p class="mut small" id="planCap" data-testid="plan-cap" hidden>Years 1 and 2: each activity also ends after twice its target in answers, right or wrong, so a hard day stays short: at most about <b id="planCapMin"></b> minutes.</p>
+  <p class="mut small" id="planCap" data-testid="plan-cap" hidden>Years 1 to 4: each activity also ends after twice its target in answers, right or wrong, so a hard day stays short: at most about <b id="planCapMin"></b> minutes.</p>
+  <p class="mut small" id="planCapSp" data-testid="plan-cap-spelling" hidden>Spelling also ends after twice its target in answers, right or wrong, so a hard spelling list never makes the day run on.</p>
   {% if editing %}{% if started %}
   <div class="card" style="padding:10px 14px;margin:0 0 10px" data-testid="plan-tomorrow"><b>Changes start tomorrow.</b>
     <span class="mut small">{{ pupil.name }} has started today, so today keeps the plan {{ pupil.name }} started with ({% for a in today_items %}{{ a.title }} {{ a.target }}{% if not loop.last %}, {% endif %}{% endfor %}).</span>
-    <label class="check small" style="font-weight:400;margin-top:6px"><input type="checkbox" name="plan_today" value="1" data-testid="plan-today" {% if draft and draft.plan_today %}checked{% endif %}> Change today's plan too. A reward {{ pupil.name }} has already earned today stays earned.</label></div>
+    {% if earned %}<div class="small" data-testid="plan-earned" style="margin-top:6px"><b>{{ pupil.name }} has already earned today's reward</b> (“{{ earned }}”), so a change here won't be needed for it today. When should it start?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:2px 16px;margin-top:4px"><label class="check small" style="font-weight:600"><input type="radio" name="plan_today" value="" data-testid="plan-start-tomorrow" {% if not (draft and draft.plan_today) %}checked{% endif %}> Start tomorrow</label>
+      <label class="check small" style="font-weight:600"><input type="radio" name="plan_today" value="1" data-testid="plan-today" {% if draft and draft.plan_today %}checked{% endif %}> <span>Today too <span class="mut" style="font-weight:400">(as extra practice: the reward stays earned)</span></span></label></div></div>
+    {% else %}<label class="check small" style="font-weight:400;margin-top:6px"><input type="checkbox" name="plan_today" value="1" data-testid="plan-today" {% if draft and draft.plan_today %}checked{% endif %}> Change today's plan too. A reward {{ pupil.name }} has already earned today stays earned.</label></div>{% endif %}
   {% else %}<p class="mut small" data-testid="plan-now">{{ pupil.name }} hasn't started today, so changes start straight away.</p>{% endif %}{% endif %}
   <input type="hidden" name="custom" value="1">
   <table class="t" id="planTable">
@@ -118,8 +147,11 @@
       const check = ck && ck.checked && tb && tb.checked && !tb.disabled && y >= 3 && y <= 6 ? J.check_secs : 0;
       const m = Math.max(s ? 1 : 0, Math.round((s * J.pace[y] + check) / 60));
       document.getElementById('planMin').textContent = m;
-      // Years 1-2: the cap (twice the target in answers) bounds a hard day; about 1.5 times the usual day
-      document.getElementById('planCap').hidden = !(y <= 2 && s);
+      // Years 1-4: the cap (twice the target in answers, activities.has_cap) bounds a hard day, about 1.5 times the
+      // usual day; Years 5-9: only spelling has the cap
+      const sp = document.querySelector('[data-testid=on-spelling]');
+      document.getElementById('planCap').hidden = !(y <= J.cap_years && s);
+      document.getElementById('planCapSp').hidden = !(y > J.cap_years && sp && sp.checked && !sp.disabled);
       document.getElementById('planCapMin').textContent = Math.round(m * 1.5);
     }
     function forYear(reset) {
@@ -174,6 +206,11 @@
     {{ school_fields() }}
   </details>
   {% endif %}
+  {% if not editing %}
+  <details class="card" id="new-calm" data-testid="new-calm" style="padding:10px 14px;margin:12px 0"{% if pupil and (pupil.calm or (pupil.voice or {}).mode not in (none, 'on') or (pupil.voice or {}).rate == 'slower') %} open{% endif %}><summary style="cursor:pointer"><b>Calm screen and read-aloud</b> <span class="mut small">(optional: for a child who needs things calm and the same each time, for example with autism or sensory needs)</span></summary>
+    {{ calm_fields('your child') }}
+  </details>
+  {% endif %}
   {% endif %}
   {% if editing %}
   {% set dr = draft or {} %}{% set date_css = "width:200px;max-width:100%;background:var(--field);border:2px solid var(--line);border-radius:12px;color:var(--ink);font:inherit;font-size:1.05rem;padding:9px 12px" %}
@@ -200,7 +237,7 @@
     <div class="field" style="margin:6px 0"><label for="focus_weeks_{{ n }}">For</label>
       <select id="focus_weeks_{{ n }}" name="focus_weeks_{{ n }}" style="max-width:140px" data-testid="focus-weeks-{{ n }}">{% for w in (1, 2) %}<option value="{{ w }}" {% if cur and cur.weeks == w %}selected{% endif %}>{{ w }} week{{ 's' if w > 1 }}</option>{% endfor %}</select></div>
   </div>{% endfor %}
-  <div class="mut small">Topics of Year {{ pupil.year }}.</div>
+  <div class="mut small">{% if pupil.levels %}Each subject's topics come from the year it works at (above).{% else %}Topics of Year {{ pupil.year }}.{% endif %}</div>
   {% endif %}
   {% if not limited %}
   <h2 id="rest-days">Practice days</h2>
@@ -220,13 +257,16 @@
     <div class="field" style="margin:6px 0"><label for="off_to">Last day off <span class="mut small" style="font-weight:400">(if more than one)</span></label><input id="off_to" name="off_to" type="date" min="{{ today_iso }}" max="{{ max_off }}" value="{{ dr.off_to or '' }}" data-testid="off-to" style="{{ date_css }}"></div>
   </div>
   {% if not limited %}
+  <h2 id="calm" style="scroll-margin-top:76px">Calm screen and read-aloud</h2>
+  <p class="mut small">For a child who needs things calm and the same each time, for example with autism or sensory needs.</p>
+  <div data-testid="calm-section">{{ calm_fields(pupil.name) }}</div>
   <h2 id="reading">Reading</h2>
   <p class="mut small">Easier to read, for example with dyslexia.</p>
   {% call explain() %}Bigger text, easier letters and more space make the questions easier to read. They follow {{ pupil.name }} to every phone, tablet and computer, and change nothing for anyone else. {{ pupil.name }} can change them too, with the <b>Aa</b> button.{% endcall %}
   <input type="hidden" name="reading_form" value="1">
   {% set rd = pupil.reading or {} %}
   <div data-testid="reading">
-  {% for k, label in [("big", "Bigger text"), ("dys", "Easy-to-read letters (good for dyslexia)"), ("space", "More space between letters and lines"), ("calm", "Less movement (no stars or bouncing)"), ("contrast", "Stronger colours")] %}
+  {% for k, label in [("big", "Bigger text"), ("dys", "Easy-to-read letters (good for dyslexia)"), ("space", "More space between letters and lines"), ("contrast", "Stronger colours")] %}
     <label class="check" style="font-weight:600"><input type="checkbox" name="read_{{ k }}" value="1" {% if rd[k] %}checked{% endif %} data-testid="read-{{ k }}"> {{ label }}</label>
   {% endfor %}</div>
   {% endif %}
@@ -260,6 +300,18 @@
     const f = document.getElementById('childForm'), dirty = (f.dataset.dirty || '').split(' ');
     const orig = JSON.stringify(Array.from(new FormData(f)).filter(([k]) => k !== 'orig' && k !== 'loaded' && !dirty.includes(k)));
     f.addEventListener('submit', () => { f.elements.orig.value = orig; });
+  })();
+  /* A link to one part of the page ("Add it" on Home: #school-list) lands on it, below the sticky menu
+     (scroll-margin-top), and stays there once fonts and pictures have loaded and moved things about, unless the
+     grown-up has started scrolling themselves. */
+  (function () {
+    const el = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+    if (!el) return;
+    let moved = false;
+    ['wheel', 'touchstart', 'keydown'].forEach(e => addEventListener(e, () => { moved = true; }, { once: true, passive: true }));
+    const go = () => { if (!moved) el.scrollIntoView({ block: 'start' }); };
+    Promise.all([document.fonts ? document.fonts.ready : null,
+                 document.readyState === 'complete' ? null : new Promise(r => addEventListener('load', r, { once: true }))]).then(go);
   })();
 </script>
 {% if not limited %}

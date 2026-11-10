@@ -232,12 +232,14 @@ def test_extra_right_answers_show_in_the_header(browser):
         prev = doc["_id"]
         pg.fill("#answer", str(doc["answer"]))
         pg.press("#answer", "Enter")
+        if n == 0:
+            continue              # before the target, times tables move on by themselves, with no button showing
         pg.wait_for_selector("#next:visible")
         if n == 1:
             assert pg.locator("[data-testid=day-extra]").is_hidden()
         if n < 3:
             pg.click("#next")
-    assert pg.inner_text("[data-testid=day-extra]") == "+2 extra today ★"
+    assert pg.inner_text("[data-testid=day-extra]") == "· +2 extra today ★"     # one line, one colour (wave 6)
     pg.context.close()
 
 
@@ -258,7 +260,7 @@ def test_years_1_2_cap_ends_a_hard_activity_and_the_estimate_is_honest(browser):
     assert pg.inner_text("#dayDone") == "0"
     pg.goto("/me")
     assert "done" in pg.inner_text("[data-testid=tile-tables]")
-    # the form: Years 1-2 see the cap; a Year 4 check adds its minutes
+    # the form: Years 1-4 see the cap; a Year 4 check adds its minutes; from Year 5 only spelling has the cap
     unlock_parent(pg)
     pg.goto(f"/children/{pid}/edit")
     assert pg.locator("[data-testid=plan-cap]").is_visible()
@@ -267,7 +269,10 @@ def test_years_1_2_cap_ends_a_hard_activity_and_the_estimate_is_honest(browser):
     pg.check("[data-testid=on-tables]")
     pg.check("[data-testid=check-tables]")
     assert int(pg.inner_text("#planMin")) == m + 4 or int(pg.inner_text("#planMin")) > m
-    assert pg.locator("[data-testid=plan-cap]").is_hidden()
+    assert pg.locator("[data-testid=plan-cap]").is_visible()
+    pg.select_option("#year", "6")
+    pg.check("[data-testid=on-spelling]")
+    assert pg.locator("[data-testid=plan-cap]").is_hidden() and pg.locator("[data-testid=plan-cap-spelling]").is_visible()
     pg.context.close()
 
 

@@ -5,7 +5,7 @@
     <label class="check"><input type="checkbox" data-a11y="big" data-testid="a11y-big"> Bigger text</label>
     <label class="check"><input type="checkbox" data-a11y="dys" data-testid="a11y-dys"> Easy-to-read letters (good for dyslexia)</label>
     <label class="check"><input type="checkbox" data-a11y="space" data-testid="a11y-space"> More space between letters and lines</label>
-    <label class="check"><input type="checkbox" data-a11y="calm" data-testid="a11y-calm"> Less movement (no stars or bouncing)</label>
+    <label class="check"><input type="checkbox" data-a11y="calm" data-testid="a11y-calm"> Calm screen (no confetti or movement)</label>
     <label class="check"><input type="checkbox" data-a11y="contrast" data-testid="a11y-contrast"> Stronger colours</label>
     <p class="mut small" id="a11yNote" style="margin:6px 0 10px" data-testid="a11y-note">{% if ctx and ctx.child %}These are {{ ctx.child.name }}'s, on every device.{% else %}These stay on this device.{% endif %}</p>
     <button class="btn" id="a11yDone" type="button">Done</button>
@@ -16,7 +16,8 @@
    so they follow the child to any device, and a sibling on the same tablet has their own. base.html applies
    them before the page draws (window.QZ_A11Y) and keeps a copy in localStorage (qz_a11y:<child>), which also
    holds a change made offline until the server has it. With no child signed in they stay on the device
-   (qz_a11y). "Less movement" starts ticked when the device asks for reduced motion, which always wins.
+   (qz_a11y). "Calm screen" starts ticked when the device asks for reduced motion, or when a grown-up set it in the
+   child's Settings (QZ_CALM_SET, base.html): both always win, so the child can't untick it here.
    The panel opens on <body>, above everything: inside the page header it would be under the question card,
    whose entrance animation makes it a layer of its own. */
 (function () {
@@ -45,10 +46,13 @@
   if (PID && window.QZ_A11Y_DIRTY) push();          // changed on this device while offline, or kept from before
   panel.querySelectorAll('[data-a11y]').forEach(box => {
     const k = box.dataset.a11y;
-    box.checked = saved[k] === true || (k === 'calm' && osCalm);
-    if (k === 'calm' && osCalm) { box.disabled = true; const n = document.getElementById('a11yNote'); n.textContent = 'Less movement is on because this device asks for it. ' + n.textContent; }
+    const fixed = k === 'calm' && (window.QZ_CALM_SET || osCalm);
+    box.checked = saved[k] === true || fixed;
+    if (fixed) { box.disabled = true; const n = document.getElementById('a11yNote');
+      n.textContent = (window.QZ_CALM_SET ? 'Calm screen is set by a grown-up. ' : 'Calm screen is on because this device asks for it. ') + n.textContent;
+      if (window.QZ_CALM_SET) box.nextSibling.textContent += ' — set by a grown-up'; }
     box.addEventListener('change', () => {
-      saved[k] = box.checked; root.classList.toggle('a11y-' + k, box.checked);
+      saved[k] = box.checked; root.classList.toggle('a11y-' + k, box.checked || (k === 'calm' && fixed));
       store();
     });
   });

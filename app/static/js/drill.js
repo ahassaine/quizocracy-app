@@ -66,7 +66,11 @@
   const YEAR = parseInt(($('drillHead') || { dataset: {} }).dataset.year, 10) || 0;
   const YOUNG = YEAR >= 1 && YEAR <= 3, TEEN = YEAR >= 7;
   const PRAISE = ['Well done!', 'Brilliant!', 'Super!', 'Great job!', 'Fantastic!'];
+  // "Calm screen" (base.html: a grown-up's, the child's own Aa, or the device's reduced motion): no confetti or
+  // movement, the same plain "Correct." every time, and nothing moves on until the child presses a button
+  const CALM = () => document.documentElement.classList.contains('a11y-calm');
   function cheer() {
+    if (CALM()) return '<span class="tick quiet" aria-hidden="true">✓</span> Correct.';
     if (YOUNG) return '<span class="joy-star" aria-hidden="true">★</span><span class="joy-word">Correct!</span> '
       + '<span class="joy-praise">' + PRAISE[Math.floor(Math.random() * PRAISE.length)] + '</span>';
     return '<span class="tick' + (TEEN ? ' quiet' : '') + '" aria-hidden="true">✓</span> Correct';
@@ -90,10 +94,11 @@
     $('dayBar').classList.toggle('done', d.done >= d.target);
     // right answers past the target: the child sees the extra effort too, not only the parent
     const ex = $('dayExtra');
-    if (ex) { ex.hidden = !(d.extra > 0); ex.textContent = d.extra > 0 ? '+' + d.extra + ' extra today ★' : ''; }
-    if (d.day_pct >= 100) $('dayMsg').innerHTML = '<b>All done for today, well done!</b> <a href="/me">See my day</a>';
-    else if (d.capped) $('dayMsg').textContent = 'That’s plenty for today: ' + d.answered + ' tries. Well done!';
-    else if (d.done >= d.target) $('dayMsg').textContent = 'Target reached for today! You can keep going.';
+    // one short line in one colour (app.css .daybar): "6 of 6 right today · +1 extra today · All done for today."
+    if (ex) { ex.hidden = !(d.extra > 0); ex.textContent = d.extra > 0 ? '· +' + d.extra + ' extra today' + (CALM() ? '' : ' ★') : ''; }
+    if (d.day_pct >= 100) $('dayMsg').innerHTML = '· All done for today. <a href="/me">See my day</a>';
+    else if (d.capped) $('dayMsg').textContent = '· That’s plenty for today: ' + d.answered + ' tries. Well done!';
+    else if (d.done >= d.target) $('dayMsg').textContent = '· Target reached. You can keep going.';
     const rw = $('dayReward');
     if (rw && d.reward) {
       if (rw.hidden && rewarded === false && window.QZ) QZ.confetti(220);   // the moment the reward is earned
@@ -160,6 +165,21 @@
       if (window.Speak) { Speak.set([text]); Speak.feedback(text); }
       const b = $('stage').querySelector('a'); if (b) b.focus();
     }
+    /* On to the next subject of "Practise my mistakes": a short card that waits for a press, so a new activity
+       never appears by itself. shownHere: this page has shown a question. */
+    let shownHere = false;
+    function fixMove(q, to) {
+      gone = true; token = null; answered = false;
+      const title = q.fix_next_title || 'the next one';
+      $('stage').classList.remove('shake', 'flash');
+      $('stage').innerHTML = '<div data-testid="fix-move" role="status" style="text-align:center;padding:12px 4px">'
+        + '<p class="mut" style="margin:0 0 12px">' + esc('Nothing more to put right here for now.') + '</p>'
+        + '<div class="row" style="justify-content:center"><a class="btn primary big" href="' + esc(to) + '" data-testid="fix-move-go">'
+        + esc('Next: ' + title + ' →') + '</a><a class="btn" href="/me">Back to My day</a></div></div>';
+      if ($('backDay')) $('backDay').style.display = 'none';
+      if (window.Speak) { Speak.set(['Next: ' + title + '.']); Speak.feedback('Next: ' + title + '.'); }
+      const b = $('stage').querySelector('a'); if (b) b.focus();
+    }
     /* "Something wrong with this question?" (_drill_buttons.html): a reason, a note if they like, sent with the
        question's token; the server keeps the question as it was served. */
     let reason = null, reporting = false;
@@ -188,11 +208,14 @@
         const res = await send('/api/report', body, () => !gone, 'No connection — your report is safe. Trying again…');
         reporting = false;
         if (!res || switched(res)) return;
+        if (!res.ok && res.error === 'limit') {   // not sent: said plainly, and the box stays as it was typed
+          $('reportMsg').textContent = "You've sent 10 reports today, the most we take. This one was not sent. Report it again tomorrow.";
+          return;
+        }
         reportReset(); $('reportOpen').hidden = true;
         $('reportMsg').textContent = res.ok ? "Thanks! We'll check it, and your grown-up can see it too."
-          : (res.error === 'limit' ? 'Thanks! You have sent a lot of reports today, so we will look at those first.'
-            : 'Sorry, that did not send. Try again in a moment.');
-        if (!res.ok && res.error !== 'limit') $('reportOpen').hidden = false;
+          : 'Sorry, that did not send. Try again in a moment.';
+        if (!res.ok) $('reportOpen').hidden = false;
       });
     }
     let loading = false, checking = false;
@@ -232,6 +255,7 @@
       answered = false; lastVal = null; reportReset();
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
+      if ($('idk')) { $('idk').style.display = opts.idk && !opts.api ? '' : 'none'; $('idk').disabled = false; }
       if ($('backDay')) $('backDay').style.display = 'none';
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
       if (FIX && q.fix_since && q.fix_since !== fixSince) {      // kept in the address, so a refresh stays in this session
@@ -242,10 +266,14 @@
       token = q.token; setDay(q.day); skillName = q.title || q.skill || '';
       // "Practise my mistakes" runs through every subject: none ready here, so on to the next subject that has some
       if (FIX && !q.fixing && q.fix_next) {
-        location.href = '/me/' + q.fix_next + '?fix=1&moved=1' + (fixSince ? '&since=' + encodeURIComponent(fixSince) : '')
+        const to = '/me/' + q.fix_next + '?fix=1&moved=1' + (fixSince ? '&since=' + encodeURIComponent(fixSince) : '')
           + '&via=' + encodeURIComponent((fixVia ? fixVia + ',' : '') + act);
-        return;
+        // never a new activity without a press: after a question here, a calm "Next: Spelling →" card waits for
+        // one; a page that showed nothing yet (the child has just pressed to come) goes straight on
+        if (!shownHere) { location.href = to; return; }
+        return fixMove(q, to);
       }
+      shownHere = true;
       fixVia = '';                         // a question is on screen: from here the next subject may be any
       fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left; fixDone = q.fix_done || '';
       // the server's line (fix_msg) says what comes and when; the first one after moving on names the subject
@@ -260,10 +288,13 @@
       if (typeof note === 'string') { $('feedback').className = 'feedback warn'; $('feedback').textContent = note; }
       shownAt = Date.now();
     }
-    async function check() {
+    async function check(e) {
       if (busy && checking) { if (wake) wake(); return; }   // still waiting for the connection: a tap on Check tries now
       if (answered || busy || !token || gone) return;
-      const val = opts.read();
+      // "I don't know" (opts.idk: maths, grammar, science): nothing to read; the answer and why come back, a miss
+      // marked idk (never "rushed" or a guess on the parent's page)
+      const idk = !!(e && e.idk);
+      const val = idk ? { idk: true } : opts.read();
       if (val === null) {                  // nothing given yet: the page may say what to do (opts.empty), e.g. "Add some blocks first."
         $('feedback').className = 'feedback warn';
         $('feedback').textContent = (opts.empty && opts.empty())
@@ -276,7 +307,7 @@
       let tries = 0;
       // each try sends what is on screen then, so an answer changed while offline is the one marked
       const res = await send(api + 'check', () => {
-        if (tries++) { const v = opts.read(); if (v !== null) lastVal = v; }
+        if (tries++ && !idk) { const v = opts.read(); if (v !== null) lastVal = v; }
         const b = Object.assign({ token, ms }, lastVal);
         if (!opts.api) hold(api + 'check', b);        // kept until answered: if the connection drops, a refresh or another page sends it (ui.js)
         return b;
@@ -290,6 +321,7 @@
       if (!res.ok) return next('That question expired, so here is another one.');
       if (res.retry) {                     // a near miss ("eigth"): nothing marked, the same question stays open
         const fb = $('feedback'); fb.className = 'feedback warn'; fb.textContent = res.hint || 'Nearly. Check it and try again.';
+        if (opts.retry) opts.retry(res, fb);       // spelling's other real word: the box clears, the word plays again
         const a = $('answer') || $('past'); if (a && a.offsetParent && !a.readOnly) a.focus();
         if (window.Speak) Speak.feedback(fb.textContent);
         return;
@@ -301,10 +333,19 @@
         if (fixLeft) fixNote((res.again_later ? 'Good. It comes back later to make it stick' : 'Mistake put right') + ' · ' + fixLeft + ' left');
       }
       $('check').disabled = true; $('next').style.display = '';
+      if ($('idk')) $('idk').style.display = 'none';
       finishButtons(!!day.now);
       const fb = $('feedback');
+      if (res.idk) {                       // calm and neutral: no "Not quite", no shake, no "slow down"
+        fb.className = 'feedback warn';
+        fb.innerHTML = '<span data-testid="idk-said">That’s OK. Here is how it goes.</span> ' + opts.explain(res);
+        if (opts.after) opts.after(res);
+        if (window.Speak) Speak.feedback((fb.innerText || fb.textContent).replace(/\s*\n+\s*/g, '. '));
+        $('next').focus();
+        return;
+      }
       // res.other: another real word, spelt right (spelling): not a mistake, so no "Not quite" and no shake
-      fb.className = 'feedback ' + (res.correct ? 'yes' : res.other ? 'warn' : 'no') + (res.correct && YOUNG ? ' joy' : '');
+      fb.className = 'feedback ' + (res.correct ? 'yes' : res.other ? 'warn' : 'no') + (res.correct && YOUNG && !CALM() ? ' joy' : '');
       const st = $('stage');
       if (st) { st.classList.remove('shake', 'flash'); void st.offsetWidth; if (!res.other) st.classList.add(res.correct ? 'flash' : 'shake'); }
       misses = res.correct ? 0 : res.other ? misses : misses + 1;
@@ -316,8 +357,10 @@
             : misses >= (YOUNG ? 2 : 3) ? '<div class="kind" data-testid="kind">' + KIND + '</div>' : '');
       if (opts.after) opts.after(res);
       // moments that grow: a skill secure for the first time, an old mistake put right (the server says which)
-      const wins = (res.mastered ? ['★ New skill secure' + (skillName ? ': ' + skillName : '') + '!'] : [])
-        .concat(res.put_right ? ['★ You put right a mistake from before. Well done!'] : []);
+      // (the praise word already said "Well done": it is not said twice; calm: plain words, no stars)
+      const star = CALM() ? '' : '★ ';
+      const wins = (res.mastered ? [star + 'New skill secure' + (skillName ? ': ' + skillName : '') + (CALM() ? '.' : '!')] : [])
+        .concat(res.put_right ? [star + 'You put right a mistake from before.'] : []);
       if (wins.length) {
         fb.insertAdjacentHTML('beforeend', wins.map(w => '<div class="win-moment" data-testid="win-moment">' + esc(w) + '</div>').join(''));
         if (window.QZ && !day.hit) QZ.confetti(res.mastered ? 120 : 60);
@@ -330,11 +373,17 @@
       // a right answer can be checked too (the worked solution after every question): "Why?" opens it, not read aloud
       const whyRight = res.correct && opts.whyRight ? opts.whyRight(res) : '';
       if (whyRight) fb.insertAdjacentHTML('beforeend', '<details class="why-right" data-testid="why-right" style="margin-top:6px"><summary style="cursor:pointer;display:inline-block;padding:4px 0;font-weight:600;text-decoration:underline;text-underline-offset:3px">Why?</summary>' + whyRight + '</details>');
-      if (res.correct && opts.autoNext && !day.hit) { const at = seq; setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext); }
-      else $('next').focus();
+      // the quick flow of times tables (opts.autoNext): the next sum comes by itself after a right answer, but never
+      // while a button is on screen (Next is hidden for it), never once the target is reached ("Back to My day"),
+      // never in "Practise my mistakes", and never with a calm screen or for Years 1-2: those wait for the press
+      if (res.correct && opts.autoNext && !day.now && !FIX && !CALM() && !(YEAR >= 1 && YEAR <= 2)) {
+        const at = seq; $('next').style.display = 'none';
+        setTimeout(() => { if (answered && at === seq) next(); }, opts.autoNext);
+      } else $('next').focus();
     }
-    $('check').addEventListener('click', check);
-    $('next').addEventListener('click', next);
+    $('check').addEventListener('click', () => check());
+    if ($('idk')) $('idk').addEventListener('click', () => check({ idk: true }));
+    $('next').addEventListener('click', () => next());
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       if (e.target && e.target.closest && e.target.closest('#report, #a11y, #a11yPanel')) return;   // a report or the Aa settings, not an answer

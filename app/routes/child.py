@@ -9,9 +9,9 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from ..activities import ACTIVITIES, todays_plan
 from ..config import BASE_DIR
 from ..db import db
-from ..deps import Ctx, child_api, child_page, family_page, local_hm, own_pupil, pin_lock_until, pin_locks
+from ..deps import Ctx, child_api, child_page, family_page, minutes_left, own_pupil, pin_lock_until, pin_locks
 from ..drills import bank, maths, numbers, spelling, tables, verbs
-from .. import items, progress
+from .. import items, levels, progress
 from ..security import verify_secret
 from ..web import page
 
@@ -24,8 +24,15 @@ PIN_RE = re.compile(r"^\d{4}$")
 
 async def picker_page(request: Request, ctx: Ctx, status_code: int = 200, **kw):
     pupils = [p async for p in db.pupils.find({"family_id": ctx.family["_id"]}).sort("created", 1)]
-    return page(request, "learn.html", ctx, pupils=pupils, locks=await pin_locks(pupils), status_code=status_code,
-                unlocked=request.query_params.get("unlocked"), **kw)
+    # each tile shows how far that child's day is ("Ben 42%"): on a shared tablet, who still has work to do
+    days = {p["_id"]: b for p, b in zip(pupils, await progress.board(ctx.family, pupils))}
+    # "Show Isaac's PIN": for a few minutes after a grown-up unlocked that child here with their password
+    ps = ctx.session.get("pin_show") or {}
+    shown = next((p for p in pupils if p["_id"] == ps.get("pid")), None) \
+        if isinstance(ps.get("until"), datetime.datetime) and ps["until"] > datetime.datetime.utcnow() else None
+    return page(request, "learn.html", ctx, pupils=pupils, locks=await pin_locks(pupils), status_code=status_code, days=days,
+                unlocked=request.query_params.get("unlocked"),
+                show_pin={shown["_id"]: shown.get("pin_view") or ""} if shown else {}, **kw)
 
 
 @router.get("/learn")
@@ -43,7 +50,7 @@ async def enter(request: Request, pid: str, ctx: Ctx = Depends(family_page), pin
     until = await pin_lock_until(p["_id"])
     if until:
         return await picker_page(request, ctx, pin_for=p["_id"], status_code=429,
-                             error=f"Too many wrong PINs. {p['name']} is locked until {local_hm(until)}.")
+                             error=f"Too many wrong PINs. {p['name']} is locked for {minutes_left(until)}.")
     pin = pin.strip()
     if not PIN_RE.match(pin):          # not a guess: nothing is counted
         return await picker_page(request, ctx, pin_for=p["_id"], status_code=400,
@@ -51,11 +58,12 @@ async def enter(request: Request, pid: str, ctx: Ctx = Depends(family_page), pin
     if not verify_secret(pin, p["pin"]):
         await db.login_failures.insert_one({"email": f"pin:{p['_id']}", "ts": datetime.datetime.utcnow()})
         until = await pin_lock_until(p["_id"])
-        err = (f"Too many wrong PINs. {p['name']} is locked until {local_hm(until)}." if until else
+        err = (f"Too many wrong PINs. {p['name']} is locked for {minutes_left(until)}." if until else
                f"Wrong PIN. {p['name']}'s PIN is 4 numbers — ask a grown-up to check it in Parent.")
         return await picker_page(request, ctx, pin_for=p["_id"], error=err, status_code=429 if until else 400)
     await db.sessions.update_one({"_id": ctx.session["_id"]},
-                                 {"$set": {"child_id": p["_id"], "locked": True, "handed": True}})
+                                 {"$set": {"child_id": p["_id"], "locked": True, "handed": True},
+                                  "$unset": {"pin_show": ""}})        # a PIN a grown-up showed is hidden again
     return RedirectResponse("/me", 303)
 
 
@@ -66,7 +74,8 @@ async def me(request: Request, ctx: Ctx = Depends(child_page)):
     # the one rule of every mistake count (progress.mistake_book): the button counts those due now; those right
     # again in this sitting rest, and are said as "N more come back later" (together: the parent's "to go over")
     book = await progress.mistake_book(ctx.child, plan=plan)
-    open_ = _due(book)
+    # a round is at most FIX_BATCH, mixed across subjects: the child sees "Practise my mistakes (10)", never 32
+    open_ = pick_batch(_due(book), [a["key"] for a in b[0]["items"]])
     fix = {k: len(v) for k, v in open_.items()}
     # "Practise my mistakes" opens where a mistake is ready now, not on one still waiting for its gap
     ready = [a["key"] for a in b[0]["items"] if fix.get(a["key"]) and await _ready_keys(ctx, a["key"], open_[a["key"]])]
@@ -123,8 +132,12 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
     since = _since(payload.get("since")) if want_fix else None
     fx = await _fix_state(ctx, activity, bool(payload.get("check")), since) if want_fix else None
     served = await _pending(ctx, activity, want_fix)
-    if served and fx and not served[1] and fx["ready"]:
-        served = None              # a practice question waiting on screen gives way to a mistake that is ready now
+    if served and fx and not served[1] and (fx["ready"] or fx["first"]):
+        # a practice question waiting on screen gives way to a mistake that is ready now, or to the first look at a
+        # fact missed in the Year 4 check (whose line, "A first look at a fact you missed", must be over that fact);
+        # it is not served again later either
+        await _served_in(activity)[0].update_one({"_id": served[0].get("token")}, {"$unset": {"served": ""}})
+        served = None
     if want_fix and not (served and served[1]) and not fx["todo"] and not fx["queue"]:
         # the mistakes due when this "Practise my mistakes" began are done, in every subject: it ends here
         return {"ok": True, "fix_end": True, "fixing": False, **await _fix_end(ctx, fx),
@@ -150,6 +163,7 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
 
 
 NEAR = ("tables", "grammar", "science")      # drills that can fill a wait with questions like the waiting ones
+IDK_ACTS = ("maths", "grammar", "science")   # those with an "I don't know" button next to Check (drill.js opts.idk)
 SESSION_HOURS = 6        # a "Practise my mistakes" session older than this (a page left open) starts again
 
 
@@ -193,8 +207,12 @@ async def _fix_state(ctx: Ctx, activity: str, from_check: bool, since: datetime.
     (the queue's count in the plan's other subjects), and first: after the Year 4 check ("Practise the ones I
     missed", from_check), only the facts missed in it, each looked at once straight away, then put right after
     the gap."""
-    plan = {a["key"] for a in todays_plan(ctx.child, ctx.family)}
+    order = [a["key"] for a in todays_plan(ctx.child, ctx.family)]
+    plan = set(order)
     open_ = _due(await progress.mistake_book(ctx.child, plan=plan, before=since))
+    batch = None
+    if not from_check:                   # a round of at most FIX_BATCH, chosen when the session began
+        open_, batch = await _session_batch(ctx, open_, order, since)
     todo, first, check, looked, facts = open_.get(activity, []), [], None, [], set()
     if from_check and activity == "tables" and (ctx.child.get("mtc") or [{}])[-1].get("facts") is not None:
         check = ctx.child["mtc"][-1]
@@ -208,8 +226,38 @@ async def _fix_state(ctx: Ctx, activity: str, from_check: bool, since: datetime.
     ready = [t for t in await _ready_keys(ctx, activity, todo) if t not in first]
     waiting = [t for t in todo if t not in ready and t not in first]
     return {"open": open_, "todo": todo, "ready": ready, "first": first, "waiting": waiting, "check": bool(check),
-            "wait": min([waits.get(t, 0) for t in waiting], default=0), "since": since, "facts": facts,
+            "wait": min([waits.get(t, 0) for t in waiting], default=0), "since": since, "facts": facts, "batch": batch,
             "queue": 0 if check else sum(len(v) for k, v in open_.items() if k != activity and k in plan)}
+
+
+FIX_BATCH = 10       # "Practise my mistakes" is a short round: at most this many, the subjects mixed in turn
+
+
+def pick_batch(open_: dict, order: list, n: int = FIX_BATCH) -> dict:
+    """At most n of the mistakes due ({activity: [key, ...]}, each list oldest first), taken from the plan's
+    subjects in turn (one from each, then a second from each…), so a round is never one long block of one subject."""
+    out: dict = {}
+    lists = [(k, list(open_.get(k) or [])) for k in order if open_.get(k)]
+    taken = 0
+    for i in range(max((len(v) for _, v in lists), default=0)):
+        for k, v in lists:
+            if i < len(v) and taken < n:
+                out.setdefault(k, []).append(v[i])
+                taken += 1
+    return out
+
+
+async def _session_batch(ctx: Ctx, open_: dict, order: list, since: datetime.datetime) -> tuple[dict, set]:
+    """This session's round (pick_batch of what was due when it began), kept with the child (fix_batch) so it stays
+    the same while mistakes are put right: the queue is the round's mistakes still due."""
+    b = ctx.child.get("fix_batch") or {}
+    if b.get("since") != since.isoformat():
+        picked = pick_batch(open_, order)
+        b = {"since": since.isoformat(), "keys": [[k, x] for k, v in picked.items() for x in v]}
+        await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$set": {"fix_batch": b}})
+        ctx.child["fix_batch"] = b
+    keep = {(k, x) for k, x in b.get("keys") or []}
+    return {k: [x for x in v if (k, x) in keep] for k, v in open_.items() if any((k, x) in keep for x in v)}, keep
 
 
 async def _fix_end(ctx: Ctx, fx: dict) -> dict:
@@ -218,11 +266,16 @@ async def _fix_end(ctx: Ctx, fx: dict) -> dict:
     session)."""
     plan = {a["key"] for a in todays_plan(ctx.child, ctx.family)}
     book = await progress.mistake_book(ctx.child, plan=plan)
-    later = [e for e in book if e["state"] in ("later", "due")
+    # the mistakes due that were left out of this round (FIX_BATCH): ready for another round, not "back later"
+    more = [e for e in book if fx.get("batch") is not None and e["state"] == "due" and e["latest"]["ts"] < fx["since"]
+            and (e["activity"], e["key"]) not in fx["batch"]]
+    later = [e for e in book if e["state"] in ("later", "due") and e not in more
              and (not fx["check"] or e["activity"] == "tables" and e["item"] in fx["facts"])]
     if fx["check"]:
         done = "All the facts you missed in the check are put right. Well done!" if not later else \
             "All done for now with the facts you missed in the check."
+    elif more:
+        done = "That round is done. Well done!"
     else:
         done = "All your mistakes are done. Well done!" if not later else "All done for now."
     n = len(later)
@@ -230,6 +283,8 @@ async def _fix_end(ctx: Ctx, fx: dict) -> dict:
         done += (f" {n} mistake{'s' if n != 1 else ''} come{'s' if n == 1 else ''} back later "
                  f"({progress.back_when([e['back'] for e in later if e['state'] == 'later'])}), to check you remember "
                  f"{'it' if n == 1 else 'them'}.")
+    if more:
+        done += " More are ready for another round, another time."
     return {"fix_total": 0, "fix_msg": "", "fix_done": done, "fix_title": "", "fix_next": None, "fix_comeback": n}
 
 
@@ -272,6 +327,8 @@ async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool, via=None) -
         # a subject with mistakes waiting stays put)
         if not out["fix_next"] and others and not open_.get(activity):
             out["fix_next"] = others[0]
+        if out["fix_next"]:
+            out["fix_next_title"] = ACTIVITIES[out["fix_next"]]["title"]     # the child's "Next: Spelling →" card
     total = out["fix_total"]
     if fixing:
         out["fix_msg"] = f"Putting a mistake right · {total} left"
@@ -297,7 +354,12 @@ def _served_in(activity: str):
 async def _remember(ctx: Ctx, activity: str, q: dict, want_fix: bool, fixing: bool) -> None:
     coll, _ = _served_in(activity)
     await coll.update_one({"_id": q["token"]}, {"$set": {"served": {
-        "q": json.dumps(q, default=str), "fix": want_fix, "fixing": fixing, "year": ctx.child.get("year")}}})
+        "q": json.dumps(q, default=str), "fix": want_fix, "fixing": fixing, "year": _year(ctx, activity)}}})
+
+
+def _year(ctx: Ctx, activity: str) -> int:
+    """The year this activity's questions come from: the subject's level ("working at"), else the school year."""
+    return levels.level(ctx.child, activity) if activity in levels.SUBJECTS else ctx.child.get("year")
 
 
 async def _pending(ctx: Ctx, activity: str, want_fix: bool) -> tuple[dict, bool] | None:
@@ -305,7 +367,7 @@ async def _pending(ctx: Ctx, activity: str, want_fix: bool) -> tuple[dict, bool]
     so a hard question cannot be swapped for an easier one."""
     coll, who = _served_in(activity)
     find = {who: ctx.child["_id"], "done": {"$ne": True}, "served.fix": want_fix,
-            "served.year": ctx.child.get("year"),
+            "served.year": _year(ctx, activity),
             "created": {"$gt": datetime.datetime.utcnow() - datetime.timedelta(hours=PENDING_HOURS)}}
     if activity != "maths":
         find["activity"] = activity
@@ -328,7 +390,11 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
     if activity == "verbs":
         res = await verbs.check(ctx.child, payload.get("token"), payload.get("past", ""), payload.get("pp", ""), ms)
     else:
-        res = await DRILLS[activity].check(ctx.child, payload.get("token"), payload.get("value"), ms)
+        # "I don't know" (maths, grammar, science): the answer and why, kept as a miss marked idk
+        idk = {"idk": True} if payload.get("idk") is True and activity in IDK_ACTS else {}
+        res = await DRILLS[activity].check(ctx.child, payload.get("token"), payload.get("value"), ms, **idk)
+        if idk and res is not None:
+            res["idk"] = True
     if res is None:
         return JSONResponse({"ok": False, "error": "expired"}, status_code=409)
     if before and res.get("correct") and not res.get("retry"):
@@ -385,7 +451,12 @@ async def api_reading(payload: dict = Body(...), ctx: Ctx = Depends(child_api)):
     if (refused := _switched(ctx, payload)):
         return refused
     reading = {k: payload.get(k) is True for k in READING}
-    await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$set": {"reading": reading}})
+    upd = {"reading": reading}
+    if "calm" not in ctx.child:
+        # "Less movement" from before there was a grown-up's "Calm screen": who ticked it can't be told, so it
+        # becomes the grown-up's (the calm side; a parent can untick it in Settings), as base.html shows it
+        upd["calm"] = (ctx.child.get("reading") or {}).get("calm") is True
+    await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$set": upd})
     return {"ok": True, "reading": reading}
 
 
@@ -405,7 +476,8 @@ async def api_report(request: Request, payload: dict = Body(...), ctx: Ctx = Dep
     if activity not in DRILLS or reason not in REPORT_REASONS:
         raise HTTPException(400, "bad report")
     day = progress.today()
-    if await db.reports.count_documents({"pupil_id": ctx.child["_id"], "day": day}) >= REPORTS_PER_DAY:
+    # the child's own reports only: a grown-up's (from the mistakes list, "by") never use up the child's 10
+    if await db.reports.count_documents({"pupil_id": ctx.child["_id"], "day": day, "by": {"$exists": False}}) >= REPORTS_PER_DAY:
         return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
     coll, who = _served_in(activity)
     token = str(payload.get("token") or "")
@@ -424,7 +496,7 @@ async def api_report(request: Request, payload: dict = Body(...), ctx: Ctx = Dep
     if isinstance(answer, dict) and set(answer) == {"value"}:
         answer = answer["value"]
     await db.reports.insert_one({
-        "family_id": ctx.family["_id"], "pupil_id": ctx.child["_id"], "year": ctx.child.get("year"),
+        "family_id": ctx.family["_id"], "pupil_id": ctx.child["_id"], "year": _year(ctx, activity),
         "activity": activity, "skill": skill, "reason": reason, "note": str(payload.get("note") or "").strip()[:500],
         "token": token, "served": served, "expected": expected,
         "answer": (answer if isinstance(answer, str) else json.dumps(answer, ensure_ascii=False))[:300]

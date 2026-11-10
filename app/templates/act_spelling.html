@@ -7,7 +7,7 @@
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=3"></script><script src="/static/js/drill.js?v=26"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=29"></script><script>
 const audio = document.getElementById('audio');
 let say = '';          // a school word with no recorded clip: the browser's own voice says it
 function voice(text, rate) { return new Promise(res => { const s = window.speechSynthesis; if (!s || !window.SpeechSynthesisUtterance) return res();
@@ -16,16 +16,25 @@ function voice(text, rate) { return new Promise(res => { const s = window.speech
   u.rate = rate || 0.8; u.onend = u.onerror = done; t = setTimeout(done, 6000); s.speak(u); }); }
 function sayWord() { return voice(say); }
 // the word's clip; the promise ends when it has played (or could not play: no tap on the page yet)
-function playWord() { if (say) return sayWord(); return new Promise(res => { let t = 0; const done = () => { clearTimeout(t); audio.removeEventListener('ended', done); res(); };
-  audio.addEventListener('ended', done); t = setTimeout(done, 6000); audio.currentTime = 0; audio.play().catch(done); }); }
+// (true when it played: speak.js then never plays it again at the first tap)
+function playWord() { if (say) return sayWord(); return new Promise(res => { let t = 0; const done = (ok) => { clearTimeout(t); audio.removeEventListener('ended', done); res(ok !== false); };
+  audio.addEventListener('ended', done); t = setTimeout(done, 6000); audio.currentTime = 0; audio.play().catch(() => done(false)); }); }
 let playing = null;
 document.getElementById('play').addEventListener('click', () => { if (say) { sayWord(); return; } audio.currentTime = 0; audio.play().catch(() => {}); });
+// has the child ever pressed a sound button (Listen again, 🔊)? With the sound off, a real word that fits the hint
+// is easy to type by mistake ("supervise" for accompany): then the page says to turn the sound on
+let heard = false;
+try { heard = sessionStorage.getItem('qz_heard') === '1'; } catch (e) {}
+document.addEventListener('click', (e) => { if (e.target && e.target.closest && e.target.closest('[data-speaks]')) {
+  heard = true; try { sessionStorage.setItem('qz_heard', '1'); } catch (x) {} } }, true);
+function soundTip(fb) { if (heard || !fb) return; const d = document.createElement('div'); d.className = 'kind';
+  d.setAttribute('data-testid', 'sound-tip'); d.textContent = 'Turn your sound on to hear the word.'; fb.appendChild(d); }
 Drill({ activity: 'spelling',
   render(q) { say = q.say ? [...atob(q.say)].reverse().join('') : '';
     // after a run of misses the server gives an easier word, with a kind word first (Years 1-2 hear it)
     const fb = document.getElementById('feedback');
     if (q.ease) { fb.className = 'feedback warn'; fb.textContent = q.ease; }
-    const first = q.ease && window.Speak && Speak.young ? () => voice(q.ease, 0.9) : () => null;
+    const first = q.ease && window.Speak && Speak.talks ? () => voice(q.ease, 0.9) : () => null;
     if (say) { audio.removeAttribute('src'); playing = new Promise(r => setTimeout(r, 0)).then(first).then(playWord); }   // after the 🔊 button resets the voice
     else { audio.src = q.audio; audio.load(); playing = q.ease ? new Promise(r => setTimeout(r, 0)).then(first).then(playWord) : playWord(); }
     document.getElementById('cue').textContent = q.cue ? 'Hint: ' + q.cue : '';
@@ -34,6 +43,10 @@ Drill({ activity: 'spelling',
   // 🔊: the word, then its hint sentence ("I walk ___ school." tells "to" from "two"); Years 1-2 hear the hint after the word by themselves
   speech(q) { return { parts: q.cue ? ['Hint: ' + q.cue] : [], lead: playWord, after: playing }; },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },
+  // another real word, spelt right: one more go at the word asked (the server keeps it open), the box empty
+  retry(r, fb) { if (!r.other) return; document.getElementById('answer').value = ''; soundTip(fb);
+    if (!(window.Speak && Speak.talks)) playWord(); },   // Years 1-2 hear the message, which says the word
+  after(r) { if (r.other) soundTip(document.getElementById('feedback')); },
   explain(r) { return r.other ? '' : 'It is spelt <b>' + esc(r.expected) + '</b>.'; },
   spoken(r) { return r.spoken || null; } });
 </script>{% endblock %}

@@ -44,7 +44,12 @@ def test_practise_my_mistakes(page):
     assert "1 left" in page.inner_text("[data-testid=fix-msg]")    # drops as soon as it is put right
     page.click("#next")
 
-    # then straight on to the next subject's mistake: grammar, the very same question
+    # then on to the next subject's mistake, after a press (wave 6: never a new activity by itself): grammar,
+    # the very same question
+    page.wait_for_selector("[data-testid=fix-move]")
+    assert page.inner_text("[data-testid=fix-move-go]") == "Next: Grammar and punctuation →"
+    assert "/me/tables" in page.url
+    page.click("[data-testid=fix-move-go]")
     page.wait_for_url("**/me/grammar?fix=1&moved=1*")
     it = wait_question(page, "grammar", pid)
     assert (it["meta"]["skill"], it["meta"]["qid"]) == (gq["skill"], gq["qid"])

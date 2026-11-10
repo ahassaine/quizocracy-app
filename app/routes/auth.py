@@ -252,7 +252,7 @@ ROLE_CAN = {
 
 async def settings_view(ctx: Ctx) -> dict:
     """What the Settings page shows besides the family's own settings: the adults, open invitations, this adult's
-    login and weekly email, and (for a carer, who cannot open the children's settings) the children's PINs."""
+    login and weekly email, and the children's PINs (for every grown-up)."""
     fid = ctx.family["_id"]
     adults = [a async for a in db.accounts.find({"family_id": fid}).sort("created", 1)]
     owner_view = ctx.full
@@ -272,8 +272,10 @@ async def settings_view(ctx: Ctx) -> dict:
                     .sort("expires", 1)],
         "weekly": weekly_on(ctx.account),
         "role_title": ROLE_TITLES.get(ctx.role, "Parent"),
-        "pins": [] if ctx.full else [{"name": p["name"], "pin": p.get("pin_view") or ""}
-                                     async for p in db.pupils.find({"family_id": fid}).sort("created", 1)],
+        # every grown-up finds the PINs in the same place (Settings), parents and carers alike; a parent can also
+        # see and change one in the child's own Settings
+        "pins": [{"id": p["_id"], "name": p["name"], "pin": p.get("pin_view") or ""}
+                 async for p in db.pupils.find({"family_id": fid}).sort("created", 1)],
     }
 
 
@@ -419,34 +421,36 @@ async def invite_form(request: Request, token: str = ""):
 
 
 @router.post("/invite")
-async def invite_accept(request: Request, token: str = Form(...), password: str = Form(...), consent: str = Form("")):
+async def invite_accept(request: Request, token: str = Form(...), password: str = Form(""), consent: str = Form(""),
+                        name: str = Form("")):
     inv = await _open_invite(token)
     fam = await db.families.find_one({"_id": inv["family_id"]}) if inv else None
     if not inv or not fam:
         return page(request, "invite.html", invalid=True, status_code=400)
     by = await db.accounts.find_one({"_id": inv.get("by")}) or {}
-    err = _taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))
-    if not err and len(password) < 8:
-        err = "Use a password of 8 characters or more."
-    elif not err and not consent:
-        err = "Please confirm you are aged 18 or over."
+    name = " ".join(name.split())[:40]
+    taken = _taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))
+    # every problem at once, so a nervous first try is fixed in one go (the password stays typed)
+    errs = [taken] if taken else [e for e, bad in (("Use a password of 8 characters or more.", len(password) < 8),
+                                                     ("Tick the box to confirm you are aged 18 or over.", not consent)) if bad]
     acc = {"_id": new_id("acc"), "email": inv["email"], "pw": hash_secret(password), "family_id": fam["_id"],
            "role": inv["role"], "invited_by": inv.get("by"), "created": _now(), "verified_at": _now(),
-           "report_emails": True}
-    if not err:
+           "report_emails": True, **({"name": name} if name else {})}
+    if not errs:
         try:
             await db.accounts.insert_one(acc)          # the link came to this inbox, so the address is verified
         except DuplicateKeyError:
-            err = _taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))
-    if err:
+            errs = [_taken(inv["email"], fam["_id"], await db.accounts.find_one({"email": inv["email"]}))]
+    if errs:
         return page(request, "invite.html", inv=inv, family=fam, by=by.get("email", ""), token=token,
-                    can=ROLE_CAN[inv["role"]], error=err, consent=consent, status_code=400)
+                    can=ROLE_CAN[inv["role"]], errors=errs, consent=consent, status_code=400,
+                    typed={"name": name, "password": password if not taken else ""})
     await db.codes.delete_many({"purpose": "invite", "email": inv["email"]})      # every family's: it has joined one
     resp = RedirectResponse("/home?joined=1", 303)
     await create_session(resp, acc)
     await note_device(request, resp, acc, quiet=True)
     title = ROLE_TITLES[inv["role"]]
-    await log_event(fam["_id"], "adult", f"{acc['email']} joined as {title.lower()}"
+    await log_event(fam["_id"], "adult", f"{name + ' (' + acc['email'] + ')' if name else acc['email']} joined as {title.lower()}"
                                          + (f", invited by {adult_name(by)}" if by else ""))
     # The parents hear of every new grown-up (who can see the children's PINs), once.
     await mailer.to_family(fam["_id"], f"{acc['email']} joined {fam['name']} on Quizocracy",

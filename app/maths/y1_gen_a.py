@@ -31,6 +31,42 @@ def _to(n):
     return "%s and %s" % (_pn(n // 10, "ten"), _pn(n % 10, "one"))
 
 
+def _why_cmp(a, b):
+    """Why one of two numbers is more, in Year 1 words: "49 has 4 tens and 27 has only 2 tens"."""
+    hi, lo = max(a, b), min(a, b)
+    if hi // 10 > lo // 10:
+        return "%d has %s and %d has %s" % (hi, _pn(hi // 10, "ten"), lo, "only " + _pn(lo // 10, "ten") if lo >= 10 else "no tens")
+    return "%d and %d have the same tens, and %d has more ones" % (hi, lo, hi)
+
+
+def _counted(step, k):
+    """"Count in 5s: 5, 10, 15, 20." (k steps of step), the Year 1 way to find a total of equal groups."""
+    return "Count in %ds: %s." % (step, ", ".join(str(step * i) for i in range(1, k + 1)))
+
+
+# Why, for the real things a Year 1 child compares (the answer is the key).
+_REAL = {"elephant": "An elephant is huge and a mouse is tiny, so the elephant is heavier.",
+         "giraffe": "A giraffe's neck reaches the treetops; a cat is small. The giraffe is taller.",
+         "bath": "You could fill lots of cups from one bath, so the bath holds more.",
+         "feather": "A feather floats in the air; a brick is hard to lift. The feather is lighter.",
+         "pencil": "A pencil fits in your hand; a bus is longer than a car. The pencil is shorter."}
+
+_CLOCK_TURN = {"quarter": "From 12 to 3 is a quarter of the way round: a quarter turn.",
+               "half": "From 12 to 6 is half of the way round: a half turn.",
+               "three-quarter": "From 12 to 9 is three quarters of the way round: a three-quarter turn.",
+               "whole": "All the way round and back to 12 is a whole turn."}
+
+# Why, for each position question (the question is the key).
+_WHERE = {"The cat is ON the mat. Is the mat above or below the cat?": "The cat sits on top of the mat, so the mat is below the cat.",
+          "The bird is flying OVER the tree. Is the bird above or below the tree?": "Over means higher up, so the bird is above the tree.",
+          "Sam is standing BEHIND Mia. Who is in front?": "Sam is behind Mia, so Mia is in front.",
+          "A ball is UNDER the table. Is the table above or below the ball?": "The ball is under the table, so the table is above the ball.",
+          "A book is on the TOP shelf. Is it high or low?": "The top shelf is the highest one, so the book is high.",
+          "A cup is INSIDE a box. Is the cup in or out of the box?": "Inside means in, so the cup is in the box.",
+          "The sun is in the sky. Is it above or below the trees?": "The sky is higher than the trees, so the sun is above them.",
+          "A dog sits NEXT TO a cat. Is the dog beside or on top of the cat? (beside or on top)": "Next to means beside."}
+
+
 # ================================================================== 1.0 ======
 @skill("Y1.0.a", "Count forwards and backwards to 100", S0)
 def _(d=1):
@@ -68,7 +104,7 @@ def _(d=1):
 
     def t_between():
         n = random.randint(1, _by(d, 19, 59, 99))
-        return _tb("Which number is between %d and %d?" % (n - 1, n + 1), n, "int", {}, ["%d, %d, %d." % (n - 1, n, n + 1)])
+        return _tb("Which number is between %d and %d?" % (n - 1, n + 1), n, "int", {}, ["Count on from %d: %d, %d, %d. The number in the middle is %d." % (n - 1, n - 1, n, n + 1, n)])
 
     def t_missing_back():
         s = [start + 4 - i for i in range(5)]
@@ -79,13 +115,13 @@ def _(d=1):
     def t_count_on():
         k = random.randint(2, 5)
         return _tb("Start at %d. Count on %d. Where do you stop?" % (start, k), start + k, "int", {},
-                   ["%s." % ", ".join(str(start + i) for i in range(1, k + 1))])
+                   ["Count on %d from %d: %s. You stop on %d." % (k, start, ", ".join(str(start + i) for i in range(1, k + 1)), start + k)])
 
     def t_count_back():
         n = random.randint(6, _by(d, 20, 60, 100))
         k = random.randint(2, 5)
         return _tb("Start at %d. Count back %d. Where do you stop?" % (n, k), n - k, "int", {},
-                   ["%s." % ", ".join(str(n - i) for i in range(1, k + 1))])
+                   ["Count back %d from %d: %s. You stop on %d." % (k, n, ", ".join(str(n - i) for i in range(1, k + 1)), n - k)])
 
     def t_to_100():
         n = random.randint(94, 97) if d == 2 else random.randint(36, 89)
@@ -94,7 +130,7 @@ def _(d=1):
     def t_line_back():
         n = random.randint(3, _by(d, 20, 50, 100))
         lo = max(0, ((n - 3) // 10) * 10)
-        return _nl("Start at %d and count back 3. Mark where you stop." % n, n - 3, 1, 5, ["%d, %d, %d." % (n - 1, n - 2, n - 3)],
+        return _nl("Start at %d and count back 3. Mark where you stop." % n, n - 3, 1, 5, ["Count back 3 from %d: %d, %d, %d." % (n, n - 1, n - 2, n - 3)],
                    lo=lo, hi=lo + 10 if n <= lo + 10 else lo + 20)
 
     return _pick_t([t_next, t_missing, t_across_ten, t_before, t_after, t_between, t_missing_back, t_count_on, t_count_back,
@@ -146,14 +182,14 @@ def _(d=1):
     def t_groups():
         return {"prompt": "There are %d groups of %d. Count in %ss. How many altogether?" % (k, step, step),
                 "component": "equal_groups", "spec": {"mode": "read", "groups": k, "per": step}, "answer": k * step,
-                "answer_type": "int", "solution": ["%s." % ", ".join(str(step * i) for i in range(1, k + 1))]}
+                "answer_type": "int", "solution": ["Count in %ds: %s. That makes %d." % (step, ", ".join(str(step * i) for i in range(1, k + 1)), step * k)]}
 
     def t_socks():
-        return _tb("How many socks are in %d pairs? Count in 2s." % k, 2 * k, "int", {}, ["%s." % ", ".join(str(2 * i) for i in range(1, k + 1))])
+        return _tb("How many socks are in %d pairs? Count in 2s." % k, 2 * k, "int", {}, ["Count in %ds: %s. That makes %d." % (2, ", ".join(str(2 * i) for i in range(1, k + 1)), 2 * k)])
 
     def t_line():
         return _nl("Start at 0 and make %d jumps of %d. Where do you land?" % (k, step), k * step, step, 10,
-                   ["%d jumps of %d is %d." % (k, step, k * step)], lo=0, hi=max(20, (k * step // 10 + 1) * 10))
+                   ["%d jumps of %d. %s" % (k, step, _counted(step, k))], lo=0, hi=max(20, (k * step // 10 + 1) * 10))
 
     def t_back():
         s = [step * i for i in range(k + 1, k - 2, -1)]
@@ -161,16 +197,16 @@ def _(d=1):
 
     def t_hands():
         return _tb("How many fingers are on %d hands? Count in 5s." % k, 5 * k, "int", {},
-                   ["%s." % ", ".join(str(5 * i) for i in range(1, k + 1))])
+                   ["Count in %ds: %s. That makes %d." % (5, ", ".join(str(5 * i) for i in range(1, k + 1)), 5 * k)])
 
     def t_coins():
         c = pick([2, 5, 10])
         return _tb("%s has %d %dp coins. How many pence is that? Count in %ss." % (_kid(), k, c, c), k * c, "int", {"unit": "p"},
-                   ["%s." % ", ".join(str(c * i) for i in range(1, k + 1))])
+                   ["Count in %ds: %s. That makes %d." % (c, ", ".join(str(c * i) for i in range(1, k + 1)), c * k)])
 
     def t_sticks():
         return _tb("There are %d bundles of 10 sticks. How many sticks? Count in 10s." % k, 10 * k, "int", {},
-                   ["%s." % ", ".join(str(10 * i) for i in range(1, k + 1))])
+                   ["Count in %ds: %s. That makes %d." % (10, ", ".join(str(10 * i) for i in range(1, k + 1)), 10 * k)])
 
     def t_how_many_jumps():
         return _tb("How many jumps of %d take you from 0 to %d?" % (step, k * step), k, "int", {},
@@ -206,7 +242,7 @@ def _(d=1):
     def t_blocks():
         m = min(n, 98)
         return {"prompt": "Make the number that is one more than %d." % m, "component": "base_ten",
-                "spec": {"mode": "build", "max": 9}, "answer": m + 1, "answer_type": "int", "solution": ["%d." % (m + 1)]}
+                "spec": {"mode": "build", "max": 9}, "answer": m + 1, "answer_type": "int", "solution": ["One more: count on 1 from %d to %d." % (m, m + 1)]}
 
     return _pick_t([t_more, t_less, t_word], [t_blocks])
 
@@ -220,10 +256,10 @@ def _(d=1):
         a, b = [t + x for x in random.sample(range(10), 2)]
 
     def t_more():
-        return _tb("Which is more, %d or %d?" % (a, b), max(a, b), "int", {}, ["%d is more." % max(a, b)])
+        return _tb("Which is more, %d or %d?" % (a, b), max(a, b), "int", {}, ["%s, so %d is more." % (_why_cmp(a, b), max(a, b))])
 
     def t_less():
-        return _tb("Which is less, %d or %d?" % (a, b), min(a, b), "int", {}, ["%d is less." % min(a, b)])
+        return _tb("Which is less, %d or %d?" % (a, b), min(a, b), "int", {}, ["%s, so %d is less." % (_why_cmp(a, b), min(a, b))])
 
     def t_most():
         k = _by(d, 3, 3, 4)                             # hard: four children, and sometimes the least
@@ -272,7 +308,7 @@ def _(d=1):
                 "answer": n, "answer_type": "int", "solution": ["%s." % _to(n)]}
 
     def t_from_parts():
-        return _tb("%s make what number?" % _to(n), n, "int", {}, ["%d." % n])
+        return _tb("%s make what number?" % _to(n), n, "int", {}, ["%s is %d, and %s more make %d." % (_pn(n // 10, "ten"), (n // 10) * 10, _pn(n % 10, "one"), n)])
 
     def t_partition():
         return _tb("%d = %d + ___" % (n, (n // 10) * 10), n % 10, "int", {}, ["%s is %d, so the rest is %d." % (_pn(n // 10, "ten"), (n // 10) * 10, n % 10)])
@@ -384,7 +420,7 @@ def _(d=1):
     def t_related():
         b = random.randint(_by(d, 1, 1, 3), _by(d, 5, 9, 9))
         c = random.randint(_by(d, 1, 1, 11 - b), _by(d, 5, 9, 9))  # hard: the fact crosses 10
-        return _tb("%d + %d = %d. So what is %d − %d?" % (b, c, b + c, b + c, c), b, "int", {}, ["It undoes the adding."])
+        return _tb("%d + %d = %d. So what is %d − %d?" % (b, c, b + c, b + c, c), b, "int", {}, ["Taking away %d undoes adding %d: %d − %d = %d." % (c, c, b + c, c, b)])
 
     def t_double():
         k = random.randint(_by(d, 1, 1, 6), _by(d, 5, 10, 10))
@@ -446,7 +482,7 @@ def _(d=1):
     def t_true():
         shown = pick([tot - a, tot - a, tot - a + 1, tot - a - 1 if tot - a > 1 else tot - a + 2])
         return _wq("Is this true?  %d + %d = %d  (yes or no)" % (a, shown, tot), "yes" if a + shown == tot else "no",
-                   ["%d + %d = %d." % (a, tot - a, tot)], "yes / no")
+                   ["%d + %d = %d%s." % (a, shown, a + shown, "" if a + shown == tot else ", not %d" % tot)], "yes / no")
 
     def t_dominoes():
         x, y = random.randint(1, _by(d, 4, 6, 6)), random.randint(1, _by(d, 4, 6, 6))
@@ -668,40 +704,40 @@ def _(d=1):
     def t_groups():
         return {"prompt": "How many altogether? There are %d groups of %d." % (g, p), "component": "equal_groups",
                 "spec": {"mode": "read", "groups": g, "per": p}, "answer": g * p, "answer_type": "int",
-                "solution": ["Count in %ds: %d." % (p, g * p)]}
+                "solution": [_counted(p, g)]}
 
     def t_array():
         return {"prompt": "Make an array with %d rows of %d. How many dots?" % (g, p), "component": "array",
                 "spec": {"mode": "build", "maxRows": 6, "maxCols": 10, "targetRows": g, "targetCols": p},
-                "answer": g * p, "answer_type": "int", "solution": ["%d rows of %d is %d." % (g, p, g * p)]}
+                "answer": g * p, "answer_type": "int", "solution": ["%d rows of %d. %s" % (g, p, _counted(p, g))]}
 
     def t_word():
         return _tb("There are %d plates. Each plate has %d biscuits. How many biscuits altogether?" % (g, p), g * p, "int", {},
-                   ["Count in %ds: %d." % (p, g * p)])
+                   [_counted(p, g)])
 
     def t_legs():
         n, legs, what = pick([(random.randint(2, 6), 2, "birds"), (random.randint(2, 5), 4, "dogs")])
-        return _tb("How many legs do %d %s have?" % (n, what), n * legs, "int", {}, ["%d lots of %d = %d." % (n, legs, n * legs)])
+        return _tb("How many legs do %d %s have?" % (n, what), n * legs, "int", {}, ["%s each: %s" % (_pn(legs, "leg"), _counted(legs, n))])
 
     def t_wheels():
         n = random.randint(2, 5)
         what, w = pick([("bikes", 2), ("cars", 4)])
-        return _tb("How many wheels are on %d %s?" % (n, what), n * w, "int", {}, ["Count in %ds: %d." % (w, n * w)])
+        return _tb("How many wheels are on %d %s?" % (n, what), n * w, "int", {}, [_counted(w, n)])
 
     def t_shoes():
         n = random.randint(2, 10)
         return _tb("%d children each wear a pair of shoes. How many shoes is that?" % n, 2 * n, "int", {},
-                   ["Count in 2s: %d." % (2 * n)])
+                   [_counted(2, n)])
 
     def t_boxes():
         n = random.randint(2, 6)
         return _tb("There are %d boxes. Each box has 10 pencils. How many pencils?" % n, 10 * n, "int", {},
-                   ["Count in 10s: %d." % (10 * n)])
+                   [_counted(10, n)])
 
     def t_groups_count():
         return {"prompt": "How many groups are there?", "component": "equal_groups",
                 "spec": {"mode": "read", "groups": g, "per": p}, "answer": g, "answer_type": "int",
-                "solution": ["There are %d groups of %d." % (g, p)]}
+                "solution": ["Count the groups one by one: there are %d, each with %d." % (g, p)]}
 
     def t_double():
         k = random.randint(1, 10)
@@ -710,11 +746,11 @@ def _(d=1):
     def t_bar():
         return _strip("There are %d bags with %d sweets in each. How many sweets?" % (g, p),
                       {"mode": "equal_parts", "parts": g, "partLabel": str(p), "totalLabel": "?", "unknown": "total"}, g * p,
-                      ["Count in %ds: %d." % (p, g * p)])
+                      [_counted(p, g)])
 
     def t_rows():
         return _tb("Chairs are put in %d rows with %d chairs in each row. How many chairs?" % (g, p), g * p, "int", {},
-                   ["%d rows of %d is %d." % (g, p, g * p)])
+                   ["%d rows of %d. %s" % (g, p, _counted(p, g))])
 
     return _pick_t([t_word, t_legs, t_wheels, t_shoes, t_boxes, t_double, t_rows], [t_groups, t_array, t_groups_count, t_bar])
 
@@ -749,7 +785,7 @@ def _(d=1):
     def t_how_many_groups():
         return {"prompt": "%d counters are put in groups of %d. How many groups are there?" % (k * each, each),
                 "component": "equal_groups", "spec": {"mode": "read", "groups": k, "per": each}, "answer": k,
-                "answer_type": "int", "solution": ["There are %d groups of %d." % (k, each)]}
+                "answer_type": "int", "solution": ["Count in %ds to %d: %s. That is %s." % (each, k * each, ", ".join(str(each * i) for i in range(1, k + 1)), _pn(k, "group"))]}
 
     def t_strip():
         return _strip("%d stickers are shared equally into %d pages. How many on each page?" % (k * each, k),
@@ -949,7 +985,7 @@ def _(d=1):
         q, ans = pick([("Which is heavier: an elephant or a mouse?", "elephant"), ("Which is taller: a giraffe or a cat?", "giraffe"),
                        ("Which holds more: a bath or a cup?", "bath"), ("Which is lighter: a feather or a brick?", "feather"),
                        ("Which is shorter: a pencil or a bus?", "pencil")])
-        return _wq(q, ans, ["Think about the real things."], "one word")
+        return _wq(q, ans, [_REAL[ans]], "one word")
 
     def t_full():
         return _wq("A jug has no water in it. Is it full or empty?", "empty", ["No water means empty."], "full or empty")
@@ -1016,10 +1052,10 @@ def _(d=1):
             win = max(cs) if most else min(cs)
             return _tb("Which coin is worth the %s: %s? Type the number of pence." % ("most" if most else "least",
                                                                                      ", ".join("%dp" % c for c in cs)),
-                       win, "int", {}, ["%dp is worth the %s." % (win, "most" if most else "least")])
+                       win, "int", {}, ["%d pence is the %s of %s, so %dp is worth the %s." % (win, "biggest" if most else "smallest", ", ".join("%d" % c for c in sorted(cs)), win, "most" if most else "least")])
         a, b = random.sample(coins, 2)
         return _tb("Which coin is worth more, %dp or %dp? Type the number of pence." % (a, b), max(a, b), "int", {},
-                   ["%dp is worth more." % max(a, b)])
+                   ["%d pence is more than %d %s, so %dp is worth more." % (max(a, b), min(a, b), "penny" if min(a, b) == 1 else "pence", max(a, b))])
 
     def t_add():
         cs = random.sample(_by(d, [1, 2, 5], [1, 2, 5, 10], [1, 2, 5, 10, 20]), _by(d, 2, 2, 3))
@@ -1038,7 +1074,9 @@ def _(d=1):
                           [(20, 100), (50, 100), (5, 50), (2, 20), (10, 50)]))
         tn = "£1" if tot == 100 else "%dp" % tot
         return _tb("How many %dp coins make %s?" % (c, tn), tot // c, "int", {},
-                   ["%s%d × %dp = %dp." % ("£1 = 100p; " if tot == 100 else "", tot // c, c, tot)])
+                   ["%sCount in %ds: %s. That is %s." % ("£1 = 100p. " if tot == 100 else "", c,
+                                                          ", ".join("%dp" % (c * i) for i in range(1, tot // c + 1)),
+                                                          _pn(tot // c, "coin"))])
 
     return _pick_t([t_value, t_more, t_add, t_notes, t_pounds])
 
@@ -1052,27 +1090,28 @@ def _(d=1):
 
     def t_after():
         k = random.randrange(7)
-        return _wq("Which day comes after %s?" % DAYS[k], DAYS[(k + 1) % 7], ["The days go in order."], "day")
+        return _wq("Which day comes after %s?" % DAYS[k], DAYS[(k + 1) % 7], ["The days go in order: %s comes just after %s." % (DAYS[(k + 1) % 7], DAYS[k])], "day")
 
     def t_before():
         k = random.randrange(7)
-        return _wq("Which day comes before %s?" % DAYS[k], DAYS[(k - 1) % 7], ["The days go in order."], "day")
+        return _wq("Which day comes before %s?" % DAYS[k], DAYS[(k - 1) % 7], ["The days go in order: %s comes just before %s." % (DAYS[(k - 1) % 7], DAYS[k])], "day")
 
     def t_tomorrow():
         k = random.randrange(7)
-        return _wq("Today is %s. What day will it be tomorrow?" % DAYS[k], DAYS[(k + 1) % 7], ["Tomorrow is the next day."], "day")
+        return _wq("Today is %s. What day will it be tomorrow?" % DAYS[k], DAYS[(k + 1) % 7], ["Tomorrow is the next day: after %s comes %s." % (DAYS[k], DAYS[(k + 1) % 7])], "day")
 
     def t_yesterday():
         k = random.randrange(7)
-        return _wq("Today is %s. What day was it yesterday?" % DAYS[k], DAYS[(k - 1) % 7], ["Yesterday was the day before."], "day")
+        return _wq("Today is %s. What day was it yesterday?" % DAYS[k], DAYS[(k - 1) % 7], ["Yesterday was the day before: just before %s comes %s." % (DAYS[k], DAYS[(k - 1) % 7])], "day")
 
     def t_month():
         k = random.randrange(12)
-        return _wq("Which month comes after %s?" % MON[k], MON[(k + 1) % 12], ["The months go in order."], "month")
+        return _wq("Which month comes after %s?" % MON[k], MON[(k + 1) % 12], ["The months go in order: %s comes just after %s." % (MON[(k + 1) % 12], MON[k])], "month")
 
     def t_counts():
         q, a = pick([("How many days are in a week?", 7), ("How many months are in a year?", 12)])
-        return _tb(q, a, "int", {}, ["%d." % a])
+        return _tb(q, a, "int", {}, ["Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday: 7 days." if a == 7 else
+                                     "January, February and on to December: 12 months."])
 
     def t_order():
         a, b = pick([("eat breakfast", "eat lunch"), ("wake up", "go to school"), ("brush your teeth", "go to bed")])
@@ -1114,7 +1153,7 @@ def _(d=1):
                 "solution": ["The long hand points to 6; the short hand is halfway past %d." % h]}
 
     def t_hand():
-        return _tb("At %d o'clock, which number does the short hand point to?" % h, h, "int", {}, ["The short hand shows the hour."])
+        return _tb("At %d o'clock, which number does the short hand point to?" % h, h, "int", {}, ["The short hand shows the hour: at %d o'clock it points to %d." % (h, h)])
 
     def t_later():
         return _tb("It is %d o'clock. What time will it be one hour later? Type the hour." % h, h % 12 + 1, "int", {},
@@ -1244,7 +1283,7 @@ def _(d=1):
         if n == 0:
             return _wq("Which flat shape is perfectly round?", "circle", ["A circle is round."], "shape name")
         if n == 4:
-            return _wq("Which shape has 4 sides that are all the same length? (one word)", "square", ["All 4 sides are equal."], "shape name")
+            return _wq("Which shape has 4 sides that are all the same length? (one word)", "square", ["A square has 4 sides, all the same length."], "shape name")
         return _wq("Which shape has 3 straight sides?", "triangle", ["Tri means three."], "shape name")
 
     def t_flat():
@@ -1305,7 +1344,7 @@ def _(d=1):
         q, a = pick([("The cat is ON the mat. Is the mat above or below the cat?", "below"),
                      ("The bird is flying OVER the tree. Is the bird above or below the tree?", "above"),
                      ("Sam is standing BEHIND Mia. Who is in front?", "Mia")])
-        return _wq(q, a, ["Use position words."], "word")
+        return _wq(q, a, [_WHERE[q]], "word")
 
     def t_half_turn():
         return _tb("How many half turns make a whole turn?", 2, "int", {}, ["2 half turns make a whole turn."])
@@ -1316,7 +1355,7 @@ def _(d=1):
     def t_two_halves():
         q, a = pick([("You make a quarter turn and then another quarter turn. What turn is that altogether? (half or whole)", "half"),
                      ("You make a half turn and then another half turn. What turn is that altogether? (half or whole)", "whole")])
-        return _wq(q, a, ["Add the turns together."], "half / whole")
+        return _wq(q, a, ["Two quarter turns make a half turn." if a == "half" else "Two half turns make a whole turn."], "half / whole")
 
     def t_turn_sum():                                   # hard: mixed turns add up
         q, a = pick([("You make a half turn and then a quarter turn. What turn is that altogether? (quarter, half, three-quarter or whole)",
@@ -1339,7 +1378,7 @@ def _(d=1):
                      ("A cup is INSIDE a box. Is the cup in or out of the box?", "in"),
                      ("The sun is in the sky. Is it above or below the trees?", "above"),
                      ("A dog sits NEXT TO a cat. Is the dog beside or on top of the cat? (beside or on top)", "beside")])
-        return _wq(q, a, ["Use position words."], "word")
+        return _wq(q, a, [_WHERE[q]], "word")
 
     def t_grid():
         if d == 2:                                      # hard: left or down as well, up to 4 squares
@@ -1362,7 +1401,7 @@ def _(d=1):
                      ("The long hand of a clock goes from 12 to 3. Is that a quarter, half or whole turn?", "quarter"),
                      ("The long hand of a clock goes from 12 all the way round to 12. Is that a quarter, half or whole turn?", "whole"),
                      ("The long hand of a clock goes from 12 to 9. Is that a quarter, half or three-quarter turn?", "three-quarter")])
-        return _wq(q, a, ["A quarter turn moves the hand 3 numbers on."], "turn")
+        return _wq(q, a, [_CLOCK_TURN[a]], "turn")
 
     return _pick_t(_by(d, [t_face, t_position, t_half_turn, t_line_up, t_more_position],
                        [t_halves, t_face, t_position, t_half_turn, t_three_q, t_two_halves, t_line_up, t_more_position, t_clock_turn],

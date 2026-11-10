@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
 
-from ..activities import (ACTIVITIES, ALL_WEEK, CHECK_SECONDS, FOCUS_MAX, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SCIENCE_AREA,
+from ..activities import (ACTIVITIES, ALL_WEEK, CAP_YEARS, CHECK_SECONDS, FOCUS_MAX, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SCIENCE_AREA,
                           SCIENCE_AREAS, SECONDS, WEEKDAYS, YEARS, day_label, days_text, default_activities,
                           focus_items, focus_title, minutes, plan_of, practice_days_on, rest_day, strand_label,
                           todays_plan, year_pace)
@@ -18,7 +18,7 @@ from ..db import FAMILY_COLLECTIONS, db
 from ..deps import (Ctx, adult_name, clear_pin_lock, family_adult, family_events, family_page, full_page,
                     hit, local_time, log_event, over_limit, own_pupil, parent_page, pin_lock_until, pin_locks)
 from ..drills import bank, maths, spelling, tables, verbs
-from .. import config, mailer, progress
+from .. import config, levels, mailer, progress
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
@@ -30,6 +30,7 @@ PIN_RE = re.compile(r"^\d{4}$")
 # What the child form's script needs to tick a year's defaults and estimate the minutes as the parent edits.
 templates.env.globals["PLAN_JS"] = {"defaults": {y: default_activities(y) for y in YEARS}, "seconds": SECONDS,
                                     "pace": {y: year_pace(y) for y in YEARS}, "check_secs": CHECK_SECONDS,
+                                    "cap_years": CAP_YEARS,
                                     "min_year": {k: a["min_year"] for k, a in ACTIVITIES.items()}}
 templates.env.filters["daylabel"] = day_label          # "2026-11-24" -> "24 Nov"
 
@@ -55,7 +56,7 @@ templates.env.filters["dayname"] = _day_name
 
 
 async def _pupils(ctx: Ctx) -> list:
-    return [p async for p in db.pupils.find({"family_id": ctx.family["_id"]}).sort("created", 1)]
+    return [await levels.fix(p) async for p in db.pupils.find({"family_id": ctx.family["_id"]}).sort("created", 1)]
 
 
 @router.get("/home")
@@ -73,7 +74,40 @@ async def home(request: Request, ctx: Ctx = Depends(parent_page)):
                 unlocked=request.query_params.get("unlocked"), events=await family_events(ctx.family["_id"], 12),
                 deleted_name=request.query_params.get("deleted_name", "")[:30],
                 pending={p["_id"]: _pending(p, ctx.family) for p in pupils},
-                checks={p["_id"]: _check_today(p) for p in pupils})
+                checks={p["_id"]: _check_today(p) for p in pupils}, reward_gap=reward_gap(ctx.family, pupils))
+
+
+def names_text(names: list) -> str:
+    """"Ava", "Ava and Max", "Ava, Max and Leo"."""
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else ""
+
+
+def reward_gap(family: dict, pupils: list) -> dict | None:
+    """One child has a reward of their own and a brother or sister has none at all (no own reward, no family
+    reward): {"without": "Ava and Max", "n", "reward": the first own reward} for "Ava and Max have no reward. Use
+    the family reward?" (a one-tap family reward for the others). None otherwise, or without the rewards plan."""
+    if len(pupils) < 2 or not plan_of(family)["rewards"] or (family.get("reward") or {}).get("text"):
+        return None
+    own = [p for p in pupils if (p.get("reward") or {}).get("text")]
+    none = [p["name"] for p in pupils if not (p.get("reward") or {}).get("text")]
+    if not own or not none:
+        return None
+    return {"without": names_text(none), "n": len(none), "reward": own[0]["reward"]}
+
+
+@router.post("/settings/family-reward")
+async def family_reward(request: Request, ctx: Ctx = Depends(full_page), reward_text: str = Form(""),
+                        reward_threshold: int = Form(100), back: str = Form("")):
+    """"Use the family reward?": the family reward set in one tap (from a child's own reward), so no child is
+    left with none. Every child without a reward of their own gets it."""
+    text = reward_text.strip()[:120]
+    if text and plan_of(ctx.family)["rewards"]:
+        r = {"text": text, "threshold": max(10, min(100, reward_threshold))}
+        await db.families.update_one({"_id": ctx.family["_id"]}, {"$set": {"reward": r}})
+        await log_event(ctx.family["_id"], "plan", f"{adult_name(ctx.account)} set the family reward: "
+                        f"“{r['text']}” at {r['threshold']}% of the day")
+    where = f"/children/{back}/edit?family_reward=1" if re.fullmatch(r"p_[0-9a-f]+", back or "") else "/home?family_reward=1"
+    return RedirectResponse(where, 303)
 
 
 def _pending(p: dict, family: dict) -> list | None:
@@ -152,7 +186,7 @@ async def child_new(request: Request, ctx: Ctx = Depends(full_page)):
     acts = (_form_activities(form, year) if form.get("custom") else default_activities(year)) if year in YEARS else default_activities(3)
     p = {"_id": new_id("p"), "family_id": ctx.family["_id"], "name": name, "year": year if year in YEARS else 3,
          "pin": hash_secret(pin), "pin_view": pin, "activities": acts, "reward": _form_reward(form, ctx.family),
-         "created": datetime.datetime.utcnow()}
+         "created": datetime.datetime.utcnow(), **_form_calm(form)}
     # this week's school spelling list (optional, folded on the form), with the same "did you mean" check as Settings
     school, school_err = _form_school_words(form, p) if (form.get("school_words") or "").strip() else ({}, "")
     school.pop("_withdraw", None)
@@ -160,14 +194,16 @@ async def child_new(request: Request, ctx: Ctx = Depends(full_page)):
     if err:
         # nothing is saved, and everything typed comes back: the plan's ticks, the reward, the topics, the list
         return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), status_code=400, error=err,
-                    pupil={"name": name, "year": year, "reward": p["reward"]}, years=YEARS, acts=acts,
+                    pupil={"name": name, "year": year, "reward": p["reward"], "calm": p["calm"], "voice": p["voice"]},
+                    years=YEARS, acts=acts,
                     new_focus=_new_focus(ctx.family), focus_picks=[form.get(f"focus_{n}") or "" for n in range(FOCUS_MAX)],
                     focus_weeks=[form.get(f"focus_weeks_{n}") or "1" for n in range(FOCUS_MAX)],
                     **{k: v for k, v in _school_week_view(p, ctx.family, {"school_words": form.get("school_words") or "",
                                                                          "school_fix": spelling.school_fixes(form)}).items()
-                       if k.startswith("school_")}, new_school_open=bool((form.get("school_words") or "").strip()))
+                       if k.startswith("school_")}, new_school_open=bool((form.get("school_words") or "").strip()),
+                    pin_typed=pin[:4])          # the PIN stays typed too (a bounced save never empties it)
     p.update(school)
-    p.update(_form_focus(form, {**p, "year": year}, ctx.family, year))     # "Working on this at school" (optional)
+    p.update(_form_focus(form, {**p, "year": year}, ctx.family))     # "Working on this at school" (optional)
     await db.pupils.insert_one(p)
     return RedirectResponse(f"/children/{p['_id']}?added=1{'&easy=1' if easy_pin(pin) else ''}", 303)
 
@@ -198,12 +234,13 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
     skills = await _skill_views(p, on)
     return page(request, "child_detail.html", ctx, pupil=p, hist=hist,
                 hist_keys=[k for k in ORDER if any(it["key"] == k for h in hist for it in h["items"] + h["unplanned"])],
-                stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(p["year"]),
+                stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(levels.level(p, "maths")),
                 mistakes=mistakes, pending=nxt if pending else None, reports=reports,
                 skills=skills, plan_items=now, TIPS=TIPS, offplan=on - planned, started=await _started(p, on),
-                accuracy=accuracy(hist[-7:]), ahead=ahead(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
+                accuracy=accuracy(hist[-7:]), hints=level_hints(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
                 reported=request.query_params.get("reported"), sats=await sats_view(p, ctx.family),
                 school=await spelling.school_status(p) if "spelling" in on else None,
+                other_words=await spelling.other_tries(p, progress.day_list(7)) if "spelling" in on else [],
                 focus=[{"title": focus_title(i["subject"], i["strand"]), "until": i["until"],
                         "off": i["subject"] not in {a["key"] for a in nxt}} for i in focus_items(p)],
                 focus_off=_focus_off(p, ctx.family), rest_today=rest_day(p),
@@ -223,35 +260,54 @@ def _split_mistakes(mistakes: list, plan: set) -> None:
 
 
 def accuracy(hist: list) -> list:
-    """Right first time per activity over these days of progress.history: [{key, title, img, first, right, pct}],
-    in the plan's order. weak: below WEAK_PCT with at least WEAK_MIN first tries, said as "needs help"."""
+    """THE one rule for "right first time" per activity, on Home, Progress and the printed report: over these days
+    of progress.history, [{key, title, img, first, right, pct, extra, extra_right, extra_pct, weak}] in the plan's
+    order. pct is the answers up to each day's target; the extra answers after a target are counted on their own
+    (extra, extra_pct: "plus 25 extra answers, 80% right"). weak ("needs help"): below WEAK_PCT with at least
+    WEAK_MIN first tries, and still below it with the extras in, so extra practice never makes an activity "needs
+    help" by itself, and good extra practice can lift it out."""
     tot: dict = {}
     for h in hist:
-        for k, (first, right) in ((h.get("stats") or {}).get("acts") or {}).items():
-            t = tot.setdefault(k, [0, 0])
-            t[0], t[1] = t[0] + first, t[1] + right
-    return [{**ACTIVITIES[k], "key": k, "first": tot[k][0], "right": tot[k][1], "pct": 100 * tot[k][1] // tot[k][0],
-             "weak": tot[k][0] >= WEAK_MIN and 100 * tot[k][1] // tot[k][0] < WEAK_PCT}
-            for k in ORDER if k in tot and tot[k][0]]
+        st = h.get("stats") or {}
+        for i, part in enumerate(("acts", "acts_extra")):
+            for k, (first, right) in (st.get(part) or {}).items():
+                t = tot.setdefault(k, [0, 0, 0, 0])
+                t[2 * i], t[2 * i + 1] = t[2 * i] + first, t[2 * i + 1] + right
+    out = []
+    for k in ORDER:
+        if k not in tot or not (tot[k][0] or tot[k][2]):
+            continue
+        first, right, xf, xr = tot[k]
+        pct = 100 * right // first if first else None
+        weak = bool(first >= WEAK_MIN and pct < WEAK_PCT and 100 * (right + xr) < WEAK_PCT * (first + xf))
+        out.append({**ACTIVITIES[k], "key": k, "first": first, "right": right, "pct": pct if pct is not None else 100 * xr // xf,
+                    "extra": xf, "extra_right": xr, "extra_pct": 100 * xr // xf if xf else None, "only_extra": not first,
+                    "weak": weak})
+    return out
 
 
 # "needs help": under 70% right first time, over at least 10 first tries in that activity (fewer, on a first day,
 # says nothing yet). Extra answers after a target and Year 4 check facts beyond the year are left out (day_stats).
 WEAK_PCT, WEAK_MIN = 70, 10
-AHEAD_PCT, AHEAD_MIN = 85, 40     # "Try working a year ahead": 85% right first time over 40 first tries
+AHEAD_PCT, AHEAD_MIN = 85, 30     # "Try Maths at Year 9 level": 85% right first time over 30 first tries in it
+LOW_PCT = 60                      # "Maths is hard at the moment": "needs help", and under 60% right first time
 
 
-def ahead(p: dict, acc: list) -> dict | None:
-    """For a child who finds the year easy: most right first time (AHEAD_PCT) over enough first tries (AHEAD_MIN)
-    in maths, grammar and science (the activities that have a next year's work), the last 7 days. None otherwise,
-    or when Year 9 is the top already."""
-    if int(p.get("year", 1)) >= YEARS[-1]:
-        return None
-    acts = [a for a in acc if a["key"] in ("maths", "grammar", "science")]
-    first, right = sum(a["first"] for a in acts), sum(a["right"] for a in acts)
-    if first < AHEAD_MIN or 100 * right < AHEAD_PCT * first:
-        return None
-    return {"pct": 100 * right // first, "first": first, "what": ", ".join(a["title"].split(" and ")[0] for a in acts)}
+def level_hints(p: dict, acc: list) -> dict:
+    """What Progress suggests, subject by subject, from the last 7 days (accuracy): {"up": [...], "down": [...]},
+    each {key, title, pct, first, level, to}. up: maths, grammar or science mostly right first time (AHEAD_PCT over
+    AHEAD_MIN first tries), below Year 9: try that subject a year up. down: an activity that "needs help" and is
+    under LOW_PCT: maths, grammar and science can work a year lower (to: that year, none at Year 1), and any
+    activity can have a smaller daily target."""
+    up, down = [], []
+    for a in acc:
+        lv = levels.level(p, a["key"]) if a["key"] in levels.SUBJECTS else None
+        h = {"key": a["key"], "title": a["title"].split(" and ")[0], "pct": a["pct"], "first": a["first"], "level": lv}
+        if lv and lv < YEARS[-1] and a["first"] >= AHEAD_MIN and 100 * a["right"] >= AHEAD_PCT * a["first"]:
+            up.append({**h, "to": lv + 1})
+        elif a["weak"] and a["pct"] < LOW_PCT:
+            down.append({**h, "to": lv - 1 if lv and lv > YEARS[0] else None})
+    return {"up": up, "down": down}
 
 
 async def work_on(p: dict, on: set, n: int = 6) -> list:
@@ -286,7 +342,7 @@ async def _started(p: dict, on: set) -> dict:
     words and irregular verbs asked."""
     out = {}
     if "maths" in on:
-        keys = {s["key"] for s in maths_mastery._year_skills(maths.engine_year(p["year"]))}
+        keys = {s["key"] for s in maths_mastery._year_skills(maths.engine_year(levels.level(p, "maths")))}
         out["maths"] = sum(1 for k, d in (await maths_mastery._mastery_map(p["_id"])).items()
                            if k in keys and d.get("attempts") and int(d.get("score", 0)) < maths_mastery.MASTERED)
     if "tables" in on:
@@ -299,7 +355,7 @@ async def _started(p: dict, on: set) -> dict:
              "box": {"$lt": spelling.LEARNED_BOX}})
     for subject in ("grammar", "science"):
         if subject in on:
-            keys = {s["key"] for s in bank_engine.skills(subject, p["year"])}
+            keys = {s["key"] for s in bank_engine.skills(subject, levels.level(p, subject))}
             out[subject] = len([1 async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})
                                 if d.get("key") in keys and int(d.get("score", 0)) < maths_mastery.MASTERED])
     if "verbs" in on:
@@ -351,11 +407,13 @@ async def report_mistake(request: Request, pid: str, ctx: Ctx = Depends(parent_p
     r = await db.attempts.find_one({"_id": ObjectId(rid), "pupil_id": p["_id"]}) if ObjectId.is_valid(rid) else None
     if not r or reason not in REPORT_REASONS:
         return RedirectResponse(f"/children/{p['_id']}#mistakes", 303)
+    # the grown-ups' own daily limit: their reports never use up the child's (child.py counts only the child's)
     since = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-    if await db.reports.count_documents({"pupil_id": p["_id"], "ts": {"$gt": since}}) >= REPORTS_PER_DAY:
+    if await db.reports.count_documents({"pupil_id": p["_id"], "ts": {"$gt": since}, "by": {"$exists": True}}) >= REPORTS_PER_DAY:
         return RedirectResponse(f"/children/{p['_id']}?reported=limit#mistakes", 303)
     await db.reports.insert_one({
-        "family_id": ctx.family["_id"], "pupil_id": p["_id"], "year": p.get("year"), "activity": r["activity"],
+        "family_id": ctx.family["_id"], "pupil_id": p["_id"], "activity": r["activity"],
+        "year": levels.level(p, r["activity"]) if r["activity"] in levels.SUBJECTS else p.get("year"),
         "skill": str(r.get("detail") or "").split("#")[0] or None, "reason": reason, "note": note.strip()[:500],
         "token": "", "served": {"prompt": r.get("q", ""), "from": "mistakes"}, "expected": r.get("exp"),
         "answer": r.get("got"), "device": {}, "day": r["day"], "ts": datetime.datetime.utcnow(), "status": "open",
@@ -363,7 +421,7 @@ async def report_mistake(request: Request, pid: str, ctx: Ctx = Depends(parent_p
     return RedirectResponse(f"/children/{p['_id']}?reported=1#reports", 303)
 
 
-REPORTS_PER_DAY = 10            # the same daily limit as the child's "Something wrong?" (routes/child.py)
+REPORTS_PER_DAY = 10            # the grown-ups' reports of one child a day; the child has their own 10 (routes/child.py)
 
 
 # ---- SATs (Year 6): which topics of each paper are practised, not started yet, or weak. Coverage only. ----
@@ -628,7 +686,7 @@ async def _skill_views(p: dict, on: set) -> dict:
     out = {}
     if "maths" in on:
         mm = await maths_mastery._mastery_map(p["_id"])
-        year = maths.engine_year(p["year"])
+        year = maths.engine_year(levels.level(p, "maths"))
         scores = {k: int(d.get("score", 0)) for k, d in mm.items() if d.get("attempts", 1)}
         recheck = _recheck(mm.items())
         out["maths"] = _by_strand(maths_mastery._year_skills(year), scores, recheck)
@@ -638,7 +696,7 @@ async def _skill_views(p: dict, on: set) -> dict:
     for subject in ("grammar", "science"):
         if subject in on:
             docs = [d async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})]
-            out[subject] = _by_strand(bank_engine.skills(subject, p["year"]), {d["key"]: int(d.get("score", 0)) for d in docs},
+            out[subject] = _by_strand(bank_engine.skills(subject, levels.level(p, subject)), {d["key"]: int(d.get("score", 0)) for d in docs},
                                       _recheck((d["key"], d) for d in docs))
     return out
 
@@ -660,16 +718,19 @@ def _acts(p: dict) -> dict:
     return {**default_activities(p["year"]), **(p.get("activities") or {})}
 
 
-def school_year(p: dict) -> int:
-    """The child's real school year. `year` is the level the work comes from: a parent may set an able child to
-    work a year (or more) ahead ("Year 8, working at Year 9 level"); school_year then keeps the real one."""
-    return int(p.get("school_year") or p.get("year") or 1)
+school_year = levels.school_year
 
 
-def year_text(p: dict) -> str:
-    """"Year 8" or "Year 8, working at Year 9 level", for every page a parent or a teacher reads."""
-    sy = school_year(p)
-    return f"Year {sy}" if sy == p.get("year") else f"Year {sy}, working at Year {p.get('year')} level"
+def year_text(p: dict, report: bool = False) -> str:
+    """"Year 8", and each subject worked at another year, only where it differs: "Year 8 · Maths: Year 6 level"
+    (all three a year up: "Year 8, working at Year 9 level"), for every page a parent or a teacher reads.
+    report: the printed report, where the parent may leave the levels out (levels_on_report)."""
+    sy, diff = levels.school_year(p), levels.differs(p)
+    if not diff or (report and p.get("levels_on_report") is False):
+        return f"Year {sy}"
+    if len(diff) == len(levels.SUBJECTS) and len({lv for _, lv in diff}) == 1:
+        return f"Year {sy}, working at Year {diff[0][1]} level"
+    return f"Year {sy} · {levels.levels_text(p)}"
 
 
 templates.env.globals["year_text"] = year_text
@@ -739,8 +800,15 @@ def _changes(p: dict, upd: dict, family: dict) -> list:
         out.append(f"set {p['name']}'s school topics: " + ", ".join(f"{focus_title(i['subject'], i['strand'])} until "
                                                                 f"{day_label(i['until'])}" for i in f)
                    if f else f"stopped {p['name']}'s school topics")
-    if "year" in upd or "school_year" in upd:
+    if "year" in upd:
         out.append(f"moved {p['name']} to {year_text({**p, **upd})}")
+    elif "levels" in upd:
+        new = {**p, **upd}
+        what = [f"{levels.TITLES[s].lower()} at Year {levels.level(new, s)} level" if levels.level(new, s) != new["year"]
+                else f"{levels.TITLES[s].lower()} back at the school year" for s in levels.SUBJECTS
+                if levels.level(new, s) != levels.level(p, s)]
+        if what:
+            out.append(f"set {p['name']}'s " + ", ".join(what) + f" (school year: Year {new['year']})")
     if "name" in upd and upd["name"] != p["name"]:
         out.append(f"renamed {p['name']} to {upd['name']}")
     return out
@@ -758,16 +826,26 @@ async def _log_change(ctx: Ctx, p: dict, text: str) -> None:
 
 # What a child's settings form holds, in groups: (key, what a parent calls it, its field names; a name ending in "_"
 # stands for every field that starts with it). A save changes only the groups edited on that form (_changed_fields).
-FORM_GROUPS = [("name", "the name", ("name",)), ("year", "the school year", ("year", "level")), ("pin", "the PIN", ("pin",)),
+FORM_GROUPS = [("name", "the name", ("name",)), ("year", "the school year and levels", ("year", "level_")), ("pin", "the PIN", ("pin",)),
                ("reward", "the reward", ("reward_text", "reward_threshold")),
                ("plan", "the daily plan", ("on_", "target_", "check_", "plan_today")),
                ("school", "the spelling list", ("school_words", "school_ok", "school_fix_")), ("focus", "the school focus", ("focus_",)),
                ("pdays", "the practice days", ("pday",)), ("off", "the days off", ("off_",)),
-               ("reading", "the reading settings", ("read_",))]
+               ("reading", "the reading settings", ("read_",)),
+               ("calm", "the calm screen and read-aloud", ("calm", "voice", "voice_rate"))]
 GROUP_LABELS = {k: label for k, label, _ in FORM_GROUPS}
 CARER_GROUPS = {"school", "off"}           # a carer may type the school's spelling list and mark a day off
-SAVED_AS = {"name": "name", "year": "year", "school_year": "year", "pin": "pin", "reward": "reward", "activities": "plan", "school_words": "school",
-            "focus": "focus", "practice_days": "pdays", "days_off": "off", "reading": "reading"}
+SAVED_AS = {"name": "name", "year": "year", "levels": "year", "levels_on_report": "year", "pin": "pin", "reward": "reward", "activities": "plan", "school_words": "school",
+            "focus": "focus", "practice_days": "pdays", "days_off": "off", "reading": "reading", "calm": "calm", "voice": "calm"}
+VOICE_MODES = ("on", "questions", "off")       # read-aloud: questions and feedback / questions only / nothing (speak.js)
+
+
+def _form_calm(form) -> dict:
+    """"Calm screen and read-aloud" (child_form.html): calm (no confetti or movement, the same plain "Correct.",
+    nothing moves on until the child presses a button) and voice {mode, rate}."""
+    mode, rate = form.get("voice") or "on", form.get("voice_rate") or "normal"
+    return {"calm": bool(form.get("calm")), "voice": {"mode": mode if mode in VOICE_MODES else "on",
+                                                       "rate": "slower" if rate == "slower" else "normal"}}
 
 
 EASY_PINS = {"1234", "4321", "0000", "1212", "2580", "1122", "6969", "1004", "2000", "2468", "1357"}
@@ -835,12 +913,22 @@ async def _edit_page(request: Request, ctx: Ctx, p: dict, status_code: int = 200
     last = (p.get("edits") or [None])[-1]           # the last save, when it was another grown-up's this week
     if not last or last["by"] == ctx.account["_id"] or last["at"] < datetime.datetime.utcnow() - datetime.timedelta(days=7):
         last = None
+    started = await _started_today(p)
     return page(request, "child_form.html", ctx, plan=plan_of(ctx.family), pupil=p, years=YEARS, acts=_acts(p),
-                started=await _started_today(p), today_items=todays_plan(p, ctx.family), limited=not ctx.full,
+                started=started, today_items=todays_plan(p, ctx.family), limited=not ctx.full,
+                earned=await _earned_today(p, ctx.family) if started else "",
+                reward_gap=reward_gap(ctx.family, [{**o, **p} if o["_id"] == p["_id"] else o for o in await _pupils(ctx)]),
                 loaded=datetime.datetime.utcnow().isoformat(), status_code=status_code, focus_off=_focus_off(p, ctx.family),
                 last_edit={"who": last["who"], "when": local_time(last["at"]).strftime("%d %b at %H:%M"),
                            "what": [GROUP_LABELS.get(g, g) for g in last["groups"]]} if last else None,
                 **_school_week_view(p, ctx.family, draft), **kw)
+
+
+async def _earned_today(p: dict, family: dict) -> str:
+    """The reward this child has already earned today ("30 min Roblox"), or "": a change to today's plan is then
+    not needed for it (an earned reward stays earned), and the form says so before the parent picks today or not."""
+    b = (await progress.board(family, [p]))[0]
+    return b["reward"].get("text", "") if b["reward_earned"] else ""
 
 
 @router.get("/children/{pid}/edit")
@@ -885,16 +973,20 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
                                 error=f"{o['who']} changed {p['name']}'s settings at {local_time(o['at']):%H:%M}, after "
                                       f"you opened this page. Here they are now: make your change again and save.")
     name = (form.get("name") or p["name"]).strip()[:30]
-    # the school year, and the level the work comes from ("working at", the same or another year): `year` below is
-    # that level, as everything that picks questions reads p["year"]; school_year keeps the real one when they differ
-    try:
-        sy = int(form.get("year") or school_year(p))
-        lv = int(form.get("level") or sy)
-    except ValueError:
-        sy, lv = school_year(p), p["year"]
-    if sy not in YEARS or lv not in YEARS or "year" not in groups:
-        sy, lv = school_year(p), p["year"]
-    year = lv
+    # the school year, and per subject the level its questions come from ("working at": "" is the school year)
+    year, lvs = p["year"], {s: levels.level(p, s) for s in levels.SUBJECTS}
+    if "year" in groups:
+        try:
+            year = int(form.get("year") or p["year"])
+        except ValueError:
+            pass
+        year = year if year in YEARS else p["year"]
+        for s in levels.SUBJECTS:
+            if f"level_{s}" in form:
+                v = form.get(f"level_{s}") or ""
+                lvs[s] = int(v) if v.isdigit() and int(v) in YEARS else year
+    new_levels = levels.clean(lvs, year)
+    moved = {**p, "year": year, "levels": new_levels}       # the child as saved: the focus follows each subject's level
     school, err = _form_school_words(form, p) if "school" in groups else ({}, "")
     rest, err = (await _form_rest(form, p, weekdays="pdays" in groups)) if not err else ({}, err)
     upd = {**school, **rest}
@@ -903,19 +995,28 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
         upd["name"] = name or p["name"]
     if "year" in groups and year != p["year"]:
         upd["year"] = year
-    if "year" in groups and (sy if sy != lv else None) != p.get("school_year"):
-        upd["school_year"] = sy if sy != lv else None
+    if "year" in groups and new_levels != (p.get("levels") or None):
+        upd["levels"] = new_levels
+    if "year" in groups and form.get("level_form") and bool(form.get("level_report")) != (p.get("levels_on_report") is not False):
+        upd["levels_on_report"] = bool(form.get("level_report"))      # "Show these levels on the printed report"
+    relevel = any(levels.level(moved, s) != levels.level(p, s) for s in levels.SUBJECTS)
     if "reward" in groups:
         upd["reward"] = _form_reward(form, ctx.family)
     if "plan" in groups or year != p["year"]:
         upd.update(await _new_plan(p, _merge_acts(p, form, year, changed), bool(form.get("plan_today"))))
-    if "focus" in groups or year != p["year"]:
-        upd.update(_form_focus(form, p, ctx.family, year))
+    if "focus" in groups or relevel:
+        upd.update(_form_focus(form, p, ctx.family, moved))
     lost = upd.pop("_focus_lost", None)       # topics of the old year with nothing like them in the new one
     if "focus" in upd and p.get("sats"):
         upd["sats"] = None                     # topics changed by hand are the parent's own: Revise for SATs is off
+    reading = dict(p.get("reading") or {})
     if form.get("reading_form") and "reading" in groups:   # "Reading" (child_form.html): the child's "Aa" settings, on every device
-        upd["reading"] = {k: bool(form.get(f"read_{k}")) for k in ("big", "dys", "space", "calm", "contrast")}
+        reading.update({k: bool(form.get(f"read_{k}")) for k in ("big", "dys", "space", "contrast")})
+        upd["reading"] = {k: reading.get(k) is True for k in ("big", "dys", "space", "calm", "contrast")}
+    if form.get("calm_form") and "calm" in groups:          # "Calm screen and read-aloud": the grown-up's, the child can't undo it
+        upd.update(_form_calm(form))
+        if reading.get("calm"):           # the child's own "Calm screen" (Aa) goes with the grown-up's choice
+            upd["reading"] = {k: reading.get(k) is True for k in ("big", "dys", "space", "contrast")} | {"calm": False}
     pin = (form.get("pin") or "").strip() if "pin" in groups else ""
     if pin and not err:
         if not PIN_RE.match(pin):
@@ -925,14 +1026,14 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
     if err:
         # nothing is saved, and every field comes back as it was typed (a tick, a target, the topics), still
         # counted as edited (dirty), so the next Save saves it
-        shown = {**p, **{k: v for k, v in upd.items() if k in ("name", "year", "school_year", "reward", "activities",
-                                                                "plan_log", "focus", "reading")}}
+        shown = {**p, **{k: v for k, v in upd.items() if k in ("name", "year", "levels", "levels_on_report", "reward", "activities",
+                                                                "plan_log", "focus", "reading", "calm", "voice")}}
         if "pdays_form" in form and "pdays" in groups:
             shown["practice_days"] = sorted({int(d) for d in form.getlist("pday") if str(d).isdigit()})
         return await _edit_page(request, ctx, shown, status_code=400, error=err,
                                 draft={**{k: form.get(k) or "" for k in ("school_words", "off_from", "off_to")},
                                        "school_fix": spelling.school_fixes(form), "plan_today": bool(form.get("plan_today"))},
-                                dirty=sorted(changed or []))
+                                dirty=sorted(changed or []), pin_typed=(form.get("pin") or "").strip()[:4])
     today = progress.today()
     if form.get("plan_today") and "plan_log" in upd and ((p.get("kept") or {}).get(today) or {}).get("pct"):
         # "Change today's plan too" reopens a finished day when today's plan grew: the child sees what is left
@@ -967,7 +1068,8 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
     return RedirectResponse(f"/children/{p['_id']}/edit?saved=1{'&pin=1' if pin else ''}"
                             f"{'&easy=1' if pin and easy_pin(pin) else ''}"
                             f"{'&lost=' + quote(lost) if lost else ''}"
-                            f"{'&loaded=' + loaded if others and loaded else ''}", 303)
+                            f"{'&loaded=' + loaded if others and loaded else ''}"
+                            f"{'&earned=1' if 'plan_log' in upd and (await _earned_today(p, ctx.family)) else ''}", 303)
 
 
 async def _started_today(p: dict) -> bool:
@@ -996,13 +1098,14 @@ def _plus_days(n: int) -> str:
 
 
 def _focus_options(p: dict, family: dict) -> dict:
-    """The strands of the child's year a parent can pick: {"maths": [strand, ...], "grammar": [...], ...}."""
+    """The strands a parent can pick, each subject's from the year it works at (levels.level):
+    {"maths": [strand, ...], "grammar": [...], ...}."""
     allowed, out = plan_of(family)["activities"], {}
     if "maths" in allowed:
-        out["maths"] = list(dict.fromkeys(s["strand"] for s in maths_mastery._year_skills(maths.engine_year(p["year"]))))
+        out["maths"] = list(dict.fromkeys(s["strand"] for s in maths_mastery._year_skills(maths.engine_year(levels.level(p, "maths")))))
     for subj in ("grammar", "science"):
         if subj in allowed and p["year"] >= ACTIVITIES[subj]["min_year"]:
-            out[subj] = bank_engine.focus_strands(subj, p["year"])     # + "Apostrophes", earlier KS3 topics
+            out[subj] = bank_engine.focus_strands(subj, levels.level(p, subj))     # + "Apostrophes", earlier KS3 topics
     return out
 
 
@@ -1017,26 +1120,32 @@ def _focus_groups(opts: dict) -> list:
     return [g for g in out if g[2]]
 
 
-def _form_focus(form, p: dict, family: dict, year: int) -> dict:
+def _form_focus(form, p: dict, family: dict, new: dict | None = None) -> dict:
     """The update for "Working on this at school": up to FOCUS_MAX strands of any subjects, each for its own 1 or
     2 weeks. A strand picked again keeps its first day (a new number of weeks counts from it); a new pick runs from
-    today; "Nothing" in every row (or a new school year) ends the focus."""
-    if "focus_0" not in form and year == p["year"]:
+    today; "Nothing" in every row ends the focus. new: the child after a change of school year or of a subject's
+    level ("working at"), when there is one."""
+    new = new or p
+    moved = {s for s in ("maths", "grammar", "science") if levels.level(new, s) != levels.level(p, s)}
+    if "focus_0" not in form and not moved:
         return {}
     cur = focus_items(p)
-    if year != p["year"]:
-        # a new year: each topic goes across to the same topic of the new year, if it has one; the others stop,
-        # and the parent is told which (_focus_lost: "Maths: Equations … was for Year 8")
-        new_opts, keep, lost = _focus_options({**p, "year": year}, family), [], []
+    if moved:
+        # another year for a subject: each of its topics goes across to the same topic of that year, if it has one;
+        # the others stop, and the parent is told which (_focus_lost: "Maths: Equations … was for Year 8")
+        new_opts, keep, lost = _focus_options(new, family), [], []
         for i in cur:
-            same = next((s for s in new_opts.get(i["subject"], []) if strand_label(s) == strand_label(i["strand"])), None)
+            same = i["strand"] if i["subject"] not in moved else \
+                next((s for s in new_opts.get(i["subject"], []) if strand_label(s) == strand_label(i["strand"])), None)
             if same:
                 keep.append({**i, "strand": same})
             else:
-                lost.append(focus_title(i["subject"], i["strand"]))
-        out = {"focus": keep or None} if p.get("focus") else {}
+                lost.append(i)
+        out = {"focus": keep or None} if p.get("focus") and keep != cur else {}
         if lost:
-            out["_focus_lost"] = f"{' and '.join(lost)}|{p['year']}|{year}"
+            s = lost[0]["subject"]
+            out["_focus_lost"] = (f"{' and '.join(focus_title(i['subject'], i['strand']) for i in lost)}"
+                                  f"|{levels.level(p, s)}|{levels.level(new, s)}")
         return out
     opts, was = _focus_options(p, family), {(i["subject"], i["strand"]): i for i in cur}
     new = []
@@ -1164,7 +1273,7 @@ def _school_week_view(p: dict, family: dict, draft: dict | None = None) -> dict:
             "pdays": ALL_WEEK if p.get("practice_days") is None else p["practice_days"], "WEEKDAYS": WEEKDAYS,
             "days_off": [o for o in p.get("days_off") or [] if o["to"] >= today], "today_iso": today,
             "max_off": _plus_days(366), "draft": draft or {},
-            "strand_label": lambda s, _n=bank_engine.earlier_note("science", p["year"]): strand_label(s) + _n.get(s, "")}
+            "strand_label": lambda s, _n=bank_engine.earlier_note("science", levels.level(p, "science")): strand_label(s) + _n.get(s, "")}
 
 
 async def _delete_pupils(ids: list) -> None:
@@ -1338,6 +1447,7 @@ async def unlock_form(request: Request, ctx: Ctx = Depends(family_page)):
 
 
 UNLOCK_FAILS, UNLOCK_MINUTES = 8, 15
+PIN_SHOW = datetime.timedelta(minutes=3)        # "Show Isaac's PIN" on the picker, after a grown-up's unlock
 
 
 @router.post("/parent-unlock")
@@ -1377,6 +1487,10 @@ async def pin_unlock(request: Request, pid: str, ctx: Ctx = Depends(family_page)
             err = "That password is not right. Use your own password (any grown-up on this family)."
         if err:
             return await picker_page(request, ctx, pin_for=p["_id"], unlock_error=err, status_code=400)
+        # the child is locked out because the PIN was forgotten: the grown-up who just typed a password may see it
+        # on "Who's learning?" for a few minutes (picker_page), without a trip to the parent area
+        await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"pin_show": {
+            "pid": p["_id"], "until": datetime.datetime.utcnow() + PIN_SHOW}}})
     if await pin_lock_until(p["_id"]):
         await log_event(ctx.family["_id"], "pin_unlock", f"{adult_name(adult)} unlocked {p['name']}", pupil_id=p["_id"])
     await clear_pin_lock(p["_id"])
@@ -1385,6 +1499,11 @@ async def pin_unlock(request: Request, pid: str, ctx: Ctx = Depends(family_page)
 
 @router.get("/board")
 async def board(request: Request, ctx: Ctx = Depends(family_page)):
+    if ctx.session.get("child_id"):
+        # the Board is the family's, neutral: opening it signs the child out (as Switch does), so a brother or
+        # sister who picks the tablet up next needs their own PIN, never carries on in this child's account
+        await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": None, "locked": True}})
+        ctx.child, ctx.locked = None, True
     pupils = await _pupils(ctx)
     return page(request, "board.html", ctx, board=await progress.board(ctx.family, pupils), today=progress.today(),
                 today_label=_nice_day(progress.today()), streaks=await progress.streaks(ctx.family, pupils))

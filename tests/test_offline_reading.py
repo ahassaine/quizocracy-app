@@ -167,10 +167,11 @@ def test_reading_settings_belong_to_the_child(browser):
     pg.goto(f"/children/{sami}/edit")
     assert pg.is_checked("[data-testid=read-dys]") is False
     pg.check("[data-testid=read-big]")
-    pg.check("[data-testid=read-calm]")
+    pg.check("[data-testid=calm]")             # "Calm screen" (wave 6): the grown-up's, beside Reading
     pg.click("form.card button[type=submit] >> text=Save")
     pg.wait_for_url("**saved=1*")
-    assert DB.pupils.find_one({"_id": sami})["reading"] == {"big": True, "dys": False, "space": False, "calm": True, "contrast": False}
+    assert DB.pupils.find_one({"_id": sami})["reading"] == {"big": True, "dys": False, "space": False, "calm": False, "contrast": False}
+    assert DB.pupils.find_one({"_id": sami})["calm"] is True
     pg.goto(f"/children/{leila}/edit")
     assert pg.is_checked("[data-testid=read-dys]") and pg.is_checked("[data-testid=read-space]")
     gran = browser.new_context(base_url=BASE, **PHONE).new_page()

@@ -106,9 +106,10 @@ def test_four_operations_focus_mixes_the_strand(monkeypatch):
         assert set(first10) & {"Y6.1.b", "Y6.1.c", "Y6.1.d", "Y6.1.e", "Y6.1.f"}, (seed, first10)
 
 
-def test_review_tag_names_the_earlier_year():
-    assert drill.review_tag("Y7.4.a", 8) == "Year 7 review"
-    assert drill.review_tag("Y8.3.d", 9) == "Year 8 review"
+def test_review_tag_is_a_warm_up_with_no_year():
+    # the child's card says "Warm-up", never a year number ("Year 7 review" upset an anxious child)
+    assert drill.review_tag("Y7.4.a", 8) == "Warm-up"
+    assert drill.review_tag("Y8.3.d", 9) == "Warm-up"
     assert drill.review_tag("Y9.0.a", 9) is None
     assert drill.review_tag("Y6.1.a", 6) is None
 

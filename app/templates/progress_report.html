@@ -33,7 +33,8 @@
 <nav class="rep-ranges no-print" aria-label="Period">{% for k, label in ranges.items() %}<a class="btn" href="?range={{ k }}"{% if k == rng %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
 
 <h1>{{ pupil.name }} · progress report</h1>
-<p class="mut" style="margin:0"><span data-testid="report-year">{{ year_text(pupil) }}</span> · {{ ranges[rng] }}{% if period %}: {{ period }}{% endif %} · Printed {{ printed }}</p>
+<p class="mut" style="margin:0"><span data-testid="report-year">{{ year_text(pupil, report=True) }}</span> · {{ ranges[rng] }}{% if period %}: {{ period }}{% endif %} · Printed {{ printed }}</p>
+{% if year_text(pupil) != 'Year ' ~ pupil.year %}<p class="small no-print" data-testid="report-levels-note" style="margin:.3em 0 0">{% if pupil.levels_on_report is sameas false %}The "working at" levels are left out of this report, as you chose.{% else %}The "working at" levels show on this report.{% endif %}{% if ctx.full %} <a href="/children/{{ pupil._id }}/edit#working-at">Change this in Settings</a>{% endif %}</p>{% endif %}
 <p class="mut small" style="margin:.2em 0 0">Practice on Quizocracy, which follows the national curriculum in England (Years 1–9).</p>
 
 {% if not days %}<div class="card mut">{{ pupil.name }} has not started yet.</div>{% else %}
@@ -49,9 +50,10 @@
 
 {% if acts %}<h2>By activity</h2>
 <div class="card" style="overflow-x:auto"><table class="t small" data-testid="report-acts">
-  <tr><th>Activity</th><th>Right answers</th><th>Answers</th><th>Right</th></tr>
-  {% for k, a in acts %}<tr><td>{{ ACTIVITIES[k].title }}</td><td>{{ a.correct }}</td><td>{{ a.answered }}</td><td>{{ (100 * a.correct // a.answered) if a.answered else 0 }}%</td></tr>{% endfor %}
-</table></div>{% endif %}
+  <tr><th>Activity</th><th>Right answers</th><th>Answers</th><th>Right first time</th><th>Extra practice</th></tr>
+  {% for k, a in acts %}{% set f = acc.get(k) %}<tr data-testid="report-act-{{ k }}"><td>{{ ACTIVITIES[k].title }}</td><td>{{ a.correct }}</td><td>{{ a.answered }}</td><td>{% if f %}<b>{{ f.pct }}%</b>{% if f.weak %} <span class="mut">needs help</span>{% endif %}{% else %}–{% endif %}</td><td class="mut">{% if f and f.extra and not f.only_extra %}{{ f.extra }} answer{{ 's' if f.extra != 1 }}, {{ f.extra_pct }}% right{% else %}–{% endif %}</td></tr>{% endfor %}
+</table>
+<p class="small mut" style="margin:6px 0 0">Right first time counts the answers up to each day's target, as on {{ pupil.name }}'s progress page; answers after a target are extra practice, shown on their own.</p></div>{% endif %}
 {% endif %}
 
 {% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
@@ -84,6 +86,17 @@
 {% if spelling_on %}<h2>Spellings learned</h2>
 <div class="card" data-testid="report-spelling"><div class="small"><b>{{ learned|length }} of {{ words_total }}</b> words from the Year {{ pupil.year }} word list learned (spelt right on 3 different days).</div>
 {% if learned %}<ul class="words">{% for w in learned %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}
+
+{% if school_lists %}<h2>School spelling list</h2>
+<div class="card" data-testid="report-school" style="overflow-x:auto">
+  <div class="small mut">The words from school, one by one. Learned: right on 3 different days (✓✓✓). On its way: right on 1 or 2 days so far. Tricky: asked, and not right on a later day yet. A real word typed for the word asked is not counted as a mistake, but the word stays to learn.</div>
+  {% for l in school_lists %}
+  <div class="small" style="margin-top:8px" data-testid="report-school-list"><b>{% if l.running %}This week's list: from {{ l.from|daylabel }}, runs until {{ l.until|daylabel }}{% elif l.from %}List from {{ l.from|daylabel }} to {{ l.until|daylabel }}{% else %}Earlier lists: words still to learn{% endif %}</b></div>
+  <table class="t small" style="margin-top:4px"><tr><th>Word</th><th>Where it is</th></tr>
+    {% for w in l.words %}<tr data-testid="report-school-word"><td><b>{{ w.word }}</b></td><td>{% if w.state == 'learned' %}Learned ✓✓✓{% elif w.state == 'way' %}On its way {{ '✓' * w.ticks }}{% elif w.state == 'tricky' %}Tricky ✗{% if w.again %} (right again in the same sitting){% endif %}{% else %}<span class="mut">Not asked yet</span>{% endif %}{% if w.other %} <span class="mut">· wrote {{ w.other }} (a real word, not the one asked)</span>{% endif %}</td></tr>{% endfor %}
+  </table>
+  {% endfor %}
+</div>{% endif %}
 
 <h2>To work on next</h2>
 <div class="card" data-testid="report-focus">

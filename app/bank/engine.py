@@ -11,8 +11,9 @@ import pathlib
 import random
 import re
 
+from .. import verbs_data
 from ..drills import typos
-from . import excluded
+from . import excluded, glossary
 
 log = logging.getLogger("qz.bank")
 CONTENT = pathlib.Path(__file__).parent / "content"
@@ -181,6 +182,7 @@ def serve(q: dict) -> tuple[dict, dict]:
     elif t == "write":
         pub["s"] = q["s"]
         key["a"] = q["a"]
+        key["prompt"] = q["q"]           # the task decides whether 'that' may be left out (same_form)
         if open_end(q["q"], q["s"]):
             key["open_end"] = True
     elif t == "num":
@@ -212,7 +214,7 @@ def gap_sentences(prompt: str, answers: list) -> list:
 
 def _quotes(s: str) -> str:
     return (str(s).replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
-            .replace("…", "...").replace("–", "-").replace("—", "-"))
+            .replace("…", "...").replace("–", " - ").replace("—", " - "))     # a dash, spaced or not, is " - "
 
 
 def norm_text(s: str) -> str:
@@ -228,6 +230,26 @@ def loose(s: str) -> str:
 def norm_write(s: str) -> str:
     s = " ".join(_quotes(s).split())
     return re.sub(r"\s+([,.;:!?])", r"\1", s)        # "Hello , Sam" counts as "Hello, Sam"
+
+
+# "that" after these words may be left out or put in: "I suggest (that) she go", "Kofi said (that) he was tired".
+# Not after an adjective ("It is essential that"), and not when the task names 'that' itself.
+_THAT_AFTER = re.compile(
+    r"\b((?:said|says|say|told \w+|suggest(?:s|ed)?|insist(?:s|ed)?|recommend(?:s|ed)?|demand(?:s|ed)?|"
+    r"propose(?:s|d)?|request(?:s|ed)?|wish(?:es|ed)?|think|thinks|thought|know|knows|knew|believe(?:s|d)?|"
+    r"hope(?:s|d)?|explain(?:s|ed)?|announce(?:s|d)?|promise(?:s|d)?|agree(?:s|d)?|decide(?:s|d)?)) that"
+    r"(?= (?:I|you|he|she|it|we|they|there|the|a|an|every|each|all|his|her|my|your|our|their|its|no|some|"
+    r"[A-Z][a-z]+)\b)")      # a clause follows ("that she go"), not a noun ("I know that song")
+
+
+def same_form(s: str, prompt: str = "") -> str:
+    """How a rewritten sentence is compared once norm_write has run: single and double quotation marks are the
+    same mark (British writing uses either), and an optional "that" after a reporting or suggesting verb is
+    dropped, unless the task names 'that'."""
+    s = s.replace('"', "'")
+    if not re.search(r"['\"]that\b|\bthat['\"]", _quotes(prompt), re.I):
+        s = _THAT_AFTER.sub(r"\1", s)
+    return s
 
 
 _END_MARKS = re.compile(r"full stop|punctuat|end mark|question mark|exclamation|capital letter", re.I)
@@ -343,7 +365,61 @@ def why_lines(q: dict | None, key: dict, value, again: bool = False) -> tuple[st
                 and re.fullmatch(r"(?:[A-Z][a-z]?[0-9₀-₉]*)+", _quotes(str(value or "")).strip()):
             no = ("That is a chemical formula. A word equation uses the names of the substances, not their "
                   "formulae, so write the name: %s." % expected_text(key))
+        if not no and key.get("loose"):
+            no = unit_line(value, expected_text(key), q.get("q", ""))
+        if not no:
+            no = should_line(value, key, q.get("q", ""))
+    elif key.get("t") == "write":
+        no = should_line(value, key, q.get("q", ""))
+    elif key.get("t") == "num" and key.get("unit"):
+        m = re.match(r"^\s*[-+]?[\d., ]*\d\s*(\S.*)$", _quotes(str(value or "")))
+        if m and parse_num(value, key["unit"]) is None and _quantity(m.group(1)) \
+                and _quantity(m.group(1)) == _quantity(key["unit"]):
+            no = "Your number is in %s, but the question asks for %s, so give the number in %s." % (
+                m.group(1).strip(), key["unit"], key["unit"])
     return no or "", why
+
+
+# Units of one quantity, written as sci_unit writes them; the SI unit first.
+_QUANTITY = {
+    "density": ["kg/m3", "g/cm3", "g/ml", "kg/dm3"], "speed": ["m/s", "km/h", "cm/s", "km/s", "mph"],
+    "energy": ["j", "kj", "mj", "kwh"], "power": ["w", "kw", "mw"], "mass": ["kg", "g", "mg"],
+    "length": ["m", "cm", "mm", "km"], "time": ["s", "min", "h"], "pressure": ["pa", "kpa", "n/m2", "n/cm2"],
+    "volume": ["m3", "cm3", "dm3", "l", "ml"], "current": ["a", "ma"], "potential difference": ["v", "mv"],
+    "acceleration": ["m/s2"], "force": ["n"], "frequency": ["hz"], "resistance": ["ω"],
+}
+_UNIT_OF = {u: q for q, us in _QUANTITY.items() for u in us}
+
+
+def _quantity(unit: str) -> str | None:
+    return _UNIT_OF.get(sci_unit(re.sub(r"^(a|an|the) ", "", unit.strip().lower())))
+
+
+def unit_line(value, answer: str, prompt: str) -> str:
+    """A unit typed for another unit of the same quantity ("g/cm3" for kg/m³): it is a real unit, so say so, and
+    say what the question wants (the SI unit, or the one it names)."""
+    typed = str(value or "").strip()
+    qty = _quantity(typed)
+    if not qty or qty != _quantity(answer) or sci_unit(typed) == sci_unit(answer):
+        return ""
+    if re.search(r"\bSI\b", prompt):
+        return "%s is a real unit of %s, but it is not the SI unit. The SI unit of %s is %s." % (typed, qty, qty, answer)
+    return "%s is a unit of %s too, but the unit this question asks for is %s." % (typed, qty, answer)
+
+
+def should_line(value, key: dict, prompt: str) -> str:
+    """"should stay" written where the subjunctive "stay" is asked for: good English, but not the subjunctive."""
+    if "subjunctive" not in prompt.lower():
+        return ""
+    tv = norm_text(value).replace(",", " ").split()
+    for a in key.get("a", []):
+        av = norm_text(a).replace(",", " ").split()
+        for i, w in enumerate(tv[:-1]):
+            if w in ("should", "would", "must") and tv[:i] + tv[i + 1:] == av:
+                verb = tv[i + 1].strip(".,;:!?")
+                return ("'%s %s' is good English, but it is not the subjunctive. The subjunctive is the verb on its "
+                        "own, with no '%s': '%s'." % (w, verb, w, verb))
+    return ""
 
 
 def expected_text(key: dict) -> str:
@@ -388,8 +464,8 @@ def mark(key: dict, value) -> bool:
             return sci_text(v, [norm_text(a) for a in ok])
         return bool(v) and v in {norm_text(a) for a in ok}
     if t == "write":
-        v = norm_write(value)
-        ok = {norm_write(a) for a in key["a"]}
+        v = same_form(norm_write(value), key.get("prompt", ""))
+        ok = {same_form(norm_write(a), key.get("prompt", "")) for a in key["a"]}
         if key.get("open_end"):
             v, ok = v.rstrip(". "), {a.rstrip(". ") for a in ok}
         return bool(v) and v in ok
@@ -471,7 +547,7 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
     if not key.get("loose"):
         if not sk or sk.get("subject") != "grammar":
             return []
-        if spelling_matters(sk) and sk.get("key") not in _WORD_CHOICE_SKILLS:
+        if spelling_matters(sk) and sk.get("key") not in _WORD_CHOICE_SKILLS and not is_term_answer(key, prompt):
             if sk.get("key") not in _TENSE_SKILLS:
                 return []
             inner = True
@@ -482,9 +558,48 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
         return []
     for a in key["a"] + key.get("full", []):
         pairs = typos.slips(tv, words(a), never)
-        if pairs and (not inner or all(typos.inner_slip(t, w) for t, w in pairs)):
+        if pairs and (not inner or all(typos.inner_slip(t, w) or _irregular_slip(t, w) for t, w in pairs)):
+            return pairs
+    if key.get("loose") or not is_term_answer(key, prompt):
+        return []
+    for a in key["a"]:                # the name of a term: a long word may be two letters out ("collectif noun")
+        aw = words(a)
+        pairs = [(t, w) for t, w in zip(tv, aw) if t != w] if len(tv) == len(aw) else []
+        if len(pairs) == 1 and pairs[0][0] not in never and len(pairs[0][1]) >= 8 \
+                and _edits(*pairs[0]) <= 2 and pairs[0][0][:3] == pairs[0][1][:3]:
             return pairs
     return []
+
+
+def _edits(a: str, b: str) -> int:
+    """Letters added, left out or changed between two words (Levenshtein distance)."""
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        prev, row[0] = row[0], i
+        for j, cb in enumerate(b, 1):
+            prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (ca != cb))
+    return row[-1]
+
+
+# The past forms of irregular verbs ("written", "eaten", "caught"): no rule of doubling or of an ending makes
+# them, so a letter doubled or undoubled in one ("has writen") is a spelling slip around a right verb form.
+_IRREGULAR = frozenset(f for v in verbs_data.ALL_VERBS for f in v["past"] + v["pp"] if f != v["base"] + "ed")
+_TERM_ASK = re.compile(r"^(?:what do we call|what is the (?:name|term)|what type of|what kind of|name the|"
+                       r"type the (?:name|term))|\bis called\b|\bare called\b", re.I)
+
+
+def _irregular_slip(typed: str, want: str) -> bool:
+    return want in _IRREGULAR and typos.one_slip(typed, want) and typed[:2] == want[:2]
+
+
+def is_term_answer(key: dict, prompt: str = "") -> bool:
+    """A grammar question whose answer is the name of a term ("collective noun", "clause", "present perfect"):
+    the idea is what is tested, so a one-letter slip ("collectif noun") gets its "Nearly" even in a skill where
+    spelling counts."""
+    bare = [re.sub(r"^(a|an|the) ", "", norm_text(a)) for a in key.get("a", [])]
+    terms = glossary.TERMS.get("grammar", {})
+    return bool(bare) and (bool(_TERM_ASK.search(prompt)) or all(
+        b in terms or b.rstrip("s") in terms for b in bare[:1]))
 
 
 _END = {".": "full stop", "?": "question mark", "!": "exclamation mark"}
@@ -496,10 +611,10 @@ def end_slip(key: dict, value, sk: dict | None = None) -> dict | None:
     then a correction that says what was missing. Not in a skill about capitals and end marks."""
     if key.get("t") != "write" or not sk or sk.get("key") in _END_MARK_SKILLS:
         return None
-    v = norm_write(value).strip()
+    v = same_form(norm_write(value), key.get("prompt", "")).strip()
     if not v:
         return None
-    for a in (norm_write(x).strip() for x in key["a"]):
+    for a in (same_form(norm_write(x), key.get("prompt", "")).strip() for x in key["a"]):
         cap = v[:1].islower() and a[:1].isupper() and v[1:2] == a[1:2]
         v2 = (a[:1] + v[1:]) if cap else v
         end = a[-1:] if a[-1:] in _END and v2 + a[-1] == a else ""
@@ -547,7 +662,7 @@ def apostrophe_slip(key: dict, value, sk: dict | None = None) -> dict | None:
     t = key.get("t")
     if t not in ("text", "write") or not value or (sk and _APOS_SKILL.search(sk.get("title", ""))):
         return None
-    norm = norm_text if t == "text" else norm_write
+    norm = norm_text if t == "text" else (lambda x: same_form(norm_write(x), key.get("prompt", "")))
     v = norm(value)
     bare = lambda s: s.replace("'", "")             # noqa: E731
     for a in (norm(x) for x in key["a"] + key.get("full", [])):
@@ -587,3 +702,85 @@ def word_marks(value, answers: list) -> tuple[str, dict] | None:
     if not any(c for _, c in a_out) and not any(c for _, c in t_out):
         return None
     return best, {"typed": t_out, "word": a_out}
+
+
+# ----------------------------------------------------------------- key words (glossary.py) ----
+_TERM_RX: dict = {}
+
+
+def _term_rx(subject: str):
+    """One pattern for a subject's key words, longest first ("semi-colon" before "colon"), whole words with a
+    plural ending too ("residues", "cells"), never inside a hyphenated word."""
+    if subject not in _TERM_RX:
+        terms = sorted(glossary.TERMS.get(subject, {}), key=len, reverse=True)
+        alt = "|".join(re.escape(t)[:-1] + "(?:y|ies)" if t.endswith("y") else re.escape(t) + "(?:s|es)?"
+                       for t in terms)
+        _TERM_RX[subject] = re.compile(r"(?<![\w-])(%s)(?![\w-])" % alt, re.I) if terms else None
+    return _TERM_RX[subject]
+
+
+def _term_of(subject: str, found: str) -> str | None:
+    terms = glossary.TERMS.get(subject, {})
+    f = found.lower()
+    for t in (f, f[:-1], f[:-2], f[:-3] + "y"):
+        if t in terms:
+            return t
+    return None
+
+
+_ASKS_MEANING = (r"\bwhat (?:is|are|does|do) (?:a |an |the )?(?:%s)\b|\bwhat happens\b[^?]*\b(?:%s)\b"
+                 r"|\b(?:%s)\b[^?]*\b(?:means?|describes?)\b|\b(?:meaning|definition) of\b[^?]*\b(?:%s)\b"
+                 r"|\bdifferen(?:ce|t)\b[^?]*\b(?:%s)\b|\b(?:%s)\b[^?]*\bdiffer")
+
+
+def key_words(subject: str, texts: list, q: dict | None = None) -> dict:
+    """{term: its line} for the key words in these texts (a question, its sentence, its explanation). With the
+    question (before it is answered), a term that would give the answer away is left out: the term is the answer
+    ("Tap the [marrow]"), its line holds the answer, or the question asks what the term means."""
+    rx = _term_rx(subject)
+    if not rx:
+        return {}
+    out = {}
+    for text in texts:
+        for m in rx.finditer(_quotes(text or "")):
+            t = _term_of(subject, m.group(1))
+            if t:
+                out[t] = glossary.TERMS[subject][t]
+    if q and out:
+        prompt = _quotes(q.get("q", "")).lower()
+        if q["t"] == "mcq":
+            answers = [q["opts"][0]]
+        elif q["t"] == "tap":
+            words, hits = tap_parse(q["s"])
+            answers = [re.sub(r"^\W+|\W+$", "", words[i]) for i in hits]       # each word to tap
+        else:
+            answers = [str(a) for a in q.get("a", [])] if isinstance(q.get("a"), list) else []
+        answers = [norm_text(a) for a in answers if norm_text(a)]
+        answers += [x for x in (re.sub(r"\s*\([^)]*\)", "", a).strip() for a in answers) if x and x not in answers]
+        content = lambda s: {re.sub(r"(?<=[a-z]{3})(?:es|s)$", "", w) for w in re.findall(r"[a-z]{4,}", s.lower())}   # noqa: E731
+
+        def gives_away(t, line):
+            low = line.lower()
+            if any(a in (t, t + "s", t + "es") for a in answers):
+                return True
+            if any(len(a) >= 3 and re.search(r"(?<![a-z])%s(?:s|es)?(?![a-z])" % re.escape(a), low) for a in answers):
+                return True
+            if re.search(_ASKS_MEANING % ((re.escape(t) + "(?:s|es)?",) * 6), prompt):
+                return True
+            if q["t"] == "mcq" and answers:     # a word of the line found in the right option and in no other
+                others = set().union(*(content(o) for o in q["opts"][1:]))
+                shared = content(answers[0]) & content(line)
+                return len(shared) >= 2 or bool(shared - others)
+            return any(content(a) & content(line) for a in answers) if q["t"] == "text" else False
+        out = {t: line for t, line in out.items() if not gives_away(t, line)}
+    return out
+
+
+def strand_key_words(subject: str, skills_: list) -> list:
+    """[(term, line)] of the key words met in these skills' questions, in alphabetical order (the parent's list)."""
+    found: dict = {}
+    for sk in skills_:
+        for q in sk["qs"]:
+            found.update(key_words(subject, [q.get("q", ""), q.get("s", "").replace("[", "").replace("]", ""),
+                                             q.get("why", ""), *map(str, q.get("opts") or [])]))
+    return sorted(found.items())

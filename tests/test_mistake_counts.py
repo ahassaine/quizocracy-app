@@ -183,10 +183,12 @@ def test_school_words_say_right_last_time_only_when_it_was(page):
     DB.spelling_words.update_one({"_id": f"{pid}:again"}, {"$set": {"box": 1}})
     unlock_parent(page)
     page.goto(f"/children/{pid}")
-    right = page.inner_text("[data-testid=school-right]")
-    assert "water" in right and "again" in right and "money" not in right, right
-    assert "money" in page.inner_text("[data-testid=school-again]")
-    assert "half" in page.inner_text("[data-testid=school-tricky]") and "money" not in page.inner_text("[data-testid=school-tricky]")
+    # one state a word (wave 6): on its way when right on a later day since its last miss; right again in the same
+    # sitting is still tricky, with that said
+    way = page.inner_text("[data-testid=school-way]")
+    assert "water ✓" in way and "again ✓" in way and "money" not in way, way
+    tricky = page.inner_text("[data-testid=school-tricky]")
+    assert "half ✗" in tricky and "money ✗ (right again today, checked again later)" in tricky, tricky
     page.goto(f"/children/{pid}/report")
     rep = page.inner_text("[data-testid=report-focus]")
     assert "Spelling still to put right:" in rep and "money" in rep and "half" in rep and "again" not in rep, rep

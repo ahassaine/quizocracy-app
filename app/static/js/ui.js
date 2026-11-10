@@ -15,6 +15,7 @@
   paint();
 
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const calm = () => reduce || root.classList.contains('a11y-calm');
   function fillBars(scope) {
     (scope || document).querySelectorAll('.bar > i[data-w]').forEach((el) => {
       requestAnimationFrame(() => { el.style.width = el.dataset.w + '%'; });
@@ -23,7 +24,7 @@
   function countUp(scope) {
     (scope || document).querySelectorAll('[data-count]').forEach((el) => {
       const to = parseInt(el.dataset.count, 10) || 0, suffix = el.dataset.suffix || '';
-      if (reduce || to === 0) { el.textContent = to + suffix; return; }
+      if (calm() || to === 0) { el.textContent = to + suffix; return; }
       const t0 = performance.now(), dur = 900;
       (function step(t) {
         const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
@@ -33,9 +34,9 @@
     });
   }
   window.QZ = {
-    fillBars, countUp, flushPending, PKEY: 'qz_pending',
+    fillBars, countUp, flushPending, calm, PKEY: 'qz_pending',
     confetti(n) {
-      if (reduce) return;
+      if (calm()) return;              // "Calm screen" (a grown-up's, the child's Aa, or the device's reduced motion)
       const box = document.createElement('div'); box.className = 'confetti';
       const colors = ['#4F46E5', '#F43F5E', '#F59E0B', '#14B8A6', '#0EA5E9'];
       for (let i = 0; i < Math.min(n || 60, 70); i++) {
@@ -95,7 +96,7 @@
   // so a brother or sister picking up the tablet needs their own PIN. Nothing is lost: an unanswered question comes back.
   if (document.body && document.body.dataset.pupil) {
     let idleT = 0;
-    const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { location.href = '/learn'; }, 10 * 60 * 1000); };
+    const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { location.href = '/learn?away=1'; }, 10 * 60 * 1000); };   // the picker says why
     ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, idle, { passive: true, capture: true }));
     idle();
   }

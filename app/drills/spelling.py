@@ -495,13 +495,41 @@ YEAR1_ORDER = _year1_order()
 EASY = set(list(DECODABLE)[:24])          # CVC words: what a Year 1 child is offered after a run of misses
 
 
+# Years 3-4: the statutory list goes A to Z, so a 7-year-old met "accident, accidentally, actual, address" first
+# (P4). Hand-sorted easiest first instead: words that are mostly spelt as they sound, then words with one tricky
+# part (a silent letter, "ough", "ei", a double letter), then the hardest (several at once). Shorter first in each.
+Y34_EASY = ("learn earth early heard heart group fruit often length strange mention perhaps forward forwards promise "
+            "history remember famous decide arrive recent complete extreme notice popular regular describe increase "
+            "consider continue interest important different imagine natural minute material exercise experiment").split()
+Y34_ONE_PART = ("answer actual actually breath breathe build busy guard guide woman women eight caught though thought "
+                "through enough island circle centre century certain special sentence medicine calendar grammar quarter "
+                "purpose suppose surprise opposite ordinary position possible potatoes probably difficult library "
+                "February favourite naughty believe bicycle appear disappear address accident height weight eighth "
+                "strength straight therefore although various question").split()
+Y34_HARD = ("knowledge reign peculiar particular separate experience possess possession pressure occasion occasionally "
+            "accidentally business").split()
+Y34_ORDER = [w for tier in (Y34_EASY, Y34_ONE_PART, Y34_HARD) for w in sorted(tier, key=len)]
+Y34_ORDER += [w for w in LISTS["Y3-4"] if w not in Y34_ORDER]          # a word added to the list later: last
+
+
+def easy_words(year: int) -> list:
+    """What a run of misses eases off to (_easier), easiest first, in every year: Year 1 the first sound-it-out words
+    (cat, dog); Year 2 the next ones (frog, ship); Years 3 and up the easiest Year 3-4 words (learn, earth, group),
+    because the Year 5-6 and secondary lists have no easy words at all (queue, yacht, rhythm)."""
+    if year <= 1:
+        return [w for w in DECODABLE if w in EASY]
+    if year == 2:
+        return [w for w in DECODABLE if w not in EASY]
+    return sorted(Y34_EASY, key=len)
+
+
 def list_for_year(year: int) -> list:
     if year <= 1:
         return YEAR1_ORDER
     if year == 2:
         return LISTS["Y1"] + LISTS["Y2"]
     if year in (3, 4):
-        return LISTS["Y3-4"]
+        return Y34_ORDER
     if year in (5, 6):
         return LISTS["Y5-6"]
     return KS3["Y%d" % min(int(year), 9)]
@@ -518,6 +546,7 @@ def has_clip(word: str) -> bool:
 # ---- the school's weekly list: the parent types or pastes it; for SCHOOL_DAYS it comes before the year list ----
 SCHOOL_MAX = 30
 SCHOOL_DAYS = 7
+PAST_LISTS = 6              # earlier lists kept with their dates, for the printed report
 SCHOOL_WORD = re.compile(r"[A-Za-z]+(?:['-][A-Za-z]+)*")
 _CUE_SPLIT = re.compile(r"\s*[–—]\s*|\s+-\s*|\s*-\s+|\s*:\s*")
 _BULLET = re.compile(r"^\s*(?:\d+[.)]|[-•*·–—])\s+")
@@ -754,7 +783,14 @@ def new_school_list(pupil: dict, words: list, start: str, until: str, gone=(), k
     before = [w["w"] for w in sl.get("words") or []] + list(sl.get("before") or [])
     before = [w for w in dict.fromkeys(before) if w.lower() not in now and w.lower() not in out][:60]
     keep = sorted({k.lower() for k in list(kept) + list(sl.get("kept") or [])} & now)
-    return {"words": words, "from": start, "until": until, "before": before, **({"kept": keep} if keep else {})}
+    # "past": the earlier lists with their dates, newest first, for the printed report (school_report); a list
+    # corrected in its own week (same_list) is the same list, not an earlier one
+    past = list(sl.get("past") or [])
+    if sl.get("words") and not same_list(pupil, words):
+        past.insert(0, {"from": sl.get("from", ""), "until": min(sl.get("until", ""), start) or start,
+                        "words": [w["w"] for w in sl["words"] if w["w"].lower() not in out]})
+    return {"words": words, "from": start, "until": until, "before": before, **({"kept": keep} if keep else {}),
+            **({"past": past[:PAST_LISTS]} if past else {})}
 
 
 def same_list(pupil: dict, words: list) -> bool:
@@ -810,6 +846,9 @@ async def withdraw(pupil: dict, words: dict) -> None:
         before = [w for w in sl.get("before") or [] if w.lower() not in gone]
         if sl and before != list(sl.get("before") or []):
             await db.pupils.update_one({"_id": pupil["_id"]}, {"$set": {"school_words.before": before}})
+        past = [{**x, "words": [w for w in x["words"] if w.lower() not in gone]} for x in sl.get("past") or []]
+        if sl and past != list(sl.get("past") or []):
+            await db.pupils.update_one({"_id": pupil["_id"]}, {"$set": {"school_words.past": past}})
 
 
 def carried_words(pupil: dict) -> list:
@@ -840,40 +879,93 @@ def _school_cue(pupil: dict, word: str) -> str:
     return cue_for(word, cue)[0]
 
 
+def word_state(st: dict | None, e: dict | None) -> dict:
+    """One school word for the parent, in one simple state: "learned" (right on 3 different days, ✓✓✓), "way" (on
+    its way: right on 1 or 2 days since its last miss, ✓ or ✓✓), "tricky" (asked, and not right on a later day
+    since its last miss, ✗) or "new" (not asked yet). ticks: the days right (box). again: right again in the same
+    sitting as a mistake, which is practice (progress.mistake_book): it stays tricky until right in a later one.
+    other: the last real word typed in its place ("supervise" for accompany), which is no spelling mistake but
+    leaves the word to learn. e: its entry in the mistake book, if any."""
+    if not st:
+        return {"state": "new", "ticks": 0, "again": False, "other": ""}
+    box = int(st.get("box", 0))
+    open_miss = bool(e and not e["fixed"])
+    state = "learned" if box >= LEARNED_BOX else "tricky" if box == 0 or open_miss else "way"
+    return {"state": state, "ticks": min(box, LEARNED_BOX), "again": bool(state == "tricky" and e and e["practised"]),
+            "other": st.get("other", "") if state != "learned" else ""}
+
+
+STATE_LABELS = (("learned", "Learned ✓✓✓"), ("way", "On its way"), ("tricky", "Tricky ✗"), ("new", "Not asked yet"))
+
+
+async def _word_states(pupil: dict, names: list) -> dict:
+    """{word in lower case: word_state} for these words."""
+    state = {d["word"].lower(): d async for d in db.spelling_words.find({"pupil_id": pupil["_id"], "word": {"$in": names}})}
+    # the one rule of every mistake count (progress.mistake_book), so "Tricky" here, the mistakes list and the
+    # printed report agree
+    book = {e["detail"].lower(): e for e in await progress.mistake_book(pupil) if e["activity"] == "spelling"}
+    return {w.lower(): word_state(state.get(w.lower()), book.get(w.lower())) for w in names}
+
+
 async def school_status(pupil: dict) -> dict | None:
-    """For the parent: each word of the running school list and how far it is learned, and words of earlier
-    lists not yet learned that were spelt wrong ("still tricky")."""
+    """For the parent: each word of the running school list in one state (word_state), and the words of earlier
+    lists that were asked and are not learned yet ("last"), which keep coming back in spelling until learned: a
+    word does not drop off because a new week started or because it was right once."""
     words = school_words(pupil)
     old = carried_words(pupil)
     if not words and not old:
         return None
-    state = {d["word"].lower(): d async for d in db.spelling_words.find(
-        {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words] + old}})}
-    # the one rule of every mistake count (progress.mistake_book), so "Still tricky" here, the mistakes list and the
-    # printed report agree: a word not put right is tricky, or "again" when it was right again in the same sitting
-    book = {e["detail"].lower(): e for e in await progress.mistake_book(pupil) if e["activity"] == "spelling"}
-
-    def tricky(word: str, st: dict | None) -> str:
-        e = book.get(word.lower())
-        if e and not e["fixed"]:
-            return "again" if e["practised"] else "tricky"
-        return "tricky" if st and st.get("wrong") and not int(st.get("box", 0)) and not e else ""
-    last_tricky = [w for w in old if (st := state.get(w.lower())) and int(st.get("box", 0)) < LEARNED_BOX
-                   and tricky(w, st)]
-    if not words:                 # the week is over: only earlier words still tricky, which the parent may take out
-        return {"words": [], "learned": 0, "total": 0, "until": "", "last_tricky": last_tricky} if last_tricky else None
-    out = []
-    for w in words:
-        st = state.get(w["w"].lower())
-        box = int(st.get("box", 0)) if st else -1
-        # "right" (right last time) only when the last answer was right in a later sitting; right again in the same
-        # sitting as the mistake is "again" (checked again later)
-        out.append({"word": w["w"], "state": "learned" if box >= LEARNED_BOX else (tricky(w["w"], st) or "right")
-                    if st and (box > 0 or tricky(w["w"], st)) else "tricky" if st else "new",
-                    "right": int(st.get("right", 0)) if st else 0})
+    states = await _word_states(pupil, [w["w"] for w in words] + old)
+    last = [{"word": w, **states[w.lower()]} for w in old if states[w.lower()]["state"] in ("tricky", "way")]
+    if not words:                 # the week is over: only earlier words still to learn, which the parent may take out
+        return {"words": [], "learned": 0, "total": 0, "until": "", "last": last,
+                "last_tricky": [x["word"] for x in last]} if last else None
+    out = [{"word": w["w"], **states[w["w"].lower()]} for w in words]
+    n = {k: sum(1 for w in out if w["state"] == k) for k, _ in STATE_LABELS}
     sl = pupil["school_words"]
-    return {"words": out, "learned": sum(1 for w in out if w["state"] == "learned"), "total": len(out),
-            "until": sl["until"], "last_tricky": last_tricky}
+    return {"words": out, "learned": n["learned"], "n": n, "total": len(out), "from": sl.get("from", ""),
+            "until": sl["until"], "last": last, "last_tricky": [x["word"] for x in last]}
+
+
+async def other_tries(pupil: dict, days: list) -> list:
+    """Real words typed in place of the word asked, spelt right ("supervise" for accompany): no spelling mistakes,
+    so not in the mistakes list or the %, but the parent sees each one, newest first:
+    [{"word", "got", "day", "times"}], one per word and what was typed."""
+    out: dict = {}
+    async for r in db.attempts.find({"pupil_id": pupil["_id"], "activity": "spelling", "other": True, "day": {"$in": days}},
+                                    {"detail": 1, "got": 1, "day": 1}).sort("ts", -1):
+        k = (r.get("detail", ""), str(r.get("got", "")).strip().lower())
+        if k[0] and k not in out:
+            out[k] = {"word": k[0], "got": k[1], "day": r.get("day", ""), "times": 0}
+        if k in out:
+            out[k]["times"] += 1
+    return list(out.values())[:30]
+
+
+async def school_report(pupil: dict, since: str = "") -> list:
+    """For the printed report: the school lists, newest first, each word in its state (word_state):
+    [{"from", "until", "running", "words": [{word, state, ticks, again, other}]}]. The running list, then the
+    earlier ones with their dates (school_words.past), back to `since` (the report's first day); lists saved before
+    their dates were kept come as one undated list of their words not learned yet."""
+    sl = pupil.get("school_words") or {}
+    lists = []
+    if sl.get("words"):
+        lists.append({"from": sl.get("from", ""), "until": sl.get("until", ""), "running": bool(school_words(pupil)),
+                      "names": [w["w"] for w in sl["words"]]})
+    for p in sl.get("past") or []:
+        if p.get("until", "") >= since:
+            lists.append({"from": p.get("from", ""), "until": p.get("until", ""), "running": False, "names": p["words"]})
+    dated = {w.lower() for x in lists for w in x["names"]}
+    rest = [w for w in sl.get("before") or [] if w.lower() not in dated]
+    if not lists and not rest:
+        return []
+    states = await _word_states(pupil, [w for x in lists for w in x["names"]] + rest)
+    out = [{"from": x["from"], "until": x["until"], "running": x["running"],
+            "words": [{"word": w, **states[w.lower()]} for w in x["names"]]} for x in lists]
+    undated = [{"word": w, **states[w.lower()]} for w in rest if states[w.lower()]["state"] in ("tricky", "way")]
+    if undated:
+        out.append({"from": "", "until": "", "running": False, "words": undated})
+    return out
 
 
 def _today() -> datetime.date:
@@ -883,17 +975,69 @@ def _today() -> datetime.date:
 TRICKY = set(LISTS["Y1"]) | set(LISTS["Y2"])      # the statutory "common exception words"
 
 
+# Informal, text-speak and variant spellings: in the word list, but a school marks them wrong, so they are never
+# "another real word" (P8: "thru" for through was told it was spelt right). They are misspellings of the word asked.
+INFORMAL = {
+    "thru", "tho", "altho", "nite", "nites", "tonite", "lite", "brite", "cos", "coz", "cuz", "enuf", "nuff", "luv",
+    "wot", "wat", "sez", "gonna", "wanna", "gotta", "kinda", "sorta", "dunno", "lemme", "gimme", "ya", "yeah", "yep",
+    "yup", "nope", "nah", "ok", "okay", "pls", "plz", "thx", "ur", "b4", "gr8", "l8r", "hiya", "fone", "foto", "kool",
+    "skool", "boyz", "gurl", "wiv", "dat", "dis", "dem", "innit", "donut",
+    # American spellings that are in the list as words of their own
+    "program", "catalog", "dialog", "analog", "ax", "plow", "mold", "smolder", "gray", "pajamas", "aluminum", "mom",
+    "math", "fiber", "liter", "theater", "center", "jewelry", "sulfur",
+}
+
+
+def _american(word: str, typed: str) -> bool:
+    """The American spelling of a British word: colour/color, centre/center, realise/realize, analyse/analyze,
+    travelled/traveled, catalogue/catalog, defence/defense, programme/program, manoeuvre/maneuver."""
+    w, t = word.lower(), typed.lower()
+    if typos.american(w, t):
+        return True
+    forms = {w}
+    for a, b in (("our", "or"), ("tre", "ter"), ("ise", "ize"), ("isation", "ization"), ("yse", "yze"),
+                 ("ll", "l"), ("ogue", "og"), ("ae", "e"), ("oe", "e"), ("ence", "ense"), ("mme", "m"),
+                 ("eue", "e"), ("re", "er"), ("yre", "ire"), ("ough", "ow")):
+        forms |= {f.replace(a, b) for f in forms}
+    return t in forms - {w}
+
+
+def _sound(w: str) -> set:
+    """A rough key of how a word sounds, by its consonants ("thru" and "through", "nite" and "night", "enuf" and
+    "enough" share one). A "gh" may be silent or an f, so a word with one has both keys. Spelling shape only."""
+    w = w.lower().replace("'", "")
+    for a, b in (("tch", "ch"), ("dge", "j"), ("ph", "f"), ("ck", "k"), ("qu", "kw"), ("q", "k"), ("x", "ks"),
+                 ("wh", "w"), ("ce", "se"), ("ci", "si"), ("cy", "sy"), ("c", "k"), ("z", "s"), ("ture", "cher")):
+        w = w.replace(a, b)
+    w = re.sub(r"^(?:kn|gn|wr|ps)", lambda m: m.group()[1], w)
+    w = re.sub(r"mb$", "m", w)
+    keys = set()
+    for gh in ("", "f"):
+        k = w.replace("gh", gh)
+        k = re.sub(r"(?<![cst])h", "", k)                     # "h" after a vowel or a consonant other than c, s, t
+        k = re.sub(r"[aeiouyw]", "", k)
+        keys.add(re.sub(r"(.)\1+", r"\1", k))
+    return keys
+
+
 def other_word(typed: str, word: str) -> bool:
-    """The child typed a different real word, spelt right ("nervous" for "anxious"), not a misspelling of this
-    one: at least 3 letters off, not a word that sounds like it ("their" for "there" is the mistake the hint
-    sentence is there to catch) and not its American spelling."""
-    t = typed.strip().lower()
-    return (len(t) >= 3 and t != word.lower() and t not in [s.lower() for s in _SOUNDS.get(word.lower(), [])]
-            and not typos.american(word, t) and is_word(t) and _distance(t, word.lower()) > 2)
+    """The child typed a clearly different real word, spelt right ("supervise" for "accompany"), not a misspelling
+    of this one. Never: an informal or variant spelling ("thru", "nite", "enuf": INFORMAL), the American spelling
+    ("color"), a word a few letters off (more than 2 and more than a third of the word must differ), a word that
+    sounds like it ("their" for "there", "threw" for "through": the hint sentence is there to tell them apart), or
+    the same word with a part left off or added ("accident" for "accidentally")."""
+    t, w = typed.strip().lower(), word.lower()
+    if len(t) < 3 or t == w or t in INFORMAL or not is_word(t) or _american(w, t):
+        return False
+    if t in [s.lower() for s in _SOUNDS.get(w, [])] or _sound(t) & _sound(w):
+        return False
+    if min(len(t), len(w)) >= 4 and (t.startswith(w) or w.startswith(t)):
+        return False
+    return _distance(t, w, 4) > max(2, len(w) // 3)
 
 
 NEW_WINDOW = 4             # Year 1: a new word is one of the next 4 of the list (it is in teaching order) ...
-NEW_WINDOW_LATER = 12      # ... later years: one of the next 12 (those lists go A to Z)
+NEW_WINDOW_LATER = 12      # ... later years: one of the next 12 (Years 3-4 easiest first; the others go A to Z)
 MISSED_RUN = 3             # misses in a row (in this sitting) before spelling eases off
 EASE_NOTE = "Let's try an easier one."
 
@@ -914,16 +1058,18 @@ async def _missed_run(pupil: dict) -> bool:
 
 
 def _easier(pupil: dict, words: list, state: dict, away: set) -> str | None:
-    """After a run of misses: a word this child has spelt right before, the shortest first; else, in Year 1, the
-    first sound-it-out words; else the shortest of the year's words."""
+    """After a run of misses, in every year: a word this child has spelt right before, the shortest first (in Year 1
+    only a sound-it-out one); else the first easy word of their year not learned yet (easy_words); else the shortest
+    of the year's words."""
+    year = int(pupil.get("year", 3) or 3)
     pool = [w for w in words if w not in away]
-    if pupil.get("year", 3) <= 1:
-        pool = [w for w in pool if w in EASY] or pool
-    known = [w for w in pool if int((state.get(w) or {}).get("right", 0)) > 0]
+    known = [w for w in pool if int((state.get(w) or {}).get("right", 0)) > 0 and (year > 1 or w in EASY)]
     if known:
         return min(known, key=lambda w: (len(w), pool.index(w)))
-    if pupil.get("year", 3) <= 1:
-        return pool[0] if pool else None
+    easy = [w for w in easy_words(year) if w not in away and (st := state.get(w) or {}).get("box", 0) < LEARNED_BOX
+            and not (st.get("wrong") and not st.get("box"))]          # not one just missed either
+    if easy:
+        return easy[0]
     return min(pool, key=len) if pool else None
 
 
@@ -976,10 +1122,20 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     typed = " ".join(str(value or "").split()).lower()
     correct = typed == word.lower() or typed in VARIANTS.get(word, ())
     if not correct and other_word(typed, word):
-        # another real word, spelt right ("nervous" for "anxious" with the sound off): not a spelling mistake. It
-        # counts as neither right nor a mistake, and the word comes back after the usual gap, to be heard again.
-        await progress.record(pupil, "spelling", False, ms, word, copied=True)
-        msg = f"That is spelt right, but the word was {word}. Listen again."
+        # another real word, spelt right ("supervise" for "accompany" with the sound off): not a spelling mistake,
+        # and not counted in the day's % (progress.day_stats leaves "other" out). It is kept, so the parent sees it
+        # ("wrote supervise: a real word, not the one asked"), and the word stays to learn: it comes back after the
+        # usual gap. The first time, the same word stays open for one more go (the box clears); after that, on.
+        await progress.record(pupil, "spelling", False, ms, word, "Spell the word you heard", word, value, copied=True,
+                              extra={"other": True})
+        await db.spelling_words.update_one({"_id": f"{pupil['_id']}:{word}"}, {
+            "$setOnInsert": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": 0},
+            "$set": {"due": _today().isoformat(), "other": typed}, "$inc": {"others": 1}}, upsert=True)
+        if not it.get("retried"):
+            await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
+            msg = f"That is spelt right, but the word was {word}. Listen again, then type it."
+            return {"correct": False, "retry": True, "other": True, "expected": word, "hint": msg, "spoken": msg}
+        msg = f"That is spelt right too, but the word was {word}. It comes back later."
         return {"correct": False, "other": True, "expected": word, "hint": msg, "spoken": msg}
     if correct and word in await items.just_shown(pupil, "spelling"):
         # right, but straight after being shown it: counts for today, not as learned or as a mistake put right

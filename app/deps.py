@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, Request
 
-from . import config
+from . import config, levels
 from .db import db
 from .security import new_token, token_key, verify_secret
 
@@ -103,7 +103,7 @@ async def load(request: Request) -> Ctx | None:
         return None
     child = None
     if s.get("child_id"):
-        child = await db.pupils.find_one({"_id": s["child_id"], "family_id": fam["_id"]})
+        child = await levels.fix(await db.pupils.find_one({"_id": s["child_id"], "family_id": fam["_id"]}))
     # A child id whose child has gone still counts as locked: losing the child never opens the parent area.
     return Ctx(s, acc, fam, child, locked=bool(s.get("locked") or s.get("child_id")))
 
@@ -141,13 +141,20 @@ async def pin_lock_until(pupil_id: str) -> datetime.datetime | None:
 
 
 async def pin_locks(pupils: list) -> dict:
-    """{pupil id: "19:42"} for each child whose tile is locked, in local time."""
+    """{pupil id: "5 more minutes"} for each child whose tile is locked: how long is left, never a clock time (a
+    device on another clock, or a grown-up in a hurry, would read a time wrongly)."""
     out = {}
     for p in pupils:
         until = await pin_lock_until(p["_id"])
         if until:
-            out[p["_id"]] = local_hm(until)
+            out[p["_id"]] = minutes_left(until)
     return out
+
+
+def minutes_left(until: datetime.datetime) -> str:
+    """"5 more minutes", "1 more minute": from now (UTC) to `until`, rounded up."""
+    n = max(1, -(-int((until - datetime.datetime.utcnow()).total_seconds()) // 60))
+    return f"{n} more minute{'' if n == 1 else 's'}"
 
 
 async def clear_pin_lock(pupil_id: str) -> None:
@@ -270,7 +277,7 @@ async def child_api(request: Request) -> Ctx:
 
 async def own_pupil(ctx: Ctx, pupil_id: str) -> dict:
     """A pupil of this family, or 404. Never trust an id from the URL without this."""
-    p = await db.pupils.find_one({"_id": str(pupil_id), "family_id": ctx.family["_id"]})
+    p = await levels.fix(await db.pupils.find_one({"_id": str(pupil_id), "family_id": ctx.family["_id"]}))
     if not p:
         raise HTTPException(404, "not found")
     return p

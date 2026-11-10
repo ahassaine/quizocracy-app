@@ -42,10 +42,10 @@ def test_pin_lock_shows_time_and_parent_can_unlock(page):
     codes = [s.post(BASE + f"/learn/{mia}", data={"pin": f"{i:04d}"}).status_code for i in range(6)]
     assert codes == [400] * 5 + [429]
     r = s.post(BASE + f"/learn/{mia}", data={"pin": "4321"})               # even the right PIN waits
-    assert r.status_code == 429 and re.search(r"Mia is locked until \d\d:\d\d", r.text)
-    # on "Who's learning?": the time, and a grown-up unlock with the parent password
+    assert r.status_code == 429 and re.search(r"Mia is locked for [1-5] more minutes?", r.text)
+    # on "Who's learning?": how long is left (never a clock time), and a grown-up unlock with the parent password
     page.goto("/learn")
-    assert re.search(r"Mia is locked until \d\d:\d\d", page.inner_text("[data-testid=locked-Mia]"))
+    assert re.search(r"Mia is locked for [1-5] more minutes?", page.inner_text("[data-testid=locked-Mia]"))
     tile = page.get_by_test_id("tile-Mia")
     tile.locator("summary").click()
     tile.locator("input[name=password]").fill("wrong-password-1")
@@ -60,7 +60,7 @@ def test_pin_lock_shows_time_and_parent_can_unlock(page):
         s.post(BASE + f"/learn/{mia}", data={"pin": f"{i:04d}"})
     unlock_parent(page)
     box = page.get_by_test_id("pin-locked")
-    assert re.search(r"Mia is locked until \d\d:\d\d", box.inner_text())
+    assert re.search(r"Mia is locked for [1-5] more minutes?", box.inner_text())
     box.locator("button").click()
     page.wait_for_url(f"**/home?unlocked={mia}")
     assert page.get_by_test_id("pin-locked").count() == 0

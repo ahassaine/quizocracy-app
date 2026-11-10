@@ -461,7 +461,7 @@ def test_phone_layout(browser, devices, device):
         page.goto(path)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), path
     enter_child(page, "Lea")
-    for path in ("/me", "/me/maths", "/me/tables", "/me/spelling", "/me/numbers", "/me/verbs", "/board"):
+    for path in ("/me", "/me/maths", "/me/tables", "/me/spelling", "/me/numbers", "/me/verbs"):
         page.goto(path)
         page.wait_for_timeout(400)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), path
@@ -469,4 +469,7 @@ def test_phone_layout(browser, devices, device):
     it = wait_question(page, "tables", pid)          # the question served above, still unanswered, comes back
     page.tap("#answer"); page.fill("#answer", str(it["answer"])); page.tap("#check")
     page.wait_for_selector("#feedback.yes")
+    page.goto("/board")                              # last: the Board signs the child out (wave 6)
+    page.wait_for_timeout(400)
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     ctx.close()

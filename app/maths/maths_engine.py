@@ -328,12 +328,29 @@ def _same_set(expected, value):
     return ne is not None and ne in (norm(value, True), norm(value, False))
 
 
-def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt=""):
+_DEC_COMMA = re.compile(r"\s*[-−–]?\s*[£$€]?\s*(\d+),(\d+)\D*")
+
+
+def decimal_comma(value):
+    """A comma typed as a decimal point, as in France or Germany ("0,00009", "3,5 cm", "£2,50"): the value with
+    a point instead ("0.00009"), else None. A comma before exactly 3 digits is a thousands comma ("2,750" is
+    2750), unless the number starts "0," ("0,500" is 0.5); a list ("2, 3") or two commas is never one."""
+    s = str(value if value is not None else "")
+    m = _DEC_COMMA.fullmatch(s)
+    if not m or s.count(",") != 1 or (len(m.group(2)) == 3 and m.group(1) != "0"):
+        return None
+    return s.replace(",", ".")
+
+
+def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt="", labels=None):
     """Is the pupil's value right? `prompt` (the question) decides the form where the form is the skill:
-    "as a decimal", "in its simplest form", "as a 12-hour time", "in figures, e.g. 4th"."""
+    "as a decimal", "in its simplest form", "as a 12-hour time", "in figures, e.g. 4th". `labels`: the words on
+    the chart or table, for a label answer typed with a word copied from it ("class 3a" for 3A)."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return False
     at = answer_type
+    if at in ("num", "int", "frac") and decimal_comma(value) is not None:
+        return False                     # "0,5" is not 5: check() offers the retry with a decimal point
     if at in ("num", "int"):
         v, e = _a_number(value, prompt), _num(expected)
         if v is None and not _IN_DIGITS.search(str(prompt or "")):
@@ -391,10 +408,32 @@ def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt=""
     if _RULE.fullmatch(se):                          # a sequence rule: "+10" for "add 10", "×3" for "multiply by 3"
         return _rule(sv) == se
     pe = _poly(se)                                   # algebra in another order: "30+5x" for "5x+30"
-    if pe is not None:
-        return _poly(sv) == pe
+    if pe is not None:                               # ("3a" is a label in a chart, too)
+        return _poly(sv) == pe or _copied_label(se, sv, labels)
     wv, we = _words(sv), _words(se)                  # "a half turn" for "half", "Wednesday" for "Wed"
-    return bool(wv) and (wv == we or wv.replace(" and ", " ") == we.replace(" and ", " "))
+    if wv and (wv == we or wv.replace(" and ", " ") == we.replace(" and ", " ")):
+        return True
+    return _copied_label(se, sv, labels)
+
+
+def _copied_label(se, sv, labels):
+    """A label answer typed with a word copied from the chart or table: "class 3a" for 3A (the bar says
+    "Class 3A"), "maple school" or "school maple" for Maple (the column says "School"). Only a word on the
+    chart that is not itself an answer there ("class", "school", "team"), and only one at the front or end.
+    labels: {"names": the bars' or rows' names, "heads": the column headings}."""
+    if not labels or not sv or " " not in sv:
+        return False
+    names = [_sn(x) for x in labels.get("names") or [] if str(x).strip()]
+    count = {}
+    for x in names:
+        for w in set(x.split()):
+            count[w] = count.get(w, 0) + 1
+    words = {w for w, n in count.items() if n > 1}                    # "class" in Class 3A, Class 3B, Class 3C
+    words |= {w for x in labels.get("heads") or [] for w in _sn(x).split()}
+    words -= set(names) | set(se.split())
+    first, _, rest = sv.partition(" ")
+    head, _, last = sv.rpartition(" ")
+    return (first in words and rest == se) or (last in words and head == se)
 
 
 # "two" typed for 2 (a word answer to "How many …?"); never where writing the number in digits is the task
@@ -826,6 +865,7 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
             # the written method, set out, for the explanation (arithmetic skills only)
             "layout": layout_for(q, next((s for s in SKILLS if s["key"] == skill_key), {})),
             "no": [[k, v] for k, v in (q.get("no") or {}).items()],   # likely wrong answer, why (y9_gen_a._with_no)
+            "labels": chart_labels(q),
             "difficulty": difficulty,
             "pupil": pupil,
             "created": datetime.datetime.utcnow(),
@@ -834,6 +874,21 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
     )
     return {"token": token, "prompt": q["prompt"],
             "component": q.get("component", "number"), "spec": q.get("spec", {})}
+
+def chart_labels(q):
+    """The words a word answer may be copied from (a bar chart's, pictogram's or pie chart's names; a table's
+    first column and headings), for check_answer: {"names": [...], "heads": [...]}, or None."""
+    if q.get("answer_type") != "str":
+        return None
+    spec = q.get("spec") or {}
+    names = spec.get("categories") or spec.get("labels") or []
+    rows = spec.get("rows") if q.get("component") == "data_table" else None
+    if rows:
+        names = [r[0] for r in rows if isinstance(r, (list, tuple)) and r]
+    names = [str(x) for x in names if isinstance(x, str) and x.strip()]
+    heads = [str(x) for x in spec.get("headers") or [] if isinstance(x, str) and x.strip()]
+    return {"names": names, "heads": heads} if names or heads else None
+
 
 def _no_key(v):
     return re.sub(r"\s+", "", str(v if v is not None else "")).replace("−", "-").lower()
@@ -846,9 +901,19 @@ async def check(token, value, pupil):
     if not doc:
         return {"ok": False, "error": "expired"}
     prompt = doc.get("prompt", "")
-    correct = check_answer(doc["answer_type"], doc["answer"], value, doc.get("tolerance", 0), doc.get("unit"), prompt)
+    args = (doc["answer_type"], doc["answer"])
+    kw = {"tolerance": doc.get("tolerance", 0), "unit": doc.get("unit"), "prompt": prompt, "labels": doc.get("labels")}
+    correct = check_answer(*args, value, **kw)
     solution = list(doc.get("solution", []))
-    if not correct:
+    point = decimal_comma(value) if not correct and doc["answer_type"] in ("num", "int", "frac") else None
+    if point is not None:
+        # a decimal comma ("0,00009"): right with a point is "Nearly", with one free retry; wrong either way, say so
+        if check_answer(*args, point, **kw) and not doc.get("retried"):
+            await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
+            return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"),
+                    "hint": "Nearly: in England we write a decimal point, %s" % point.strip()}
+        solution.insert(0, "In England we write a decimal point: %s, not %s." % (point.strip(), str(value).strip()))
+    elif not correct:
         slipped = slipped_words(doc["answer_type"], doc["answer"], value, prompt)
         if slipped and not doc.get("retried"):
             # a spelling slip where spelling is not the skill: one free retry, the question stays open

@@ -33,9 +33,27 @@ def _near(fact: str, a: int, b: int) -> bool:
     return bool({a, b} & ({x, y} - {1, 10}))
 
 
+NEAR_RUN = 5      # questions from the waiting facts' tables, at most, while they wait; then the other tables
+
+
+async def _near_run(pupil: dict, near: list) -> int:
+    """How many questions from the tables of the waiting facts (near) were answered since one of them was last
+    shown: a long run of easy 2× facts while 2 × 8 waits is busywork for a keen child."""
+    waiting = {progress.same_item("tables", f) for f in near}
+    run = 0
+    async for it in db.items.find({"pupil_id": pupil["_id"], "activity": "tables", "done": True},
+                                  {"meta": 1}).sort("answered", -1).limit(4 * NEAR_RUN):
+        m = it.get("meta") or {}
+        if progress.same_item("tables", m.get("fact") or "") in waiting:
+            break
+        run += any(_near(f, m.get("a"), m.get("b")) for f in near)
+    return run
+
+
 async def next_question(pupil: dict, focus: str | None = None, near: list | None = None) -> dict:
     """focus: a fact such as "7x8" to ask again (a mistake being put right). near: facts waiting to be put right;
-    the question then comes from their tables (7 x 8 waits: the 7 and 8 times tables), not one of them."""
+    the question then comes from their tables (7 x 8 waits: the 7 and 8 times tables), not one of them, for
+    NEAR_RUN questions; then from the other tables until they come back."""
     tabs = tables_for_year(pupil.get("year", 4))
     m = re.fullmatch(r"(\d+)x(\d+)", focus or "")
     if m:
@@ -48,6 +66,8 @@ async def next_question(pupil: dict, focus: str | None = None, near: list | None
         shown |= {"x".join(f.split("x")[::-1]) for f in shown if f}       # 8 x 7 is the same fact as 7 x 8
         pool = [(a, b) for a in tabs for b in range(1, 13) if f"{a}x{b}" not in shown]
         close = [(a, b) for a, b in pool if any(_near(f, a, b) for f in near or [])]
+        if close and await _near_run(pupil, near) >= NEAR_RUN:
+            pool, close = [p for p in pool if p not in close] or pool, []
         pool = close or pool or [(a, b) for a in tabs for b in range(1, 13)]
         weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
         a, b = random.choices(pool, weights=weights, k=1)[0]

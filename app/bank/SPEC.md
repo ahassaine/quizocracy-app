@@ -30,7 +30,9 @@ SKILLS = [
   For a Year 8 or 9 child the menu also offers the earlier KS3 science strands that year has not got, marked
   "(Year 7–8 topic)", and a focus on one practises that year's skills (engine.focus_skills).
 * The child works up to three skills side by side, at most two from one strand, and never more than three
-  questions in a row from one strand unless a grown-up chose it as the "working on this at school" focus.
+  questions in a row from one strand unless a grown-up chose it as the "working on this at school" focus. A focus
+  takes about two questions in three, spread over every skill of its strands (and the neighbouring strands when
+  fewer than six of its skills are left to learn), never more than three in a row from one skill.
 * Each skill has **at least 20 questions** (aim for 22–25) and **at least 3 question types**: this is a
   production bank that a child works through for a whole school year, not a sample.
 * Keys are unique across the whole bank. Do not renumber published keys later (progress is stored by key).
@@ -56,7 +58,7 @@ teaches the point; the child sees it after a wrong answer, under the right answe
 | `mcq` | picks one option | `opts`: 2–4 options, **the first one is the right answer** (the app shuffles them) |
 | `tap` | taps word(s) in a sentence | `s`: the sentence, the right word(s) in square brackets: `"The dog ran [quickly] home."` |
 | `text` | types a short answer (1–4 words) | `a`: list of accepted answers. Marking ignores capitals, spaces and a final . ? or ! |
-| `write` | rewrites a sentence | `s`: the sentence to fix; `a`: list of exactly-correct versions. Marking is exact (capitals and punctuation count); only spaces and curly/straight quotes are normalised |
+| `write` | rewrites a sentence | `s`: the sentence to fix; `a`: list of exactly-correct versions. Marking is exact (capitals and punctuation count); only spaces, curly/straight and single/double quotation marks, a dash typed spaced or not, and an optional "that" after a reporting or suggesting verb ("I suggest (that) she go"; not when the task names 'that') are normalised (engine.same_form) |
 | `num` | types a number | `a`: the number; optional `tol` (allowed error, default 0) and `unit` (shown next to the box, e.g. `"m/s"`) |
 
 Science answers go through one unit normaliser (`engine.sci_unit`): a unit typed the keyboard way counts
@@ -66,6 +68,13 @@ unit from the question's (`"4 kg"` for 4 g) is wrong.
 
 An answer right but for an apostrophe (`"cant you"` for "can't you") gets "Nearly — check the apostrophe" and one
 free retry, then a correction about the apostrophe, except in skills about apostrophes or possession.
+
+Key words: `app/bank/glossary.py` holds about 250 hand-written terms with one plain line each. A term found in a
+question (from Year 3) gets a dotted underline and its line on a tap, unless it would give the answer away
+(engine.key_words); the parent's example-questions and key-words pages list each strand's terms.
+
+Lines written by the engine, after a wrong answer: "should stay" for the subjunctive "stay" (should_line), and a real
+unit of the same quantity for the one asked ("g/cm³ is a real unit of density, but it is not the SI unit", unit_line).
 
 Two optional fields teach after a wrong answer:
 

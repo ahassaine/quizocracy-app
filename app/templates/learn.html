@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block title %}Who's learning? · Quizocracy{% endblock %}
 {% block body %}
 <h1 class="rise">Who's learning?</h1>
+{% if request.query_params.get('away') %}<p class="small" role="status" data-testid="away-note" style="font-weight:600">You were away for a while, so you were signed out. Type your PIN to carry on: your question is waiting.</p>{% endif %}
 {% if ctx.locked %}<p class="mut small">Parents can leave practice from <a href="/parent-unlock">Parent</a>.</p>{% else %}<p class="mut small">Children will see that you can look at their answers and progress.</p>
   <form method="post" action="/handover" class="row"><button class="btn" type="submit">Lock the parent area and hand over</button></form>{% endif %}
 {% if error and not pin_for %}<div class="err" role="alert">{{ error }}</div>{% endif %}
@@ -9,11 +10,13 @@
 {% for p in pupils %}
   <div class="card lift rise rise-{{ [loop.index, 5]|min }}" style="text-align:center" data-testid="tile-{{ p.name }}">
     <div style="width:74px;height:74px;border-radius:16px;margin:0 auto 8px;display:grid;place-items:center;font-family:var(--display);font-size:1.8rem;font-weight:800;color:#fff;background:{{ colours[loop.index0 % 6] }};box-shadow:var(--shadow)">{{ p.name[:1] }}</div>
-    <div class="name display" style="font-weight:800;font-size:1.3rem">{{ p.name }}</div>
+    <div class="name display" style="font-weight:800;font-size:1.3rem">{{ p.name }}{% set dd = (days or {}).get(p._id) %}{% if dd and not dd.rest %} <span data-testid="tile-pct-{{ p.name }}" style="font-weight:700;color:var(--mut)">{{ dd.pct }}%</span>{% endif %}</div>
+    {% if dd and dd.rest %}<div class="mut small" data-testid="tile-rest-{{ p.name }}">{{ 'Day off' if dd.rest == 'off' else 'Rest day' }}</div>{% elif dd and dd.pct >= 100 %}<div class="mut small" data-testid="tile-done-{{ p.name }}">All done today ✓</div>{% endif %}
     {% if unlocked == p._id %}<div class="ok" role="status">{{ p.name }} can type the PIN again now.</div>{% endif %}
+    {% if show_pin and p._id in show_pin %}<details style="text-align:left" data-testid="show-pin-{{ p.name }}"><summary class="small" style="cursor:pointer;padding:6px 0">Grown-up: show {{ p.name }}'s PIN</summary>{% if show_pin[p._id] %}<span class="display" style="font-size:1.6rem;font-weight:800;letter-spacing:6px" data-testid="shown-pin-{{ p.name }}">{{ show_pin[p._id] }}</span>{% else %}<span class="small mut">Not shown here: a parent sets a new PIN in {{ p.name }}'s Settings.</span>{% endif %}</details>{% endif %}
     {% if pin_for == p._id and error and not (locks and locks.get(p._id)) %}<div class="err" role="alert" style="text-align:left">{{ error }}</div>{% endif %}
     {% if locks and locks.get(p._id) %}
-      <p data-testid="locked-{{ p.name }}"><b>{{ p.name }} is locked until {{ locks[p._id] }}</b><br><span class="mut small">Too many wrong PINs.</span></p>
+      <p data-testid="locked-{{ p.name }}"><b>{{ p.name }} is locked for {{ locks[p._id] }}</b><br><span class="mut small">Too many wrong PINs.</span></p>
       {% if ctx.locked %}
       <details style="text-align:left"{% if unlock_error and pin_for == p._id %} open{% endif %}><summary class="small" style="cursor:pointer;padding:6px 0">Grown-up? Unlock {{ p.name }} now</summary>
         {% if unlock_error and pin_for == p._id %}<div class="err" role="alert">{{ unlock_error }}</div>{% endif %}
@@ -22,6 +25,7 @@
           <input id="upw-{{ p._id }}" name="password" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false"></div>
           {# new-password: browsers must not offer the saved parent password on the device handed to a child #}
           <button class="btn" type="submit">Unlock {{ p.name }}</button> <a class="small" href="/forgot">Forgot password?</a>
+          <div class="mut small" style="margin-top:4px">Then you can also see {{ p.name }}'s PIN here.</div>
         </form>
       </details>
       {% else %}

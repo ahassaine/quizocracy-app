@@ -7,10 +7,14 @@
 <h1 style="text-align:center">Join {{ family.name }}</h1>
 <p>{% if by %}<b style="overflow-wrap:anywhere">{{ by }}</b> invited you{% else %}You are invited{% endif %} as a <b>{{ inv.role }}</b>. You will be able to {{ can }}.</p>
 {% if error %}<div class="err" role="alert" data-testid="invite-error">{{ error }}</div>{% endif %}
-<form method="post" action="/invite" class="card">
+{% if errors %}<div class="err" role="alert" data-testid="invite-error">{% if errors|length > 1 %}Two things to fix, then press Join again:<ul style="margin:4px 0 0;padding-left:20px">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>{% else %}{{ errors[0] }}{% endif %}</div>{% endif %}
+{% set typed = typed or {} %}
+<form method="post" action="/invite" class="card" novalidate>{# the server lists every problem at once #}
   <input type="hidden" name="token" value="{{ token }}">
   <div class="field"><label for="email">Your email</label><input id="email" type="email" value="{{ inv.email }}" disabled autocomplete="username"></div>
-  <div class="field"><label for="password">Choose a password</label><input id="password" name="password" type="password" required autocomplete="new-password" aria-describedby="pw-hint">
+  <div class="field"><label for="join_name">What should the family call you? <span class="mut small" style="font-weight:400">(e.g. Gran)</span></label><input id="join_name" name="name" type="text" maxlength="40" autocomplete="given-name" value="{{ typed.name or '' }}" data-testid="join-name" aria-describedby="name-hint">
+    <div class="mut small" id="name-hint">The other grown-ups see this name in Family activity. You can change it later in Settings.</div></div>
+  <div class="field"><label for="password">Choose a password</label><input id="password" name="password" type="password" required autocomplete="new-password" aria-describedby="pw-hint" value="{{ typed.password or '' }}">
     <div class="mut small" id="pw-hint">8 characters or more. This is your own password: you sign in with it, and it opens the parent area on a device a child has used.</div></div>
   <label class="check" for="consent" style="font-weight:400;align-items:center;padding:12px 14px;margin:12px 0 4px;border:1px solid var(--line);border-radius:14px;cursor:pointer;min-height:56px">
     <input id="consent" name="consent" type="checkbox" value="1" {% if consent %}checked{% endif %} style="width:28px;height:28px;margin:0;flex:none">

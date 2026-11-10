@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, errors
+from . import config, errors, levels
 from .config import BASE_DIR
 from .db import db, ensure_indexes
 from .deps import Redirect, load
@@ -18,6 +18,7 @@ from .web import page
 @asynccontextmanager
 async def lifespan(app):
     await ensure_indexes()
+    await levels.fix_all()          # children set up with one "working at" for every subject (before Nov 2026)
     count = asyncio.create_task(errors.daily_count())
     yield
     count.cancel()

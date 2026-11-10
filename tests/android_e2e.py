@@ -192,7 +192,7 @@ step("the child's day reaches 100%")
 
 pg.goto("/board")
 adb("shell", "input", "keyevent", "KEYCODE_BACK")
-pg.wait("() => location.pathname === '/me'")
+pg.wait("() => location.pathname === '/me' || location.pathname === '/learn'")   # the Board signed the child out (wave 6)
 step("the Android back button goes back a page instead of closing the app")
 
 pg.goto("/parent-unlock")

@@ -205,8 +205,11 @@ def test_a_right_spelling_of_another_word_is_not_a_mistake_and_twins_get_their_o
 
     s = _session(page)                                                    # Chidi, still signed in
     word, res, _ = _answer(s, lambda w: "elephant" if w.lower() != "elephant" else "giraffe")
-    assert res["other"] and res["hint"] == f"That is spelt right, but the word was {word}. Listen again."
+    assert res["other"] and res["retry"] and res["hint"] == f"That is spelt right, but the word was {word}. Listen again, then type it."
     assert not DB.attempts.find_one({"pupil_id": b, "detail": word, "correct": False, "copied": {"$ne": True}})
+    tok = DB.items.find_one({"pupil_id": b, "answer": word, "done": False})["_id"]          # one more go at it
+    res = s.post(BASE + "/api/spelling/check", json={"token": tok, "value": word}).json()
+    assert res["correct"] and res.get("again_later")                     # right straight after being shown it
     nxt = s.post(BASE + "/api/spelling/next", json={}).json()
     assert DB.items.find_one({"_id": nxt["token"]})["answer"] != word     # it comes back later, not straight away
 
@@ -223,9 +226,15 @@ def test_spelling_page_shows_the_other_word_message_without_not_quite(page):
         word = DB.items.find_one({"_id": tok})["answer"]
         page.fill("#answer", "elephant" if word.lower() != "elephant" else "giraffe")
         page.click("#check")
-        page.wait_for_selector("#feedback.warn [data-testid=hint]")
+        page.wait_for_selector("#feedback.warn [data-testid=sound-tip]")
         fb = page.inner_text("#feedback")
-        assert "Not quite" not in fb and f"the word was {word}" in fb
+        assert "Not quite" not in fb and f"the word was {word}" in fb and "Turn your sound on" in fb
+        # one real retry: the box is empty, Check works and Enter sends it
+        assert page.input_value("#answer") == "" and page.is_enabled("#check") and page.is_hidden("#next")
+        page.fill("#answer", word)
+        page.press("#answer", "Enter")
+        page.wait_for_selector("#feedback.yes")
+        assert DB.items.find_one({"_id": tok})["done"]
         shots = os.getenv("QZ_SHOTS")
         if shots:
             page.screenshot(path=os.path.join(shots, f"other-word-{size[0]}.png"))

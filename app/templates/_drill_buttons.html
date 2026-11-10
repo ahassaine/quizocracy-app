@@ -1,5 +1,5 @@
 <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
-<div class="row"><button class="btn primary big" id="check" type="button">Check</button><button class="btn big" id="next" type="button" style="display:none">Next →</button></div>
+<div class="row"><button class="btn primary big" id="check" type="button">Check</button><button class="btn idk" id="idk" type="button" style="display:none" data-testid="idk">I don't know</button><button class="btn big" id="next" type="button" style="display:none">Next →</button></div>
 {% if ctx and ctx.child %}<div class="report" id="report" data-testid="report">
   <button class="report-link" id="reportOpen" type="button" aria-expanded="false" aria-controls="reportBox" data-testid="report-open">Something wrong with this question?</button>
   <div class="report-box" id="reportBox" hidden>

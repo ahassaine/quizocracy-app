@@ -54,7 +54,8 @@ YEAR_DEFAULTS = {
 }
 # Rough seconds a child needs per correct answer (wrong tries and reading the feedback included), and how much
 # longer younger children take. Only used to tell the parent how long a day takes.
-SECONDS = {"maths": 50, "tables": 8, "spelling": 25, "grammar": 40, "science": 35, "numbers": 40, "verbs": 20}
+# Times tables: 12 (was 8): a Year 3 child took about 5 minutes for 20 right in wave 6 (P8), with misses on the way.
+SECONDS = {"maths": 50, "tables": 12, "spelling": 25, "grammar": 40, "science": 35, "numbers": 40, "verbs": 20}
 
 
 def year_pace(year: int) -> float:
@@ -64,9 +65,17 @@ def year_pace(year: int) -> float:
 
 
 CHECK_SECONDS = 240       # a Year 4 check: 25 questions of up to 6 seconds, with a 3-second "Get ready" between
-# Years 1-2: an activity also ends after this many times its target in answers, right or wrong (progress.day_status),
-# so a child who finds it hard is not kept going for the longest day of all
+# An activity also ends after this many times its target in answers, right or wrong (progress.day_status), so a
+# child who finds it hard is not kept going for the longest day of all: in Years 1-4 every activity, and spelling in
+# every year (a hard school list made a Year 3 day run on, P4 and P8). CAP_YEARS: by the child's school year.
 YOUNG_CAP = 2
+CAP_YEARS = 4
+CAP_ALWAYS = ("spelling",)
+
+
+def has_cap(pupil: dict, key: str) -> bool:
+    """This activity of this child's day ends after YOUNG_CAP times its target in answers."""
+    return key in CAP_ALWAYS or int(pupil.get("school_year") or pupil.get("year") or 1) <= CAP_YEARS
 
 
 def minutes(plan: list, year: int, check: bool = False) -> int:
