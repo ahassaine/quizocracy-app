@@ -2,6 +2,7 @@
 every year has a bank, and the skill picker behaves (no server needed)."""
 import datetime
 import random
+import re
 
 import pytest
 
@@ -164,3 +165,25 @@ def test_gap_questions_accept_the_whole_sentence():
     assert engine.gap_sentences("To keep healthy, eat lots of fruit and v_____.", ["vegetables"]) == \
         ["To keep healthy, eat lots of fruit and vegetables."]
     assert engine.gap_sentences("Finish the verb: The baby was ___ (cry).", ["crying"]) == ["The baby was crying."]
+
+
+def test_excluded_topics_are_left_out():
+    """Evolution and the sensitive PSHE topics are not served (app/bank/excluded.py), and every line there still
+    names real content, so an edited question cannot slip back in unnoticed."""
+    import importlib
+    from app.bank import excluded
+    written = {}
+    for path in sorted(engine.CONTENT.glob("*_y*.py")):
+        for sk in importlib.import_module(f"app.bank.content.{path.stem}").SKILLS:
+            written[sk["key"]] = {q.get("q") for q in sk["qs"]}
+    assert excluded.SKILLS <= set(written), excluded.SKILLS - set(written)
+    for key, texts in excluded.QUESTIONS.items():
+        assert texts <= written.get(key, set()), (key, texts - written.get(key, set()))
+    served = {sk["key"]: sk for _, sk, _ in ALL}
+    assert not excluded.SKILLS & set(served)
+    for key, texts in excluded.QUESTIONS.items():
+        assert not texts & {q.get("q") for q in served[key]["qs"]}, key
+    # a shortlist for new content: any hit here is read by a person, then excluded or kept on purpose
+    words = re.compile(r"\bevol(ution|ve)|natural selection|puberty|menstru|periods start", re.I)   # not "revolution"
+    hits = [sk["key"] for _, sk, q in ALL if words.search(" ".join(str(q.get(f, "")) for f in ("q", "s", "opts", "a", "why")))]
+    assert not hits, hits

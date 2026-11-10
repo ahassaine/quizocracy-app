@@ -1021,7 +1021,7 @@ SKILLS = [
     {
         "key": "SC6.13",
         "year": 6,
-        "strand": "Evolution and inheritance",
+        "strand": "Fossils, inheritance and adaptation",
         "title": "Fossils",
         "nc": "Recognise that living things have changed over time and that fossils provide information about living things "
               "that inhabited the Earth millions of years ago",
@@ -1107,7 +1107,7 @@ SKILLS = [
     {
         "key": "SC6.14",
         "year": 6,
-        "strand": "Evolution and inheritance",
+        "strand": "Fossils, inheritance and adaptation",
         "title": "Inheritance and variation",
         "nc": "Recognise that living things produce offspring of the same kind, but normally offspring vary and are not identical to their parents",
         "qs": [
@@ -1196,7 +1196,7 @@ SKILLS = [
     {
         "key": "SC6.15",
         "year": 6,
-        "strand": "Evolution and inheritance",
+        "strand": "Fossils, inheritance and adaptation",
         "title": "Adaptation",
         "nc": "Identify how animals and plants are adapted to suit their environment in different ways",
         "qs": [
@@ -1285,7 +1285,7 @@ SKILLS = [
     {
         "key": "SC6.16",
         "year": 6,
-        "strand": "Evolution and inheritance",
+        "strand": "Fossils, inheritance and adaptation",
         "title": "Evolution and natural selection",
         "nc": "Identify how adaptation may lead to evolution (Darwin and Wallace)",
         "qs": [

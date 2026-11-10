@@ -325,7 +325,7 @@ SKILLS = [
     {
         "key": "SC9.04",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Chromosomes, genes and DNA",
         "nc": "Heredity as the process by which genetic information is transmitted from one generation to the next; a simple model of chromosomes, genes and DNA in heredity",
         "qs": [
@@ -419,7 +419,7 @@ SKILLS = [
     {
         "key": "SC9.05",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Discovering the structure of DNA",
         "nc": "The part played by Watson, Crick, Wilkins and Franklin in the development of the DNA model",
         "qs": [
@@ -432,7 +432,7 @@ SKILLS = [
             {"t": "mcq", "q": "What was Rosalind Franklin's main contribution to discovering the structure of DNA?",
              "opts": ["X-ray photographs that showed DNA was a helix",
                       "The first physical model of the DNA molecule",
-                      "The theory of evolution by natural selection",
+                      "The idea that genes are made of protein",
                       "Proof that chromosomes are found in the nucleus"],
              "why": "Franklin's X-ray images, especially Photo 51, gave key evidence for the helix shape."},
             {"t": "text", "q": "Franklin fired X-rays at DNA and photographed the pattern they made. Name this technique: X-ray ___.",
@@ -522,7 +522,7 @@ SKILLS = [
     {
         "key": "SC9.06",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Continuous and discontinuous variation",
         "nc": "The variation between individuals within a species being continuous or discontinuous, to include measurement and graphical representation of variation",
         "qs": [
@@ -628,7 +628,7 @@ SKILLS = [
     {
         "key": "SC9.07",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Species, and inherited and environmental variation",
         "nc": "Differences between species; inherited and environmental causes of variation",
         "qs": [
@@ -720,7 +720,7 @@ SKILLS = [
     {
         "key": "SC9.08",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Competition",
         "nc": "The variation between species and between individuals of the same species means some organisms compete more successfully",
         "qs": [
@@ -828,7 +828,7 @@ SKILLS = [
     {
         "key": "SC9.09",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Natural selection and evolution",
         "nc": "Variation can drive natural selection; changes in the environment may leave individuals within a species less well adapted to compete successfully and reproduce",
         "qs": [
@@ -937,7 +937,7 @@ SKILLS = [
     {
         "key": "SC9.10",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Extinction",
         "nc": "Changes in the environment may leave individuals within a species, and some entire species, less well adapted to compete successfully and reproduce, which in turn may lead to extinction",
         "qs": [
@@ -965,7 +965,7 @@ SKILLS = [
                       "It will start to compete with the rats for mates",
                       "It will learn to eat the rats instead of seeds",
                       "Rats bring extra food that makes the bird ill"],
-             "why": "Species that evolved without a predator often have no defences against it."},
+             "why": "Species that have always lived without a predator often have no defences against it."},
             {"t": "mcq", "q": "Which of these animals is extinct?",
              "opts": ["The dodo", "The giant panda", "The tiger", "The polar bear"],
              "why": "The dodo of Mauritius died out in the late 1600s; the others still survive."},
@@ -1013,7 +1013,7 @@ SKILLS = [
              "opts": ["It changed the climate faster than they could adapt",
                       "It made the dinosaurs grow too large to move",
                       "The impact itself directly killed every dinosaur on Earth",
-                      "It caused the dinosaurs to evolve into fish"],
+                      "It made the dinosaurs move into the sea"],
              "why": "Dust and gases blocked sunlight, plants died and food chains collapsed."},
             {"t": "mcq", "q": "Which is an environmental change that could leave a pond species less well adapted?",
              "opts": ["The pond drying up permanently", "The pond staying the same for years",
@@ -1042,7 +1042,7 @@ SKILLS = [
     {
         "key": "SC9.11",
         "year": 9,
-        "strand": "Inheritance and evolution",
+        "strand": "Inheritance and variation",
         "title": "Biodiversity and gene banks",
         "nc": "The importance of maintaining biodiversity and the use of gene banks to preserve hereditary material in case of future extinctions",
         "qs": [

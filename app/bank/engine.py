@@ -11,6 +11,7 @@ import random
 import re
 
 from ..drills import typos
+from . import excluded
 
 log = logging.getLogger("qz.bank")
 CONTENT = pathlib.Path(__file__).parent / "content"
@@ -65,8 +66,11 @@ def load() -> dict:
             log.exception("bank content %s does not load", path.stem)
             continue
         for sk in getattr(mod, "SKILLS", []):
+            if sk.get("key") in excluded.SKILLS:
+                continue
             subject = next((s for s, p in PREFIX.items() if str(sk.get("key", "")).startswith(p)), None)
-            qs = [dict(q, id=_qid(sk["key"], q)) for q in sk.get("qs", []) if _usable(q)]
+            out = excluded.QUESTIONS.get(sk.get("key"), set())
+            qs = [dict(q, id=_qid(sk["key"], q)) for q in sk.get("qs", []) if _usable(q) and q.get("q") not in out]
             if subject == "science":                 # "the axle" is as right as "axle" (not so in grammar)
                 qs = [dict(q, loose=True) if q["t"] == "text" else q for q in qs]
             if not subject or not qs:
