@@ -7,10 +7,10 @@
 </div>
 {% if ctx.child.year >= 3 %}{% set mtc = (ctx.child.mtc or [])[-3:] %}<div class="card rise rise-4" data-testid="mtc-entry">
   <div class="kid"><div><b>Practise the Year 4 check</b><div class="mut small">25 questions, 6 seconds each, like the real times tables check.</div>
-  {% if mtc %}<div class="mut small" data-testid="mtc-last">Year 4 check practice: {{ mtc|map(attribute='score')|join(', ') }} /25</div>{% endif %}</div>
+  {% if mtc %}<div class="mut small" data-testid="mtc-last">Year 4 check practice: {{ mtc|map(attribute='score')|join(', ') }} /25 · best {{ ctx.child.mtc|map(attribute='score')|max }}/25</div>{% endif %}</div>
   <a class="btn" href="/me/tables/year4-check" data-testid="mtc-go">Practise the check</a></div>
 </div>{% endif %}{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=17"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=2"></script><script src="/static/js/drill.js?v=20"></script><script>
 Drill({ activity: 'tables', autoNext: 700,
   render(q) { const el = document.getElementById("q"); el.textContent = q.prompt + " ?"; el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   read() { const v = document.getElementById('answer').value.trim(); return v ? { value: v } : null; },

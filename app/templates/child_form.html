@@ -4,7 +4,12 @@
 <h1>{% if editing %}{{ pupil.name }}'s settings{% else %}Add a child{% endif %}</h1>
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 {% if editing and request.query_params.get('saved') %}<div class="ok" role="status" data-testid="saved">Saved.{% if request.query_params.get('pin') %} PIN changed: {{ pupil.name }}'s new PIN works from now on, and the old one no longer does.{% endif %} <a href="/children/{{ pupil._id }}">See {{ pupil.name }}'s progress</a> · <a href="/home">Home</a></div>{% endif %}
-<form method="post" class="card">
+{% if save_note %}<div class="ok" role="status" data-testid="save-note">{{ save_note }}</div>{% endif %}
+{% if limited %}<p class="mut small" data-testid="carer-limited">As a carer you can type in the school's spelling list and mark days off. A parent changes the rest.</p>{% endif %}
+{% if last_edit and not save_note %}<p class="mut small" data-testid="last-edit">Last changed by {{ last_edit.who }} on {{ last_edit.when }} ({{ last_edit.what|join(', ') }}).</p>{% endif %}
+<form method="post" class="card" id="childForm"{% if draft %} data-dirty="{{ draft.keys()|join(' ') }}"{% endif %}>
+  {% if editing %}<input type="hidden" name="loaded" value="{{ loaded }}"><input type="hidden" name="orig" value="">{% endif %}
+  {% if not limited %}
   <div class="field"><label for="name">First name or nickname</label><input id="name" name="name" type="text" required maxlength="30" value="{{ pupil.name if pupil else '' }}"></div>
   <div class="field"><label for="year">School year (England)</label>
     <select id="year" name="year" required aria-describedby="year-hint">{% for y in years %}<option value="{{ y }}" {% if pupil and pupil.year == y %}selected{% endif %}>Year {{ y }}</option>{% endfor %}</select>
@@ -34,7 +39,8 @@
   {% for k in ORDER %}{% set a = ACTIVITIES[k] %}{% set cur = acts.get(k, {}) %}
     <tr data-act="{{ k }}"><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} {% if k not in plan.activities %}disabled{% endif %} data-testid="on-{{ k }}"> <img src="{{ a.img }}" alt="" style="width:30px;vertical-align:middle"> {{ a.title }}</label>
       <div class="mut small">{% if not a.free and not (cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family') %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
-      <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day</td></tr>
+      <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day{% if k == 'tables' %}
+        <label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_tables" value="1" {% if cur.check %}checked{% endif %} data-testid="check-tables"> + a Year 4 check</label><span class="mut small" style="display:block">Years 3 to 6: 25 quick questions</span>{% endif %}</td></tr>
   {% endfor %}
   </table>
   <script>
@@ -63,36 +69,45 @@
     forYear(false);
   })();
   </script>
+  {% endif %}
   {% if editing %}
   {% set dr = draft or {} %}{% set date_css = "width:200px;max-width:100%;background:var(--field);border:2px solid var(--line);border-radius:12px;color:var(--ink);font:inherit;font-size:1.05rem;padding:9px 12px" %}
   {% if 'spelling' in plan.activities %}
-  <h2 id="school-list">This week's spelling list from school</h2>
-  <p class="mut small">Type or paste the words the school sent home: commas, spaces or one word a line all work. For the next 7 days {{ pupil.name }} practises these first, with the same listening and marking, then goes back to the Year {{ pupil.year }} list. We'll say each word; add a sentence after a dash if you like: "there - over there".</p>
+  <h2 id="school-list" style="scroll-margin-top:76px">This week's spelling list from school</h2>
+  <p class="mut small">Type or paste the words the school sent home: commas, spaces or one word a line all work. For the next 7 days {{ pupil.name }} practises these first, with the same listening and marking, then goes back to the Year {{ pupil.year }} list. We'll say each word. For a word that sounds like another (their, there, they're), add a sentence after a dash, so {{ pupil.name }} knows which one: "their - It is their dog".</p>
   {% if school_until %}<div class="small" data-testid="school-running" style="margin-bottom:6px"><b>Running until {{ school_until|daylabel }}.</b> <span class="mut">Saving a new list starts a new week. Empty the box to stop it.</span></div>{% endif %}
   {% if not acts.get('spelling', {}).get('on') %}<div class="small mut" style="margin-bottom:6px">Spelling isn't ticked in the daily plan above: tick it so {{ pupil.name }} practises the list.</div>{% endif %}
   <div class="field"><label for="school_words">Spelling words <span class="mut small" style="font-weight:400">(up to {{ school_max }})</span></label>
-    <textarea id="school_words" name="school_words" rows="5" maxlength="4000" placeholder="because, friend, there - over there" data-testid="school-words" autocapitalize="off" autocorrect="off" spellcheck="false">{{ school_text }}</textarea></div>
+    <textarea id="school_words" name="school_words" rows="{{ [12, [5, (school_text or '').count('\n') + 2]|max]|min }}" maxlength="4000" placeholder="because, friend, there - over there" data-testid="school-words" autocapitalize="off" autocorrect="off" spellcheck="false">{{ school_text }}</textarea></div>
+  {% if school_doubt %}<div class="small" data-testid="school-doubt" role="alert" style="margin:-4px 0 10px;padding:10px 12px;border:2px solid var(--bad);border-radius:12px">{{ school_doubt }}
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" name="school_ok" value="1" data-testid="school-ok" style="width:22px;height:22px"> Save the list as it is</label></div>
+  {% elif school_sum %}<div class="small" data-testid="school-summary" style="margin:-4px 0 10px"><b>{% if request.query_params.get('saved') %}Saved: {% endif %}{{ school_sum.n }} word{{ 's' if school_sum.n != 1 }}:</b> {{ school_sum.words|join(', ') }}{% if school_sum.yours %} · {{ school_sum.yours }} with your sentence{% endif %}{% if school_sum.ours %} · {{ school_sum.ours }} with our sentence{% endif %}
+    {% for a in school_sum.ask %}<div class="mut" data-testid="school-ask" style="margin-top:4px">{{ a }}</div>{% endfor %}</div>{% endif %}
   {% endif %}
-  {% if focus_opts %}
+  {% if focus_groups and not limited %}
   <h2 id="school-focus">Working on this at school <span class="mut small" style="font-weight:400">(optional)</span></h2>
-  <p class="mut small">Pick what the class is learning now. For 1 or 2 weeks about two questions in three come from it, still at {{ pupil.name }}'s level; the rest of the plan carries on, and it ends by itself.</p>
-  {% if focus_now %}<div class="small" data-testid="focus-now" style="margin-bottom:6px"><b>Focus: {% for k, s in focus_now.items() %}{{ strand_label(s) }}{% if not loop.last %}, {% endif %}{% endfor %} until {{ focus_cur.until|daylabel }}.</b> <span class="mut">Choose "Nothing" to stop it now.</span></div>{% endif %}
-  {% if focus_opts.maths %}<div class="field"><label for="focus_maths">Maths topic</label>
-    <select id="focus_maths" name="focus_maths" data-testid="focus-maths"><option value="">Nothing</option>{% for s in focus_opts.maths %}<option value="{{ s }}" {% if focus_now.maths == s %}selected{% endif %}>{{ strand_label(s) }}</option>{% endfor %}</select></div>
-  {% else %}<input type="hidden" name="focus_maths" value="">{% endif %}
-  {% if focus_opts.grammar or focus_opts.science %}<div class="field"><label for="focus_other">Grammar or science</label>
-    <select id="focus_other" name="focus_other" data-testid="focus-other"><option value="">Nothing</option>
-    {% for subj in ("grammar", "science") %}{% if focus_opts[subj] %}<optgroup label="{{ ACTIVITIES[subj].title }}">{% for s in focus_opts[subj] %}<option value="{{ subj }}:{{ s }}" {% if focus_now.get(subj) == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</optgroup>{% endif %}{% endfor %}</select></div>{% endif %}
-  <div class="field"><label for="focus_weeks">For</label>
-    <select id="focus_weeks" name="focus_weeks" style="max-width:200px" data-testid="focus-weeks">{% for w in (1, 2) %}<option value="{{ w }}" {% if focus_cur and focus_cur.weeks == w %}selected{% endif %}>{{ w }} week{{ 's' if w > 1 }}</option>{% endfor %}</select>
-    <div class="mut small">Topics of Year {{ pupil.year }}. Changing the school year stops the focus.</div></div>
+  <p class="mut small">Pick up to {{ focus_max }} topics the class is learning now, in any subjects (a school letter that says "Chemistry": pick its topics under Science: Chemistry). For 1 or 2 weeks each, about two questions in three in that subject come from its topics, still at {{ pupil.name }}'s level; the rest of the plan carries on, and each topic ends by itself.</p>
+  {% if focus_now %}<ul class="small" data-testid="focus-now" style="margin:0 0 8px;padding-left:18px">{% for f in focus_now %}<li><b>{{ focus_title(f.subject, f.strand) }}</b> until {{ f.until|daylabel }}</li>{% endfor %}</ul>
+    <p class="mut small" style="margin-top:0">Choose "Nothing" in a row to stop that topic now.</p>{% endif %}
+  {% for n in range(focus_max) %}{% set cur = focus_now[n] if n < focus_now|length else none %}
+  <div style="display:flex;flex-wrap:wrap;gap:0 12px;align-items:flex-end" data-testid="focus-row">
+    <div class="field" style="flex:1 1 240px;margin:6px 0"><label for="focus_{{ n }}">Topic {{ n + 1 }}</label>
+      <select id="focus_{{ n }}" name="focus_{{ n }}" data-testid="focus-{{ n }}"><option value="">Nothing</option>
+      {% for label, subj, strands in focus_groups %}<optgroup label="{{ label }}">{% for s in strands %}<option value="{{ subj }}:{{ s }}" {% if cur and cur.subject == subj and cur.strand == s %}selected{% endif %}>{{ strand_label(s) }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+    <div class="field" style="margin:6px 0"><label for="focus_weeks_{{ n }}">For</label>
+      <select id="focus_weeks_{{ n }}" name="focus_weeks_{{ n }}" style="max-width:140px" data-testid="focus-weeks-{{ n }}">{% for w in (1, 2) %}<option value="{{ w }}" {% if cur and cur.weeks == w %}selected{% endif %}>{{ w }} week{{ 's' if w > 1 }}</option>{% endfor %}</select></div>
+  </div>{% endfor %}
+  <div class="mut small">Topics of Year {{ pupil.year }}. Changing the school year stops the focus.</div>
   {% endif %}
+  {% if not limited %}
   <h2 id="rest-days">Practice days</h2>
   <p class="mut small">The days {{ pupil.name }} practises. Other days are rest days: My day says so, practice still counts as extra, and the history shows them as rest, not 0%.{% if started %} {{ pupil.name }} has started today, so a change here starts tomorrow (unless you ticked "Change today's plan too" above).{% endif %}</p>
   <input type="hidden" name="pdays_form" value="1">
   <div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-bottom:6px" data-testid="practice-days">
     {% for d in WEEKDAYS %}<label class="check" style="font-weight:600"><input type="checkbox" name="pday" value="{{ loop.index0 }}" {% if loop.index0 in pdays %}checked{% endif %} data-testid="pday-{{ loop.index0 }}"> {{ d }}</label>{% endfor %}</div>
-  <h3 style="margin:14px 0 4px">Days off</h3>
+  {% endif %}
+  <input type="hidden" name="off_form" value="1">
+  <h3 id="days-off" style="margin:14px 0 4px;scroll-margin-top:76px">Days off</h3>
   <p class="mut small">A sick day or a holiday, up to 3 weeks. A day off starts at once, even today, and never takes back a reward already earned.</p>
   {% if days_off %}<ul class="small" style="padding-left:0;list-style:none;margin:6px 0" data-testid="days-off">{% for o in days_off %}
     <li style="margin:4px 0"><label class="check" style="font-weight:400"><input type="checkbox" name="off_remove" value="{{ o.from }}|{{ o.to }}"> <span><b>{{ o.from|daylabel }}{% if o.to != o.from %} to {{ o.to|daylabel }}{% endif %}</b>{% if o.from <= today_iso %} (now){% endif %} · <span class="mut">tick to cancel it</span></span></label></li>{% endfor %}</ul>{% endif %}
@@ -100,13 +115,35 @@
     <div class="field" style="margin:6px 0"><label for="off_from">First day off</label><input id="off_from" name="off_from" type="date" min="{{ today_iso }}" max="{{ max_off }}" value="{{ dr.off_from or '' }}" data-testid="off-from" style="{{ date_css }}"></div>
     <div class="field" style="margin:6px 0"><label for="off_to">Last day off <span class="mut small" style="font-weight:400">(if more than one)</span></label><input id="off_to" name="off_to" type="date" min="{{ today_iso }}" max="{{ max_off }}" value="{{ dr.off_to or '' }}" data-testid="off-to" style="{{ date_css }}"></div>
   </div>
+  {% if not limited %}
+  <h2 id="reading">Reading</h2>
+  <p class="mut small">Bigger text, easier letters and more space make the questions easier to read, for example with dyslexia. They follow {{ pupil.name }} to every phone, tablet and computer, and change nothing for anyone else. {{ pupil.name }} can change them too, with the <b>Aa</b> button.</p>
+  <input type="hidden" name="reading_form" value="1">
+  {% set rd = pupil.reading or {} %}
+  <div data-testid="reading">
+  {% for k, label in [("big", "Bigger text"), ("dys", "Easy-to-read letters (good for dyslexia)"), ("space", "More space between letters and lines"), ("calm", "Less movement (no stars or bouncing)"), ("contrast", "Stronger colours")] %}
+    <label class="check" style="font-weight:600"><input type="checkbox" name="read_{{ k }}" value="1" {% if rd[k] %}checked{% endif %} data-testid="read-{{ k }}"> {{ label }}</label>
+  {% endfor %}</div>
+  {% endif %}
   {% endif %}
   <div class="row"><button class="btn primary" type="submit">Save</button><a class="btn" href="{{ '/children/' ~ pupil._id if editing else '/home' }}">Cancel</a></div>
 </form>
 {% if editing %}
-<form method="post" action="/children/{{ pupil._id }}/delete" class="card" data-confirm="Delete {{ pupil.name }} and all their practice data?" onsubmit="return confirm(this.dataset.confirm)">
-  <b>Delete {{ pupil.name }}</b><p class="mut small">This removes the child and every answer they have given. It cannot be undone.</p>
-  <button class="btn danger" type="submit">Delete child</button>
-</form>
+<script>
+  /* What the form showed when it opened goes with the save, so the server changes only what was edited here and
+     never puts back what another grown-up saved meanwhile (routes/parent.py child_edit). Fields re-shown with an
+     error (data-dirty) count as edited. */
+  (function () {
+    const f = document.getElementById('childForm'), dirty = (f.dataset.dirty || '').split(' ');
+    const orig = JSON.stringify(Array.from(new FormData(f)).filter(([k]) => k !== 'orig' && k !== 'loaded' && !dirty.includes(k)));
+    f.addEventListener('submit', () => { f.elements.orig.value = orig; });
+  })();
+</script>
+{% if not limited %}
+<div class="card" style="margin-top:40px" data-testid="delete-section">
+  <b>Delete {{ pupil.name }}</b><p class="mut small">Removes {{ pupil.name }}'s profile and every answer {{ pupil.name }} has given. It cannot be undone, so the next page asks for your password, and the other parents are told.</p>
+  <a class="btn danger" href="/children/{{ pupil._id }}/delete" data-testid="delete-child-link">Delete {{ pupil.name }}…</a>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

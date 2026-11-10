@@ -511,7 +511,8 @@ def _(d):
 def _(d):
     a, x = random.randint(2, _by(d, 3, 5, 9)), -random.randint(_by(d, 1, 2, 4), _by(d, 4, 6, 12))
     return _int("Work out %dx² when x = %d." % (a, x), a * x * x,
-                ["Square first: (%d)² = %d." % (x, x * x), "%d × %d = %d." % (a, x * x, a * x * x)])
+                ["Square first: (%d)² = (%d) × (%d) = %d, as a negative times a negative is positive." % (x, x, x, x * x),
+                 "%d × %d = %d." % (a, x * x, a * x * x)])
 
 
 @_more("Y8.1.h", 8)

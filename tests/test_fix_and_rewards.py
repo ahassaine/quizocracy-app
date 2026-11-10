@@ -45,10 +45,10 @@ def test_practise_my_mistakes(page):
     page.click("#next")
 
     # then straight on to the next subject's mistake: grammar, the very same question
-    page.wait_for_url("**/me/grammar?fix=1")
+    page.wait_for_url("**/me/grammar?fix=1&moved=1")
     it = wait_question(page, "grammar", pid)
     assert (it["meta"]["skill"], it["meta"]["qid"]) == (gq["skill"], gq["qid"])
-    assert "1 left" in page.inner_text("[data-testid=fix-msg]")
+    assert "Now Grammar and punctuation · Putting a mistake right · 1 left" in page.inner_text("[data-testid=fix-msg]")
     q = s.post(BASE + "/api/grammar/next", json={"fix": 1}).json()          # the same question again (refresh)
     assert q["token"] == it["_id"]
     key = it["answer"]

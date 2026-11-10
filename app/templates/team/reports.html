@@ -2,7 +2,7 @@
 {% block body %}
 <p><a href="/team/{{ me._id }}">← Team board</a></p>
 <h1>Question reports</h1>
-<p class="mut small">Sent by children with “Something wrong with this question?”. Each keeps the question exactly as it was served. Families never see this page.</p>
+<p class="mut small">Sent by children with “Something wrong with this question?”. Each keeps the question exactly as it was served. Families never see this page, but they see each report on the child's progress page with its status and your note, and those who ticked it in Settings get an email when you mark it fixed or not a problem.</p>
 <p class="small">{% for s, label in statuses.items() %}{% if status == s %}<b>{{ label|capitalize }} ({{ counts[s] }})</b>{% else %}<a href="/team/{{ me._id }}/reports?status={{ s }}">{{ label|capitalize }} ({{ counts[s] }})</a>{% endif %} · {% endfor %}{% if status == 'all' %}<b>All</b>{% else %}<a href="/team/{{ me._id }}/reports?status=all">All</a>{% endif %}</p>
 {% for r in reports %}
 <div class="card" id="r{{ r._id }}" data-testid="report">
@@ -15,6 +15,9 @@
   {% if r.device and r.device.ua %}<div class="mut small" style="overflow-wrap:anywhere">{{ r.device.ua }}</div>{% endif %}
   <form method="post" action="/team/{{ me._id }}/reports/{{ r._id }}/status" class="row" style="margin-top:8px">
     <input type="hidden" name="back" value="{{ status }}">
+    {% if r.reply %}<div class="small" style="flex-basis:100%" data-testid="report-reply">Note to the family: {{ r.reply }}</div>{% endif %}
+    <label class="small" style="flex-basis:100%">Short note for the family <span class="mut">(optional, shown with the outcome)</span>
+      <input type="text" name="reply" maxlength="300" value="{{ r.reply or '' }}" placeholder="8 × 7 is 56: 8 × 6 = 48, then one more 8." data-testid="report-reply-input" style="width:100%"></label>
     {% for s, label in statuses.items() %}{% if s != r.status %}<button class="btn" name="status" value="{{ s }}" data-testid="set-{{ s }}">Mark {{ label }}</button>{% endif %}{% endfor %}
   </form>
 </div>

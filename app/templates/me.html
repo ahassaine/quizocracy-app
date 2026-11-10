@@ -1,10 +1,11 @@
 {% extends "base.html" %}{% block title %}My day · Quizocracy{% endblock %}
 {% block body %}
-{% set all_done = status.pct >= 100 %}
+{% set all_done = status.pct >= 100 and not status.rest %}
+{% set tomorrow_off = ('Tomorrow is a day off' if status.rest_next == 'off' else 'Tomorrow is a rest day') if status.rest_next else '' %}
 <div class="a11y-float">{% include "_a11y.html" %}</div>
-<h1 class="rise">Hi {{ ctx.child.name }}</h1>{% if status.rest and not all_done %}<div class="card rise act-head" data-testid="rest-day" style="margin-bottom:10px"><img src="/static/img/trophy.png" alt="" style="width:56px;height:56px"><div><div class="display" style="font-size:1.4rem;font-weight:800;line-height:1.2">Today is a rest day — enjoy it!</div><div class="mut small">Nothing to do today. If you want to practise anyway, it counts as extra.</div></div></div>{% else %}<p class="mut rise" style="margin-top:-.4em">{% if all_done %}You have finished today's plan.{% else %}Here is your plan for today.{% endif %}</p>{% endif %}
-<div class="card rise rise-2"{% if status.rest and not status.pct and not status.reward_earned %} hidden{% endif %}>
-  {% if all_done %}<div class="act-head" data-testid="all-done" style="margin-bottom:6px"><img src="/static/img/trophy.png" alt="" style="width:64px;height:64px"><div><div class="display" style="font-size:1.5rem;font-weight:800;line-height:1.2">All done for today, well done {{ ctx.child.name }}!</div><div class="mut small">You can stop here. Come back tomorrow for a new day.</div></div></div>{% endif %}
+<h1 class="rise">Hi {{ ctx.child.name }}</h1>{% if status.rest %}<div class="card rise act-head" data-testid="rest-day" style="margin-bottom:10px"><img src="/static/img/trophy.png" alt="" style="width:56px;height:56px"><div><div class="display" style="font-size:1.4rem;font-weight:800;line-height:1.2">Today is {{ 'a day off' if status.rest == 'off' else 'a rest day' }} — enjoy it!</div><div class="mut small">Nothing to do today.{% if status.pct %} You had already done {{ status.pct }}% of your plan, well done.{% endif %} If you want to practise anyway, it counts as extra.{% if status.back %} Back to practice {{ status.back|dayname }}.{% endif %}</div></div></div>{% else %}<p class="mut rise" style="margin-top:-.4em" data-testid="day-line">{% if all_done %}You have finished today's plan.{% else %}Here is your plan for today.{% if tomorrow_off %} {{ tomorrow_off }}.{% endif %}{% endif %}</p>{% endif %}
+<div class="card rise rise-2"{% if status.rest and not status.reward_earned %} hidden{% endif %}>
+  {% if all_done %}<div class="act-head" data-testid="all-done" style="margin-bottom:6px"><img src="/static/img/trophy.png" alt="" style="width:64px;height:64px"><div><div class="display" style="font-size:1.5rem;font-weight:800;line-height:1.2">All done for today, well done {{ ctx.child.name }}!</div><div class="mut small">You can stop here. {% if tomorrow_off %}{{ tomorrow_off }}{% if status.back %}, so the next new day is {{ status.back|dayname|replace('on ', '', 1) }}{% endif %}: enjoy it!{% else %}Come back tomorrow for a new day.{% endif %}</div></div></div>{% endif %}
   <div class="kid"><span class="mut" style="font-weight:800">Today</span><span class="pct" data-testid="day-pct">{{ status.pct }}%</span></div>
   <div class="bar{% if status.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ status.pct }}"></i></div>
   {% if reward.text %}
@@ -16,11 +17,15 @@
 {% for it in status['items'] %}
   <a class="card tile rise rise-{{ [loop.index + 1, 5]|min }}{% if it.complete %} complete{% endif %}" href="/me/{{ it.key }}" data-testid="tile-{{ it.key }}">
     <img class="ico" src="{{ it.img }}" alt=""><div class="ttl">{{ it.title }}</div>
-    <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.complete %} · done{% endif %}{% if fix.get(it.key) %} · {% if it.complete or all_done %}<span data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to practise</span>{% else %}<span class="tofix" data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to fix</span>{% endif %}{% endif %}</div>
+    <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.check %} + the check{% if it.check.done %} ✓{% endif %}{% endif %}{% if it.complete %} · done{% endif %}{% if fix.get(it.key) %} · {% if it.complete or all_done %}<span data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to practise</span>{% else %}<span class="tofix" data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to fix</span>{% endif %}{% endif %}</div>
     <div class="bar{% if it.complete %} done{% endif %}" style="margin-top:10px"><i data-w="{{ it.pct }}"></i></div>
   </a>
 {% else %}<div class="card">Nothing set for today. Ask a parent.</div>{% endfor %}
 </div>
+{% if check_card %}<div class="card rise rise-5 kid" data-testid="mtc-card" style="margin-top:12px;flex-wrap:wrap;gap:8px 12px">
+  <div><b>Practise the Year 4 check</b><div class="mut small">{% if check_card.check %}{% if check_card.check.done %}Done today, well done! You can try again to beat your best.{% else %}Part of today's times tables: 25 quick questions.{% endif %}{% else %}25 quick questions, 6 seconds each. Extra practice: it isn't part of today's plan.{% endif %}{% if checks %} Best so far: {{ checks|map(attribute='score')|max }}/25.{% endif %}</div></div>
+  <a class="btn{% if check_card.check and not check_card.check.done %} primary{% endif %}" href="/me/tables/year4-check" data-testid="mtc-card-go">Practise the check</a>
+</div>{% endif %}
 <p class="mut small">Your parent can see your answers and progress.</p>
-{% if status.pct >= 100 or status.reward_earned %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
+{% if all_done or (status.reward_earned and status.pct >= (reward.threshold or 100)|int) %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
 {% endblock %}

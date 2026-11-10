@@ -152,6 +152,7 @@ table.t th, table.t td { text-align:left; padding:8px 8px; border-bottom:1px sol
 .stage input[type=text], .stage input.answer, input.m-input { background:#0B1120; border:2px solid #2C3650; color:#fff; border-radius:12px; }
 input.answer { font-size:1.6rem; max-width:340px; text-align:center; font-family:var(--display); font-weight:700; }
 .feedback { min-height:32px; font-size:1.1rem; font-weight:800; margin-top:12px; }
+.netmsg[hidden] { display:none; } .netmsg { font-size:1rem; }     /* "No connection — your answer is safe" (drill.js) */
 .feedback.yes { color:#3BE2A8; animation:pop-in .45s cubic-bezier(.34,1.56,.64,1); } .feedback.no { color:#FF8FA6; } .feedback.warn { color:var(--sun); }
 .stage.shake { animation:shake .45s; } .stage.flash { animation:flash .6s ease-out; }
 .daybar { margin:6px 0 16px; }
@@ -228,7 +229,7 @@ input.answer.wide { max-width:420px; text-align:left; font-size:1.25rem; }
 
 /* read-aloud button (speak.js): big, top right of the question card; "Tap to hear" until the first tap */
 .speak-btn { float:right; margin:-6px -6px 8px 12px; min-width:56px; height:56px; padding:0 12px; border-radius:28px; border:2px solid #3B4A72;
-  background:#1B2338; color:#fff; font:inherit; font-size:1.6rem; line-height:1; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+  background:#1B2338; color:#fff; font:inherit; font-size:1.6rem; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
 .speak-btn b { display:none; font-size:1rem; font-weight:800; }
 .speak-btn.first { border-color:var(--sun); animation:speak-pulse 1.6s ease-in-out infinite; }
 .speak-btn.first b { display:inline; }
@@ -293,10 +294,12 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 .a11y-btn { min-width:44px; height:44px; padding:0 10px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink);
   font:800 1.05rem/1 Georgia, "Times New Roman", serif; cursor:pointer; }
 .a11y-btn[aria-expanded="true"] { border-color:var(--violet); }
-.a11y-panel { position:absolute; right:0; top:calc(100% + 6px); z-index:30; width:min(300px, calc(100vw - 32px)); background:var(--card); color:var(--ink);
-  border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; box-shadow:var(--shadow-lg); text-align:left; }
+/* open, the panel sits on <body>, fixed under the Aa button (placed by _a11y.html), above the header and every card */
+.a11y-panel { position:fixed; right:16px; top:64px; z-index:60; width:min(300px, calc(100vw - 32px)); max-height:calc(100vh - 80px); overflow:auto;
+  overscroll-behavior:contain; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:var(--r); padding:14px 16px;
+  box-shadow:var(--shadow-lg); text-align:left; }
 .a11y-panel[hidden] { display:none; }
-@media (max-width:640px) { .a11y-panel { position:fixed; left:16px; right:16px; top:64px; width:auto; max-height:calc(100vh - 80px); overflow:auto; } }
+@media (max-width:640px) { .a11y-panel { left:16px; right:16px; width:auto; } }
 .a11y-panel .check { margin:10px 0; font-weight:600; } .a11y-panel .check input { flex:none; }
 .a11y-ttl { font-family:var(--display); font-weight:800; font-size:1.05rem; }
 .a11y-float { float:right; margin:.5em 0 0 10px; position:relative; z-index:6; }

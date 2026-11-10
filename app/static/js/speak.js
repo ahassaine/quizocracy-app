@@ -81,8 +81,13 @@
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } catch (e) {}
     settle();
   }
-  // "Tap to hear" goes once speech works; a moment later, so the text does not move under a finger mid-tap
-  function settle() { setTimeout(() => { if (btn && unlocked) btn.classList.remove('first'); }, 600); }
+  // "Tap to hear" goes once speech works; a moment later, so the text does not move under a finger mid-tap.
+  // The button keeps its width, so the question beside it does not re-wrap and nothing below moves.
+  function settle() { setTimeout(() => {
+    if (!btn || !unlocked || !btn.classList.contains('first')) return;
+    btn.style.minWidth = btn.offsetWidth + 'px';
+    btn.classList.remove('first');
+  }, 600); }
   function play(c) {                     // the question, after its own sound (a spelling word) if it has one
     if (!c) return;
     c.heard = true;

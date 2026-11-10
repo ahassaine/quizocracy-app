@@ -2,14 +2,15 @@
 {% block body %}
 {% if added %}<div class="ok">{{ pupil.name }} is ready. When it's practice time, press <b>Hand over to a child</b> (here or on Home) on the phone or tablet {{ pupil.name }} will use.
   <form method="post" action="/handover" style="margin-top:8px"><button class="btn" type="submit">Hand over to a child</button></form></div>{% endif %}
-<div class="kid"><h1>{{ pupil.name }}</h1><span class="row" style="margin:0"><a class="btn" href="/children/{{ pupil._id }}/report" data-testid="report-link" title="A one- or two-page summary for a teacher">Print / save as PDF</a>{% if ctx.full %}<a class="btn" href="/children/{{ pupil._id }}/edit">Settings</a>{% endif %}</span></div>
+<div class="kid"><h1>{{ pupil.name }}</h1><span class="row" style="margin:0"><a class="btn" href="/children/{{ pupil._id }}/report" data-testid="report-link" title="A one- or two-page summary for a teacher">Print / save as PDF</a>{% if ctx.full %}<a class="btn" href="/children/{{ pupil._id }}/edit">Settings</a>{% else %}<a class="btn" href="/children/{{ pupil._id }}/edit" data-testid="carer-edit">Spelling list &amp; days off</a>{% endif %}</span></div>
 <p class="mut">Year {{ pupil.year }}{% if pdays != 'every day' %} · practises {{ pdays }}{% endif %}{% for o in days_off[:2] %} · day off {{ o.from|daylabel }}{% if o.to != o.from %} to {{ o.to|daylabel }}{% endif %}{% endfor %}</p>
-{% if focus %}<p data-testid="focus" style="margin-top:-.5em"><b>Focus: {{ focus|join(', ') }} until {{ focus_until|daylabel }}</b> <a class="small" href="/children/{{ pupil._id }}/edit#school-focus">change</a></p>{% endif %}
+{% if focus %}<p data-testid="focus" style="margin-top:-.5em"><b>Focus:</b> {% for f in focus %}<b>{{ f.title }}</b> until {{ f.until|daylabel }}{% if not loop.last %} · {% endif %}{% endfor %}{% if ctx.full %} <a class="small" href="/children/{{ pupil._id }}/edit#school-focus">change</a>{% endif %}</p>{% endif %}
 {% set td = hist[-1] if hist else none %}
 {% if td %}<div class="card" data-testid="today">
   <div class="kid"><b>Today</b>{% if td.rest %}<span class="pct" data-testid="today-rest" style="font-size:1.1rem">{% if td.pct %}{{ td.pct }}% · {% endif %}Rest day</span>{% else %}<span class="pct">{{ td.pct }}%</span>{% endif %}</div>
-  {% if td.rest %}<div class="small mut">{% if td.rest == 'off' %}A day off you marked.{% else %}Not one of {{ pupil.name }}'s practice days.{% endif %} Anything done today counts as extra.</div>{% endif %}
-  <div class="chips">{% for it in td['items'] %}{% if td.rest %}{% if it.extra %}<span class="chip"><img src="{{ it.img }}" alt="">{{ it.title }} +{{ it.extra }}</span>{% endif %}{% else %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endif %}{% endfor %}</div>
+  {% if td.rest %}<div class="small mut">{% if td.rest == 'off' %}A day off you marked.{% else %}Not one of {{ pupil.name }}'s practice days.{% endif %} Anything done today counts as extra.{% if td.back %} Back to practice {{ td.back|dayname }}.{% endif %}</div>
+  {% elif td.rest_next %}<div class="small" data-testid="tomorrow-off"><b>Tomorrow is {{ 'a day off' if td.rest_next == 'off' else 'a rest day' }}</b>{% if td.back %} <span class="mut">· back to practice {{ td.back|dayname }}</span>{% endif %}</div>{% endif %}
+  <div class="chips">{% for it in td['items'] %}{% if td.rest %}{% if it.extra %}<span class="chip"><img src="{{ it.img }}" alt="">{{ it.title }} +{{ it.extra }}</span>{% endif %}{% else %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}{% if it.check %} · check {{ '✓' if it.check.done else 'to do' }}{% endif %}</span>{% endif %}{% endfor %}</div>
   {% with s = td.stats, name = pupil.name %}{% include "_day_stats.html" %}{% endwith %}
   {% if pending %}<div class="small mut" data-testid="plan-pending" style="margin-top:6px">From tomorrow: {% for a in pending %}{{ a.title }} {{ a.target }}{% if not loop.last %}, {% endif %}{% else %}nothing ticked{% endfor %}.</div>{% endif %}
 </div>{% endif %}
@@ -17,20 +18,26 @@
 <p class="mut small">These fill up over days and weeks, not in one evening: something counts only once {{ pupil.name }} has shown it more than once.</p>
 <div class="grid">
   {% if stats.maths %}<div class="card lift" data-testid="card-maths"><div class="act-head"><img src="/static/img/maths.png" alt="" style="width:46px;height:46px;animation:none"><b>Maths</b></div><div class="pct">{{ stats.maths.mastered }}/{{ stats.maths.total }}</div><div class="mut small">Year {{ maths_year }} skills mastered{% if stats.maths.started %}, {{ stats.maths.started }} more being practised{% endif %}. A skill is mastered after a long run of right answers on it.</div></div>{% endif %}
-  {% if stats.tables %}<div class="card lift" data-testid="card-tables"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts known. A fact counts once it is answered right 3 times in a row, so new facts take a few days.</div></div>{% endif %}
+  {% if stats.tables %}<div class="card lift" data-testid="card-tables"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Times tables</b></div><div class="pct">{{ stats.tables.mastered }}/{{ stats.tables.total }}</div><div class="mut small">facts known. A fact counts once it is answered right 3 times in a row, so new facts take a few days.</div>{% if stats.tables.weakest %}<div class="small" style="margin-top:6px" data-testid="tables-weakest"><b>Weakest: {{ stats.tables.weakest }}</b>{% if 'tables' in plan_items|map(attribute='key')|list %} <span class="mut">(asked more often in practice)</span>{% endif %}</div>{% endif %}</div>{% endif %}
   {% if stats.spelling %}<div class="card lift" data-testid="card-spelling"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>Spelling</b></div><div class="pct">{{ stats.spelling.learned }}/{{ stats.spelling.total }}</div><div class="mut small">words from the school word list learned. A word counts as learned when it is spelt right on 3 different days.</div></div>{% endif %}
   {% if school %}<div class="card lift" data-testid="card-school-words"><div class="act-head"><img src="/static/img/spelling.png" alt="" style="width:46px;height:46px;animation:none"><b>This week's school words</b></div><div class="pct">{{ school.learned }}/{{ school.total }}</div><div class="mut small">learned (right on 3 different days). The list runs until {{ school.until|daylabel }}. <a href="/children/{{ pupil._id }}/edit#school-list">Change it</a></div>
     {% for st, label in (("learned", "Learned"), ("right", "Right last time"), ("tricky", "Still tricky"), ("new", "Not asked yet")) %}{% set ws = school.words|selectattr("state", "equalto", st)|list %}{% if ws %}
-    <div class="small" style="margin-top:6px" data-testid="school-{{ st }}"><b{% if st == 'learned' %} style="color:var(--good)"{% endif %}>{{ label }}:</b> {% for w in ws %}<span data-testid="school-word">{{ w.word }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}{% endfor %}</div>{% endif %}
-  {% if pupil.mtc %}<p class="mut small" data-testid="mtc-scores">Year 4 check practice (last {{ pupil.mtc[-3:]|length }}): {{ pupil.mtc[-3:]|map(attribute='score')|join(', ') }} /25</p>{% endif %}
+    <div class="small" style="margin-top:6px" data-testid="school-{{ st }}"><b{% if st == 'learned' %} style="color:var(--good)"{% endif %}>{{ label }}:</b> {% for w in ws %}<span data-testid="school-word">{{ w.word }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}{% endfor %}
+    {% if school.last_tricky %}<div class="small" style="margin-top:6px" data-testid="school-last-tricky"><b>Last week's words still tricky:</b> {{ school.last_tricky|join(', ') }} <span class="mut">(they keep coming back in spelling)</span></div>{% endif %}</div>{% endif %}
+  {% if pupil.mtc %}{% set ns = namespace(best=-1, rows=[]) %}{% for r in pupil.mtc %}{% set ns.rows = ns.rows + [(r, ns.best >= 0 and r.score > ns.best)] %}{% set ns.best = [ns.best, r.score]|max %}{% endfor %}
+  <div class="card lift" data-testid="mtc-scores"><div class="act-head"><img src="/static/img/tables.png" alt="" style="width:46px;height:46px;animation:none"><b>Year 4 check practice</b></div>
+    <div class="pct">{{ ns.best }}/25</div><div class="mut small">best of {{ pupil.mtc|length }} check{{ '' if pupil.mtc|length == 1 else 's' }}. Latest: {{ pupil.mtc[-1].score }}/25 on {{ pupil.mtc[-1].day|daylabel }}.</div>
+    <div aria-hidden="true" style="display:flex;align-items:flex-end;gap:3px;height:44px;margin-top:8px;border-bottom:1px solid var(--line)">{% for r in pupil.mtc[-20:] %}<i title="{{ r.day|daylabel }}: {{ r.score }}/25" style="flex:1;max-width:16px;height:{{ (3 + 40 * r.score / (r.of or 25))|round|int }}px;background:var(--violet);border-radius:3px 3px 0 0;opacity:{{ 1 if loop.last else 0.5 }}"></i>{% endfor %}</div>
+    <details class="small" style="margin-top:6px" data-testid="mtc-list"><summary style="cursor:pointer">Every check, with its date</summary>
+      <ul style="margin:4px 0 0;padding-left:18px">{% for r, best in ns.rows|reverse %}<li>{{ r.day|daylabel }}: <b>{{ r.score }}</b>/{{ r.of or 25 }}{% if best %} <span style="color:var(--good);font-weight:700">new best</span>{% endif %}</li>{% endfor %}</ul></details></div>{% endif %}
   {% for k in ("grammar", "science") %}{% if stats[k] %}<div class="card lift" data-testid="card-{{ k }}"><div class="act-head"><img src="/static/img/{{ k }}.png" alt="" style="width:46px;height:46px;animation:none"><b>{{ ACTIVITIES[k].title }}</b></div><div class="pct">{{ stats[k].mastered }}/{{ stats[k].total }}</div><div class="mut small">Year {{ stats[k].year }} skills mastered. A skill is mastered after a run of right answers on it.</div></div>{% endif %}{% endfor %}
   {% if stats.verbs %}<div class="card lift" data-testid="card-verbs"><div class="act-head"><img src="/static/img/verbs.png" alt="" style="width:46px;height:46px;animation:none"><b>Irregular verbs</b></div><div class="pct">{{ stats.verbs.mastered }}/{{ stats.verbs.total }}</div><div class="mut small">verbs known (right twice running), level {{ stats.verbs.level }} of {{ stats.verbs.levels }}.</div></div>{% endif %}
 </div>
 {% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
 {% if skills %}<h2>Strong and weak spots</h2>
-<p class="mut small"><b>Secure</b>: mastered. <b>Practising</b>: started, not mastered yet (the lower the score, the weaker). <b>Not started</b>: not asked yet. Tap a row for its skills.</p>
+<p class="mut small"><b>Secure</b>: mastered. <b>Practising</b>: started, not mastered yet (the lower the score, the weaker). <b>Not started</b>: not asked yet. Tap a row for its skills and example questions with their answers.</p>
 {% for subj, groups in skills.items() %}
-<div class="card" data-testid="skills-{{ subj }}" style="overflow-x:auto">
+<div class="card" id="skills-{{ subj }}" data-testid="skills-{{ subj }}" style="overflow-x:auto;scroll-margin-top:76px">
   <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>
   {% for g in groups %}
   <details style="border-top:1px solid var(--line);padding:6px 0"><summary style="cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline">
@@ -38,11 +45,12 @@
     <span class="small"><b style="color:var(--good)">{{ g.secure }}</b> secure · <b>{{ g.practising }}</b> practising · <span class="mut">{{ g.new }} not started</span></span></summary>
     <ul class="small" style="margin:6px 0 0;padding-left:18px">{% for s in g.skills %}
       <li>{{ s.title }} · {% if s.state == 'secure' %}<b style="color:var(--good)">secure</b>{% elif s.state == 'practising' %}practising, score {{ s.score }}/100{% else %}<span class="mut">not started</span>{% endif %}</li>{% endfor %}</ul>
+    <a class="small" style="display:inline-block;margin:6px 0 0" href="/children/{{ pupil._id }}/examples?subject={{ subj }}&amp;strand={{ g.strand|urlencode }}" data-testid="examples-link">See example questions</a>
   </details>{% endfor %}
 </div>{% endfor %}{% endif %}
 <h2>Mistakes to go over</h2>
 {% if mistakes %}
-<p class="mut small">Wrong answers from the last 7 days, so you can practise them together. The app also brings these questions back by itself; once {{ pupil.name }} gets one right later, it moves to "Put right since".</p>
+<p class="mut small">Wrong answers from the last 7 days, so you can practise them together. The app also brings these questions back by itself; once {{ pupil.name }} answers that same question right later, it moves to "Put right since", and it stays there. Maths questions are made fresh each time, so a maths mistake moves there when a question like it (the same kind, new numbers) is right later.</p>
 {% for d in mistakes %}
 <details class="card mistakes" data-testid="mistakes-day" {% if loop.first %}open{% endif %}>
   <summary><b>{{ d.day }}</b> <span class="mut">· {{ d['items']|length }} to go over{% if d.fixed %} · {{ d.fixed|length }} put right since{% endif %}</span></summary>
@@ -53,7 +61,7 @@
     <li><img src="{{ a.img }}" alt="{{ a.title }}" title="{{ a.title }}"><div>
       <div><span class="mut small">{{ a.title }} ·</span> {{ m.q }}</div>
       <div class="small"><span class="mut">{{ pupil.name }} wrote</span> <span class="bad-ans">{{ m.got or '(blank)' }}</span>{% if m.earlier %} <span class="mut">(before that: {% for g in m.earlier %}<span class="bad-ans">{{ g or '(blank)' }}</span>{% if not loop.last %}, {% endif %}{% endfor %})</span>{% endif %}{% if m.times > 1 %} <span class="mut">({{ m.times }} tries)</span>{% endif %}
-        · <span class="mut">answer</span> <b>{{ m.exp }}</b>{% if group == 'fixed' %} · <span style="color:var(--good);font-weight:700">put right</span>{% endif %}</div></div></li>
+        · <span class="mut">answer</span> <b>{{ m.exp }}</b>{% if m.reported %} · <a class="chip" href="#reports" data-testid="mistake-reported" style="padding:1px 8px">reported</a>{% endif %}{% if group == 'fixed' %} · <span style="color:var(--good);font-weight:700" data-testid="put-right">{% if m.like %}a question like this was right later{% else %}put right{% endif %}</span>{% endif %}</div></div></li>
     {% endfor %}
   </ul>{% endif %}{% endfor %}
 </details>
@@ -61,6 +69,14 @@
 {% else %}
 <div class="card mut">No mistakes in the last 7 days.</div>
 {% endif %}
+{% if reports %}<h2 id="reports">Questions {{ pupil.name }} reported</h2>
+<p class="mut small">When {{ pupil.name }} presses "Something wrong with this question?", we check it, and the answer shows here. If {{ pupil.name }} thinks a right answer is wrong, it may be a good one to go over together.</p>
+<div class="card" data-testid="reports">
+  {% for r in reports %}<div style="padding:8px 0{% if not loop.first %};border-top:1px solid var(--line){% endif %}" data-testid="family-report">
+    <div><span class="mut small">{{ r.when }} · {{ ACTIVITIES.get(r.activity, {}).get('title', '') }} ·</span> {{ pupil.name }} reported: {{ r.question }}{% if r.note %} — <i>“{{ r.note }}”</i>{% else %} — <span class="mut">{{ r.reason|lower }}</span>{% endif %}</div>
+    <div class="small">{% if r.expected is not none and r.activity != 'spelling' %}<span class="mut">Our answer:</span> <b>{{ r.expected }}</b>{% if r.answer %} · <span class="mut">{{ pupil.name }} wrote</span> <span class="bad-ans">{{ r.answer }}</span>{% endif %} · {% endif %}<b data-testid="report-outcome" style="color:{{ 'var(--good)' if r.status != 'open' else 'var(--mut)' }}">{{ r.outcome }}</b>{% if r.reply %} <span data-testid="report-reply">· {{ r.reply }}</span>{% endif %}</div>
+  </div>{% endfor %}
+</div>{% endif %}
 <h2>How to help</h2>
 <div class="grid tips" data-testid="tips">
 {% for a in plan_items %}{% if TIPS.get(a.key) %}

@@ -2,18 +2,60 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const PUPIL = document.body.dataset.pupil;       // the child this page was opened for (see base.html)
+  /* One request. It throws when there is no answer from the server (no connection, a timeout, a server that
+     is restarting): the callers then wait and send the same thing again (send). */
   async function post(url, body) {
     body = Object.assign({}, body || {});
     if (PUPIL) body.pupil = PUPIL;                  // the server refuses if another child signed in since
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), credentials: 'same-origin' });
-    if (r.status === 401) { location.href = '/learn'; return { ok: false }; }
-    return r.json();
+    const ac = window.AbortController ? new AbortController() : null;
+    const t = ac ? setTimeout(() => ac.abort(), 15000) : 0;      // Wi-Fi that hangs instead of failing
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body), credentials: 'same-origin', signal: ac ? ac.signal : undefined });
+      if (r.status === 401) { location.href = '/learn'; return { ok: false }; }
+      if (r.status > 500) throw new Error('server ' + r.status);      // 502/503/504: on its way back
+      try { return await r.json(); }
+      catch (e) { if (r.status === 500) return { ok: false, error: 'server' }; throw e; }   // not our server's answer (a Wi-Fi login page)
+    } finally { clearTimeout(t); }
+  }
+  /* send(): post until it gets through. Between tries a note says the answer is safe; a try is made again after
+     1, 2, 4 … 30 seconds, at once when the device is back online, or when the child taps Check or Next again
+     (wake). still(): false once the page has moved on, and then nothing more is sent. The server takes each
+     question's token once only, so sending an answer twice never counts it twice. */
+  let wake = null, netNote = null;
+  function offline(on, text) {
+    if (!netNote) {
+      const fb = $('feedback'); if (!fb) return;
+      netNote = document.createElement('div'); netNote.className = 'feedback warn netmsg'; netNote.id = 'netMsg';
+      netNote.setAttribute('role', 'status'); netNote.setAttribute('aria-live', 'polite'); netNote.setAttribute('data-testid', 'net-msg');
+      fb.parentNode.insertBefore(netNote, fb);
+    }
+    netNote.hidden = !on; netNote.textContent = on ? (text || 'No connection — your answer is safe. Trying again…') : '';
+  }
+  function nap(ms) {
+    return new Promise(res => {
+      const done = () => { clearTimeout(t); removeEventListener('online', done); if (wake === done) wake = null; res(); };
+      const t = setTimeout(done, ms);
+      addEventListener('online', done); wake = done;
+    });
+  }
+  async function send(url, body, still, text) {
+    for (let i = 0; ; i++) {
+      try { const r = await post(url, typeof body === 'function' ? body() : body); if (still()) offline(false); return r; }
+      catch (e) {
+        if (!still()) return null;
+        offline(true, text);
+        await nap(Math.min(30000, 1000 * Math.pow(2, i)));
+        if (!still()) return null;
+      }
+    }
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   let reached = null, rewarded = null;
   const FIX = new URLSearchParams(location.search).has('fix');      // ?fix=1: wrong answers come back first
+  const FIX_CHECK = FIX && new URLSearchParams(location.search).has('check');   // &check=1: only the Year 4 check's misses
+  const FIX_MOVED = FIX && new URLSearchParams(location.search).has('moved');   // &moved=1: on from another subject
   // the child's school year (from _drill_head.html; 0 on pages without a child): Years 1-3 get a big, happy
   // "Correct" and kind words sooner; Year 7 up a quiet one (13-year-olds don't want "for little kids")
   const YEAR = parseInt(($('drillHead') || { dataset: {} }).dataset.year, 10) || 0;
@@ -61,15 +103,16 @@
       $('check').disabled = true; $('next').style.display = 'none';
       return true;
     }
-    let fixing = false, fixLeft = 0;
+    let fixing = false, fixLeft = 0, fixDone = '', moved = FIX_MOVED;
     function fixNote(text) {             // text null: every mistake is done
       const m = $('fixMsg');
       if (text) { m.textContent = text; return; }
-      m.innerHTML = 'All your mistakes are done. Well done! <a href="/me">Back to my day</a>';
+      m.innerHTML = esc(fixDone || 'All your mistakes are done. Well done!') + ' <a href="/me">Back to my day</a>'
+        + (FIX_CHECK ? ' · <a href="/me/tables/year4-check">Try the check again</a>' : '');
     }
     /* "Something wrong with this question?" (_drill_buttons.html): a reason, a note if they like, sent with the
        question's token; the server keeps the question as it was served. */
-    let reason = null;
+    let reason = null, reporting = false;
     function reportReset() {
       if (!$('report')) return;
       reason = null; $('reportBox').hidden = true; $('reportOpen').hidden = false;
@@ -88,36 +131,46 @@
       $('reportCancel').addEventListener('click', () => { const m = $('reportMsg').textContent; reportReset(); $('reportMsg').textContent = m; });
       $('reportSend').addEventListener('click', async () => {
         if (!reason) { $('reportMsg').textContent = 'Tap what is wrong first.'; return; }
-        $('reportSend').disabled = true;
-        const res = await post('/api/report', { activity: act, token, reason, note: $('reportNote').value, answer: lastVal,
-          device: { w: innerWidth, h: innerHeight, touch: 'ontouchstart' in window || navigator.maxTouchPoints > 0 } }).catch(() => ({}));
-        $('reportSend').disabled = false;
-        if (switched(res)) return;
+        if (reporting) { if (wake) wake(); return; }      // a tap while waiting for the connection: try now
+        reporting = true;
+        const body = { activity: act, token, reason, note: $('reportNote').value, answer: lastVal,
+          device: { w: innerWidth, h: innerHeight, touch: 'ontouchstart' in window || navigator.maxTouchPoints > 0 } };
+        const res = await send('/api/report', body, () => !gone, 'No connection — your report is safe. Trying again…');
+        reporting = false;
+        if (!res || switched(res)) return;
         reportReset(); $('reportOpen').hidden = true;
-        $('reportMsg').textContent = res.ok ? 'Thanks! A grown-up will check it.'
-          : (res.error === 'limit' ? 'Thanks! You have sent a lot of reports today, so a grown-up will look at those first.'
+        $('reportMsg').textContent = res.ok ? "Thanks! We'll check it, and your grown-up can see it too."
+          : (res.error === 'limit' ? 'Thanks! You have sent a lot of reports today, so we will look at those first.'
             : 'Sorry, that did not send. Try again in a moment.');
         if (!res.ok && res.error !== 'limit') $('reportOpen').hidden = false;
       });
     }
+    let loading = false, checking = false;
     async function next(note) {          // note: a message shown with the new question, until it is answered
       if (gone) return;
-      const my = ++seq;
-      answered = false; busy = true; lastVal = null; reportReset();
-      $('feedback').className = 'feedback'; $('feedback').textContent = '';
-      $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
-      const q = await post(api + 'next', opts.nextBody ? opts.nextBody() : (FIX ? { fix: 1 } : {}));
-      if (my !== seq) return;              // a newer request superseded this one
+      if (loading) { if (wake) wake(); return; }      // still waiting for the connection: a tap on Next tries now
+      // the answered question, its "Correct" and Next stay on screen until the new question has arrived
+      const my = ++seq; loading = busy = true;
+      const body = opts.nextBody ? opts.nextBody() : (FIX ? (FIX_CHECK ? { fix: 1, check: 1 } : { fix: 1 }) : {});
+      const q = await send(api + 'next', body, () => my === seq && !gone);
+      if (my === seq) loading = false;
+      if (my !== seq || !q) return;        // a newer request superseded this one
       busy = false;
       if (switched(q)) return;
+      answered = false; lastVal = null; reportReset();
+      $('feedback').className = 'feedback'; $('feedback').textContent = '';
+      $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
       if (!q.ok) { $('feedback').textContent = 'Could not load a question.'; return; }
       token = q.token; setDay(q.day);
       // "Practise my mistakes" runs through every subject: none ready here, so on to the next subject that has some
-      if (FIX && !q.fixing && q.fix_next) { location.href = '/me/' + q.fix_next + '?fix=1'; return; }
-      fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left;
-      if (FIX && $('fixMsg')) fixNote(q.fixing ? 'Putting a mistake right · ' + fixLeft + ' left'
+      if (FIX && !q.fixing && q.fix_next) { location.href = '/me/' + q.fix_next + '?fix=1&moved=1'; return; }
+      fixing = FIX && q.fixing; fixLeft = q.fix_total != null ? q.fix_total : q.fix_left; fixDone = q.fix_done || '';
+      // the server's line (fix_msg) says what comes and when; the first one after moving on names the subject
+      if (FIX && $('fixMsg')) fixNote(q.fix_msg != null ? (q.fix_msg ? (moved ? 'Now ' + q.fix_title + ' · ' : '') + q.fix_msg : null)
+        : q.fixing ? 'Putting a mistake right · ' + fixLeft + ' left'
         : (q.fix_later ? 'Your mistakes come back after a few other questions · ' + q.fix_later + ' waiting'
           : (fixLeft ? 'Your other mistakes come back a little later · ' + fixLeft + ' waiting' : null)));
+      moved = false;
       opts.render(q);
       if (window.Speak) Speak.set(opts.speech ? opts.speech(q) : [q.prompt]);   // the 🔊 button (speak.js)
       document.body.dataset.qtoken = q.token;      // which question is on screen (used by the tests)
@@ -125,17 +178,29 @@
       shownAt = Date.now();
     }
     async function check() {
+      if (busy && checking) { if (wake) wake(); return; }   // still waiting for the connection: a tap on Check tries now
       if (answered || busy || !token || gone) return;
       const val = opts.read();
       if (val === null) {                  // nothing given yet: the page may say what to do (opts.empty), e.g. "Add some blocks first."
         $('feedback').className = 'feedback warn';
         $('feedback').textContent = (opts.empty && opts.empty())
-          || (document.querySelector('[data-testid=choices]') ? 'Tap your answer first.' : 'Type your answer first.'); return;
+          || (document.querySelector('[data-testid=choices]') ? 'Tap your answer first.' : 'Type your answer first.');
+        if (window.Speak) Speak.feedback($('feedback').textContent);       // Years 1-2 hear it: they may not read it
+        return;
       }
-      busy = true; lastVal = val;
-      const res = await post(api + 'check',Object.assign({ token, ms: Date.now() - shownAt }, val));
-      busy = false;
+      busy = checking = true; lastVal = val;
+      const my = seq, ms = Date.now() - shownAt;
+      let tries = 0;
+      // each try sends what is on screen then, so an answer changed while offline is the one marked
+      const res = await send(api + 'check', () => {
+        if (tries++) { const v = opts.read(); if (v !== null) lastVal = v; }
+        return Object.assign({ token, ms }, lastVal);
+      }, () => my === seq && !gone);
+      busy = checking = false;
+      if (!res || my !== seq) return;
       if (switched(res)) return;
+      if (!res.ok && res.error === 'expired' && tries > 1)  // the answer reached the server before the connection dropped
+        return next('Your answer was marked while the connection was down. Here is the next question.');
       if (!res.ok) return next('That question expired, so here is another one.');
       if (res.retry) {                     // a near miss ("eigth"): nothing marked, the same question stays open
         const fb = $('feedback'); fb.className = 'feedback warn'; fb.textContent = res.hint || 'Nearly. Check it and try again.';
@@ -166,7 +231,7 @@
     $('next').addEventListener('click', next);
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
-      if (e.target && e.target.closest && e.target.closest('#report, #a11y')) return;   // a report or the Aa settings, not an answer
+      if (e.target && e.target.closest && e.target.closest('#report, #a11y, #a11yPanel')) return;   // a report or the Aa settings, not an answer
       e.preventDefault();
       answered ? next() : check();
     });

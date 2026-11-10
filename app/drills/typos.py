@@ -72,9 +72,50 @@ def american(word: str, typed: str) -> bool:
     return AMERICAN.get(word.lower()) == typed.lower()
 
 
+def _ops(t: str, w: str) -> list:
+    return [o for o in difflib.SequenceMatcher(None, t, w, autojunk=False).get_opcodes() if o[0] != "equal"]
+
+
+def swapped(t: str, w: str) -> int | None:
+    """Where two neighbouring letters of the attempt are the wrong way round ("recieve", "becuase"): the index of
+    the first of the two, when putting them back fixes the word or leaves at most one other change; else None.
+    Without this, difflib reads a swap as one letter added and the same letter taken out. With another change as
+    well, only when difflib reads it so ("tommorow" is mm → m and r → rr, not a swap)."""
+    ops = _ops(t, w)
+    n = len(ops)
+    added = {w[j1:j2] for op, i1, i2, j1, j2 in ops if op == "insert"}
+    taken = {t[i1:i2] for op, i1, i2, j1, j2 in ops if op == "delete"}
+    mixed = bool(added & taken)
+    best = None
+    for k in range(len(t) - 1):
+        if t[k] == t[k + 1]:
+            continue
+        t2 = t[:k] + t[k + 1] + t[k] + t[k + 2:]
+        left = len(_ops(t2, w))
+        if left < n and (left == 0 or (left == 1 and mixed)) and (best is None or left < best[1]):
+            best = (k, left)
+    return best[0] if best else None
+
+
+def _swap_note(t2: str, k: int) -> str:
+    """For ie/ei, the rule that goes with the swap (t2: the attempt with the swap put right)."""
+    pair = t2[k:k + 2]
+    if pair not in ("ie", "ei"):
+        return ""
+    after_c = k > 0 and t2[k - 1] == "c"
+    if pair == "ei":
+        return " (e before i after c)" if after_c else " (this word has e before i)"
+    return " (i before e, even after c here)" if after_c else " (i before e, except after c)"
+
+
 def letter_marks(typed: str, word: str) -> dict:
     """The child's attempt against the word, in pieces: {"typed": [[text, wrong]], "word": [[text, changed]]}.
-    "acsident" / "accident": typed ac|s|ident with s wrong, word ac|c|ident with c changed."""
+    "acsident" / "accident": typed ac|s|ident with s wrong, word ac|c|ident with c changed. Two letters the wrong
+    way round are marked as a pair in both ("rec|ie|ve", "rec|ei|ve")."""
+    k = swapped(typed.lower(), word.lower()) if len(typed) == len(word) else None
+    if k is not None and typed[:k] + typed[k + 1] + typed[k] + typed[k + 2:] == word:
+        return {"typed": [p for p in ([typed[:k], False], [typed[k:k + 2], True], [typed[k + 2:], False]) if p[0]],
+                "word": [p for p in ([word[:k], False], [word[k:k + 2], True], [word[k + 2:], False]) if p[0]]}
     sm = difflib.SequenceMatcher(None, typed, word, autojunk=False)
     t_out, w_out = [], []
     for op, i1, i2, j1, j2 in sm.get_opcodes():
@@ -86,19 +127,30 @@ def letter_marks(typed: str, word: str) -> dict:
 
 
 def letter_hint(typed: str, word: str) -> str:
-    """'acsident → accident: cs should be cc'; 'knowlege → knowledge: add d after l'; at most two changes."""
+    """'acsident → accident: cs should be cc'; 'knowlege → knowledge: add d after le'; 'becuase → because: swap
+    the u and a'; 'recieve → receive: swap the i and e (e before i after c)'; at most two changes."""
     typed, word = typed.strip(), word.strip()
     if not typed or typed.lower() == word.lower() or len(typed) > 2 * len(word) + 3:
         return ""
     t, w = typed.lower(), word.lower()
     sm = difflib.SequenceMatcher(None, t, w, autojunk=False)
-    ops = [o for o in sm.get_opcodes() if o[0] != "equal"]
-    if not ops or len(ops) > 2 or sm.ratio() < 0.6:             # a different word altogether: no letter hint
+    if sm.ratio() < 0.6:                                        # a different word altogether: no letter hint
         return ""
     bits = []
+    k = swapped(t, w)
+    if k is not None:
+        t = t[:k] + t[k + 1] + t[k] + t[k + 2:]
+        bits.append("swap the %s and %s%s" % (typed.lower()[k], typed.lower()[k + 1], _swap_note(t, k)))
+    ops = _ops(t, w)
+    if (not ops and not bits) or len(ops) + len(bits) > 2:
+        return ""
     for op, i1, i2, j1, j2 in ops:
-        if op == "replace" and i2 - i1 == 1 and j2 - j1 == 1 and i1 > 0:
+        if op == "replace" and i2 - i1 == 1 and j2 - j1 == 1 and i1 > 0 and w[j1] in (w[j1 - 1], w[j1 + 1:j1 + 2]):
             bits.append("%s should be %s" % (t[i1 - 1:i2], w[j1 - 1:j2]))         # cs should be cc
+        elif op == "replace" and i2 - i1 == 1 and j2 - j1 == 1:
+            # one letter: "s should be c" (prejudise); with the letter before it when the letter comes twice
+            ctx = 1 if i1 > 0 and t.count(t[i1]) > 1 else 0
+            bits.append("%s should be %s" % (t[i1 - ctx:i2], w[j1 - ctx:j2]))      # pe should be pa (seperate)
         elif op == "replace":
             bits.append("%s should be %s" % (t[i1:i2], w[j1:j2]))
         elif op == "insert":

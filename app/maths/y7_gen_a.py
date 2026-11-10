@@ -13,9 +13,13 @@ S1 = "7.1 Algebraic notation"
 
 def _lin(d):
     a = random.randint(_by(d, 1, -5, -20), _by(d, 20, 30, 50))
-    step = random.choice([x for x in range(_by(d, 2, -9, -15), _by(d, 10, 12, 15) + 1) if x not in (0,)])
+    step = random.choice([x for x in range(_by(d, 2, -9, -15), _by(d, 10, 12, 15) + 1) if x not in (0, 1, -1)])
     if d == 0:
-        step = abs(step)
+        # the easiest tier is still Year 7: not a times-table count such as 10, 20, 30 or 0, 6, 12
+        step = pick([3, 4, 6, 7, 8, 9, 11, 12])
+        a = random.choice([v for v in range(2, 31) if v % step])
+    elif a % step == 0:                 # nor at the harder tiers (11, 22, 33, 44)
+        a += random.randint(1, abs(step) - 1)
     return a, step
 
 
@@ -68,7 +72,7 @@ def _(d=1):
                    ["The step is %d." % step])
 
     def t_multiply():
-        r = pick([2, 3, -2]) if d else 2
+        r = pick([2, 3, 4]) if d else 2             # multiplying by a negative waits for strand 7.6
         b = random.randint(1, 5)
         t = [b * r ** i for i in range(4)]
         return _tb("The rule is 'multiply by %d'. What is the next term?  %s, ..." % (r, ", ".join(map(str, t))),
@@ -97,10 +101,10 @@ def _(d=1):
 @skill("Y7.0.b", "Use a position-to-term rule", S0)
 def _(d=1):
     d = _d(d)
-    m = random.randint(_by(d, 2, -5, -8), _by(d, 6, 9, 12))
+    m = random.randint(_by(d, 2, 2, 3), _by(d, 6, 9, 12))       # a negative n coefficient waits for strand 7.6
     if m == 0:
         m = 3
-    c = random.randint(_by(d, 0, -10, -20), _by(d, 10, 15, 25))
+    c = max(random.randint(_by(d, 0, -10, -20), _by(d, 10, 15, 25)), 1 - m)    # 4n − 3 yes; a term below 0, not yet
     rule = _expr(m, "n", c)
 
     def t_term():
@@ -137,6 +141,9 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     a, step = _lin(d)
+    step = abs(step)                    # an nth term like −6n + 20 needs directed numbers (strand 7.6) ...
+    if a - step < 0:                    # ... and so does a constant below 0: 3n − 2 is written, not asked for
+        a = step + random.randint(0, 20)
     terms = [a + i * step for i in range(5)]
     rule = _nth(a, step).replace(" ", "").replace("−", "-")
 
@@ -166,7 +173,45 @@ def _(d=1):
                    base + 20 * per, "int", {"unit": "sticks"},
                    ["nth term = %dn + %d." % (per, base), "%d × 20 + %d = %d." % (per, base, base + 20 * per)])
 
-    return _pick_t([t_rule, t_coef, t_term100, t_zeroth, t_pattern])
+    def t_nth_given():
+        n = random.randint(6, _by(d, 12, 25, 60))
+        return _tb("The nth term of a sequence is %s. What is term number %d?" % (_nth(a, step), n), a + (n - 1) * step,
+                   "int", {}, ["Put n = %d into %s: %d." % (n, _nth(a, step), a + (n - 1) * step)])
+
+    def t_first_terms():
+        return _wq("Write the first three terms of the sequence with nth term %s, with commas (like 5, 8, 11)."
+                   % _nth(a, step), "%d, %d, %d" % (a, a + step, a + 2 * step),
+                   ["n = 1, 2 and 3 give %d, %d and %d." % (a, a + step, a + 2 * step)], "e.g. 5, 8, 11")
+
+    def t_in_sequence():
+        k = random.randint(8, 30)
+        v = a + (k - 1) * step + pick([0, 0, 1])
+        inside = (v - a) % step == 0
+        return _wq("Is %d a term of the sequence  %s, ...? (yes or no)" % (v, ", ".join(map(str, terms))),
+                   "yes" if inside else "no",
+                   ["nth term = %s." % _nth(a, step),
+                    ("%d − %d = %d, which is %d steps of %d, so yes." % (v, a, v - a, (v - a) // step, step)) if inside else
+                    ("%d − %d = %d, which is not a whole number of steps of %d, so no." % (v, a, v - a, step))], "yes / no")
+
+    def t_which_term():
+        k = random.randint(10, _by(d, 30, 50, 120))
+        v = a + (k - 1) * step
+        return _tb("Which term of  %s, ...  is %d?" % (", ".join(map(str, terms)), v), k, "int", {},
+                   ["nth term = %s." % _nth(a, step), "%s = %d gives n = %d." % (_nth(a, step), v, k)])
+
+    def t_gap_term():
+        return _tb("Find the missing term:  %d, %d, ?, %d, %d" % (terms[0], terms[1], terms[3], terms[4]), terms[2],
+                   "int", {}, ["The step is %d: %d + %d = %d." % (step, terms[1], step, terms[2])])
+
+    def t_first_over():
+        lim = a + random.randint(15, 40) * step + random.randint(1, step - 1)
+        k = (lim - a) // step + 2
+        return _tb("The nth term of a sequence is %s. Which is the first term number whose value is more than %d?"
+                   % (_nth(a, step), lim), k, "int", {},
+                   ["Term %d is %d and term %d is %d." % (k - 1, a + (k - 2) * step, k, a + (k - 1) * step)])
+
+    return _pick_t([t_rule, t_coef, t_term100, t_zeroth, t_pattern, t_nth_given, t_first_terms, t_in_sequence,
+                    t_which_term, t_gap_term, t_first_over])
 
 
 @skill("Y7.0.d", "Recognise linear, geometric and other sequences", S0)
@@ -406,7 +451,9 @@ def _(d=1):
                    "e.g. x+5")
 
     def t_less():
-        return _wq("Write an expression for %d less than %s." % (c, v), "%s-%d" % (v, c), ["%s − %d." % (v, c)],
+        return _wq("Write an expression for %d less than %s." % (c, v), "%s-%d" % (v, c),
+                   ["“%d less than %s” means start at %s and take %d away: %s − %d." % (c, v, v, c, v, c),
+                    "%d − %s would be the other way round: %s less than %d." % (c, v, v, c)],
                    "e.g. x-5")
 
     def t_times():
@@ -512,8 +559,9 @@ def _q_equiv():
 @skill("Y7.1.c", "Substitute into expressions", S1)
 def _(d=1):
     d = _d(d)
-    x = random.randint(_by(d, 1, -5, -9), _by(d, 10, 10, 12))
-    y = random.randint(_by(d, 1, -3, -6), _by(d, 8, 9, 9))
+    # whole numbers from 1: substituting a negative number needs directed numbers, which come in strand 7.6
+    x = random.randint(_by(d, 1, 2, 3), _by(d, 10, 10, 12))
+    y = random.randint(_by(d, 1, 1, 2), _by(d, 8, 9, 9))
 
     def t_linear():
         m, c = random.randint(2, 9), random.randint(1, 15)
@@ -526,8 +574,10 @@ def _(d=1):
                    ["%d × %d + %d × %d = %d." % (m, x, n, y, m * x + n * y)])
 
     def t_square():
-        return _tb("Work out x² %s %d when x = %d." % ("+" if y >= 0 else "−", abs(y), x), x * x + y, "int", {},
-                   ["%s² = %d; %s %d = %d." % ("(%d)" % x if x < 0 else str(x), x * x, "+" if y >= 0 else "−", abs(y), x * x + y)])
+        c = -y if y <= x * x and random.random() < 0.5 else y          # x² − 4 as well as x² + 4, never below 0
+        return _tb("Work out x² %s %d when x = %d." % ("+" if c >= 0 else "−", abs(c), x), x * x + c, "int", {},
+                   ["x² means x × x, so square first: %d² = %d." % (x, x * x),
+                    "Then %s %d: %d." % ("add" if c >= 0 else "take away", abs(c), x * x + c)])
 
     def t_bracket():
         m, c = random.randint(2, 6), random.randint(1, 9)
@@ -535,18 +585,36 @@ def _(d=1):
                    ["%d + %d = %d; × %d = %d." % (x, c, x + c, m, m * (x + c))])
 
     def t_subtract():
-        m, c = random.randint(2, 9), random.randint(1, 20)
+        m = random.randint(2, 9)
+        c = m * x + random.randint(0, 20)                 # the answer stays 0 or more
         return _tb("Work out %d − %dx when x = %d." % (c, m, x), c - m * x, "int", {},
                    ["%d − %d × %d = %d." % (c, m, x, c - m * x)])
 
     def t_table():
-        m, c = random.randint(2, 6), random.randint(-5, 9)
+        m = random.randint(2, 6)
+        c = random.randint(max(-5, 1 - m), 9)             # every y in the table is positive
         rows = [[v, m * v + c] for v in (1, 2, 5, 10)]
         k = random.randrange(4)
         return _io("Complete the table for y = %s." % _expr(m, "x", c).replace("+", " + ").replace("-", " − "), rows,
                    k, rows[k][1], ["%d × %d %s %d = %d." % (m, rows[k][0], "+" if c >= 0 else "−", abs(c), rows[k][1])])
 
-    return _pick_t([t_linear, t_two_vars, t_square, t_bracket, t_subtract], [t_table])
+    def t_formula():
+        l, w = random.randint(3, 15), random.randint(2, 12)
+        return _tb("The perimeter of a rectangle is P = 2l + 2w. Find P when l = %d and w = %d." % (l, w), 2 * l + 2 * w,
+                   "int", {"unit": "cm"}, ["2 × %d + 2 × %d = %d." % (l, w, 2 * l + 2 * w)])
+
+    def t_product():
+        c = random.randint(1, 20)
+        return _tb("Work out ab + %d when a = %d and b = %d." % (c, x, y), x * y + c, "int", {},
+                   ["ab means a × b: %d × %d = %d." % (x, y, x * y), "%d + %d = %d." % (x * y, c, x * y + c)])
+
+    def t_divide():
+        m = random.randint(2, 5)
+        top = m * x
+        return _tb("Work out x/%d + %d when x = %d." % (m, y, top), x + y, "int", {},
+                   ["%d ÷ %d = %d." % (top, m, x), "%d + %d = %d." % (x, y, x + y)])
+
+    return _pick_t([t_linear, t_two_vars, t_square, t_bracket, t_subtract, t_formula, t_product, t_divide], [t_table])
 
 
 @skill("Y7.1.d", "Function machines and inverse operations", S1)
@@ -583,7 +651,7 @@ def _(d=1):
                    ["%d × %d + %d = %d." % (rows[k][0], m, c, rows[k][1])], rule="× %d, + %d" % (m, c))
 
     def t_divide_first():
-        q = random.randint(2, 15)
+        q = random.randint(2, 15) + c                # what comes out is never below 0
         return _tb("A function machine does: ÷ %d, then − %d. What comes out when %d goes in?" % (m, c, m * q), q - c, "int",
                    {}, ["%d ÷ %d = %d; − %d = %d." % (m * q, m, q, c, q - c)])
 
@@ -616,11 +684,6 @@ def _(d=1):
                    ["Machine B gives %d(x + %d) = %dx + %d." % (m, c, m, m * c),
                     "Machine A gives %dx + %d." % (m, k2)], "yes / no")
 
-    def t_negative_in():
-        v = random.randint(_by(d, -5, -9, -15), -1)
-        return _tb("A function machine does: × %d, then + %d. What comes out when %d goes in?" % (m, c, v), m * v + c, "int", {},
-                   ["%d × (%d) = %d; + %d = %d." % (m, v, m * v, c, m * v + c)])
-
     def t_input_three():
         a, b, e = random.randint(1, 9), random.randint(2, 5), random.randint(1, 9)
         out = (x + a) * b - e
@@ -630,9 +693,8 @@ def _(d=1):
 
     return _pick_t(_by(d, [t_output, t_input, t_order_matters, t_square_machine],
                        [t_output, t_input, t_order_matters, t_expression, t_divide_first, t_three_step, t_bracket_expr,
-                        t_square_machine, t_same, t_negative_in],
-                       [t_input, t_expression, t_divide_first, t_three_step, t_bracket_expr, t_same, t_negative_in,
-                        t_input_three]),
+                        t_square_machine, t_same],
+                       [t_input, t_expression, t_divide_first, t_three_step, t_bracket_expr, t_same, t_input_three]),
                    _by(d, [t_find_rule, t_table, t_find_add], [t_find_rule, t_table, t_find_add], [t_table]))
 
 
@@ -681,7 +743,7 @@ def _(d=1):
                    ["%s kg = %d lots of 500 g." % (_ds(kg), int(kg * 2)), "%d × 20 + 20 = %d." % (int(kg * 2), mins)])
 
     def t_fahrenheit():
-        cdeg = pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 100, -5, -10])
+        cdeg = pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 100])      # below 0 °C waits for directed numbers (7.6)
         f = cdeg * 9 // 5 + 32
         return _tb("The formula F = 1.8C + 32 changes °C to °F. Find F when C = %d." % cdeg, f, "int", {"unit": "°F"},
                    ["1.8 × %d + 32 = %d." % (cdeg, f)])

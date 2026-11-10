@@ -94,7 +94,8 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         return {"correct": False, "retry": True, "hint": typos.number_hint(slipped)}
     n, to_words = it["meta"]["n"], it["meta"]["mode"] == "words"
     copied = correct and str(n) in await items.just_shown(pupil, "numbers")   # right straight after being shown it
-    await progress.record(pupil, "numbers", correct, ms, "" if copied else str(n),
-                          ("Write %s in words" % f"{n:,}") if to_words else ("Write %s in digits" % words(n)), it["answer"], value)
+    await progress.record(pupil, "numbers", correct, ms, str(n),
+                          ("Write %s in words" % f"{n:,}") if to_words else ("Write %s in digits" % words(n)), it["answer"], value,
+                          copied=copied)
     return {"correct": correct, "expected": it["answer"], **({"again_later": True} if copied else {}),
             **({"hint": "Your number was right. " + typos.corrections(slipped)} if slipped else {})}

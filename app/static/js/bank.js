@@ -97,8 +97,14 @@ function BankDrill(activity) {
     },
     explain(r) {
       const end = /[.?!'"’”)]$/.test(String(r.expected).trim()) ? '' : '.';   // no "draw.." or "?."
+      // a sentence answer: the words that differ are marked, in what was typed and in the answer
+      const marked = (parts, fix) => parts.map(([t, d]) => !d ? esc(t) : fix
+        ? '<span class="mk-fix" data-testid="mark-fixed" style="background:rgba(15,159,118,.45);color:#fff;border-radius:4px;padding:0 3px">' + esc(t) + '</span>'
+        : '<span class="mk-bad" data-testid="mark-wrong" style="text-decoration:underline wavy var(--bad);text-underline-offset:4px;text-decoration-thickness:2px">' + esc(t) + '</span>').join(' ');
       const lead = cur.kind === 'tap'                                     // not "The answer is a."
         ? ((r.hits || []).length > 1 ? 'The words to tap are <b>' : 'The word to tap is <b>') + '“' + esc(r.expected) + '”</b>.'
+        : r.marks ? 'The answer is <b>' + marked(r.marks.word, true) + '</b>' + end
+          + '<div class="small" data-testid="you-wrote" style="margin-top:4px">You wrote: ' + marked(r.marks.typed, false) + '</div>'
         : 'The answer is <b>' + esc(r.expected) + '</b>' + end;
       return lead + (r.why ? '<div class="why">' + esc(r.why) + '</div>' : '');
     },

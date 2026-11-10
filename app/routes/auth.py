@@ -10,8 +10,8 @@ from pymongo.errors import DuplicateKeyError
 from .. import config, mailer
 from ..activities import new_family_plan, plan_of
 from ..db import db
-from ..deps import (FULL_ROLES, ROLE_TITLES, Ctx, client_ip, create_session, end_session, full_page, hit, load,
-                    local_time, over_limit, parent_page, weekly_on)
+from ..deps import (FULL_ROLES, ROLE_TITLES, Ctx, adult_name, client_ip, create_session, device_text, end_session,
+                    full_page, hit, load, local_time, log_event, note_device, over_limit, parent_page, weekly_on)
 from ..security import hash_secret, new_code, new_id, new_token, token_key, verify_secret
 from ..web import page
 
@@ -90,6 +90,7 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
     await _send_code(acc)
     resp = RedirectResponse("/verify", 303)
     await create_session(resp, acc)
+    await note_device(request, resp, acc, quiet=True)
     return resp
 
 
@@ -158,6 +159,15 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         return page(request, "login.html", email=email, error="Email or password is not right.", status_code=400)
     resp = RedirectResponse("/home" if acc.get("verified_at") else "/verify", 303)
     await create_session(resp, acc)
+    if await note_device(request, resp, acc) and acc.get("verified_at"):
+        what = device_text(request.headers.get("user-agent", ""))
+        await log_event(acc["family_id"], "device", f"{adult_name(acc)} signed in on a new device ({what})")
+        await mailer.send(email, "New sign-in to your Quizocracy account",
+                          f"Your Quizocracy login ({email}) was used to sign in on a new device ({what}) on "
+                          f"{local_time(_now()):%d %B %Y at %H:%M}.\n\n"
+                          f"If this was you, there is nothing to do. If this wasn't you, choose a new password now at "
+                          f"{config.PUBLIC_URL}/forgot (it signs every device out) and write to us at "
+                          f"{config.SUPPORT_EMAIL}.\n")
     return resp
 
 
@@ -228,9 +238,11 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
 ADULTS_MAX = 6                     # adults on one family, open invitations included
 INVITE_DAYS = 7
 ROLE_CAN = {
-    "parent": "everything you can do: add and change children, see their progress, manage the account and invite people",
-    "carer": "hand the phone or tablet to a child, unlock a child who is locked out, and see Home, progress and "
-             "the children's PINs. A carer cannot change or delete children, the account or its data",
+    "parent": "do everything they can do: add and change children, see their progress, manage the account and invite "
+              "people",
+    "carer": "hand the phone or tablet to a child, unlock a child who is locked out, see Home, progress and "
+             "the children's PINs, type in the school's spelling list and mark a day off. A carer cannot change "
+             "the children's plans, delete children, or change the account or its data",
 }
 
 
@@ -240,11 +252,14 @@ async def settings_view(ctx: Ctx) -> dict:
     fid = ctx.family["_id"]
     adults = [a async for a in db.accounts.find({"family_id": fid}).sort("created", 1)]
     owner_view = ctx.full
+    names = {a["_id"]: adult_name(a) for a in adults}
     return {
-        "adults": [{"id": a["_id"], "email": a["email"], "role": ROLE_TITLES.get(a.get("role") or "owner", "Parent"),
-                    "you": a["_id"] == ctx.account["_id"],
+        "adults": [{"id": a["_id"], "email": a["email"], "name": (a.get("name") or "").strip(),
+                    "role": ROLE_TITLES.get(a.get("role") or "owner", "Parent"), "role_key": a.get("role") or "owner",
+                    "you": a["_id"] == ctx.account["_id"], "by": names.get(a.get("invited_by"), ""),
                     "removable": owner_view and a["_id"] != ctx.account["_id"] and (a.get("role") or "owner") != "owner"}
                    for a in adults],
+        "report_emails": bool(ctx.account.get("report_emails")),
         "invites": [{"id": c["_id"], "email": c["email"], "role": ROLE_TITLES.get(c.get("role"), ""),
                      "until": local_time(c["expires"]).strftime("%d %B")}
                     async for c in db.codes.find({"family_id": fid, "purpose": "invite", "expires": {"$gt": _now()}})
@@ -302,6 +317,8 @@ async def invite(request: Request, ctx: Ctx = Depends(full_page), email: str = F
                                "family_id": fid, "role": role, "by": ctx.account["_id"], "created": _now(),
                                "expires": _now() + datetime.timedelta(days=INVITE_DAYS)})
     who, fam = ctx.account["email"], ctx.family["name"]
+    if (ctx.account.get("name") or "").strip():
+        who = f"{ctx.account['name'].strip()} ({who})"
     await mailer.send(email, f"{who} invited you to {fam} on Quizocracy",
                       f"Hello,\n\n{who} has invited you to join {fam} on Quizocracy, where their children do a "
                       f"short daily practice in maths, spelling and more.\n\n"
@@ -327,11 +344,45 @@ async def adult_remove(request: Request, aid: str, ctx: Ctx = Depends(full_page)
     await db.accounts.delete_one({"_id": acc["_id"]})
     await db.sessions.delete_many({"account_id": acc["_id"]})        # signed out on every device
     await db.codes.delete_many({"account_id": acc["_id"]})
+    await log_event(ctx.family["_id"], "adult", f"{adult_name(ctx.account)} removed {adult_name(acc)} "
+                                                f"({ROLE_TITLES.get(acc.get('role'), 'Carer')})")
     await mailer.send(acc["email"], f"You were removed from {ctx.family['name']} on Quizocracy",
                       f"Hello,\n\n{ctx.account['email']} removed you from {ctx.family['name']} on Quizocracy, so "
                       f"your login there no longer works.\n\nIf you think this is a mistake, ask them to invite "
                       f"you again.\n")
     return RedirectResponse("/settings?removed=1#adults", 303)
+
+
+@router.post("/settings/adults/{aid}/role")
+async def adult_role(request: Request, aid: str, ctx: Ctx = Depends(full_page), to: str = Form("")):
+    """Parent ⇄ Carer for another grown-up, keeping their login, password and weekly-email choice. The account
+    owner's role never changes, and nobody changes their own."""
+    acc, role = await db.accounts.find_one({"_id": aid, "family_id": ctx.family["_id"]}), to
+    old = (acc or {}).get("role") or "owner"
+    if not acc or acc["_id"] == ctx.account["_id"] or old == "owner" or role not in ("parent", "carer") or role == old:
+        return RedirectResponse("/settings#adults", 303)
+    # the weekly email defaults by role, so a choice never made is written down before the role changes
+    await db.accounts.update_one({"_id": acc["_id"]}, {"$set": {"role": role, "weekly_email": weekly_on(acc)}})
+    who, fam = adult_name(ctx.account), ctx.family["name"]
+    await log_event(ctx.family["_id"], "role", f"{who} changed {adult_name(acc)} from {ROLE_TITLES[old]} to {ROLE_TITLES[role]}")
+    await mailer.send(acc["email"], f"You are now a {role} on {fam} on Quizocracy",
+                      f"Hello,\n\n{who} changed your role on {fam} from {old} to {role}. Your login and password "
+                      f"stay the same.\n\nAs a {role} you can {ROLE_CAN[role].removeprefix('do everything they can do: ')}.\n")
+    return RedirectResponse(f"/settings?role_changed={acc['_id']}#adults", 303)
+
+
+@router.post("/settings/name")
+async def my_name(request: Request, ctx: Ctx = Depends(parent_page), name: str = Form("")):
+    """The name the other grown-ups see for this adult ("Jo"), in Settings and the family activity log."""
+    await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"name": " ".join(name.split())[:40]}})
+    return RedirectResponse("/settings?name_saved=1#login", 303)
+
+
+@router.post("/settings/report-emails")
+async def report_emails_toggle(request: Request, ctx: Ctx = Depends(parent_page), on: str = Form("")):
+    """Email me when the team has checked a question a child reported (off unless ticked)."""
+    await db.accounts.update_one({"_id": ctx.account["_id"]}, {"$set": {"report_emails": bool(on)}})
+    return RedirectResponse("/settings?saved=1#login", 303)
 
 
 async def _open_invite(token: str) -> dict | None:
@@ -374,6 +425,17 @@ async def invite_accept(request: Request, token: str = Form(...), password: str 
     await db.codes.delete_many({"purpose": "invite", "email": inv["email"]})      # every family's: it has joined one
     resp = RedirectResponse("/home?joined=1", 303)
     await create_session(resp, acc)
+    await note_device(request, resp, acc, quiet=True)
+    title = ROLE_TITLES[inv["role"]]
+    await log_event(fam["_id"], "adult", f"{acc['email']} joined as {title.lower()}"
+                                         + (f", invited by {adult_name(by)}" if by else ""))
+    # The parents hear of every new grown-up (who can see the children's PINs), once.
+    await mailer.to_family(fam["_id"], f"{acc['email']} joined {fam['name']} on Quizocracy",
+                           f"Hello,\n\n{acc['email']} has joined {fam['name']} on Quizocracy as a {inv['role']}"
+                           + (f", invited by {adult_name(by)}" if by else "") + ".\n\n"
+                           f"You can see every grown-up, change their role or remove them in Settings: "
+                           f"{config.PUBLIC_URL}/settings#adults\n\nIf you don't know this person, remove them there.\n",
+                           skip=(acc["_id"],))
     return resp
 
 

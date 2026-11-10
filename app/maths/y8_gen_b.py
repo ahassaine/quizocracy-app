@@ -215,6 +215,8 @@ def _sq(prompt, value, placeholder=None, solution=None):
 
 def _fq(prompt, num, den, placeholder="e.g. 3/8", solution=None):
     """A typed fraction answer (equivalent fractions are accepted)."""
+    if isinstance(placeholder, list):       # called as _fq(prompt, n, d, [solution]): that list is the solution
+        placeholder, solution = "e.g. 3/8", placeholder
     return {"prompt": prompt, "component": "number",
             "spec": {"text": True, "placeholder": placeholder},
             "answer": "%d/%d" % (int(num), int(den)), "answer_type": "frac",
@@ -223,6 +225,8 @@ def _fq(prompt, num, den, placeholder="e.g. 3/8", solution=None):
 
 def _mixq(prompt, w, n, den, placeholder="e.g. 2 3/4", solution=None):
     """A typed mixed-number answer, e.g. '2 3/4' or '-1 1/2'."""
+    if isinstance(placeholder, list):       # the solution, passed in third place
+        placeholder, solution = "e.g. 2 3/4", placeholder
     return {"prompt": prompt, "component": "number",
             "spec": {"text": True, "placeholder": placeholder},
             "answer": _mixed_str(w, n, den), "answer_type": "str",

@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Delete {{ pupil.name }} · Quizocracy{% endblock %}
+{% block body %}
+<p><a href="/children/{{ pupil._id }}/edit">&larr; Back to {{ pupil.name }}'s settings</a></p>
+<h1>Delete {{ pupil.name }}?</h1>
+<form method="post" action="/children/{{ pupil._id }}/delete" class="card" data-testid="delete-child">
+  {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+  <p style="margin-top:0">This deletes {{ pupil.name }}'s profile and everything {{ pupil.name }} has done here{% if answers %}: {{ answers }} answer{{ '' if answers == 1 else 's' }}, the mistakes list, the words and skills learned{% endif %}. <b>It cannot be undone.</b></p>
+  <p class="mut small">{% if others %}The other parents on {{ ctx.family.name }} get an email saying you deleted {{ pupil.name }}'s profile.{% endif %} To keep a copy first, use <a href="/account/export">Download my data</a> in Settings.</p>
+  <div class="field"><label for="delpw">Your password</label><input id="delpw" name="password" type="password" autocomplete="current-password" required style="max-width:260px" data-testid="delete-password"></div>
+  <div class="row"><a class="btn primary" href="/children/{{ pupil._id }}/edit">Keep {{ pupil.name }}</a><button class="btn danger" type="submit" data-testid="delete-confirm">Delete {{ pupil.name }} for good</button></div>
+</form>
+{% endblock %}

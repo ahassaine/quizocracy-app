@@ -34,15 +34,40 @@ RECALL_STALE = 30 * 60
 
 async def just_shown(pupil: dict, activity: str) -> set:
     """Items (the `detail` of progress.record) whose answer this child was shown too recently to be asked again."""
+    return set(await waits(pupil, activity))
+
+
+async def waits(pupil: dict, activity: str) -> dict:
+    """{item: seconds before it may come back (0: only questions are missing)} for each item whose answer this
+    child was shown too recently: missed, or answered right straight after being shown (copied), which starts
+    the gap again. For maths the item is the mistake ("skill@row id", progress.mistake_key)."""
     now = datetime.datetime.utcnow()
     rows = [r async for r in db.attempts.find(
         {"pupil_id": pupil["_id"], "activity": activity, "ts": {"$gt": now - datetime.timedelta(seconds=RECALL_STALE)}},
-        {"detail": 1, "correct": 1, "ts": 1}).sort("ts", 1)]
-    out = set()
+        {"detail": 1, "correct": 1, "ts": 1, "copied": 1}).sort("ts", 1)]
+    out: dict = {}
     for i, r in enumerate(rows):
-        if not r["correct"] and r.get("detail"):
-            if len(rows) - 1 - i < RECALL_ITEMS or (now - r["ts"]).total_seconds() < RECALL_SECONDS:
-                out.add(r["detail"])
+        if (not r["correct"] or r.get("copied")) and r.get("detail"):
+            k = f"{r['detail']}@{r['_id']}" if activity == "maths" else r["detail"]
+            secs = RECALL_SECONDS - (now - r["ts"]).total_seconds()
+            if len(rows) - 1 - i < RECALL_ITEMS or secs > 0:
+                out[k] = max(0, round(secs))
             else:
-                out.discard(r["detail"])
+                out.pop(k, None)
     return out
+
+
+async def last_detail(pupil: dict, activity: str) -> str | None:
+    """The item (detail) of this child's last answer in this activity in this sitting, if any."""
+    r = await db.attempts.find_one(
+        {"pupil_id": pupil["_id"], "activity": activity,
+         "ts": {"$gt": datetime.datetime.utcnow() - datetime.timedelta(seconds=RECALL_STALE)}},
+        {"detail": 1}, sort=[("ts", -1)])
+    return (r or {}).get("detail") or None
+
+
+async def last_answered(pupil: dict, activity: str) -> dict | None:
+    """The item this child answered last in this activity (its meta, with its answer), so it is never asked
+    again straight away."""
+    return await db.items.find_one({"pupil_id": pupil["_id"], "activity": activity, "done": True},
+                                   {"meta": 1, "answer": 1}, sort=[("answered", -1)])

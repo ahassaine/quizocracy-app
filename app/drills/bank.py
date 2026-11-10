@@ -3,11 +3,12 @@
 Mastery per skill uses the maths scoring (big gains early, a demanding last stretch; 100 = mastered).
 The child works a window of the first WINDOW unmastered skills in teaching order, interleaved; a wrong
 question comes back RETRY_GAP questions and RETRY_SECONDS later, and once more on a later day; mastered skills come back now and then for review.
+Once the day's target is reached, extra practice takes the year's strands in turn, weakest first (spread_strands).
 """
 import datetime
 import random
 
-from ..activities import FOCUS_SHARE, focus_on
+from ..activities import FOCUS_SHARE, focus_on, rest_day, todays_plan
 from ..bank import engine
 from ..db import db
 from ..maths.maths_mastery import CHALLENGE_ZONE, MASTERED, gain, penalty
@@ -21,6 +22,7 @@ RETRY_SECONDS = items.RECALL_SECONDS    # ... and seconds, so it is remembered, 
 MAX_RETRIES = 2
 REVIEW_CHANCE = 0.15
 REVIEW_AFTER_DAYS = 3
+WEAK_SECONDS = 60          # extra practice: a strand at score 0 comes round as if met a minute earlier
 
 
 def _now():
@@ -59,6 +61,37 @@ def pick_skill(skills: list, mm: dict, rnd=random) -> tuple[dict, str]:
     return s, ("practice" if s["key"] in mm else "new")
 
 
+def spread_strands(skills: list, mm: dict) -> list:
+    """Extra practice after the day's target: the skills of one strand, taking the year's strands in turn rather
+    than more of the first one ("Word classes" for 17 questions). The strand met least lately goes next, a strand
+    never met first of all; a weak strand counts as met up to WEAK_SECONDS earlier, so it comes round more often.
+    Strands with nothing left to master wait until every strand is done."""
+    by: dict = {}
+    for s in skills:
+        by.setdefault(s["strand"], []).append(s)
+    score = lambda s: mm.get(s["key"], {}).get("score", 0)                      # noqa: E731
+    mean = lambda st: sum(score(s) for s in by[st]) / len(by[st])              # noqa: E731
+
+    def turn(st):
+        last = max(mm.get(s["key"], {}).get("last") or datetime.datetime.min for s in by[st])
+        if last == datetime.datetime.min:
+            return (0, mean(st))
+        return (1, last - datetime.timedelta(seconds=WEAK_SECONDS * (MASTERED - mean(st)) / MASTERED))
+    strands = [st for st in by if any(score(s) < MASTERED for s in by[st])] or list(by)
+    return by[min(strands, key=turn)]
+
+
+async def past_target(pupil: dict, subject: str) -> bool:
+    """Is today's practice of this subject extra: its target reached, a rest day, or not in today's plan?"""
+    family = await db.families.find_one({"_id": pupil["family_id"]}) or {}
+    target = next((a["target"] for a in todays_plan(pupil, family) if a["key"] == subject), None)
+    if target is None or rest_day(pupil):
+        return True
+    day = progress.today()
+    done = (await progress.counts([pupil["_id"]], [day])).get(pupil["_id"], {}).get(day, {}).get(subject, {})
+    return done.get("correct", 0) >= target
+
+
 def pick_question(sk: dict, seen: list, rnd=random) -> dict:
     """A question of the skill the child has not seen lately."""
     fresh = [q for q in sk["qs"] if q["id"] not in seen]
@@ -71,8 +104,9 @@ def pick_question(sk: dict, seen: list, rnd=random) -> dict:
 def make(subject: str):
     """The drill module for one subject: next_question, check, summary."""
 
-    async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
-        """focus: "skill#question" to ask again (a mistake being put right)."""
+    async def next_question(pupil: dict, focus: str | None = None, near: list | None = None) -> dict | None:
+        """focus: "skill#question" to ask again (a mistake being put right). near: questions ("skill#question")
+        waiting to be put right; the question then comes from their skills, not one of them."""
         skills = engine.skills(subject, pupil.get("year", 3))
         if not skills:
             return None
@@ -83,19 +117,28 @@ def make(subject: str):
             k, qid = focus.split("#", 1)
             sk, q = engine.skill(k), engine.question(k, qid)
             reason = "fix" if sk and q else None
+        # never a question whose answer was just shown (it waits for its gap), nor the one just answered
+        last = ((await items.last_answered(pupil, subject)) or {}).get("meta") or {}
+        away = await items.just_shown(pupil, subject) | set(near or []) | {f"{last.get('skill')}#{last.get('qid')}"}
         now, today = _now(), progress.today()
         for r in ([] if reason else st.get("retry", [])):
-            if r["due"] <= st["n"] and r.get("after", now) <= now and r.get("day", "") < today:
+            if r["due"] <= st["n"] and r.get("after", now) <= now and r.get("day", "") < today \
+                    and f"{r['key']}#{r['qid']}" not in away:
                 sk, q = engine.skill(r["key"]), engine.question(r["key"], r["qid"])
                 if sk and q:
                     reason = "retry"
                     break
         if not reason:
             # "working on this at school": about two questions in three from that strand, still by mastery
-            strand = focus_on(pupil).get(subject)
-            in_focus = [s for s in skills if s["strand"] == strand]
-            sk, reason = pick_skill(in_focus if in_focus and random.random() < FOCUS_SHARE else skills, mm)
-            q = pick_question(sk, mm.get(sk["key"], {}).get("seen", []))
+            strands = focus_on(pupil).get(subject, [])
+            in_focus = [s for s in skills if s["strand"] in strands]
+            close = [s for s in skills if len(s["qs"]) > 3 and any(n.split("#")[0] == s["key"] for n in near or [])]
+            pool = close or (in_focus if in_focus and random.random() < FOCUS_SHARE else None)
+            if not pool:            # in teaching order up to the day's target; after it, the strands in turn
+                pool = spread_strands(skills, mm) if await past_target(pupil, subject) else skills
+            sk, reason = pick_skill(pool, mm)
+            q = pick_question(sk, mm.get(sk["key"], {}).get("seen", [])
+                              + [a.split("#", 1)[1] for a in away if a.startswith(sk["key"] + "#")])
         pub, key = engine.serve(q)
         token = await items.issue(pupil, subject, key, {"skill": sk["key"], "qid": q["id"], "reason": reason})
         await db.bank_state.update_one({"_id": st["_id"]}, {"$inc": {"n": 1}})
@@ -110,11 +153,13 @@ def make(subject: str):
         correct = engine.mark(key, value)
         sk, q = engine.skill(meta["skill"]), engine.question(meta["skill"], meta["qid"])
         detail = f"{meta['skill']}#{meta['qid']}"
-        slipped = [] if correct else engine.slips(key, value, (q or {}).get("q", ""))
-        if slipped and not it.get("retried"):
-            # a science word with a spelling slip ("respiraton"): one free retry, nothing recorded yet
+        slipped = [] if correct else engine.slips(key, value, (q or {}).get("q", ""), sk)
+        ends = None if correct or slipped else engine.end_slip(key, value, sk)
+        if (slipped or ends) and not it.get("retried"):
+            # a word with a spelling slip ("respiraton", "wich"), or a sentence missing only its capital or full
+            # stop, where that is not the skill: one free retry, nothing recorded yet
             await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
-            return {"correct": False, "retry": True, "hint": typos.RETRY}
+            return {"correct": False, "retry": True, "hint": ends["retry"] if ends else typos.RETRY}
         if correct and detail in await items.just_shown(pupil, subject):
             return await _copied(pupil, subject, key, value, q, ms, detail)
         doc = await db.bank_mastery.find_one({"_id": f"{pupil['_id']}:{meta['skill']}"}) or {}
@@ -149,14 +194,21 @@ def make(subject: str):
         out.update({"mastered": score >= MASTERED and not doc.get("mastered_at"), "score": score})
         if slipped:                          # after the retry: which word was misspelt
             out["hint"] = typos.corrections(slipped)
+        if ends:                             # the grammar was right: say what was missing, not why the grammar is so
+            out["hint"], out["why"] = ends["after"], ""
+        if not correct and key["t"] == "write":
+            wm = engine.word_marks(value, key["a"])     # the words that differ, marked in both sentences
+            if wm:
+                out["expected"], out["marks"] = wm
         return out
 
-    async def _feedback(pupil, subject, key, value, q, ms, detail, correct) -> dict:
+    async def _feedback(pupil, subject, key, value, q, ms, detail, correct, copied=False) -> dict:
         prompt = (q or {}).get("q", "")
         if q and q.get("s") and q["t"] in ("tap", "write"):
             prompt += " " + q["s"].replace("[", "").replace("]", "")
         exp = engine.expected_text(key)
-        await progress.record(pupil, subject, correct, ms, detail, prompt, exp, engine.given_text(key, value))
+        await progress.record(pupil, subject, correct, ms, detail, prompt, exp, engine.given_text(key, value),
+                              copied=copied)
         out = {"correct": correct, "expected": exp, "why": (q or {}).get("why", "")}
         if key["t"] == "mcq":
             out["right"] = key["right"]
@@ -168,7 +220,7 @@ def make(subject: str):
 
     async def _copied(pupil, subject, key, value, q, ms, detail) -> dict:
         """Right, but straight after being shown it: counts for today; no mastery, and the mistake stays to put right."""
-        out = await _feedback(pupil, subject, key, value, q, ms, "", True)
+        out = await _feedback(pupil, subject, key, value, q, ms, detail, True, copied=True)
         sc = await db.bank_mastery.find_one({"_id": f"{pupil['_id']}:{detail.split('#')[0]}"}) or {}
         out.update({"mastered": False, "score": int(sc.get("score", 0)), "again_later": True})
         return out

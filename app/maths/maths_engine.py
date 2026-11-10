@@ -706,6 +706,53 @@ def present(q, skill_key):
             elif a is not None and abs(a + d - 90) < 1e-9 and re.search(r"complement|right angle", prompt, re.I):
                 spec["unknown"] = "right"
     q["spec"] = spec
+    return neutral_examples(q)
+
+
+_EX_DIGITS = re.compile(r"\d+")
+_EX_TOKEN = re.compile(r"-?\d+(?:[./:]\d+)*")
+
+
+def _ex_tokens(text):
+    return set(_EX_TOKEN.findall(str(text).replace(",", " ")))
+
+
+def _ex_plain(text):
+    return re.sub(r"[\s.…]+$|\s+|\.\.\.|…", "", str(text).lower())
+
+
+def _ex_shift(text, k):
+    """Every digit moved on by k, keeping the shape ("3/4" -> "4/5", "x^2+6x+9" -> "x^3+7x+0"); a number never
+    gains a leading 0 and never becomes 0, so no "x/0" and no "07"."""
+    def one(m):
+        o = m.group(0)
+        s = "".join(str((int(c) + k) % 10) for c in o)
+        return str(k) + s[1:] if s[0] == "0" and o[0] != "0" else s
+    return _EX_DIGITS.sub(one, text)
+
+
+def neutral_examples(q):
+    """A format example must never be the answer or a part of it: "e.g. 665, 675, ..." in the box for "Count on
+    in 10s from 655", or "e.g. 3/4" (a fixed example) when the answer happens to be 3/4, or a question saying
+    "Write it like 2:3" whose answer is 2:3. Such an example gets the same shape with other digits; numbers the
+    question itself shows may stay."""
+    ans, prompt = str(q.get("answer", "")), q.get("prompt", "")
+    atoks = _ex_tokens(ans)
+    if _EX_DIGITS.search(ans):
+        k = next((k for k in range(1, 10) if not (_ex_tokens(_ex_shift(ans, k)) & atoks)), 1)
+        prompt = re.sub(r"\b(like|for example|e\.g\.) %s(?![\w/:^]|\.\d)" % re.escape(ans),
+                        lambda m: "%s %s" % (m.group(1), _ex_shift(ans, k)), prompt)
+        q["prompt"] = prompt
+    ptoks = _ex_tokens(prompt)
+
+    def leaks(ex):
+        return _ex_plain(ex) == _ex_plain(ans) or bool((_ex_tokens(ex) & atoks) - ptoks)
+    spec = q.get("spec") or {}
+    ph = spec.get("placeholder")
+    if isinstance(ph, str) and ph[:4].lower() == "e.g." and leaks(ph[4:]):
+        # a list says only how to write it: shifted digits would show numbers that break the question's rule
+        spec["placeholder"] = "numbers, with commas" if "," in ph and "(" not in ph else next(
+            (p for p in (_ex_shift(ph, k) for k in range(1, 10)) if not leaks(p[4:])), "type your answer")
     return q
 
 

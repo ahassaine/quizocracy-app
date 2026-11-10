@@ -157,9 +157,10 @@ def test_children_validation_edit_and_plan_limits(page):
     assert page.locator("[data-testid='kid-Adam']").count() == 1
     # delete a child removes their data
     page.goto(f"/children/{pid}/edit")
-    page.once("dialog", lambda d: d.accept())
-    page.click("form[action$='/delete'] button")
-    page.wait_for_url("**/home?deleted=1")
+    page.click("[data-testid=delete-child-link]")
+    page.fill("[data-testid=delete-password]", PASSWORD)
+    page.click("[data-testid=delete-confirm]")
+    page.wait_for_url("**/home?deleted=1*")
     assert DB.pupils.count_documents({"_id": pid}) == 0
 
 

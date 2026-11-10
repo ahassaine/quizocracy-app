@@ -7,7 +7,7 @@
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=1"></script><script src="/static/js/drill.js?v=17"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=2"></script><script src="/static/js/drill.js?v=20"></script><script>
 const audio = document.getElementById('audio');
 let say = '';          // a school word with no recorded clip: the browser's own voice says it
 function sayWord() { return new Promise(res => { const s = window.speechSynthesis; if (!s || !window.SpeechSynthesisUtterance) return res();

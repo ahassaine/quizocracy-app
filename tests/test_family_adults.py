@@ -58,7 +58,7 @@ def test_carer_joins_with_own_login_and_limited_rights(page, browser):
 
     # sees Home, progress and the PINs; no child settings, no data, no invitations
     other.goto("/home")
-    assert other.locator(f"a[href='/children/{pid}/edit']").count() == 0
+    assert other.locator(f"a[href='/children/{pid}/edit']").inner_text() == "Spelling list & days off"   # no plan
     assert other.locator("a[href='/children/new']").count() == 0
     other.goto(f"/children/{pid}")
     assert other.locator("h1").inner_text() == "Sami"
@@ -68,7 +68,7 @@ def test_carer_joins_with_own_login_and_limited_rights(page, browser):
     assert other.locator("form[action='/account/delete']").count() == 0
     assert other.get_by_test_id("my-role").inner_text() == "Carer"
     s = _session(other)
-    for path in ("/children/new", f"/children/{pid}/edit", "/account/export", "/account/email"):
+    for path in ("/children/new", f"/children/{pid}/delete", "/account/export", "/account/email"):
         r = s.get(BASE + path, allow_redirects=False)
         assert r.status_code == 303 and r.headers["location"] == "/not-allowed", path
     for path, data in ((f"/children/{pid}/delete", {}), ("/account/delete", {"confirm": "DELETE", "password": CARER_PW}),

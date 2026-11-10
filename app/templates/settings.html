@@ -23,6 +23,16 @@
       <span>Email me a weekly summary <span class="mut small" style="display:block;font-weight:400">On Sunday evening: how each child's week went, and what to help with.</span></span></label>
     <noscript><button class="btn" type="submit">Save</button></noscript>
   </form>
+  <form method="post" action="/settings/report-emails" style="margin-top:10px">
+    <label class="check" for="report_emails" style="font-weight:600"><input id="report_emails" name="on" type="checkbox" value="1" {% if report_emails %}checked{% endif %} onchange="this.form.submit()" data-testid="report-emails">
+      <span>Email me when a question a child reported has been checked <span class="mut small" style="display:block;font-weight:400">Either way, each child's reports and what we found are on their progress page.</span></span></label>
+    <noscript><button class="btn" type="submit">Save</button></noscript>
+  </form>
+  <form method="post" action="/settings/name" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+    {% if request.query_params.get('name_saved') %}<div class="ok" role="status" style="flex-basis:100%">Saved. The other grown-ups see you as {{ ctx.account.name or ctx.account.email }}.</div>{% endif %}
+    <div class="field" style="margin:0;flex:1 1 200px"><label for="my_name">Your name <span class="mut small" style="font-weight:400">(what the other grown-ups see, like "Jo" or "Gran")</span></label><input id="my_name" name="name" type="text" maxlength="40" value="{{ ctx.account.name or '' }}" autocomplete="given-name" data-testid="my-name"></div>
+    <button class="btn" type="submit">Save name</button>
+  </form>
 </div>
 {% if pins %}<div class="card" data-testid="pins"><b>Children's PINs</b><p class="mut small">Each child types their PIN on "Who's learning?".</p>
   {% for p in pins %}<div class="kid" style="padding:6px 0"><span>{{ p.name }}</span><details><summary style="cursor:pointer">Show</summary><span class="display" style="font-size:1.4rem;font-weight:800;letter-spacing:6px" data-testid="pin-{{ p.name }}">{{ p.pin }}</span></details></div>{% endfor %}
@@ -30,17 +40,20 @@
 <div class="card" id="adults" data-testid="adults"><b>Grown-ups on this family</b>
   {% if request.query_params.get('invited') %}<div class="ok" role="status">Invitation sent. It works for 7 days.</div>{% endif %}
   {% if request.query_params.get('removed') %}<div class="ok" role="status">Removed. They are signed out everywhere.</div>{% endif %}
-  <p class="mut small">Each grown-up has their own email and password. A carer, such as a grandparent minding the children, can hand the device to a child, unlock a child and see progress and PINs, but cannot change children, the account or its data.</p>
+  {% if request.query_params.get('role_changed') %}{% for a in adults if a.id == request.query_params.get('role_changed') %}<div class="ok" role="status" data-testid="role-changed">{{ a.name or a.email }} is now a {{ a.role|lower }}. Their login, password and weekly email stay as they were, and we told them by email.</div>{% endfor %}{% endif %}
+  <p class="mut small">Each grown-up has their own email and password. A parent can do everything, including deleting a child (with their password; the other parents are told). A carer, such as a grandparent minding the children, can hand the device to a child, unlock a child, see progress and PINs, type in the school's spelling list and mark a day off, but cannot change the children's plans, delete children, or change the account or its data.</p>
   {% for a in adults %}<div class="kid" style="padding:8px 0;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap" data-testid="adult">
-    <span style="overflow-wrap:anywhere;min-width:0">{{ a.email }}{% if a.you %} <span class="mut">(you)</span>{% endif %}<span class="mut small" style="display:block">{{ a.role }}</span></span>
-    {% if a.removable %}<form method="post" action="/settings/adults/{{ a.id }}/remove" data-confirm="Remove {{ a.email }}? They will be signed out and their login will stop working." onsubmit="return confirm(this.dataset.confirm)"><button class="btn" type="submit" data-testid="remove-adult">Remove</button></form>{% endif %}</div>{% endfor %}
+    <span style="overflow-wrap:anywhere;min-width:0">{% if a.name %}<b>{{ a.name }}</b> · {% endif %}{{ a.email }}{% if a.you %} <span class="mut">(you)</span>{% endif %}<span class="mut small" style="display:block" data-testid="adult-role">{{ a.role }}{% if a.by %} · invited by {{ a.by }}{% endif %}</span></span>
+    {% if a.removable %}<span class="row" style="margin:0;gap:6px">
+      <form method="post" action="/settings/adults/{{ a.id }}/role"><input type="hidden" name="to" value="{{ 'carer' if a.role_key == 'parent' else 'parent' }}"><button class="btn" type="submit" data-testid="change-role" title="Keeps their login, password and weekly email">Make {{ 'carer' if a.role_key == 'parent' else 'parent' }}</button></form>
+      <form method="post" action="/settings/adults/{{ a.id }}/remove" data-confirm="Remove {{ a.email }}? They will be signed out and their login will stop working. (To change what they can do, use Make {{ 'carer' if a.role_key == 'parent' else 'parent' }} instead.)" onsubmit="return confirm(this.dataset.confirm)"><button class="btn" type="submit" data-testid="remove-adult">Remove</button></form></span>{% endif %}</div>{% endfor %}
   {% for i in invites %}<div class="kid" style="padding:8px 0;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap" data-testid="invite-row">
     <span style="overflow-wrap:anywhere;min-width:0">{{ i.email }}<span class="mut small" style="display:block">{{ i.role }}, invited (until {{ i.until }})</span></span>
     {% if ctx.full %}<form method="post" action="/settings/invites/{{ i.id }}/cancel"><button class="btn" type="submit">Cancel</button></form>{% endif %}</div>{% endfor %}
   {% if ctx.full %}<form method="post" action="/settings/invite" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
     {% if invite_error %}<div class="err" role="alert">{{ invite_error }}</div>{% endif %}
     <div class="field"><label for="invite_email">Invite someone by email</label><input id="invite_email" name="email" type="email" required autocomplete="off" value="{{ invite_email or '' }}"></div>
-    <label class="check" style="font-weight:600"><input type="radio" name="role" value="carer" {% if invite_role != 'parent' %}checked{% endif %}><span>Carer <span class="mut small" style="display:block;font-weight:400">Minds the children: hands over the device, unlocks a child, sees progress.</span></span></label>
+    <label class="check" style="font-weight:600"><input type="radio" name="role" value="carer" {% if invite_role != 'parent' %}checked{% endif %}><span>Carer <span class="mut small" style="display:block;font-weight:400">Minds the children: hands over the device, unlocks a child, sees progress, types in the school spelling list and marks a day off.</span></span></label>
     <label class="check" style="font-weight:600;margin-top:8px"><input type="radio" name="role" value="parent" {% if invite_role == 'parent' %}checked{% endif %}><span>Parent <span class="mut small" style="display:block;font-weight:400">Everything you can do, including changing children and the account.</span></span></label>
     <button class="btn primary" type="submit" style="margin-top:12px" data-testid="send-invite">Send invitation</button>
   </form>{% endif %}

@@ -2543,7 +2543,7 @@ def _(d=1):
         return _tb("Continue the sequence — write the next two numbers:  %s, ___, ___"
                    % ", ".join(str(t) for t in ts),
                    "%d, %d" % (nxt[0], nxt[1]), "str",
-                   {"text": True, "placeholder": "e.g. %d, %d" % (nxt[0], nxt[1] - 1)},
+                   {"text": True, "placeholder": "e.g. 20, 24"},
                    ["The rule is add %d each time." % st,
                     "The next two are %d and %d." % (nxt[0], nxt[1])])
 

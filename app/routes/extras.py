@@ -1,14 +1,18 @@
-"""Pages around the practice: the help page, a printable progress report, and the service worker."""
+"""Pages around the practice: the help page, a printable progress report, example questions for a parent, and
+the service worker."""
 import datetime
+import random
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from ..activities import ACTIVITIES, ORDER, todays_plan
+from ..activities import ACTIVITIES, ORDER, day_label, rest_day, strand_label, todays_plan
+from ..bank import engine as bank_engine
 from ..config import BASE_DIR
 from ..db import db
 from ..deps import Ctx, load, own_pupil, parent_page
 from ..drills import maths, spelling, tables, verbs
+from ..maths import maths_engine, maths_mastery
 from .. import progress
 from ..web import page
 from .parent import _skill_views
@@ -80,7 +84,7 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     learned = sorted([w["word"] async for w in db.spelling_words.find(
         {"pupil_id": p["_id"], "box": {"$gte": spelling.LEARNED_BOX}, "word": {"$in": words}}, {"word": 1})],
         key=str.lower) if "spelling" in on else []
-    return page(request, "progress_report.html", ctx, pupil=p, days=days, rng=rng, ranges=RANGES,
+    return page(request, "progress_report.html", ctx, pupil=p, days=days, rng=rng, ranges=RANGES, **_rest_days(p, days),
                 practised=sum(1 for s in st.values() if s["answers"]), done_days=done, tot=tot,
                 first_pct=(100 * tot["first_right"] // tot["first"]) if tot["first"] else None,
                 acts=[(k, acts[k]) for k in ORDER if k in acts], skills=skills, new=new, weak=weak,
@@ -92,6 +96,105 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
                 period=f"{_nice(days[0])} to {_nice(days[-1])}" if days else "", ACTIVITIES=ACTIVITIES)
 
 
+def _rest_days(p: dict, days: list) -> dict:
+    """The report's days off (a sick day or a holiday, as spans: "11 Nov", "13 Nov to 15 Nov") and how many days
+    were not practice days, so a gap in the record reads as planned, not missed."""
+    spans, off, week = [], 0, 0
+    for d in days:
+        r = rest_day(p, d)
+        off += r == "off"
+        week += r == "week"
+        if r == "off" and spans and spans[-1][1] == _prev(d):
+            spans[-1][1] = d
+        elif r == "off":
+            spans.append([d, d])
+    return {"off_spans": [day_label(a) if a == b else f"{day_label(a)} to {day_label(b)}" for a, b in spans],
+            "off_count": off, "rest_count": week}
+
+
+def _prev(day: str) -> str:
+    return (datetime.date.fromisoformat(day) - datetime.timedelta(days=1)).isoformat()
+
+
 def _nice(day: str) -> str:
     d = datetime.date.fromisoformat(day)
     return f"{d.day} {d:%b %Y}"
+
+
+# ---- "See example questions": a few questions of one strand, with their answers, for a parent to look at first ----
+EXAMPLES = 4                   # questions shown (3 at least, from as many of the strand's skills as there are)
+# Maths framings a page can show as text and a table; any other picture is named in a line instead.
+_SHOWN = ("number", "data_table", "io_table", "bar_chart", "pictogram", "pie_chart")
+_PICTURE = {"number_line": "a number line", "base_ten": "place-value blocks", "array": "an array of dots",
+            "fraction_bar": "a fraction bar", "clock": "a clock", "coordinate_grid": "a grid", "area_grid": "a grid of squares",
+            "strip_model": "a bar model", "line_graph": "a line graph", "shape": "a shape", "angle": "an angle",
+            "ruler": "a ruler or scale", "equal_groups": "groups of counters", "circle": "a circle", "net": "a net of a solid",
+            "inequality_line": "a number line", "scatter_plot": "a graph"}
+
+
+def _spread(skills: list, n: int) -> list:
+    """n skills spread over the strand (in teaching order), each used again when the strand has fewer."""
+    if len(skills) >= n:
+        return sorted(random.sample(skills, n), key=skills.index)
+    return [skills[i % len(skills)] for i in range(max(n - 1, len(skills), 3))]
+
+
+def _maths_example(skill: dict) -> dict:
+    """A question of the skill made the way the child gets it (middle tier), never stored: nothing is recorded."""
+    fn = maths_engine.GENERATORS[skill["key"]]
+    for _ in range(8):                         # a framing the page can show, if the skill has one
+        q = maths_engine.present(maths_engine.call_generator(fn, 1), skill["key"])
+        if q.get("component", "number") in _SHOWN:
+            break
+    spec, comp = q.get("spec") or {}, q.get("component", "number")
+    table = None
+    if comp == "data_table" and spec.get("rows"):
+        table = {"head": spec.get("headers") or [], "rows": maths_engine.hide_missing_cell(comp, spec)["rows"]}
+    elif comp == "io_table" and spec.get("rows"):
+        table = {"head": ["In", "Out"], "rows": maths_engine.hide_missing_cell(comp, spec)["rows"]}
+    elif comp in ("bar_chart", "pictogram") and spec.get("categories"):
+        table = {"head": [], "rows": [[c, v] for c, v in zip(spec["categories"], spec.get("values") or [])]}
+    elif comp == "pie_chart" and spec.get("slices"):
+        table = {"head": [], "rows": [list(s[:2]) for s in spec["slices"]]}
+    ans, unit = str(maths_engine.answer_text(q)), spec.get("unit") or ""
+    ans = "£" + ans if unit == "£" else f"{ans} {unit}" if unit and unit not in ans else ans
+    return {"skill": skill["title"], "q": q["prompt"], "table": table, "answer": ans,
+            "picture": None if comp in _SHOWN else _PICTURE.get(comp, "a picture"),
+            "why": [str(x) for x in q.get("solution") or []][:3]}
+
+
+def _bank_example(skill: dict, used: set) -> dict:
+    q = random.choice([q for q in skill["qs"] if q["id"] not in used] or skill["qs"])
+    used.add(q["id"])
+    pub, key = bank_engine.serve(q)
+    sentence = pub.get("s") or (" ".join(pub["words"]) if pub.get("words") else "")
+    ans = bank_engine.expected_text(key) + (f" {q['unit']}" if q.get("unit") else "")
+    return {"skill": skill["title"], "q": q["q"], "sentence": sentence, "opts": pub.get("opts") or [],
+            "answer": ans, "why": [q["why"]] if q.get("why") else []}
+
+
+@router.get("/children/{pid}/examples")
+async def examples(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+    """A few questions of one strand, as the child of that year gets them, with the answers. Read-only and for the
+    grown-ups only (parent mode): nothing is served to the child or recorded."""
+    p = await own_pupil(ctx, pid)
+    subject, strand = request.query_params.get("subject", ""), request.query_params.get("strand", "")
+    try:
+        more = max(0, min(99, int(request.query_params.get("more") or 0)))
+    except ValueError:
+        more = 0
+    if subject == "maths":
+        year = maths.engine_year(p["year"])
+        skills = [s for s in maths_mastery._year_skills(year) if s["strand"] == strand]
+        qs = [_maths_example(s) for s in _spread(skills, EXAMPLES)] if skills else []
+    elif subject in ("grammar", "science"):
+        year = bank_engine.bank_year(subject, p["year"])
+        skills = [s for s in bank_engine.skills(subject, p["year"]) if s["strand"] == strand and s["qs"]]
+        used: set = set()
+        qs = [_bank_example(s, used) for s in _spread(skills, EXAMPLES)] if skills else []
+    else:
+        skills = qs = []
+    if not qs:
+        raise HTTPException(404, "not found")
+    return page(request, "examples.html", ctx, pupil=p, subject=subject, subject_title=ACTIVITIES[subject]["title"],
+                strand=strand, strand_name=strand_label(strand), year=year, qs=qs, more=more)

@@ -392,7 +392,8 @@ def _(d=1):
         return _tb("A square has area %d cm². How long is each side, in cm?" % (n * n), n, "int", {"unit": "cm"},
                    ["√%d = %d." % (n * n, n)])
 
-    return _pick_t([t_square, t_cube, t_root, t_cube_root, t_between, t_decimal_sq, t_negative, t_only_square, t_sum, t_both,
+    # (t_negative, a negative squared or cubed, is left out: Year 7 meets directed numbers in strand 7.6, after this one)
+    return _pick_t([t_square, t_cube, t_root, t_cube_root, t_between, t_decimal_sq, t_only_square, t_sum, t_both,
                     t_power_ten, t_side_from_area], [t_grid])
 
 

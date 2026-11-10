@@ -22,7 +22,7 @@ import datetime
 import random
 from ..activities import FOCUS_SHARE, focus_on
 from ..db import db
-from .maths_engine import skill_list
+from .maths_engine import difficulty_for, skill_list
 
 MASTERED = 100
 CHALLENGE_ZONE = 85
@@ -195,12 +195,12 @@ def _strand_pick(in_strand, mm):
 
 
 async def _focus_strand(pupil):
-    """The maths strand the parent says the class is working on now, or None."""
+    """The maths strands the parent says the class is working on now ([] if none)."""
     try:
         p = await db.pupils.find_one({"_id": pupil}, {"focus": 1})
     except Exception:
         p = None
-    return focus_on(p or {}).get("maths")
+    return focus_on(p or {}).get("maths", [])
 
 
 async def next_skill(pupil, year=None, avoid=()):
@@ -215,8 +215,8 @@ async def next_skill(pupil, year=None, avoid=()):
         skills = rest
 
     # "working on this at school": about two questions in three from that strand, picked as its turn would be
-    strand = await _focus_strand(pupil)
-    in_focus = [s for s in skills if s["strand"] == strand]
+    strands = await _focus_strand(pupil)
+    in_focus = [s for s in skills if s["strand"] in strands]
     if in_focus and random.random() < FOCUS_SHARE:
         pick = _strand_pick(in_focus, mm)
         if pick:
@@ -307,6 +307,20 @@ async def progress(pupil, year=None):
 async def skill_score(pupil, skill_key):
     d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)})
     return int((d or {}).get("score", 0))
+
+
+MIDDLE_FROM_YEAR = 5      # from Year 5 a new skill opens at the middle tier, not with Year-2-style counting
+
+
+async def start_tier(pupil, year, skill_key, score):
+    """The difficulty tier of the next question: by the score (maths_engine.difficulty_for), except that in Years
+    5 to 9 a skill with no wrong answer yet is asked at the middle tier at least. After a wrong answer the score
+    decides again, so a child who finds the skill hard gets the easier questions."""
+    tier = difficulty_for(score)
+    if tier or int(year or 0) < MIDDLE_FROM_YEAR:
+        return tier
+    d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)}) or {}
+    return 1 if int(d.get("attempts", 0)) == int(d.get("correct_count", 0)) else tier
 
 
 async def probe(pupil, year, skill_key):

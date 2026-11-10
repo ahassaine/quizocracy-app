@@ -23,12 +23,12 @@ def test_delete_confirm_with_apostrophe(page):
     signup(page)
     pid = add_child(page, "D'Arcy", 4)
     page.goto(f"/children/{pid}/edit")
-    seen = []
-    page.once("dialog", lambda d: (seen.append(d.message), d.dismiss()))
-    page.click("form[action$='/delete'] button")
-    page.wait_for_timeout(300)
-    assert seen == ["Delete D'Arcy and all their practice data?"]
-    assert DB.pupils.count_documents({"_id": pid}) == 1                 # cancelled: still there
+    page.click("[data-testid=delete-child-link]")                       # its own page, never a pop-up by Save
+    page.wait_for_url(f"**/children/{pid}/delete")
+    assert page.locator("h1").inner_text() == "Delete D'Arcy?"
+    page.click("text=Keep D'Arcy")                                      # changed their mind: still there
+    page.wait_for_url(f"**/children/{pid}/edit")
+    assert DB.pupils.count_documents({"_id": pid}) == 1
 
 
 def test_unlock_attempts_are_limited(page):

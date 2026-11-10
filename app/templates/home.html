@@ -2,23 +2,24 @@
 {% block body %}
 {% if welcome %}<div class="ok">Your email is verified. Add your first child to get started.</div>{% endif %}
 {% if request.query_params.get('joined') %}<div class="ok" role="status" data-testid="joined">Welcome! You have joined {{ ctx.family.name }}. Sign in with your own email and password from now on.</div>{% endif %}
-{% if request.query_params.get('deleted') %}<div class="ok">Child deleted, with all their practice data.</div>{% endif %}
+{% if request.query_params.get('deleted') %}<div class="ok" role="status" data-testid="child-deleted">{{ deleted_name or 'The child' }}'s profile is deleted, with all the practice.{% if ctx.full %} The other parents have been told by email.{% endif %}</div>{% endif %}
 <div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip" data-testid="plan-chip">{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}Free during the beta{% else %}{{ plan.title }} plan{% endif %}</span></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="kid-{{ p.name }}">
-  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div>{% if b.rest and not b.pct %}<div class="pct" data-testid="rest-day" style="font-size:1.1rem">Rest day</div>{% else %}<div class="pct" data-testid="pct">{{ b.pct }}%</div>{% endif %}</div>
+  <div class="kid"><div><span class="name">{{ p.name }}</span> <span class="mut">Year {{ p.year }}</span></div>{% if b.rest %}<div class="pct" data-testid="rest-day" style="font-size:1.1rem">{{ 'Day off' if b.rest == 'off' else 'Rest day' }}</div>{% else %}<div class="pct" data-testid="pct">{{ b.pct }}%</div>{% endif %}</div>
   {% if locks and locks.get(p._id) %}<div class="err" role="status" data-testid="pin-locked" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;animation:none">
     <span><b>{{ p.name }} is locked until {{ locks[p._id] }}</b> after too many wrong PINs.</span>
     <form method="post" action="/children/{{ p._id }}/pin-unlock"><input type="hidden" name="back" value="home"><button class="btn" type="submit">Unlock {{ p.name }}</button></form></div>
   {% elif unlocked == p._id %}<div class="ok" role="status">{{ p.name }} is unlocked and can type the PIN again.</div>{% endif %}
-  {% if b.rest %}<div class="small mut" style="margin-top:6px">{{ 'A day off' if b.rest == 'off' else 'Not a practice day' }}: nothing is due today.{% if b.extra %} {{ p.name }} did {{ b.extra }} extra right answer{{ '' if b.extra == 1 else 's' }} anyway.{% endif %}</div>
-  {% else %}<div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>{% endif %}
+  {% with name = p.name %}{% include "_rest_line.html" %}{% endwith %}
+  {% if not b.rest %}<div class="bar{% if b.pct >= 100 %} done{% endif %}" style="margin-top:8px"><i data-w="{{ b.pct }}"></i></div>{% endif %}
   {% if b.reward_earned %}<div class="reward earned" data-testid="reward-earned" style="margin-top:10px"><img src="/static/img/trophy.png" alt="">{{ p.name }} earned: {{ b.reward.text }}</div>{% endif %}
   {% if not b.rest %}<div class="chips">{% for it in b['items'] %}<span class="chip{% if it.complete %} done{% endif %}"><img src="{{ it.img }}" alt="">{{ it.title }} {{ it.done }}/{{ it.target }}{% if it.extra %} +{{ it.extra }}{% endif %}</span>{% endfor %}</div>{% endif %}
   {% with s = day_stats.get(p._id, {}).get(today_day) if day_stats else none, name = p.name %}{% include "_day_stats.html" %}{% endwith %}
   {% if hist[p._id]|length > 1 %}<div class="hist" title="Days done, last 7 days">{% for h in hist[p._id] %}{% if h.rest and not h.pct %}<i data-rest="1" style="height:100%;background:repeating-linear-gradient(135deg,var(--line) 0 4px,transparent 4px 8px);opacity:.8;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: rest day"></i>{% else %}<i style="height:{{ [h.pct, 4]|max }}%;animation-delay:{{ loop.index0 * 0.05 }}s" title="{{ h.day }}: {{ h.pct }}%"></i>{% endif %}{% endfor %}</div>
   <div class="mut small" style="margin-top:2px">{% if hist[p._id]|length < 7 %}Each day since {{ p.name }} started{% else %}The last 7 days{% endif %}, today on the right{% if hist[p._id]|selectattr('rest')|list %} · striped: rest day{% endif %}</div>{% endif %}
-  <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a>{% if ctx.full %}<a class="btn" href="/children/{{ p._id }}/edit">Settings</a>{% endif %}</div>
+  <div class="row"><a class="btn" href="/children/{{ p._id }}">Progress</a>{% if ctx.full %}<a class="btn" href="/children/{{ p._id }}/edit">Settings</a>{% else %}<a class="btn" href="/children/{{ p._id }}/edit">Spelling list &amp; days off</a>{% endif %}</div>
+  {% set sl = p.school_words or {} %}<p class="mut small" style="margin:8px 0 0" data-testid="home-discover">{% if b['items']|selectattr('key', 'equalto', 'spelling')|list and not (sl.words and sl.get('from', '') <= today_day < sl.get('until', '')) %}<span style="white-space:nowrap">Got a spelling list from school?</span> <a href="/children/{{ p._id }}/edit#school-list" data-testid="discover-list">Add it</a> · {% endif %}<span style="white-space:nowrap">Day off? <a href="/children/{{ p._id }}/edit#days-off" data-testid="discover-off">Mark it</a></span></p>
 </div>
 {% else %}
 <div class="card rise feature"><img src="/static/img/family.png" alt=""><div><b class="display" style="font-size:1.2rem">No children yet</b><div class="mut">Add your first child and their daily plan is ready in a minute.</div></div></div>
@@ -37,6 +38,11 @@
   <button class="btn" type="button" id="installBtn" hidden data-testid="install-btn">Add to home screen</button>
   <button class="btn" type="button" id="installNo" data-testid="install-dismiss" style="background:none;border-color:transparent;color:var(--mut)">No thanks</button>
 </div>
+{% if events %}<details class="card small" data-testid="family-log"{% if events[0].kind in ('pin_lock', 'child', 'adult', 'role') and events[0].when.startswith('Today') %} open{% endif %}>
+  <summary style="cursor:pointer"><b>Family activity</b> <span class="mut">· latest: {{ events[0].text }}</span></summary>
+  <p class="mut" style="margin:6px 0">What the grown-ups and the PINs did lately, so everyone can see it: lock-outs and unlocks, PIN changes, grown-ups joining or leaving, roles, deleted children and new devices.</p>
+  <ul style="margin:0;padding-left:0;list-style:none">{% for e in events %}<li style="padding:4px 0;border-top:1px solid var(--line)" data-testid="log-line"><span class="mut" style="white-space:nowrap">{{ e.when }}</span> · {{ e.text }}</li>{% endfor %}</ul>
+</details>{% endif %}
 <p class="mut small">Questions about PINs, targets or rewards? See <a href="/help">Help</a>.</p>
 <script>
   /* The home-screen tip: the browser's own install prompt where there is one (Chrome, Edge, Android), written steps on

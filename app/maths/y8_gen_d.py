@@ -239,7 +239,8 @@ def _(d=1):
     def subtract():
         return _exprq("A number is called %s. Write an expression for %d less than %s."
                       % (v, j, v), _lin_str(1, -j, v),
-                      ["%d less than %s is %s." % (j, v, _lin_str(1, -j, v))], ex)
+                      ["%d less than %s means start at %s and take %d away: %s (not %d − %s)."
+                       % (j, v, v, j, _lin_str(1, -j, v), j, v)], ex)
 
     def multiply():
         return _exprq("A number is called %s. Write an expression for %s multiplied by %d."

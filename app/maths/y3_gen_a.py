@@ -137,7 +137,7 @@ def _(d=1):
         seq = [s + (i + 1) * st for i in range(3)]
         return _tb("Count forward in %ds from %d, up to 1,000. Write the next three numbers."
                    % (st, s), _lst(seq), "str",
-                   {"text": True, "placeholder": "e.g. %s" % _lst(seq[:2] + ["..."])},
+                   {"text": True, "placeholder": "e.g. 12, 16, 20"},
                    ["Counting forward means adding %d each time." % st,
                     "The next three numbers are %s." % _lst(seq)])
 

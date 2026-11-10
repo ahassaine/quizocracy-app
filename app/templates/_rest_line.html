@@ -1,0 +1,4 @@
+{# The rest-day story for one child on the grown-ups' screens (Home, the Board); My day tells the child the same.
+   b: the child's board entry (progress.board), name: the child's name. #}
+{% if b.rest %}<div class="small mut" style="margin-top:6px" data-testid="rest-line">{{ 'A day off' if b.rest == 'off' else 'Not a practice day' }}: nothing is due today.{% if b.pct %} {{ name }} had already done {{ b.pct }}% of the plan before it became a rest day.{% elif b.extra %} {{ name }} did {{ b.extra }} extra right answer{{ '' if b.extra == 1 else 's' }} anyway.{% endif %}{% if b.back %} Back to practice {{ b.back|dayname }}.{% endif %}</div>
+{% elif b.rest_next %}<div class="small" style="margin-top:6px" data-testid="tomorrow-off"><b>Tomorrow is {{ 'a day off' if b.rest_next == 'off' else 'a rest day' }}</b>{% if b.back %} <span class="mut">· back to practice {{ b.back|dayname }}</span>{% endif %}</div>{% endif %}

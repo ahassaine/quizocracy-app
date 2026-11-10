@@ -65,6 +65,7 @@ def test_a_missed_question_comes_back_after_a_gap_not_straight_away(page):
     st = DB.bank_state.find_one({"_id": f"{pid}:grammar"})
     DB.bank_state.update_one({"_id": st["_id"]}, {"$set": {"retry": [
         dict(r, after=r["after"] - datetime.timedelta(minutes=10)) for r in st["retry"]]}})
+    _age_attempts(pid, 10)                      # the gap is over by the clock too (items.just_shown)
     q = _next(s, "grammar")
     it = DB.items.find_one({"_id": q["token"]})["meta"]
     assert (it["skill"], it["qid"], it["reason"]) == (missed["skill"], missed["qid"], "retry")

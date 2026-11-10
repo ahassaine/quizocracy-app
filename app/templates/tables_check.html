@@ -11,7 +11,7 @@
       <li>You see how you did at the end</li>
     </ul>
     <div class="row"><button class="btn primary big" id="start" type="button" data-testid="mtc-start">Start</button></div>
-    {% if last %}<p class="mut small" data-testid="mtc-last">Your last scores: {{ last|join(', ') }} /25</p>{% endif %}
+    {% if last %}<p class="mut small" data-testid="mtc-last">Your last scores: {{ last|join(', ') }} /25 · your best: {{ best }}/25</p>{% endif %}
   </div>
   <div id="run" hidden>
     <div class="kid"><span class="mut" id="count" data-testid="mtc-count"></span><span class="mtc-sec" id="sec" data-testid="mtc-sec" aria-label="seconds left"></span></div>
@@ -24,13 +24,14 @@
     </div>
   </div>
   <div id="done" hidden data-testid="mtc-done">
+    <div class="display" id="newBest" hidden data-testid="mtc-new-best" style="font-size:1.5rem;font-weight:800;color:var(--good)">★ New best!</div>
     <div class="mut">You scored</div>
     <div class="pct" style="font-size:2.6rem" data-testid="mtc-score"><span id="score"></span> <span class="mut" style="font-size:1.4rem">out of <span id="of">25</span></span></div>
     <div id="missedBox"></div>
     <p class="mut small" id="counted" data-testid="mtc-counted"></p>
     <p class="mut small" id="lastScores" data-testid="mtc-history"></p>
     <div class="row">
-      {% if practice %}<a class="btn primary" id="fixBtn" href="/me/tables?fix=1" style="display:none" data-testid="mtc-fix">Practise the ones I missed</a><a class="btn" href="/me/tables">Times tables</a>{% endif %}
+      {% if practice %}<a class="btn primary" id="fixBtn" href="/me/tables?fix=1&amp;check=1" style="display:none" data-testid="mtc-fix">Practise the ones I missed</a><a class="btn" href="/me/tables">Times tables</a>{% endif %}
       <button class="btn" id="again" type="button" data-testid="mtc-again">Try again</button>
     </div>
   </div>
@@ -111,11 +112,15 @@
     const box = $('missedBox');
     if (r.missed.length) {
       box.innerHTML = '<p style="margin:12px 0 0;font-weight:700">' + (r.missed.length === 1 ? 'The one to practise:' : 'The ' + r.missed.length + ' to practise:') + '</p><ul class="mtc-missed" data-testid="mtc-missed">'
-        + r.missed.map(m => '<li>' + esc(m.prompt) + ' ' + esc(m.answer) + ' <span class="mut">' + (m.given ? '(you wrote ' + esc(m.given) + ')' : '(no answer in time)') + '</span></li>').join('') + '</ul>';
+        + r.missed.map(m => '<li>' + esc(m.prompt) + ' ' + esc(m.answer) + ' <span class="mut">' + (m.given ? '(you wrote ' + esc(m.given) + ')' : '(no answer in time)') + '</span>'
+          + (m.tip ? '<div class="why" data-testid="mtc-tip">Tip: ' + esc(m.tip) + '</div>' : '') + '</li>').join('') + '</ul>';
     } else box.innerHTML = '<p style="margin:12px 0 0;font-weight:700">Every one right. Brilliant!</p>';
     $('counted').textContent = (r.missed.length ? 'These come up more often in your times tables practice now. ' : '')
       + (r.counted ? 'Your ' + r.score + ' right ' + (r.score === 1 ? 'answer counts' : 'answers count') + ' towards today’s times tables.' : '');
-    $('lastScores').textContent = 'Year 4 check practice: ' + r.last.join(', ') + ' /25';
+    $('lastScores').textContent = 'Year 4 check practice: ' + r.last.join(', ') + ' /25'
+      + (r.best != null ? ' · your best ' + (r.new_best ? 'was ' : 'is ') + r.best + '/25' : '');
+    $('newBest').hidden = !r.new_best;
+    if (r.new_best && window.QZ) QZ.confetti(160);
     if ($('fixBtn')) $('fixBtn').style.display = r.counted && r.missed.length ? '' : 'none';
     $('done').hidden = false;
   }

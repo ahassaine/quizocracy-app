@@ -126,7 +126,16 @@ async def pin_lock_until(pupil_id: str) -> datetime.datetime | None:
     since = datetime.datetime.utcnow() - PIN_LOCK
     rows = await db.login_failures.find({"email": f"pin:{pupil_id}", "ts": {"$gt": since}}) \
         .sort("ts", -1).skip(PIN_FAILS - 1).limit(1).to_list(1)
-    return rows[0]["ts"] + PIN_LOCK if rows else None
+    if not rows:
+        return None
+    # The family activity log notes each lock once, whoever sees it first (the child's next try, Home, the picker).
+    key = f"pinlock:{pupil_id}:{rows[0]['ts'].isoformat()}"
+    if not await db.family_log.find_one({"_id": key}, {"_id": 1}):
+        p = await db.pupils.find_one({"_id": pupil_id}, {"name": 1, "family_id": 1})
+        if p:
+            await log_event(p["family_id"], "pin_lock", f"{p['name']} was locked out after {PIN_FAILS} wrong PINs",
+                            key=key, ts=rows[0]["ts"], pupil_id=pupil_id)
+    return rows[0]["ts"] + PIN_LOCK
 
 
 async def pin_locks(pupils: list) -> dict:
@@ -149,6 +158,63 @@ def local_time(utc: datetime.datetime) -> datetime.datetime:
 
 def local_hm(utc: datetime.datetime) -> str:
     return local_time(utc).strftime("%H:%M")
+
+
+# ---- The family activity log: what one grown-up did that the others should be able to see (Home) ----
+
+def adult_name(account: dict) -> str:
+    """How the other grown-ups see this adult: the name they gave in Settings, else their email."""
+    return (account.get("name") or "").strip() or account.get("email", "")
+
+
+async def log_event(family_id: str, kind: str, text: str, key: str | None = None, ts: datetime.datetime | None = None,
+                    **extra) -> None:
+    """One line in the family's activity log. `key` makes it once only (a lock seen by several pages)."""
+    row = {"family_id": family_id, "kind": kind, "text": text[:200], "ts": ts or datetime.datetime.utcnow(), **extra}
+    if key:
+        await db.family_log.update_one({"_id": key}, {"$setOnInsert": row}, upsert=True)
+    else:
+        await db.family_log.insert_one(row)
+
+
+async def family_events(family_id: str, n: int = 8) -> list:
+    """The latest lines of the family's log, newest first: [{"text", "when"}] ("Today 13:04", "9 Nov 18:30")."""
+    today = local_time(datetime.datetime.utcnow()).date()
+    out = []
+    async for r in db.family_log.find({"family_id": family_id}).sort("ts", -1).limit(n):
+        t = local_time(r["ts"])
+        day = "Today" if t.date() == today else "Yesterday" if (today - t.date()).days == 1 else f"{t.day} {t:%b}"
+        out.append({"text": r["text"], "when": f"{day} {t:%H:%M}", "kind": r.get("kind", "")})
+    return out
+
+
+# A browser that signed in before carries this cookie; a sign-in without it is a new device (the owner of the login
+# gets a one-line email). Only a hash of it is kept on the account, with the last DEVICES_KEPT.
+DEVICE_COOKIE, DEVICES_KEPT = "qz_d", 20
+
+
+async def note_device(request: Request, response, account: dict, quiet: bool = False) -> bool:
+    """Remember this browser for this adult; True if it had never signed in to this login before. An account from
+    before devices were remembered (no list yet) treats its first sign-in as known, and so does `quiet` (sign-up)."""
+    tok = request.cookies.get(DEVICE_COOKIE) or new_token()
+    key = token_key(tok)
+    known = account.get("devices")
+    new = known is not None and key not in known and not quiet
+    if known is None or key not in known:
+        await db.accounts.update_one({"_id": account["_id"]}, {"$push": {"devices": {"$each": [key], "$slice": -DEVICES_KEPT}}})
+    response.set_cookie(DEVICE_COOKIE, tok, max_age=400 * 86400, httponly=True, secure=config.COOKIE_SECURE,
+                        samesite="lax", path="/")
+    return new
+
+
+def device_text(ua: str) -> str:
+    """"Chrome on Android" from a user agent, by its product tokens only; "a browser" when unsure."""
+    ua = ua or ""
+    os_ = next((n for t, n in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Windows", "Windows"),
+                                ("Mac OS X", "Mac"), ("CrOS", "Chromebook"), ("Linux", "Linux")) if t in ua), "")
+    br = next((n for t, n in (("Edg/", "Edge"), ("OPR/", "Opera"), ("Firefox/", "Firefox"), ("FxiOS", "Firefox"),
+                               ("CriOS", "Chrome"), ("Chrome/", "Chrome"), ("Safari/", "Safari")) if t in ua), "")
+    return f"{br or 'a browser'} on {os_}" if os_ else (br or "a browser")
 
 
 async def family_page(request: Request) -> Ctx:

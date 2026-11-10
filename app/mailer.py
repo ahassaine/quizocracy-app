@@ -48,6 +48,18 @@ async def send(to: str, subject: str, body: str, secret: str | None = None, html
     await asyncio.to_thread(_send_smtp, msg)
 
 
+async def to_family(family_id: str, subject: str, body: str, roles: tuple = ("owner", "parent"), skip: tuple = (),
+                    flag: str | None = None) -> int:
+    """The same message to each adult of a family with one of `roles` (the parents, by default), leaving out the
+    account ids in `skip`; with `flag`, only adults who ticked that setting. Returns how many were sent."""
+    n = 0
+    async for a in db.accounts.find({"family_id": family_id, "verified_at": {"$ne": None}}):
+        if (a.get("role") or "owner") in roles and a["_id"] not in skip and (not flag or a.get(flag)):
+            await send(a["email"], subject, body)
+            n += 1
+    return n
+
+
 def _sig(purpose: str, account_id: str) -> str:
     mac = hmac.new(config.SECRET_KEY.encode(), f"{purpose}:{account_id}".encode(), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac[:18]).decode()

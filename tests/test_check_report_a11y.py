@@ -128,7 +128,7 @@ def test_report_a_question_and_the_team_list(browser):
     pg.press("#reportNote", "Enter")                    # typing a note never answers or skips the question
     assert pg.evaluate("document.body.dataset.qtoken") == doc["_id"]
     pg.click("[data-testid=report-send]")
-    pg.wait_for_function("document.getElementById('reportMsg').textContent === 'Thanks! A grown-up will check it.'")
+    pg.wait_for_function("""document.getElementById('reportMsg').textContent === "Thanks! We'll check it, and your grown-up can see it too." """)
     r = DB.reports.find_one({"pupil_id": pid})
     assert r["served"]["prompt"] == doc["meta"]["prompt"] and r["expected"] == doc["answer"]
     assert r["answer"] == str(int(doc["answer"]) + 1) and r["reason"] == "wrong" and r["year"] == 4

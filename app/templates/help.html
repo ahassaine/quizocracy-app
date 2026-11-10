@@ -10,28 +10,32 @@
   .help-q:target { border-color:var(--violet); }
 </style>
 <h1 class="rise">Help</h1>
-<p class="mut">Short answers for parents. Can't find what you need? Write to <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
+<p class="mut">Short answers for parents and carers. Can't find what you need? Write to <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>.</p>
 <div class="field" style="max-width:420px"><label for="helpSearch">Search the help</label>
-  <input id="helpSearch" type="search" placeholder="For example: PIN, reward, Scotland" autocomplete="off" data-testid="help-search"></div>
+  <input id="helpSearch" type="text" inputmode="search" enterkeyhint="search" placeholder="For example: PIN, spelling list, dyslexia, day off" autocomplete="off" data-testid="help-search"></div>
 <p class="mut small" id="helpNone" hidden data-testid="help-none">Nothing matches. Try another word, or write to us.</p>
 <nav class="card" aria-label="Questions" id="helpToc"><ol class="help-toc small">
   {% for id, q in [("day-plan", "What is a day's plan and how long does it take?"), ("mastered", "How does something get learned (mastered)?"),
      ("comes-back", "Why does a missed question come back later?"), ("first-time", "What do “right first time”, “rushed” and “copied” mean?"),
      ("pins", "PINs: setting, showing, a locked child and unlocking"), ("changes", "Changing targets: “Changes start tomorrow”"),
+     ("school-list", "The school's spelling list"), ("year4-check", "Year 4 times tables check practice"),
+     ("days-off", "Days off, rest days, sick days and holidays"), ("reading", "Reading settings and dyslexia"),
      ("rewards", "Rewards"), ("handover", "Handing the device to a child, and parent mode"), ("siblings", "Siblings on one device"),
-     ("read-aloud", "Read-aloud"), ("curriculum", "Which curriculum does it follow?"), ("report", "A progress report for a teacher"),
-     ("install", "Putting Quizocracy on your home screen"), ("beta", "What does the beta include?"),
+     ("own-phone", "A child using their own phone or tablet"), ("adults", "A second parent or a carer"),
+     ("read-aloud", "Read-aloud"), ("curriculum", "Which curriculum does it follow?"), ("sats", "SATs and other tests (KS1, KS2)"),
+     ("question-reports", "“Something wrong with this question?”"), ("report", "A progress report for a teacher"),
+     ("weekly", "The weekly email"), ("install", "Putting Quizocracy on your home screen"), ("beta", "What does the beta include?"),
      ("privacy", "Data and privacy"), ("contact", "How to contact us")] %}
   <li><a href="#{{ id }}">{{ q }}</a></li>{% endfor %}</ol></nav>
 
 <section class="card help-q" id="day-plan"><h2>What is a day's plan and how long does it take?<a class="anchor" href="#day-plan" aria-label="Link to this answer">#</a></h2>
-  <p>Each child has a short list of activities for the day, each with a target of <b>right answers</b> (for example: maths 8, times tables 20, spelling 8). Wrong answers never count towards a target. The day is finished when every activity reaches its target, and the bar shows how far along it is. A child can keep going after that; extra right answers show as “+5”.</p>
+  <p>Each child has a short list of activities for the day, each with a target of <b>right answers</b> (for example: maths 8, times tables 20, spelling 8). Wrong answers never count towards a target. The day is finished when every activity reaches its target, and the bar shows how far along it is. A child can keep going after that; extra right answers show as “+5”, and in grammar and science the extra questions take the year's topics in turn, the weakest first.</p>
   <p>When you add a child, the plan is filled in for their school year and comes to about 15 minutes. The child's Settings page shows “About … minutes a day” as you change the targets. Younger children take longer per answer, and the estimate allows for that.</p>
 </section>
 
 <section class="card help-q" id="mastered"><h2>How does something get learned (mastered)?<a class="anchor" href="#mastered" aria-label="Link to this answer">#</a></h2>
   <ul>
-    <li><b>Maths, grammar and science skills</b> have a score from 0 to 100. Right answers raise it; wrong answers lower it, more so near the top. At 100 the skill is <b>secure</b> (mastered). A child who gets a skill right every time, 5 in a row, is secure at once, and the app checks it again on a later day. Secure skills come back now and then so they are not forgotten.</li>
+    <li><b>Maths, grammar and science skills</b> have a score from 0 to 100. Right answers raise it; wrong answers lower it, more so near the top. At 100 the skill is <b>secure</b> (mastered). A child who gets a skill right every time, 5 in a row, is secure at once, and the app checks it again on a later day. Secure skills come back now and then so they are not forgotten. From Year 5, a new maths skill starts with questions at the middle of the year's level, and easier ones come only after a wrong answer.</li>
     <li><b>Times tables:</b> a fact is known once it is answered right 3 times in a row.</li>
     <li><b>Spelling:</b> a word is learned when it is spelt right on 3 different days. Words come back after 1, 3, 7 and 21 days.</li>
     <li><b>Irregular verbs:</b> a verb is known when it is right twice running; 10 right in a row moves the child up a level.</li>
@@ -40,8 +44,8 @@
 </section>
 
 <section class="card help-q" id="comes-back"><h2>Why does a missed question come back later?<a class="anchor" href="#comes-back" aria-label="Link to this answer">#</a></h2>
-  <p>After a wrong answer the child sees the right one. If the same question came straight back, they could copy it from memory without learning it. So it comes back after at least 5 other questions and 3 minutes, when getting it right means it was remembered. Grammar and science questions come back once more on another day.</p>
-  <p>On their own page a child also has a <b>Practise my mistakes</b> button. On the child's progress page you see “Mistakes to go over” for the last 7 days; once a mistake is answered right later, it moves to “Put right since”.</p>
+  <p>After a wrong answer the child sees the right one. If the same question came straight back, they could copy it from memory without learning it. So it comes back after at least 5 other questions and 3 minutes, when getting it right means it was remembered. Grammar and science questions come back once more on another day. In grammar and science, a one-word answer with only a spelling slip, or a rewritten sentence missing only its full stop or capital letter, gets one “Nearly” and a second try first.</p>
+  <p>On their own page a child also has a <b>Practise my mistakes</b> button. On the child's progress page you see “Mistakes to go over” for the last 7 days. A mistake moves to “Put right since” only when the child later answers <b>that same question</b> right: the same word, times-table fact, verb or grammar and science question. Maths questions are made fresh each time, so there a mistake moves when a question like it (the same kind of question, with new numbers) is answered right later; the page then says “a question like this was right later”. A right answer to some other question on the same skill doesn't count, and neither does a right answer typed straight after being shown the answer. Once put right, a mistake stays put right; missing it again shows as a new mistake. <b>Practise my mistakes</b> asks those same questions again (in maths, a question like each one).</p>
 </section>
 
 <section class="card help-q" id="first-time"><h2>What do “right first time”, “rushed” and “copied” mean?<a class="anchor" href="#first-time" aria-label="Link to this answer">#</a></h2>
@@ -54,15 +58,46 @@
 
 <section class="card help-q" id="pins"><h2>PINs: setting, showing, a locked child and unlocking<a class="anchor" href="#pins" aria-label="Link to this answer">#</a></h2>
   <ul>
-    <li><b>Setting:</b> you choose a 4-number PIN when you add a child. To change it, open the child's <b>Settings</b> and type a new PIN. The new one works at once and the old one stops working.</li>
-    <li><b>Showing:</b> forgotten it? In the child's Settings, press <b>Show the PIN</b>. Only parents can see it; a carer with their own login can't.</li>
+    <li><b>Setting:</b> you choose a 4-number PIN when you add a child. To change it, a parent opens the child's <b>Settings</b> and types a new PIN. The new one works at once and the old one stops working.</li>
+    <li><b>Showing:</b> forgotten it? A parent presses <b>Show the PIN</b> in the child's Settings. A carer with their own login can see the PINs too: in <a href="/settings">Settings</a> (the carer's own Settings page), under <b>Children's PINs</b>, press <b>Show</b> next to the child.</li>
     <li><b>Locked:</b> after 6 wrong PINs within 5 minutes, that child's tile locks for 5 minutes, so a brother or sister can't keep guessing. The tile says until when.</li>
-    <li><b>Unlocking:</b> wait, or on Home press <b>Unlock</b> next to the child. On “Who's learning?” open <b>Grown-up? Unlock … now</b> under the child's name and type your parent password. Changing the PIN also lifts the lock.</li>
+    <li><b>Unlocking:</b> wait, or on Home press <b>Unlock</b> next to the child. On “Who's learning?” open <b>Grown-up? Unlock … now</b> under the child's name and type your password (any grown-up on this family can use their own). Changing the PIN also lifts the lock.</li>
   </ul>
 </section>
 
 <section class="card help-q" id="changes"><h2>Changing targets: “Changes start tomorrow”<a class="anchor" href="#changes" aria-label="Link to this answer">#</a></h2>
   <p>Change the activities and targets in the child's <b>Settings</b>. If the child hasn't practised yet today, changes start straight away. If they have started, today keeps the plan they started with and the changes start tomorrow, so the finish line doesn't move under them. To change today too, tick <b>Change today's plan too</b>; a reward already earned today stays earned. Past days are always judged against the plan they had.</p>
+</section>
+
+<section class="card help-q" id="school-list" data-keys="spelling list school list weekly words homework spellings test homophone sound alike"><h2>The school's spelling list<a class="anchor" href="#school-list" aria-label="Link to this answer">#</a></h2>
+  <p>Got this week's spelling list from school? Open the child's <b>Settings</b> and find <b>This week's spelling list from school</b> (Home has a link to it under each child). Type or paste the words: commas, spaces or one word a line all work, and a numbered list copied from a school letter is fine. Press <b>Save</b>.</p>
+  <p>For the next 7 days the child practises those words first, with the same listening and marking, then goes back to their year's list. Saving a new list starts a new week; emptying the box stops it. Words from earlier lists that are still tricky keep coming back until they are learned, and the progress page shows how each word is going.</p>
+  <p><b>Words that sound alike</b> (there, their and they're; where and wear; went and want): add a short sentence after a dash so the child knows which one is meant, for example <code>their - it is their dog</code>. We hide the word in the sentence (“it is ___ dog”) and show it with the question. Each word with a sentence goes on its own line, or between commas: <code>their - it is their dog, should, could</code>. If a word in the list sounds like another and has no sentence, the form asks you about it.</p>
+</section>
+
+<section class="card help-q" id="year4-check" data-keys="multiplication tables check mtc times tables test year 4 check practice timed"><h2>Year 4 times tables check practice<a class="anchor" href="#year4-check" aria-label="Link to this answer">#</a></h2>
+  <p>In June of Year 4, children in England take the Multiplication Tables Check: 25 times-table questions, 6 seconds each, on a screen. The practice works the same way. A child in Year 3 or above finds it at the bottom of the <b>Times tables</b> page: <b>Practise the check</b>. They see their score at the end and the questions they missed; <b>Practise the ones I missed</b> then practises only that check's missed facts. From the second miss of the same fact, a tip for remembering it appears.</p>
+  <p>Every check, with its date and the best score, is on the child's progress page and in the printable report. To make one check a day part of the plan, tick <b>+ a Year 4 check</b> next to Times tables in the child's Settings (Years 3 to 6). A finished check also counts towards the times tables target when times tables are in the plan.</p>
+</section>
+
+<section class="card help-q" id="days-off" data-keys="day off days off sick ill poorly holiday holidays half term rest weekend weekends break away"><h2>Days off, rest days, sick days and holidays<a class="anchor" href="#days-off" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>Practice days:</b> in the child's Settings, under <b>Practice days</b>, untick the days they don't practise (for example Saturday and Sunday). Those become rest days every week.</li>
+    <li><b>A day off</b> (a sick day, a holiday, a busy weekend): in the child's Settings, under <b>Days off</b>, choose the first day and, if it is more than one, the last day (up to 3 weeks), then press <b>Save</b>. A day off starts at once, even today. To cancel one, tick it in the list there and save. Home has a <b>Day off? Mark it</b> link under each child.</li>
+  </ul>
+  <p>On a rest day nothing is due: the child's page says so, anything they do counts as extra, and the history shows the day striped as rest, not as 0%. A reward already earned is never taken back. A carer can mark a day off too.</p>
+</section>
+
+<section class="card help-q" id="reading" data-keys="dyslexia dyslexic font letters bigger text size larger spacing easier to read aa colours contrast visual stress sen send"><h2>Reading settings and dyslexia<a class="anchor" href="#reading" aria-label="Link to this answer">#</a></h2>
+  <p>Each child can have the questions shown in a way that is easier for them to read:</p>
+  <ul>
+    <li><b>Bigger text</b></li>
+    <li><b>Easy-to-read letters</b>, a font that is good for dyslexia</li>
+    <li><b>More space</b> between letters and lines</li>
+    <li><b>Less movement</b> (no stars or bouncing) and <b>stronger colours</b></li>
+  </ul>
+  <p>A parent sets them in the child's <b>Settings</b>, under <b>Reading</b>. They belong to that child, so they follow them to every phone, tablet and computer, and a brother or sister on the same tablet keeps their own. The child can change them too, with the <b>Aa</b> button at the top of their page and of every question. With no child signed in, the <b>Aa</b> button changes that device only.</p>
+  <p>Every question can also be read out: see <a href="#read-aloud">Read-aloud</a>.</p>
 </section>
 
 <section class="card help-q" id="rewards"><h2>Rewards<a class="anchor" href="#rewards" aria-label="Link to this answer">#</a></h2>
@@ -75,11 +110,25 @@
 </section>
 
 <section class="card help-q" id="siblings"><h2>Siblings on one device<a class="anchor" href="#siblings" aria-label="Link to this answer">#</a></h2>
-  <p>Each child has their own name tile, PIN, year, plan and progress. When one finishes, they press <b>Switch</b>: that signs them out, and the next child types their own PIN. Nobody can practise on a sibling's account without the sibling's PIN. The <b>Board</b> shows everyone's day side by side. Each child can also use their own phone or tablet: sign in there with your account and hand it over.</p>
+  <p>Each child has their own name tile, PIN, year, plan, reading settings and progress. When one finishes, they press <b>Switch</b>: that signs them out, and the next child types their own PIN. Nobody can practise on a sibling's account without the sibling's PIN. The <b>Board</b> shows everyone's day side by side.</p>
 </section>
 
-<section class="card help-q" id="read-aloud"><h2>Read-aloud<a class="anchor" href="#read-aloud" aria-label="Link to this answer">#</a></h2>
-  <p>Every question has a speaker button that reads it out with the device's own voice (a British English voice where the device has one). Children in Years 1 and 2 also hear each question as it appears, and hear the feedback. On iPhone and iPad the device only speaks after a first tap, so the button says “Tap to hear” until then. Spelling always plays the word to spell. If a device has no voice, the speaker button is not shown and everything else works as normal.</p>
+<section class="card help-q" id="own-phone" data-keys="own phone mobile tablet ipad teenager teen device second device sign in child login"><h2>A child using their own phone or tablet<a class="anchor" href="#own-phone" aria-label="Link to this answer">#</a></h2>
+  <p>Children don't have a login of their own: they use the family's, with their PIN. To set up a child's own phone or tablet, open quizocracy.com on it, sign in once with your (a grown-up's) email and password, and press <b>Hand over to a child</b>. From then on it opens on “Who's learning?”, and the child signs in with their PIN. You can also put it on the home screen, like an app (see <a href="#install">Putting Quizocracy on your home screen</a>).</p>
+  <p>Your password is not kept on the phone in a way the child can see or use: going back to the parent area always asks for a grown-up's password, and it locks itself after 5 minutes without use. When you sign in on a new device, we email you to say so. If you change your password, every device is signed out, the child's phone too, and a grown-up signs in on it again.</p>
+</section>
+
+<section class="card help-q" id="adults" data-keys="second parent partner husband wife mum dad mother father grandparent grandma grandad grandpa granny nan nanny childminder babysitter carer role invite remove grown-up co-parent"><h2>A second parent or a carer<a class="anchor" href="#adults" aria-label="Link to this answer">#</a></h2>
+  <p>Each grown-up has their own email and password on the same family. In <a href="/settings#adults">Settings</a>, under <b>Grown-ups on this family</b>, type their email, choose <b>Parent</b> or <b>Carer</b> and press <b>Send invitation</b>. They get an email with a link that works for 7 days and choose their own password. The parents are told by email when someone joins.</p>
+  <ul>
+    <li><b>Parent</b> (for a partner): can do everything, like you. Add and change children and their plans, invite and remove grown-ups, change the account. Deleting a child needs that parent's password, and the other parents get an email about it.</li>
+    <li><b>Carer</b> (for a grandparent or a childminder): can hand the device to a child, unlock a locked child, see Home, the board and each child's progress, see the children's PINs in their own Settings, type in the school's spelling list and mark a day off. A carer can't change the children's plans, targets or rewards, delete a child, or change the account or its data.</li>
+  </ul>
+  <p><b>Changing a role:</b> next to their name in Settings, press <b>Make carer</b> or <b>Make parent</b>. Their login, password and weekly email stay as they were, and we tell them by email. <b>Removing someone:</b> press <b>Remove</b> next to their name. They are signed out on every device at once and get an email saying so. The account owner (the grown-up who signed the family up) can't be removed or changed. Only parents can invite, change or remove grown-ups.</p>
+</section>
+
+<section class="card help-q" id="read-aloud" data-keys="reading voice speak speaker listen sound audio"><h2>Read-aloud<a class="anchor" href="#read-aloud" aria-label="Link to this answer">#</a></h2>
+  <p>Every question has a speaker button that reads it out with the device's own voice (a British English voice where the device has one). Children in Years 1 and 2 also hear each question as it appears, and hear the feedback. On iPhone and iPad the device only speaks after a first tap, so the button says “Tap to hear” until then. Spelling always plays the word to spell. If a device has no voice, the speaker button is not shown and everything else works as normal. For bigger text or an easier font, see <a href="#reading">Reading settings</a>.</p>
 </section>
 
 <section class="card help-q" id="curriculum"><h2>Which curriculum does it follow?<a class="anchor" href="#curriculum" aria-label="Link to this answer">#</a></h2>
@@ -91,8 +140,27 @@
   </table></div>
 </section>
 
+<section class="card help-q" id="sats" data-keys="sats sat ks1 ks2 key stage test tests exam exams gps spag grammar punctuation spelling test year 6 year 2 revision"><h2>SATs and other tests (KS1, KS2)<a class="anchor" href="#sats" aria-label="Link to this answer">#</a></h2>
+  <ul>
+    <li><b>Year 6 (KS2 SATs, in May):</b> the tests are maths (arithmetic and reasoning), reading, and grammar, punctuation and spelling. Year 6 maths here follows the Year 6 programme, which goes back over the earlier KS2 topics the maths papers also ask about: place value, written methods, times tables, fractions and decimals. Secure skills keep coming back now and then, so earlier work is not forgotten. In Year 6 grammar, the <b>Test review</b> topic goes over the Year 3 to 5 grammar that the KS2 grammar, punctuation and spelling test asks about (word classes, clauses, tenses, apostrophes); the other Year 6 topics are the Year 6 grammar itself. Spelling uses the Years 5 and 6 word list, and the spelling test draws on it too. Reading comprehension is not covered.</li>
+    <li><b>Year 4 (the Multiplication Tables Check, in June):</b> see <a href="#year4-check">Year 4 times tables check practice</a>.</li>
+    <li><b>Year 2 (KS1):</b> the KS1 tests are now optional for schools. Year 2 maths, grammar and spelling here follow the Year 2 programme, which is what those tests are about.</li>
+  </ul>
+  <p>Quizocracy is daily practice of the curriculum, not past papers or timed mock tests (apart from the Year 4 check practice). If the class is revising one topic, choose it under <b>Working on this at school</b> in the child's Settings.</p>
+</section>
+
+<section class="card help-q" id="question-reports" data-keys="report reported wrong question mistake bug error problem answer wrong something wrong"><h2>“Something wrong with this question?”<a class="anchor" href="#question-reports" aria-label="Link to this answer">#</a></h2>
+  <p>Under every question there is a <b>Something wrong with this question?</b> link. A child (or you) can say the answer looks wrong, the question can't be read, or it doesn't make sense, and add a note. We look at every report.</p>
+  <p>You see each child's reports, and what we found, on the child's progress page, under <b>Questions … reported</b>, and the mistake it was about is marked “reported”. To get an email when we have checked one, tick <b>Email me when a question a child reported has been checked</b> in <a href="/settings#login">Settings</a>. If a child reports a right answer as wrong (“I think 8 × 7 is 54”), it can be a good one to go over together.</p>
+</section>
+
 <section class="card help-q" id="report"><h2>A progress report for a teacher<a class="anchor" href="#report" aria-label="Link to this answer">#</a></h2>
-  <p>On a child's progress page, press <b>Print / save as PDF</b>. That opens a progress report which fits on one or two A4 pages: days practised, answers, right first time, minutes, skills secure by subject and strand, what to work on next and the spellings learned, for the last 7 days, the last 30 days or this term so far. Press <b>Print / save as PDF</b> again there to print it or save it to share.</p>
+  <p>On a child's progress page, press <b>Print / save as PDF</b>. That opens a progress report: days practised, answers, right first time, minutes, skills secure by subject and strand, what to work on next and the spellings learned, for the last 7 days, the last 30 days or this term so far. Press <b>Print / save as PDF</b> again there to print it or save it to share.</p>
+</section>
+
+<section class="card help-q" id="weekly" data-keys="weekly email summary sunday newsletter unsubscribe emails inbox"><h2>The weekly email<a class="anchor" href="#weekly" aria-label="Link to this answer">#</a></h2>
+  <p>On Sunday evening each grown-up who has it on gets one email about the week (Monday to Sunday): for each child, the days done, answers and minutes, what they mastered, and up to three things to help with. A week with no practice at all sends nothing.</p>
+  <p>It is on for parents and off for carers to start with. Each grown-up turns their own on or off in <a href="/settings#login">Settings</a>, under <b>Email me a weekly summary</b>, or with the one-click unsubscribe link at the bottom of the email.</p>
 </section>
 
 <section class="card help-q" id="install"><h2>Putting Quizocracy on your home screen<a class="anchor" href="#install" aria-label="Link to this answer">#</a></h2>
@@ -116,15 +184,52 @@
   <p>Email <a href="mailto:{{ cfg.SUPPORT_EMAIL }}">{{ cfg.SUPPORT_EMAIL }}</a>. A real person reads every message. If something looks wrong, tell us the child's year, the activity and the question, and a screenshot helps.</p>
 </section>
 <script>
-  /* Search: show only the answers that contain every word typed (headings and text), and hide the list of questions. */
+  /* Search: show only the answers that match every word typed, in their headings, text or data-keys, and hide the
+     list of questions. A word also matches its other words in SAME (written by hand: what parents type for what
+     the answers call it), and a few two-word phrases count as one word. */
   (function () {
     const box = document.getElementById('helpSearch'), toc = document.getElementById('helpToc'), none = document.getElementById('helpNone');
-    const qs = [...document.querySelectorAll('.help-q')];
+    const qs = [...document.querySelectorAll('.help-q')].map(s => ({ el: s, text: (s.textContent + ' ' + (s.dataset.keys || '')).toLowerCase() }));
+    const PHRASES = [['day off', 'dayoff'], ['days off', 'dayoff'], ['spelling list', 'spellinglist'], ['spelling lists', 'spellinglist'],
+      ['text size', 'textsize'], ['font size', 'textsize'], ['easier to read', 'easyread'], ['easy to read', 'easyread'],
+      ['times tables check', 'mtc'], ['times table check', 'mtc'], ['multiplication check', 'mtc'], ['year 4 check', 'mtc'],
+      ['key stage', 'ks'], ['second parent', 'partner'], ['own phone', 'ownphone'], ['weekly email', 'weekly'], ['half term', 'holiday']];
+    const SAME = {
+      dyslexia: ['dyslexi', 'easy-to-read', 'reading settings'], dyslexic: ['dyslexi', 'easy-to-read'],
+      font: ['font', 'letters'], fonts: ['font', 'letters'], bigger: ['bigger', 'larger'], big: ['bigger'], larger: ['bigger'],
+      textsize: ['bigger text'], easyread: ['easier to read', 'easy-to-read'], spacing: ['space between'], space: ['space between'],
+      reading: ['reading', 'read-aloud', 'read out', 'easier to read'], read: ['reading', 'read-aloud', 'read out'], colours: ['colours'], colors: ['colours'], colour: ['colours'], color: ['colours'],
+      sick: ['sick', 'day off'], ill: ['sick', 'day off'], poorly: ['sick', 'day off'], illness: ['sick'],
+      holiday: ['holiday', 'day off'], holidays: ['holiday', 'day off'], vacation: ['holiday'], dayoff: ['day off', 'days off'],
+      rest: ['rest'], weekend: ['weekend', 'practice days'], weekends: ['weekend', 'practice days'], break: ['day off', 'holiday'],
+      spellinglist: ['spelling list'], spellings: ['spelling'], homework: ['school'], homophone: ['sound alike', 'sounds like'],
+      homophones: ['sound alike', 'sounds like'],
+      sats: ['sats'], sat: ['sats'], test: ['test', 'year 4 check'], tests: ['test', 'year 4 check'], exam: ['test', 'sats'], exams: ['test', 'sats'],
+      ks1: ['ks1'], ks2: ['ks2'], ks: ['ks1', 'ks2'], gps: ['grammar, punctuation and spelling'], spag: ['grammar, punctuation and spelling'],
+      revision: ['test', 'revising'], mtc: ['year 4 check', 'multiplication tables check'], multiplication: ['times', 'multiplication'],
+      carer: ['carer'], carers: ['carer'], grandparent: ['carer', 'grandparent'], grandparents: ['carer', 'grandparent'],
+      grandma: ['carer', 'grandparent'], grandad: ['carer', 'grandparent'], grandpa: ['carer', 'grandparent'],
+      granny: ['carer', 'grandparent'], nan: ['carer', 'grandparent'], nana: ['carer', 'grandparent'],
+      childminder: ['carer', 'childminder'], babysitter: ['carer'], nanny: ['carer'], partner: ['second parent', 'partner'],
+      husband: ['second parent', 'partner'], wife: ['second parent', 'partner'], dad: ['parent'], mum: ['parent'],
+      mother: ['parent'], father: ['parent'], role: ['role'], roles: ['role'], invite: ['invit'], remove: ['remove'],
+      delete: ['delet'], phone: ['phone'], mobile: ['phone'], ipad: ['tablet', 'ipad'], tablet: ['tablet'], ownphone: ['own phone'],
+      teenager: ['own phone'], email: ['email'], emails: ['email'], weekly: ['weekly'], summary: ['summary'], unsubscribe: ['unsubscribe'],
+      report: ['report'], reported: ['report'], bug: ['something wrong'], error: ['something wrong'], wrong: ['wrong'],
+      password: ['password'], locked: ['locked', 'lock'], unlock: ['unlock'], install: ['home screen'], app: ['app', 'home screen'],
+    };
+    const words = q => {
+      let s = ' ' + q.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9' -]+/g, ' ') + ' ';
+      PHRASES.forEach(([p, t]) => { s = s.split(' ' + p + ' ').join(' ' + t + ' '); });
+      return s.split(/\s+/).filter(Boolean);
+    };
+    const hits = (text, w) => text.includes(w) || (SAME[w] || []).some(x => text.includes(x))
+      || (!SAME[w] && w.length > 3 && w.endsWith('s') && text.includes(w.slice(0, -1)));      // "rewards" finds "reward"
     box.addEventListener('input', () => {
-      const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
+      const ws = words(box.value);
       let shown = 0;
-      qs.forEach(s => { const hit = words.every(w => s.textContent.toLowerCase().includes(w)); s.hidden = !hit; shown += hit; });
-      toc.hidden = words.length > 0;
+      qs.forEach(({ el, text }) => { const hit = ws.every(w => hits(text, w)); el.hidden = !hit; shown += hit; });
+      toc.hidden = ws.length > 0;
       none.hidden = shown > 0;
     });
   })();

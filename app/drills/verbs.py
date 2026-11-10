@@ -71,8 +71,9 @@ async def check(pupil: dict, token: str, past: str, pp: str, ms: int | None) -> 
             upd.update({"level": st["level"] + 1, "run": 0})
             levelled = True
         await db.verbs_state.update_one({"_id": pupil["_id"]}, {"$set": upd})
-    await progress.record(pupil, "verbs", correct, ms, "" if copied else base, "Past forms of %s" % base,
-                          "%s, %s" % (it["answer"]["past"][0], it["answer"]["pp"][0]), "%s, %s" % (past or "", pp or ""))
+    await progress.record(pupil, "verbs", correct, ms, base, "Past forms of %s" % base,
+                          "%s, %s" % (it["answer"]["past"][0], it["answer"]["pp"][0]), "%s, %s" % (past or "", pp or ""),
+                          copied=copied)
     return {"correct": correct, "ok_past": ok_past, "ok_pp": ok_pp,
             "expected": {"past": it["answer"]["past"][0], "pp": it["answer"]["pp"][0]}, "levelled_up": levelled}
 

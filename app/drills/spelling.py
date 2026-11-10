@@ -355,6 +355,79 @@ CUES = {
     "Renaissance": "Art flourished in Italy during the ___.",
     "industrial": "Factories grew fast during the ___ Revolution.",
 }
+# Words that sound like another word, for a school list (a parent's list has no year of its own): a sentence
+# that fits only the target, as above. Only where the list's own entry has none (CUES.setdefault below).
+SOUND_CUES = {
+    "their": "The children put on ___ coats.", "they're": "The twins are here: ___ in the garden.",
+    "we're": "___ going to the park after lunch.", "too": "This soup is ___ hot for me.", "two": "I have ___ hands.",
+    "wear": "I ___ a coat when it is cold.", "which": "___ way is the park, left or right?",
+    "hear": "I can ___ the birds singing.", "you're": "___ my best friend.", "know": "I ___ the answer!",
+    "write": "Please ___ your name at the top.", "right": "Turn ___ at the end of the road.",
+    "new": "I got ___ shoes for school.", "knew": "I ___ the answer, but I forgot to say it.",
+    "went": "Yesterday we ___ to the beach.", "want": "I ___ a drink, please.", "what": "___ is your name?",
+    "when": "Come in ___ the bell rings.", "off": "Turn ___ the light.", "then": "First we ate, and ___ we played.",
+    "than": "A cat is bigger ___ a mouse.", "for": "This present is ___ you.", "four": "A dog has ___ legs.",
+    "won": "Our team ___ the match.", "blue": "The sky is ___.", "blew": "The wind ___ my hat away.",
+    "see": "I ___ with my eyes.", "sea": "Fish swim in the ___.", "bee": "A ___ makes honey.",
+    "buy": "Can we ___ some sweets at the shop?", "bye": "Say ___ to Grandma.", "whose": "___ coat is this?",
+    "who's": "___ coming to the party?", "its": "The dog wagged ___ tail.", "it's": "___ raining again.",
+    "quite": "The water is ___ cold, but I can swim.", "piece": "Can I have a ___ of cake?",
+    "peace": "After the long war there was ___.", "meet": "Let's ___ at the park.", "meat": "Beef is a kind of ___.",
+    "week": "There are seven days in a ___.", "weak": "After being ill, I felt ___.", "night": "Owls hunt at ___.",
+    "knight": "The ___ rode a horse and wore armour.", "road": "Look both ways before you cross the ___.",
+    "rode": "She ___ her bike to school.", "son": "Their ___ is called Sam.", "sun": "The ___ shines in the sky.",
+    "hole": "The dog dug a ___ in the garden.", "seen": "Have you ___ my keys?",
+    "scene": "The last ___ of the film made me cry.", "pair": "I need a new ___ of socks.",
+    "pear": "A ___ is a green fruit.", "plane": "We flew to Spain on a ___.", "plain": "I like ___ crisps best.",
+    "brake": "Press the ___ to stop the bike.", "mail": "The postman brought the ___.",
+    "lose": "Don't ___ your gloves.", "loose": "My tooth is ___.", "threw": "She ___ the ball to me.",
+    "aloud": "Read the poem ___ to the class.", "allowed": "Are we ___ to play outside?",
+    "flour": "We need ___ to bake a cake.", "flower": "A rose is a ___.", "bear": "A brown ___ lives in the woods.",
+    "bare": "Walk on the sand with ___ feet.", "herd": "A ___ of cows stood in the field.",
+    "tail": "The dog wagged its ___.", "accept": "Please ___ this gift.", "weather": "The ___ is sunny today.",
+    "practise": "You need to ___ the piano every day.", "practice": "Football ___ is on Monday.",
+    "dessert": "We had ice cream for ___.", "passed": "The bus ___ our house.",
+}
+for _w, _c in SOUND_CUES.items():
+    CUES.setdefault(_w, _c)
+# Words that sound alike (or nearly, for a young child: "went"/"want"). A school word in one of these, with no
+# sentence of the parent's and none above, gets a short meaning instead (MEANINGS), and the form asks for one.
+SOUNDS_LIKE = [
+    ("their", "there", "they're"), ("to", "too", "two"), ("where", "wear", "were", "we're"), ("which", "witch"),
+    ("hear", "here"), ("your", "you're"), ("know", "no"), ("knew", "new"), ("write", "right"), ("went", "want"),
+    ("of", "off"), ("then", "than"), ("for", "four"), ("one", "won"), ("blue", "blew"), ("see", "sea"),
+    ("be", "bee"), ("by", "buy", "bye"), ("our", "hour", "are"), ("whose", "who's"), ("its", "it's"),
+    ("quite", "quiet"), ("weather", "whether"), ("piece", "peace"), ("meet", "meat"), ("week", "weak"),
+    ("night", "knight"), ("road", "rode"), ("sun", "son"), ("whole", "hole"), ("seen", "scene"), ("pair", "pear"),
+    ("plain", "plane"), ("great", "grate"), ("break", "brake"), ("steak", "stake"), ("mail", "male"),
+    ("tail", "tale"), ("made", "maid"), ("missed", "mist"), ("heard", "herd"), ("passed", "past"),
+    ("lose", "loose"), ("threw", "through"), ("aloud", "allowed"), ("flour", "flower"), ("bear", "bare"),
+    ("accept", "except"), ("affect", "effect"), ("advice", "advise"), ("practice", "practise"),
+    ("stationary", "stationery"), ("desert", "dessert"), ("heal", "heel"), ("berry", "bury"), ("medal", "meddle"),
+    ("groan", "grown"), ("fair", "fare"), ("hair", "hare"), ("sail", "sale"), ("wait", "weight"),
+    ("waste", "waist"), ("board", "bored"), ("cereal", "serial"), ("what", "want"), ("when", "went"),
+]
+_SOUNDS = {}
+for _g in SOUNDS_LIKE:
+    for _w in _g:
+        _SOUNDS.setdefault(_w, [])
+        _SOUNDS[_w] += [x for x in _g if x != _w and x not in _SOUNDS[_w]]
+# The last resort for those with no sentence: what the word means, in a few words (shown as the hint).
+MEANINGS = {
+    "maid": "a woman who cleans and tidies for a family", "male": "a boy or a man, or a he-animal",
+    "tale": "a story", "grate": "to rub food into tiny bits", "stake": "a strong pointed stick",
+    "mist": "a thin cloud near the ground", "missed": "did not catch or hit it", "heal": "to get better",
+    "heel": "the back of your foot", "berry": "a small round fruit", "bury": "to put deep in the ground",
+    "medal": "a prize you wear round your neck", "meddle": "to poke into things that are not yours",
+    "groan": "a low, unhappy sound", "grown": "got bigger", "fair": "the same for everyone",
+    "fare": "the money for a ride on a bus or train", "hare": "an animal like a big, fast rabbit",
+    "hair": "it grows on your head", "sail": "the big cloth that makes a boat go", "sale": "when shop things cost less",
+    "wait": "to stay until something happens", "waste": "to use up for nothing; rubbish",
+    "waist": "the middle of your body, where a belt goes", "board": "a flat piece of wood",
+    "bored": "fed up, with nothing to do", "cereal": "a breakfast food, such as corn flakes",
+    "serial": "a story told in parts", "desert": "a hot, dry place with sand", "past": "gone by; after",
+    "except": "all but; not counting", "quiet": "with no noise", "whether": "if (whether or not)",
+}
 
 
 def list_for_year(year: int) -> list:
@@ -381,44 +454,144 @@ def has_clip(word: str) -> bool:
 SCHOOL_MAX = 30
 SCHOOL_DAYS = 7
 SCHOOL_WORD = re.compile(r"[A-Za-z]+(?:['-][A-Za-z]+)*")
-_CUE_SPLIT = re.compile(r"\s+[-–—]\s+|\s*:\s*")
+_CUE_SPLIT = re.compile(r"\s*[–—]\s*|\s+-\s*|\s*-\s+|\s*:\s*")
 _BULLET = re.compile(r"^\s*(?:\d+[.)]|[-•*·–—])\s+")
 _KNOWN = {w.lower(): w for lst in list(LISTS.values()) + list(KS3.values()) for w in lst}
 
 
-def parse_school_words(text: str) -> tuple[list, str]:
-    """The parent's list -> ([{"w": word, "cue": sentence with ___}], error). Words may be split by commas,
-    semicolons, new lines or spaces; a line "there - over there" (or "there: over there") gives a sentence,
-    where the word is blanked out. Numbered or bulleted lists pasted from a school letter are fine."""
-    out, seen = [], set()
+def _pieces(text: str) -> list:
+    """The parent's text -> [(word, sentence, part)] in order, before any checking. part: the comma-separated
+    bit a word came from when that bit had several words, in a line that has commas ("want I want a dog"),
+    which is most likely a sentence typed without its dash.
+
+    A sentence starts after a dash or colon that follows a single word ("their - it is their dog"). It runs to
+    the end of the line, or to the next comma-separated bit that is a single word: "their - it is their dog,
+    should, could" is their (with its sentence), should and could; "when - When I got home, I ate" keeps the
+    comma, since "I ate" is more than one word."""
+    out = []
     for line in str(text or "").replace("’", "'").replace("‘", "'").splitlines():
         line = _BULLET.sub("", line).strip()
         if not line:
             continue
-        m = _CUE_SPLIT.search(line)
-        if m and SCHOOL_WORD.fullmatch(line[:m.start()].strip()):
-            pieces = [(line[:m.start()].strip(), line[m.end():].strip())]
-        else:
-            pieces = [(w, "") for w in re.split(r"[,;\s]+", line) if w.strip(".!?\"-–—")]
-        for w, cue in pieces:
-            w = w.strip(".!?\"")
-            w = _KNOWN.get(w.lower(), w)          # "february" is the list's "February", with its own clip
-            if not SCHOOL_WORD.fullmatch(w):
-                return [], (f"“{w[:30]}” can't be a spelling word: use letters only, with an apostrophe (don't) "
-                            "or a hyphen (well-known) if the word has one.")
-            if len(w) > 30:
-                return [], f"“{w[:30]}…” is too long for one word."
-            if w.lower() in seen:
+        parts = [p.strip() for p in re.split(r"\s*[,;]\s*", line)]
+        commas = len(parts) > 1
+        cue_at = None                            # index in out of the word whose sentence is running
+        for part in parts:
+            if not part.strip(".!?\"-–— "):
                 continue
-            seen.add(w.lower())
-            cue = cue[:120]
-            if cue and "___" not in cue:
-                cue = re.sub(r"(?<![A-Za-z'])" + re.escape(w) + r"(?![A-Za-z'])", "___", cue, flags=re.I)
-            out.append({"w": w, "cue": cue})
+            m = _CUE_SPLIT.search(part)
+            head = part[:m.start()].strip().strip(".!?\"") if m else ""
+            if m and m.start() > 0 and SCHOOL_WORD.fullmatch(head):
+                out.append([head, part[m.end():].strip(), ""])
+                cue_at = len(out) - 1
+                continue
+            toks = [t for t in part.split() if t.strip(".!?\"-–—")]
+            if cue_at is not None and (len(toks) > 1 or "___" in part):
+                out[cue_at][1] += ", " + part
+                continue
+            cue_at = None
+            for t in toks:
+                out.append([t, "", part if commas and len(toks) > 1 else ""])
+    return out
+
+
+def parse_school_words(text: str) -> tuple[list, str]:
+    """The parent's list -> ([{"w": word, "cue": sentence with ___}], error). Words may be split by commas,
+    semicolons, new lines or spaces; "there - over there" (or "there: over there") gives a sentence, where the
+    word is blanked out, on its own line or in a comma list (see _pieces). Numbered or bulleted lists pasted from
+    a school letter are fine."""
+    out, seen = [], set()
+    for w, cue, _ in _pieces(text):
+        w = w.strip(".!?\"")
+        w = _KNOWN.get(w.lower(), w)              # "february" is the list's "February", with its own clip
+        if not SCHOOL_WORD.fullmatch(w):
+            return [], (f"“{w[:30]}” can't be a spelling word: use letters only, with an apostrophe (don't) "
+                        "or a hyphen (well-known) if the word has one.")
+        if len(w) > 30:
+            return [], f"“{w[:30]}…” is too long for one word."
+        if w.lower() in seen:
+            continue
+        seen.add(w.lower())
+        cue = cue[:120]
+        if cue and "___" not in cue:
+            cue = re.sub(r"(?<![A-Za-z'])" + re.escape(w) + r"(?![A-Za-z'])", "___", cue, flags=re.I)
+        out.append({"w": w, "cue": cue})
     if len(out) > SCHOOL_MAX:
         return [], (f"That's {len(out)} words. Up to {SCHOOL_MAX} fit in one week's list: "
                     "keep the ones the school sent for this week.")
     return out, ""
+
+
+def _names(ws: list) -> str:
+    """'“I”', '“I” and “a”', '“I”, “a” and “dog”'."""
+    q = ["“%s”" % w for w in ws]
+    return q[0] if len(q) == 1 else ", ".join(q[:-1]) + " and " + q[-1]
+
+
+def school_doubts(text: str) -> str:
+    """Before saving: a sentence that looks typed without its dash, so its words would become spelling words
+    ("went, want I want a dog, what"). Read from how the list is laid out (several words between two commas, or
+    a long comma-less line that repeats a word), never from what the words mean. "" when nothing looks wrong."""
+    for w, _, part in _pieces(text):
+        if part:
+            toks = [t.strip(".!?\"") for t in part.split()]
+            extra = list(dict.fromkeys(t for t in toks[1:] if t.lower() != toks[0].lower()))[:4]
+            look = "looks" if len(extra) == 1 else "look"
+            return (f"{_names(extra)} {look} like part of a sentence: did you mean “{toks[0]} - {' '.join(toks[1:])}”? "
+                    "Put a dash after the word and the sentence after it, or a comma between words. "
+                    "If they really are spelling words, tick “Save the list as it is”.")
+    for line in str(text or "").splitlines():
+        toks = [t.lower().strip(".!?\"") for t in _BULLET.sub("", line).split()]
+        if "," not in line and not _CUE_SPLIT.search(line) and len(toks) >= 5 and len(set(toks)) < len(toks):
+            return (f"“{line.strip()[:60]}” looks like it has a sentence in it. Put a comma between words, and a "
+                    "sentence after a dash: “there - over there”. If they really are spelling words, tick "
+                    "“Save the list as it is”.")
+    return ""
+
+
+def cue_for(word: str, own: str = "") -> tuple[str, str]:
+    """The hint a school word gets, and where it comes from: the parent's sentence ("yours"), else our sentence
+    ("ours"), else for a word that sounds like another a short meaning ("meaning"), else none ("")."""
+    if own:
+        return own, "yours"
+    if CUES.get(word):
+        return CUES[word], "ours"
+    if MEANINGS.get(word.lower()):
+        return MEANINGS[word.lower()], "meaning"
+    return "", ""
+
+
+def school_summary(words: list, name: str) -> dict:
+    """For the form, under the box: what the saved list is, and words that sound like another with no sentence
+    of their own ("'their' sounds like 'there': add a sentence so Sam knows which one")."""
+    kinds = [cue_for(w["w"], w.get("cue", ""))[1] for w in words]
+    ask = []
+    for w, k in zip(words, kinds):
+        alike = _SOUNDS.get(w["w"].lower())
+        if alike and k not in ("yours", "ours"):
+            ask.append(f"‘{w['w']}’ sounds like ‘{alike[0]}’: add a sentence after a dash so {name} knows which "
+                       f"one, like “{w['w']} - …”.")
+    return {"n": len(words), "words": [w["w"] for w in words], "yours": kinds.count("yours"),
+            "ours": kinds.count("ours"), "ask": ask[:5]}
+
+
+def new_school_list(pupil: dict, words: list, start: str, until: str) -> dict:
+    """The stored list. "before": the words of earlier lists, so the parent sees last week's tricky ones and they
+    keep coming back in practice (carried_words)."""
+    sl = pupil.get("school_words") or {}
+    now = {w["w"].lower() for w in words}
+    before = [w["w"] for w in sl.get("words") or []] + list(sl.get("before") or [])
+    before = [w for w in dict.fromkeys(before) if w.lower() not in now][:60]
+    return {"words": words, "from": start, "until": until, "before": before}
+
+
+def carried_words(pupil: dict) -> list:
+    """Words of earlier school lists (and of a list whose week is over): still practised when due, like the
+    year list's words, until learned."""
+    sl = pupil.get("school_words") or {}
+    running = {w["w"].lower() for w in school_words(pupil)}
+    names = ([] if running else [w["w"] for w in sl.get("words") or []]) + list(sl.get("before") or [])
+    return [w for w in dict.fromkeys(names) if w.lower() not in running]
 
 
 def school_text(words: list) -> str:
@@ -437,16 +610,20 @@ def school_words(pupil: dict, day: str | None = None) -> list:
 
 def _school_cue(pupil: dict, word: str) -> str:
     cue = next((w.get("cue", "") for w in school_words(pupil) if w["w"].lower() == word.lower()), "")
-    return cue or CUES.get(word, "")
+    return cue_for(word, cue)[0]
 
 
 async def school_status(pupil: dict) -> dict | None:
-    """For the parent: each word of the running school list and how far it is learned."""
+    """For the parent: each word of the running school list and how far it is learned, and words of earlier
+    lists not yet learned that were spelt wrong ("still tricky")."""
     words = school_words(pupil)
     if not words:
         return None
+    old = carried_words(pupil)
     state = {d["word"].lower(): d async for d in db.spelling_words.find(
-        {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words]}})}
+        {"pupil_id": pupil["_id"], "word": {"$in": [w["w"] for w in words] + old}})}
+    last_tricky = [w for w in old if (st := state.get(w.lower())) and st.get("wrong")
+                   and int(st.get("box", 0)) < LEARNED_BOX]
     out = []
     for w in words:
         st = state.get(w["w"].lower())
@@ -455,7 +632,7 @@ async def school_status(pupil: dict) -> dict | None:
                     else "tricky" if st else "new", "right": int(st.get("right", 0)) if st else 0})
     sl = pupil["school_words"]
     return {"words": out, "learned": sum(1 for w in out if w["state"] == "learned"), "total": len(out),
-            "until": sl["until"]}
+            "until": sl["until"], "last_tricky": last_tricky}
 
 
 def _today() -> datetime.date:
@@ -469,7 +646,8 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
     last = (pupil.get("_last_spelling") or "")
     today = _today().isoformat()
     shown = await items.just_shown(pupil, "spelling")     # a missed word comes back later, not straight away
-    due = [w for w in words if w in state and state[w].get("due", "") <= today and w != last and w not in shown]
+    carried = [w for w in carried_words(pupil) if w not in words]     # earlier school lists: due ones come back
+    due = [w for w in words + carried if w in state and state[w].get("due", "") <= today and w != last and w not in shown]
     new = [w for w in words if w not in state]
     # the school's list comes first: its new words, and those due today (a missed one after its gap)
     school = [w["w"] for w in school_words(pupil)]

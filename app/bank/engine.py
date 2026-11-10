@@ -3,6 +3,7 @@
 The content lives in app/bank/content/*.py (format in SPEC.md). A question is served without its answer;
 what is needed to mark it stays on the server with the item (see app/items.py).
 """
+import difflib
 import hashlib
 import importlib
 import logging
@@ -274,18 +275,107 @@ def mark(key: dict, value) -> bool:
 
 
 _NEVER = frozenset({"yes", "no"})
+# Short words that are each a real choice in grammar ("who" for "whom", "than" for "then", "where" for "were"):
+# typing one is a grammar mistake, never a spelling slip.
+_GRAMMAR_WORDS = frozenset(
+    "a an the this that these those there their they them then than who whom whose which what when where were wear "
+    "we was is it its as at of off on in into to too two and or but if so not no now how here hear our are be been "
+    "being see sea by buy his he her hers me my mine your yours you ours us will would could should can may might "
+    "must shall has have had do does did done went want".split())
+# Grammar skills where how the word is written IS the skill (decided by the skill, not by the word): word endings
+# and prefixes, verb forms and tenses, apostrophes, homophones and confused words. No spelling retry there.
+_SPELLING_STRANDS = frozenset({"Words", "Word structure", "Word study"})
+_SPELLING_SKILLS = frozenset({
+    "GP1.07", "GP2.13", "GP2.14", "GP2.15", "GP2.16", "GP2.18", "GP2.19", "GP3.11", "GP4.03", "GP4.04", "GP4.05",
+    "GP6.03", "GP6.04", "GP6.08", "GP6.09", "GP6.15", "GP7.01", "GP7.02", "GP7.03", "GP7.04", "GP7.13", "GP7.14",
+    "GP7.16", "GP7.17", "GP8.01", "GP8.02", "GP8.04", "GP9.02", "GP9.04", "GP9.14"})
+# Skills about capital letters, full stops and other end marks (and whole-sentence punctuation): there a missing
+# capital or full stop is the mistake, not a slip.
+_END_MARK_SKILLS = frozenset({
+    "GP1.01", "GP1.02", "GP1.03", "GP1.04", "GP1.05", "GP1.06", "GP1.07", "GP2.01", "GP2.02", "GP2.03", "GP3.14",
+    "GP4.11", "GP4.12", "GP6.14", "GP7.12", "GP7.14", "GP7.18", "GP9.05"})
 
 
-def slips(key: dict, value, prompt: str = "") -> list:
-    """Science words typed with one slip ("respiraton", "ded"): [(typed, wanted)] against the nearest accepted
-    answer, for a free retry. Never in grammar, where how a word is written is often the point, and never a word
-    the question itself offers ("living, dead or never alive?")."""
-    if key.get("t") != "text" or not key.get("loose"):
+def spelling_matters(sk: dict | None) -> bool:
+    return not sk or sk.get("strand") in _SPELLING_STRANDS or sk.get("key") in _SPELLING_SKILLS
+
+
+def _skill_words(sk: dict) -> set:
+    """Every answer and option word of the skill: one of them typed for another is a real choice, not a slip."""
+    out = set()
+    for q in sk.get("qs", []):
+        for a in (q.get("a") if isinstance(q.get("a"), list) else []) + list(q.get("opts") or []):
+            out |= set(re.findall(r"[a-z]+", str(a).lower()))
+    return out
+
+
+def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
+    """A word typed with one slip ("respiraton", "ded", "wich" for "which"): [(typed, wanted)] against the nearest
+    accepted answer, for a free retry. In science always; in grammar unless the skill is about how words are
+    written (spelling_matters). Never a word the question itself offers ("living, dead or never alive?"), and in
+    grammar never a short grammar word or another answer of the skill ("who" for "whom")."""
+    if key.get("t") != "text":
         return []
+    never = _NEVER | set(re.findall(r"[a-z]+", prompt.lower()))
+    if not key.get("loose"):
+        if not sk or sk.get("subject") != "grammar" or spelling_matters(sk):
+            return []
+        never |= _GRAMMAR_WORDS | _skill_words(sk)
     words = lambda s: re.findall(r"[a-z]+", re.sub(r"^(a|an|the) (?=\S)", "", norm_text(s)))   # noqa: E731
     tv = words(value)
-    for a in key["a"]:
-        pairs = typos.slips(tv, words(a), _NEVER | set(re.findall(r"[a-z]+", prompt.lower())))
+    if not tv or re.sub(r"[a-z\s'-]", "", norm_text(value)):        # digits or signs typed: not a word slip
+        return []
+    for a in key["a"] + key.get("full", []):
+        pairs = typos.slips(tv, words(a), never)
         if pairs:
             return pairs
     return []
+
+
+_END = {".": "full stop", "?": "question mark", "!": "exclamation mark"}
+
+
+def end_slip(key: dict, value, sk: dict | None = None) -> dict | None:
+    """A rewritten sentence right but for a missing capital letter at the start and/or a missing end mark
+    ("Kofi will visit his aunt on Saturday" for "... Saturday."): {"retry": ..., "after": ...} for one free retry,
+    then a correction that says what was missing. Not in a skill about capitals and end marks."""
+    if key.get("t") != "write" or not sk or sk.get("key") in _END_MARK_SKILLS:
+        return None
+    v = norm_write(value).strip()
+    if not v:
+        return None
+    for a in (norm_write(x).strip() for x in key["a"]):
+        cap = v[:1].islower() and a[:1].isupper() and v[1:2] == a[1:2]
+        v2 = (a[:1] + v[1:]) if cap else v
+        end = a[-1:] if a[-1:] in _END and v2 + a[-1] == a else ""
+        if not (cap or end) or (v2 + end) != a:
+            continue
+        what = " and ".join(x for x in ("capital letter" if cap else "", _END[end] if end else "") if x)
+        start = "a capital letter at the start" if cap else ""
+        stop = ("a %s at the end" % _END[end]) if end else ""
+        return {"retry": "Nearly — check your %s." % what,
+                "after": "Your words were right: the sentence needs %s." % " and ".join(x for x in (start, stop) if x)}
+    return None
+
+
+def word_marks(value, answers: list) -> tuple[str, dict] | None:
+    """For a sentence answer: (the accepted answer nearest to what was typed, the words that differ in each),
+    as {"typed": [[text, wrong]], "word": [[text, changed]]} like spelling's letter marks. None when there is
+    nothing to compare or the two have little in common."""
+    tv = norm_write(value).split()
+    if not tv:
+        return None
+    best = max(answers, key=lambda a: difflib.SequenceMatcher(None, tv, norm_write(a).split(), autojunk=False).ratio())
+    av = norm_write(best).split()
+    sm = difflib.SequenceMatcher(None, tv, av, autojunk=False)
+    if sm.ratio() < 0.5:
+        return None
+    t_out, a_out = [], []
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if i2 > i1:
+            t_out.append([" ".join(tv[i1:i2]), op != "equal"])
+        if j2 > j1:
+            a_out.append([" ".join(av[j1:j2]), op != "equal"])
+    if not any(c for _, c in a_out) and not any(c for _, c in t_out):
+        return None
+    return best, {"typed": t_out, "word": a_out}

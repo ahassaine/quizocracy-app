@@ -63,6 +63,68 @@ def test_spelling_hint_shows_the_letters():
     assert ["s", True] in m["typed"] and ["c", True] in m["word"]
 
 
+# Real children's misspellings (wave 3): every kind of message, worded as a teacher would say it.
+CHILD_SLIPS = {
+    "recieve": "receive: swap the i and e (e before i after c)",
+    "beleive": "believe: swap the e and i (i before e, except after c)",
+    "acheive": "achieve: swap the e and i (i before e, except after c)",
+    "freind": "friend: swap the e and i (i before e, except after c)",
+    "becuase": "because: swap the u and a", "poeple": "people: swap the o and e",
+    "persaude": "persuade: swap the a and u", "eqiupment": "equipment: swap the i and u",
+    "wich": "which: add h after w", "definately": "definitely: a should be i", "seperate": "separate: pe should be pa",
+    "untill": "until: ll should be l", "tommorow": "tomorrow: mm should be m; r should be rr",
+    "accomodate": "accommodate: m should be mm", "embarass": "embarrass: r should be rr",
+    "prejudise": "prejudice: s should be c", "prejubice": "prejudice: b should be d",
+}
+
+
+def test_spelling_messages_for_real_misspellings():
+    for typed, msg in CHILD_SLIPS.items():
+        word = msg.split(":")[0]
+        assert typos.letter_hint(typed, word) == f"{typed} → {msg}", typed
+        hint = typos.letter_hint(typed, word)
+        assert not ("add " in hint and "take out" in hint), hint        # never "add u …; take out the u"
+    assert typos.letter_hint("wierd", "weird").endswith("(this word has e before i)")
+    assert typos.letter_hint("sceince", "science").endswith("(i before e, even after c here)")
+    m = typos.letter_marks("recieve", "receive")                    # a swap is marked as the pair, in both
+    assert m == {"typed": [["rec", False], ["ie", True], ["ve", False]], "word": [["rec", False], ["ei", True], ["ve", False]]}
+
+
+def test_grammar_one_word_slip_retries_unless_spelling_is_the_skill():
+    sk = bank.skill("GP5.03")                                          # relative pronouns
+    q = next(q for q in sk["qs"] if q["t"] == "text" and q["a"] == ["which"])
+    key = bank.serve(q)[1]
+    assert bank.slips(key, "wich", q["q"], sk) == [("wich", "which")] and bank.slips(key, "whitch", q["q"], sk)
+    assert not bank.slips(key, "who", q["q"], sk) and not bank.slips(key, "that", q["q"], sk)   # real choices
+    assert not bank.slips(key, "wich", q["q"], bank.skill("GP7.17"))   # homophones: the spelling is the point
+    for k in ("GP1.08", "GP2.08", "GP3.04", "GP9.12", "GP9.14", "GP2.18"):       # word endings, prefixes, apostrophes
+        assert bank.spelling_matters(bank.skill(k)), k
+    assert not bank.spelling_matters(bank.skill("GP5.03")) and not bank.spelling_matters(bank.skill("GP8.11"))
+
+
+def test_sentence_missing_only_its_full_stop_or_capital_is_nearly():
+    sk = bank.skill("GP7.02")
+    q = next(q for q in sk["qs"] if q["t"] == "write" and "future" in q["q"])
+    key, a = bank.serve(q)[1], q["a"][0]                              # "Kofi will visit his aunt on Saturday."
+    assert bank.end_slip(key, a[:-1], sk)["retry"] == "Nearly — check your full stop."
+    both = bank.end_slip(key, a[0].lower() + a[1:-1], sk)
+    assert both["retry"] == "Nearly — check your capital letter and full stop."
+    assert "capital letter at the start and a full stop at the end" in both["after"]
+    assert bank.end_slip(key, a[0].lower() + a[1:], sk)["retry"] == "Nearly — check your capital letter."
+    assert not bank.end_slip(key, a.replace("will visit", "visits")[:-1], sk)       # the grammar is wrong too
+    caps = bank.skill("GP1.03")                                       # capitals and full stops ARE the skill
+    q = next(q for q in caps["qs"] if q["t"] == "write")
+    assert not bank.end_slip(bank.serve(q)[1], q["a"][0][:-1], caps)
+
+
+def test_sentence_feedback_marks_the_words_that_differ():
+    best, m = bank.word_marks("The dog ran acros the feild.", ["The dog ran across the field."])
+    assert best == "The dog ran across the field."
+    assert m == {"typed": [["The dog ran", False], ["acros", True], ["the", False], ["feild.", True]],
+                 "word": [["The dog ran", False], ["across", True], ["the", False], ["field.", True]]}
+    assert bank.word_marks("Something else entirely here.", ["The dog ran across the field."]) is None
+
+
 # ------------------------------------------------------------------ content ----
 def test_rounding_table_keeps_its_decimal_place_and_explains():
     for _ in range(200):
@@ -183,3 +245,40 @@ def test_science_slip_gets_one_free_retry_and_spelling_shows_letters(page):
                          "meta": {"cue": ""}, "created": datetime.datetime.utcnow(), "done": False})
     r = _post(page, "/api/spelling/check", {"token": tok, "value": "analyze"})
     assert r["ok"] and not r["correct"] and not r.get("retry") and "American spelling" in r["hint"]
+
+
+def _bank_item(pid, activity, sk, q, tag):
+    key = bank.serve(q)[1]
+    tok = f"nm-{tag}-{pid}"
+    fam = DB.pupils.find_one({"_id": pid})["family_id"]
+    DB.items.insert_one({"_id": tok, "pupil_id": pid, "family_id": fam, "activity": activity, "answer": key,
+                         "meta": {"skill": sk["key"], "qid": q["id"], "reason": "new"},
+                         "created": datetime.datetime.utcnow(), "done": False})
+    return tok
+
+
+def test_grammar_near_misses_retry_and_say_what_was_wrong(page):
+    pid = _child(page, "Leila", 7)
+    sk = bank.skill("GP5.03")
+    q = next(q for q in sk["qs"] if q["t"] == "text" and q["a"] == ["which"])
+    tok = _bank_item(pid, "grammar", sk, q, "gw")
+    r = _post(page, "/api/grammar/check", {"token": tok, "value": "wich"})
+    assert r["ok"] and r["retry"] and r["hint"] == typos.RETRY
+    r = _post(page, "/api/grammar/check", {"token": tok, "value": "wich"})
+    assert r["ok"] and r["correct"] is False and r["hint"] == "'wich' should be 'which'."
+
+    sk = bank.skill("GP7.02")                         # a rewrite right but for its full stop
+    q = next(q for q in sk["qs"] if q["t"] == "write" and "future" in q["q"])
+    tok = _bank_item(pid, "grammar", sk, q, "gf")
+    r = _post(page, "/api/grammar/check", {"token": tok, "value": q["a"][0][:-1]})
+    assert r["ok"] and r["retry"] and r["hint"] == "Nearly — check your full stop."
+    r = _post(page, "/api/grammar/check", {"token": tok, "value": q["a"][0][:-1]})
+    assert r["ok"] and r["correct"] is False and r["why"] == ""          # not the explanation about the verb
+    assert r["hint"] == "Your words were right: the sentence needs a full stop at the end."
+    assert [t for t, d in r["marks"]["word"] if d] == [q["a"][0].split()[-1]]
+
+    sk = bank.skill("GP1.03")                         # capitals and full stops are the skill: marked at once
+    q = next(q for q in sk["qs"] if q["t"] == "write")
+    tok = _bank_item(pid, "grammar", sk, q, "gc")
+    r = _post(page, "/api/grammar/check", {"token": tok, "value": q["a"][0][:-1]})
+    assert r["ok"] and r["correct"] is False and not r.get("retry") and r["marks"]

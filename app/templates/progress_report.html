@@ -44,6 +44,7 @@
   <div><b data-testid="first-pct">{{ first_pct ~ '%' if first_pct is not none else '–' }}</b><span class="small mut">right first time</span></div>
   <div><b>{{ tot.minutes if tot.minutes or not tot.answers else 'under 1' }}</b><span class="small mut">minutes of practice</span></div>
 </div>
+{% if off_count or rest_count %}<p class="small" data-testid="report-days-off">{% if off_count %}<b>Days off:</b> {{ off_spans|join(', ') }} ({{ off_count }} day{{ '' if off_count == 1 else 's' }}, marked by a parent: a sick day or a holiday).{% endif %}{% if rest_count %} {{ rest_count }} day{{ ' was' if rest_count == 1 else 's were' }} not {{ pupil.name }}'s practice days.{% endif %} Nothing was due on these days; any practice on them counts as extra.</p>{% endif %}
 {% if tot.rushed or tot.copied %}<p class="small mut">{% if tot.rushed %}{{ tot.rushed }} wrong answer{{ ' was' if tot.rushed == 1 else 's were' }} rushed (very quick, blank or random keys). {% endif %}{% if tot.copied %}{{ tot.copied }} right answer{{ ' was' if tot.copied == 1 else 's were' }} typed within a minute of being shown the answer, so {{ 'it does' if tot.copied == 1 else 'they do' }} not count as right first time.{% endif %}</p>{% endif %}
 
 {% if acts %}<h2>By activity</h2>
@@ -68,6 +69,16 @@
 {% if tables or verbs %}<div class="card small">
   {% if tables %}<div><b>Times tables:</b> {{ tables.mastered }} of {{ tables.total }} facts known (right 3 times in a row).</div>{% endif %}
   {% if verbs %}<div><b>Irregular verbs:</b> {{ verbs.mastered }} of {{ verbs.total }} verbs known, level {{ verbs.level }} of {{ verbs.levels }}.</div>{% endif %}
+  {% if tables and tables.weakest %}<div><b>Weakest times tables:</b> {{ tables.weakest }}.</div>{% endif %}
+</div>{% endif %}
+
+{% set checks = (pupil.mtc or [])|selectattr('day', 'in', days)|list %}
+{% if checks %}<h2>Year 4 multiplication check practice</h2>
+<div class="card" data-testid="report-mtc" style="overflow-x:auto">
+  <div class="small">{{ checks|length }} practice check{{ '' if checks|length == 1 else 's' }} in this period (25 questions, 6 seconds each, like the real check). Best: <b>{{ checks|map(attribute='score')|max }}/25</b>{% if checks|length > 1 %}; first {{ checks[0].score }}/25, latest {{ checks[-1].score }}/25{% endif %}.</div>
+  <table class="t small" style="margin-top:6px"><tr><th>Date</th><th>Score</th><th>Missed</th></tr>
+    {% for r in checks|reverse %}<tr><td style="white-space:nowrap">{{ r.day|daylabel }}</td><td><b>{{ r.score }}</b>/{{ r.of or 25 }}</td><td class="mut">{{ (r.missed or [])|join(', ') }}</td></tr>{% endfor %}
+  </table>
 </div>{% endif %}
 
 {% if spelling_on %}<h2>Spellings learned</h2>

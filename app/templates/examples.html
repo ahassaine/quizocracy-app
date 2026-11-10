@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Example questions · {{ pupil.name }} · Quizocracy{% endblock %}
+{% block body %}
+<p class="small" style="margin:0 0 6px"><a href="/children/{{ pupil._id }}#skills-{{ subject }}">← {{ pupil.name }}'s progress</a></p>
+<h1 class="rise" style="margin-bottom:.2em">{{ strand_name }}</h1>
+<p class="mut" style="margin-top:0">{{ subject_title }} · Year {{ year }} · example questions</p>
+<div class="card small" data-testid="examples-note">These are questions of this topic as {{ pupil.name }} gets them, with the answers. Only grown-ups see this page, and nothing here is recorded: looking doesn't change {{ pupil.name }}'s practice or progress.</div>
+{% for e in qs %}
+<section class="card" data-testid="example">
+  <div class="mut small">{{ e.skill }}</div>
+  <p style="margin:.35em 0;font-weight:600">{{ e.q }}</p>
+  {% if e.sentence %}<p style="margin:.35em 0" data-testid="example-sentence">{{ e.sentence }}</p>{% endif %}
+  {% if e.opts %}<ul class="small" style="margin:.35em 0;padding-left:18px">{% for o in e.opts %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+  {% if e.table %}<div style="overflow-x:auto"><table class="t small" style="width:auto;margin:.35em 0">
+    {% if e.table.head %}<tr>{% for h in e.table.head %}<th>{{ h }}</th>{% endfor %}</tr>{% endif %}
+    {% for r in e.table.rows %}<tr>{% for c in r %}<td>{{ '?' if c == '' or c is none else c }}</td>{% endfor %}</tr>{% endfor %}
+  </table></div>{% endif %}
+  {% if e.picture %}<p class="mut small" style="margin:.35em 0">On screen, {{ pupil.name }} also sees {{ e.picture }} to use.</p>{% endif %}
+  <p style="margin:.5em 0 0"><span class="mut">Answer:</span> <b data-testid="example-answer">{{ e.answer }}</b></p>
+  {% if e.why %}<p class="mut small" style="margin:.25em 0 0">{{ e.why|join(' ') }}</p>{% endif %}
+</section>{% endfor %}
+<div class="row"><a class="btn" href="?subject={{ subject|urlencode }}&amp;strand={{ strand|urlencode }}&amp;more={{ more + 1 }}" data-testid="examples-more">Show other examples</a><a class="btn" href="/children/{{ pupil._id }}#skills-{{ subject }}">Back to {{ pupil.name }}'s progress</a></div>
+{% endblock %}

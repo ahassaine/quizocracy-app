@@ -141,6 +141,19 @@ def rest_day(pupil: dict, day: str | None = None) -> str:
     return ""
 
 
+def next_day(day: str) -> str:
+    return (datetime.date.fromisoformat(day) + datetime.timedelta(days=1)).isoformat()
+
+
+def back_on(pupil: dict, day: str) -> str:
+    """The first practice day after `day` (within 6 weeks), or "" if none is in sight."""
+    for _ in range(MAX_DAYS_OFF * 2):
+        day = next_day(day)
+        if not rest_day(pupil, day):
+            return day
+    return ""
+
+
 def days_text(days: list) -> str:
     """[0, 1, 2, 3, 4] -> "Mon to Fri"; [5, 6] -> "Sat, Sun"; every day -> "every day"."""
     days = sorted(set(days))
@@ -153,19 +166,59 @@ def days_text(days: list) -> str:
     return ", ".join(WEEKDAYS[d] for d in days)
 
 
-# ---- "working on this at school": a strand that gets most of the questions for a week or two ----
-FOCUS_SHARE = 2 / 3            # about two questions in three come from the focus strand
+# ---- "working on this at school": up to three strands that get most of the questions for a week or two ----
+FOCUS_SHARE = 2 / 3            # about two questions in three come from the focus strands of that subject
 FOCUS_WEEKS = (1, 2)
+FOCUS_MAX = 3
+FOCUS_SUBJECTS = ("maths", "grammar", "science")
+
+# The science strands by the school subject a letter home names them by (mapped by hand, after the national
+# curriculum: KS3 puts the particle model under chemistry, "Matter" and "Energy" under physics).
+SCIENCE_AREAS = {
+    "Biology": ["Plants", "Animals, including humans", "Living things and their habitats",
+                "Fossils, inheritance and adaptation", "Cells and organisation", "Skeletal and muscular systems",
+                "Reproduction", "Nutrition and digestion", "Gas exchange", "Respiration", "Photosynthesis", "Health",
+                "Inheritance and variation", "Ecosystems"],
+    "Chemistry": ["Everyday materials", "Uses of everyday materials", "Rocks", "States of matter",
+                  "Properties and changes of materials", "Particles", "Mixtures and separation", "Acids and alkalis",
+                  "Atoms, elements and compounds", "The periodic table", "Chemical reactions", "Materials",
+                  "Earth and atmosphere"],
+    "Physics": ["Seasonal changes", "Light", "Forces and magnets", "Sound", "Electricity", "Earth and space", "Forces",
+                "Space physics", "Magnetism", "Energy", "Motion and forces", "Matter", "Waves"],
+    "Working scientifically": ["Working scientifically"],
+}
+SCIENCE_AREA = {s: area for area, ss in SCIENCE_AREAS.items() for s in ss}
+
+
+def focus_items(pupil: dict, day: str | None = None) -> list:
+    """The focus strands running on that day: [{"subject", "strand", "weeks", "from", "until"}], each running from
+    its first day up to, not including, its `until`, and then ending by itself. (A focus saved before there could
+    be three was one dict for all subjects, with one pair of dates.)"""
+    f = pupil.get("focus") or []
+    if isinstance(f, dict):
+        f = [{"subject": k, "strand": f[k], "weeks": f.get("weeks", 1), "from": f.get("from", ""),
+              "until": f.get("until", "")} for k in FOCUS_SUBJECTS if f.get(k)]
+    day = day or local_today()
+    return [i for i in f if i.get("from", "") <= day < i.get("until", "")]
 
 
 def focus_on(pupil: dict, day: str | None = None) -> dict:
-    """The focus strands while the focus runs ({"maths": "3.6 Fractions", "grammar": "Punctuation"}), else {}.
-    It runs from its first day up to, not including, `until`, and then ends by itself."""
-    f = pupil.get("focus") or {}
-    day = day or local_today()
-    if not f or not (f.get("from", "") <= day < f.get("until", "")):
-        return {}
-    return {k: f[k] for k in ("maths", "grammar", "science") if f.get(k)}
+    """The focus strands while they run, by subject ({"maths": ["3.6 Fractions"], "science": ["Light"]}), else {}."""
+    out: dict = {}
+    for i in focus_items(pupil, day):
+        out.setdefault(i["subject"], []).append(i["strand"])
+    return out
+
+
+def focus_title(subject: str, strand: str) -> str:
+    """What a parent reads for one focus: "Maths: Fractions", "Science (Physics): Light"."""
+    area = SCIENCE_AREA.get(strand) if subject == "science" else None
+    if area and area != "Working scientifically":
+        return f"Science ({area}): {strand}"
+    return f"{SUBJECT_NAMES[subject]}: {strand_label(strand)}"
+
+
+SUBJECT_NAMES = {"maths": "Maths", "grammar": "Grammar", "science": "Science"}
 
 
 def strand_label(strand: str) -> str:

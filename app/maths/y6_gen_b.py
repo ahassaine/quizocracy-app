@@ -428,9 +428,10 @@ def _(d=1):
                            (12, 8), (10, 4)])
         gg = _hcf(rows, cols)
         return _agarea("This rectangle is %d squares wide and %d squares "
-                       "tall. What is the side length of the largest square "
-                       "tile that would fit into the rectangle exactly, with "
-                       "no gaps?" % (cols, rows), rows, cols,
+                       "tall. Square tiles, all the same size, must cover the "
+                       "whole rectangle, with no gaps or overlaps and no tile "
+                       "cut. What is the side length of the largest tile that "
+                       "can do this?" % (cols, rows), rows, cols,
                        ["The tile's side must be a common factor of %d and %d."
                         % (rows, cols),
                         "The highest common factor of %d and %d is %d."

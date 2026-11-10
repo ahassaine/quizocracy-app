@@ -836,6 +836,8 @@ def _(d=1):
                     % (ans, k, "" if k == 1 else "s", step,
                        "right" if ans > 0 else "left")])
 
+    if d == 0:          # still Year 8: no "place 7 on a 0-10 line" or "count on 3 jumps of 2"
+        return _pick_t([], [t_int_neg, t_dec_tenths, t_dec_neg, t_rounded, t_midpoint, t_temp_line, t_graph_v])
     return _pick_t([t_int_pos], [t_int_neg, t_dec_tenths, t_dec_neg, t_between,
                                  t_rounded, t_midpoint, t_count_on, t_temp_line,
                                  t_graph_h, t_graph_v])
@@ -2032,7 +2034,8 @@ def _(d=1):
         while not _apart(a, b):
             a, b = h * random.randint(m0, m1), h * random.randint(m0, m1)
         return _tb("A rectangular floor is %d cm by %d cm. It is to be tiled with "
-                   "identical square tiles, using whole tiles only. What is the largest "
+                   "identical square tiles that cover it all, with no gaps or overlaps and "
+                   "no tile cut. What is the largest "
                    "side length (in cm) each square tile can have?" % (a, b),
                    math.gcd(a, b), "int", {},
                    ["The tile side must divide both %d and %d." % (a, b),

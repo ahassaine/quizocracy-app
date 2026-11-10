@@ -476,8 +476,8 @@ def _(d=1):
         return _tb("Work out %d − %d." % (a, b), a - b, "int", {}, ["%d − %d = %d, and %d is bigger than %d, so %d − %d = −%d." % (b, a, b - a, b, a, a, b, b - a)])
 
     return _pick_t(_by(d, [t_int, t_dec, t_missing, t_perimeter, t_money],
-                       [t_int, t_dec, t_missing, t_perimeter, t_money, t_minus_missing, t_journey, t_neg_answer],
-                       [t_int, t_dec, t_missing, t_money, t_minus_missing, t_journey, t_neg_answer]),
+                       [t_int, t_dec, t_missing, t_perimeter, t_money, t_minus_missing, t_journey],
+                       [t_int, t_dec, t_missing, t_money, t_minus_missing, t_journey]),       # t_neg_answer: strand 7.6 first
                    [t_receipt, t_temps_line])
 
 
@@ -955,7 +955,7 @@ def _(d=1):
 
     def t_square():
         k = random.randint(*_by(d, (2, 6), (2, 12), (8, 15)))
-        return _tb("Work out  (−%d)²" % k, k * k, "int", {}, ["(−%d) × (−%d) = %d." % (k, k, k * k)])
+        return _tb("Work out  (−%d)²" % k, k * k, "int", {}, ["(−%d) × (−%d) = %d: a negative times a negative is positive." % (k, k, k * k)])
 
     def t_three():
         x, y, z = [random.choice([-1, 1]) * random.randint(2, _by(d, 3, 5, 7)) for _ in range(3)]
@@ -980,6 +980,13 @@ def _(d=1):
                        [t_mult, t_div, t_square, t_three, t_missing, t_mult_div]))
 
 
+def _neg_square(x):
+    """(-7)² = 49, with the reason a child who wrote -49 needs."""
+    if x >= 0:
+        return "%d² = %d." % (x, x * x)
+    return "(%d)² = (%d) × (%d) = %d: a negative times a negative is positive." % (x, x, x, x * x)
+
+
 @skill("Y7.6.d", "Directed numbers: priority of operations and substitution", S6)
 def _(d=1):
     d = _d(d)
@@ -992,7 +999,7 @@ def _(d=1):
                    "int", {}, ["%d × (%d) %s %d = %d." % (m, x, "+" if c >= 0 else "−", abs(c), m * x + c)])
 
     def t_sub_square():
-        return _tb("Find the value of x² when x = %d." % x, x * x, "int", {}, ["(%d)² = %d." % (x, x * x)])
+        return _tb("Find the value of x² when x = %d." % x, x * x, "int", {}, [_neg_square(x)])
 
     def t_sub_two():
         return _tb("Find the value of 3a − 2b when a = %d and b = %d." % (x, y), 3 * x - 2 * y, "int", {},
@@ -1016,7 +1023,7 @@ def _(d=1):
     def t_sub_power():
         m, c = random.randint(2, 5), random.randint(-10, 10) or -4
         return _tb("Find the value of %dx² %s when x = %d." % (m, "+ %d" % c if c >= 0 else "− %d" % -c, x), m * x * x + c,
-                   "int", {}, ["Square first: (%d)² = %d." % (x, x * x),
+                   "int", {}, ["Square first: " + _neg_square(x),
                                "%d × %d %s %d = %d." % (m, x * x, "+" if c >= 0 else "−", abs(c), m * x * x + c)])
 
     # easy: one substitution; hard: two variables, brackets and a squared term with a coefficient

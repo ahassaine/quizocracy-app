@@ -1,37 +1,77 @@
 <div class="a11y" id="a11y" data-testid="a11y">
   <button class="a11y-btn" id="a11yBtn" type="button" aria-expanded="false" aria-controls="a11yPanel" aria-label="Text and display settings" title="Text and display settings" data-testid="a11y-open">Aa</button>
-  <div class="a11y-panel" id="a11yPanel" role="group" aria-label="Text and display settings" hidden>
+  <div class="a11y-panel" id="a11yPanel" role="group" aria-label="Text and display settings" data-testid="a11y-panel" hidden>
     <div class="a11y-ttl">Make it easier to read</div>
     <label class="check"><input type="checkbox" data-a11y="big" data-testid="a11y-big"> Bigger text</label>
     <label class="check"><input type="checkbox" data-a11y="dys" data-testid="a11y-dys"> Easy-to-read letters (good for dyslexia)</label>
     <label class="check"><input type="checkbox" data-a11y="space" data-testid="a11y-space"> More space between letters and lines</label>
     <label class="check"><input type="checkbox" data-a11y="calm" data-testid="a11y-calm"> Less movement (no stars or bouncing)</label>
     <label class="check"><input type="checkbox" data-a11y="contrast" data-testid="a11y-contrast"> Stronger colours</label>
-    <p class="mut small" id="a11yNote" style="margin:6px 0 10px">These stay on this device.</p>
+    <p class="mut small" id="a11yNote" style="margin:6px 0 10px" data-testid="a11y-note">{% if ctx and ctx.child %}These are {{ ctx.child.name }}'s, on every device.{% else %}These stay on this device.{% endif %}</p>
     <button class="btn" id="a11yDone" type="button">Done</button>
   </div>
 </div>
 <script>
-/* Text and display settings, kept per device in localStorage (qz_a11y); base.html applies them before the page
-   draws. "Less movement" starts ticked when the device asks for reduced motion, which always wins. */
+/* Text and display settings. A signed-in child's belong to that child: kept on the server (POST /api/reading),
+   so they follow the child to any device, and a sibling on the same tablet has their own. base.html applies
+   them before the page draws (window.QZ_A11Y) and keeps a copy in localStorage (qz_a11y:<child>), which also
+   holds a change made offline until the server has it. With no child signed in they stay on the device
+   (qz_a11y). "Less movement" starts ticked when the device asks for reduced motion, which always wins.
+   The panel opens on <body>, above everything: inside the page header it would be under the question card,
+   whose entrance animation makes it a layer of its own. */
 (function () {
   const root = document.documentElement, btn = document.getElementById('a11yBtn'), panel = document.getElementById('a11yPanel');
+  const home = panel.parentNode, PID = document.body.dataset.pupil || '';
   const osCalm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('qz_a11y') || '{}') || {}; } catch (e) {}
+  const KEYS = ['big', 'dys', 'space', 'calm', 'contrast'];
+  let saved = Object.assign({}, window.QZ_A11Y || {});
+  function cache(dirty) {               // private mode: no copy, the server still has them
+    try { localStorage.setItem('qz_a11y:' + PID, JSON.stringify({ s: saved, dirty })); } catch (e) {}
+  }
+  let pushes = 0;
+  async function push() {               // to the server; offline, again when the device is back online
+    const my = ++pushes, body = { pupil: PID };
+    KEYS.forEach(k => { body[k] = saved[k] === true; });
+    try {
+      const r = await fetch('/api/reading', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body), credentials: 'same-origin' });
+      if (r.ok && my === pushes) cache(false);
+    } catch (e) { addEventListener('online', () => { if (my === pushes) push(); }, { once: true }); }
+  }
+  function store() {
+    if (!PID) { try { localStorage.setItem('qz_a11y', JSON.stringify(saved)); } catch (e) {} return; }
+    cache(true); push();
+  }
+  if (PID && window.QZ_A11Y_DIRTY) push();          // changed on this device while offline, or kept from before
   panel.querySelectorAll('[data-a11y]').forEach(box => {
     const k = box.dataset.a11y;
     box.checked = saved[k] === true || (k === 'calm' && osCalm);
-    if (k === 'calm' && osCalm) { box.disabled = true; document.getElementById('a11yNote').textContent = 'Less movement is on because this device asks for it. These stay on this device.'; }
+    if (k === 'calm' && osCalm) { box.disabled = true; const n = document.getElementById('a11yNote'); n.textContent = 'Less movement is on because this device asks for it. ' + n.textContent; }
     box.addEventListener('change', () => {
       saved[k] = box.checked; root.classList.toggle('a11y-' + k, box.checked);
-      try { localStorage.setItem('qz_a11y', JSON.stringify(saved)); } catch (e) {}     // private mode: just for this page
+      store();
     });
   });
-  function show(open) { panel.hidden = !open; btn.setAttribute('aria-expanded', String(open)); }
-  btn.addEventListener('click', () => show(panel.hidden));
+  function place() {                    // just under the Aa button, inside the screen
+    const r = btn.getBoundingClientRect(), top = Math.max(8, r.bottom + 6);
+    panel.style.top = top + 'px';
+    panel.style.maxHeight = Math.max(160, innerHeight - top - 12) + 'px';
+    if (innerWidth <= 640) { panel.style.left = '16px'; panel.style.right = '16px'; }
+    else { panel.style.left = 'auto'; panel.style.right = Math.max(16, innerWidth - r.right) + 'px'; }
+  }
+  function show(open) {
+    if (open) { document.body.appendChild(panel); place(); }
+    else if (panel.parentNode !== home) home.appendChild(panel);
+    panel.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  }
+  btn.addEventListener('click', (e) => {
+    show(panel.hidden);
+    if (!panel.hidden && e.detail === 0) { const f = panel.querySelector('input:not(:disabled)'); if (f) f.focus(); }   // from the keyboard
+  });
+  addEventListener('resize', () => { if (!panel.hidden) place(); });
+  addEventListener('scroll', () => { if (!panel.hidden) place(); }, { passive: true });
   document.getElementById('a11yDone').addEventListener('click', () => { show(false); btn.focus(); });
-  document.addEventListener('click', (e) => { if (!panel.hidden && !e.target.closest('#a11y')) show(false); });
+  document.addEventListener('click', (e) => { if (!panel.hidden && !e.target.closest('#a11y, #a11yPanel')) show(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) { show(false); btn.focus(); } });
 })();
 </script>

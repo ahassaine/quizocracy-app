@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script>try{var t=localStorage.getItem('qz_theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='light'}</script>
-<script>try{var a=JSON.parse(localStorage.getItem('qz_a11y')||'{}');['big','dys','space','calm','contrast'].forEach(function(k){if(a[k]===true)document.documentElement.classList.add('a11y-'+k)})}catch(e){}</script>
+{# Reading settings ("Aa", _a11y.html): a signed-in child's own, from the server (a change made offline waits in
+   localStorage qz_a11y:<child>); with no child, this device's (qz_a11y), so parent pages never take on a child's.
+   Settings set on a shared device before they were per child go to the first child who opens a page here.
+   qz_kid: this device has been a child's, so the sign-in page can speak to a child when it is signed out. #}
+<script>(function(){var P={{ (ctx.child._id if ctx and ctx.child else '')|tojson }},a=null,d=false,L;try{L=localStorage}catch(e){}
+if(P){a={{ (ctx.child.reading if ctx and ctx.child and ctx.child.reading else none)|tojson }};document.cookie='qz_kid=1;path=/;max-age=31536000;samesite=lax';
+try{var c=JSON.parse(L.getItem('qz_a11y:'+P)||'null');if(c&&c.dirty&&c.s){a=c.s;d=true}else if(!a&&L.getItem('qz_a11y')){a=JSON.parse(L.getItem('qz_a11y'))||{};d=true;L.setItem('qz_a11y:'+P,JSON.stringify({s:a,dirty:true}));L.removeItem('qz_a11y')}}catch(e){}}
+else{try{a=JSON.parse(L.getItem('qz_a11y')||'{}')}catch(e){}}
+a=a||{};window.QZ_A11Y=a;window.QZ_A11Y_DIRTY=d;['big','dys','space','calm','contrast'].forEach(function(k){if(a[k]===true)document.documentElement.classList.add('a11y-'+k)})})()</script>
 <meta name="theme-color" content="#4F46E5">
 <link rel="manifest" href="/static/manifest.webmanifest?v=2">
 <link rel="icon" href="/static/img/favicon-32.png" sizes="32x32"><link rel="icon" href="/static/img/icon-192.png" sizes="192x192">
@@ -13,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>{% block title %}Quizocracy{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/app.css?v=14">
+<link rel="stylesheet" href="/static/css/app.css?v=15">
 </head>
 <body{% if ctx and ctx.child %} data-pupil="{{ ctx.child._id }}"{% endif %}>
 <header class="top{% if ctx and (ctx.child or ctx.account.verified_at) %} signed{% endif %}">

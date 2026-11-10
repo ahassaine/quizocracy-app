@@ -90,7 +90,7 @@ def test_plan_change_starts_tomorrow_and_reward_is_kept(page):
     assert "From tomorrow" in page.inner_text("[data-testid=plan-pending]")
     assert "Times tables 1/1" in page.inner_text("[data-testid=today]")
 
-    # asked for explicitly, today changes too, but the earned reward stays
+    # asked for explicitly, today changes too: the day opens again for what was added, but the earned reward stays
     page.goto(f"/children/{pid}/edit")
     page.check("[data-testid=plan-today]")
     page.click("form.card button[type=submit]")
@@ -98,7 +98,7 @@ def test_plan_change_starts_tomorrow_and_reward_is_kept(page):
     page.goto("/home")
     card = page.locator("[data-testid='kid-Leo']")
     assert "Spelling 0/" in card.inner_text()
-    assert card.locator("[data-testid=pct]").inner_text() == "100%"
+    assert card.locator("[data-testid=pct]").inner_text() == "1%"                 # 1 of 30 tables, no spelling yet
     assert "Leo earned: Screen time" in card.inner_text()
     page.goto("/board")
     assert "Times tables 1/30" in page.inner_text("[data-testid='board-Leo']")      # words, not only icons

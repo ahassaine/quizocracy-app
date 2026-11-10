@@ -19,7 +19,8 @@ def _sgn(c):
 @skill("Y7.2.a", "Solve one-step equations", S2)
 def _(d=1):
     d = _d(d)
-    x = random.randint(_by(d, 1, -10, -20), _by(d, 20, 30, 50))
+    # positive solutions and sides: negative numbers come in strand 7.6, after equations
+    x = random.randint(_by(d, 1, 2, 3), _by(d, 20, 30, 50))
     k = random.randint(2, _by(d, 9, 12, 15))
     c = random.randint(1, _by(d, 20, 40, 90))
 
@@ -27,7 +28,7 @@ def _(d=1):
         return _tb("Solve  x + %d = %d" % (c, x + c), x, "int", {}, ["Subtract %d from both sides: x = %d." % (c, x)])
 
     def t_sub():
-        return _tb("Solve  x − %d = %d" % (c, x - c), x, "int", {}, ["Add %d to both sides: x = %d." % (c, x)])
+        return _tb("Solve  x − %d = %d" % (c, x), x + c, "int", {}, ["Add %d to both sides: x = %d." % (c, x + c)])
 
     def t_mult():
         return _tb("Solve  %dx = %d" % (k, k * x), x, "int", {}, ["Divide both sides by %d: x = %d." % (k, x)])
@@ -54,7 +55,7 @@ def _(d=1):
                    ["Subtract %s from both sides: x = %s." % (_ds(a), _ds(b))])
 
     def t_from_left():
-        return _tb("Solve  %d − x = %d" % (c, c - x), x, "int", {}, ["x = %d − %d = %d." % (c, c - x, x)])
+        return _tb("Solve  %d − x = %d" % (c + x, c), x, "int", {}, ["x = %d − %d = %d." % (c + x, c, x)])
 
     def t_square_perim():
         s = abs(x) + 2
@@ -64,17 +65,23 @@ def _(d=1):
     def t_rhs():
         return _tb("Solve  %d = %dx" % (k * x, k), x, "int", {}, ["The unknown can be on either side: x = %d ÷ %d = %d." % (k * x, k, x)])
 
-    return _pick_t([t_add, t_sub, t_mult, t_div, t_word, t_decimal, t_from_left, t_square_perim, t_rhs], [t_bar])
+    def t_money():
+        who, p = _who(), random.randint(2, 9)
+        return _tb("%s buys %d pens and pays £%d. Solve %dp = %d to find the price of one pen, p, in pounds."
+                   % (who, k, k * p, k, k * p), p, "int", {"unit": "£"}, ["p = %d ÷ %d = %d." % (k * p, k, p)])
+
+    return _pick_t([t_add, t_sub, t_mult, t_div, t_word, t_decimal, t_from_left, t_square_perim, t_rhs, t_money], [t_bar])
 
 
 @skill("Y7.2.b", "Solve two-step equations", S2)
 def _(d=1):
     d = _d(d)
-    x = random.randint(_by(d, 1, -6, -12), _by(d, 12, 15, 20))
+    x = random.randint(_by(d, 1, 2, 3), _by(d, 12, 15, 20))
     k = random.randint(2, _by(d, 6, 9, 12))
     c = random.randint(_by(d, 1, -15, -30), _by(d, 15, 20, 40))
     if c == 0:
         c = 5
+    c = max(c, 1 - k * x)          # every number stays positive: directed numbers come in strand 7.6
 
     def t_plain():
         return _tb("Solve  %dx %s = %d" % (k, _sgn(c), k * x + c), x, "int", {},
@@ -88,13 +95,14 @@ def _(d=1):
                    ["Undo in reverse: %s %d, then ÷ %d." % ("− " if c > 0 else "+ ", abs(c), k), "x = %d." % x])
 
     def t_divided():
-        y = random.randint(1, 10)
+        y = random.randint(max(1, 1 - c), max(1, 1 - c) + 9)
         return _tb("Solve  x/%d %s = %d" % (k, _sgn(c), y + c), k * y, "int", {},
                    ["x/%d = %d." % (k, y), "x = %d." % (k * y)])
 
     def t_bracket():
-        return _tb("Solve  %d(x %s) = %d" % (k, _sgn(c), k * (x + c)), x, "int", {},
-                   ["Divide by %d: x %s = %d." % (k, _sgn(c), x + c), "x = %d." % x])
+        xb = max(x, 1 - c)
+        return _tb("Solve  %d(x %s) = %d" % (k, _sgn(c), k * (xb + c)), xb, "int", {},
+                   ["Divide by %d: x %s = %d." % (k, _sgn(c), xb + c), "x = %d." % xb])
 
     def t_cost():
         fee, per = random.randint(5, 20), random.randint(2, 9)
@@ -104,7 +112,7 @@ def _(d=1):
                    ["%d + %dv = %d." % (fee, per, fee + per * n), "v = %d." % n])
 
     def t_check():
-        shown = x + pick([0, 0, 1, -1])
+        shown = x + pick([0, 0, 1, -1 if k * (x - 1) + c >= 0 else 1])
         return _wq("Is x = %d a solution of  %dx %s = %d ? (yes or no)" % (shown, k, _sgn(c), k * x + c),
                    "yes" if shown == x else "no",
                    ["%d × %d %s = %d." % (k, shown, _sgn(c), k * shown + c)], "yes / no")
@@ -180,8 +188,7 @@ def _(d=1):
 
     def t_think():
         n, k, c = random.randint(3, _by(d, 12, 20, 40)), random.randint(2, _by(d, 4, 5, 9)), random.randint(1, _by(d, 10, 15, 40))
-        if d == 0:                                  # easy: the stated answer stays positive
-            c = min(c, k * n - 1)
+        c = min(c, k * n - 1)                       # the stated answer stays positive (directed numbers are 7.6)
         return _tb("I think of a number, multiply it by %d and subtract %d. The answer is %d. What was my number?"
                    % (k, c, k * n - c), n, "int", {}, ["%dn − %d = %d." % (k, c, k * n - c), "%dn = %d, n = %d." % (k, k * n, n)])
 
