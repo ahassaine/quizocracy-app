@@ -18,7 +18,7 @@ from ..db import FAMILY_COLLECTIONS, db
 from ..deps import (Ctx, adult_name, clear_pin_lock, family_adult, family_events, family_page, full_page,
                     hit, local_time, log_event, over_limit, own_pupil, parent_page, pin_lock_until, pin_locks)
 from ..drills import bank, maths, spelling, tables, verbs
-from .. import config, funnel, levels, mailer, progress
+from .. import config, funnel, levels, mailer, progress, referrals
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
@@ -76,7 +76,8 @@ async def home(request: Request, ctx: Ctx = Depends(parent_page)):
                 deleted_name=request.query_params.get("deleted_name", "")[:30],
                 pending={p["_id"]: _pending(p, ctx.family) for p in pupils},
                 checks={p["_id"]: _check_today(p) for p in pupils}, reward_gap=reward_gap(ctx.family, pupils),
-                feedback_card=await funnel.card_for(ctx.account, ctx.family))
+                feedback_card=await funnel.card_for(ctx.account, ctx.family),
+                invite=await referrals.summary(ctx.family) if ctx.full else None)
 
 
 @router.post("/home/feedback")

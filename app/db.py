@@ -18,6 +18,8 @@ FAMILY_COLLECTIONS = (
 async def ensure_indexes():
     await db.accounts.create_index([("email", ASCENDING)], unique=True)
     await db.accounts.create_index([("family_id", ASCENDING)])
+    await db.families.create_index([("ref", ASCENDING)], unique=True, sparse=True)       # a family's invitation code
+    await db.families.create_index([("referred_by", ASCENDING)])
     await db.pupils.create_index([("family_id", ASCENDING)])
     await db.sessions.create_index([("expires", ASCENDING)], expireAfterSeconds=0)
     await db.sessions.create_index([("family_id", ASCENDING)])

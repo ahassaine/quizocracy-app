@@ -19,6 +19,8 @@ SESSION_DAYS = int(os.getenv("QZ_SESSION_DAYS", "60"))
 
 # Sign-up gate for the beta: when set, a new parent must enter this code.
 INVITE_CODE = os.getenv("QZ_INVITE_CODE", "").strip()
+# Families who sign up while this is on are founding families (app/referrals.py: the beta offer).
+FOUNDING = _bool("QZ_FOUNDING", True)
 # During the beta every new family gets the Family plan for free.
 BETA_FAMILY_PLAN = _bool("QZ_BETA_FAMILY_PLAN", True)
 

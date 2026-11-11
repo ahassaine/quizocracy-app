@@ -30,7 +30,7 @@ def test_manifest_icons_and_service_worker_route():
         r = requests.get(BASE + i["src"])
         assert r.status_code == 200 and r.headers["content-type"] == "image/png"
     home = requests.get(BASE + "/").text
-    assert 'rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"' in home
+    assert 'rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=' in home     # versioned: a new icon is a new URL
     assert requests.get(BASE + "/static/img/apple-touch-icon.png").status_code == 200
     sw = requests.get(BASE + "/sw.js")
     assert sw.status_code == 200 and "javascript" in sw.headers["content-type"]

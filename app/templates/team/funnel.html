@@ -28,6 +28,18 @@
 </div>
 {% else %}<div class="card mut">No answers yet.</div>{% endfor %}
 
+<h2 id="invitations">Founding families and invitations</h2>
+<p class="mut small">Every family that signed up during the beta is a founding family: free during the beta, then 12 months after launch. A family that joined with another family's link and has a child answering in its week 2 (days 8–14) earns both families one more free month.</p>
+<div class="card small" data-testid="invitations">
+  <p style="margin-top:0"><b>{{ inv.founding }}</b> founding families · <b>{{ inv.joined }}</b> joined with a family's link · <b>{{ inv.stayed }}</b> of them kept going into week 2</p>
+  {% if inv.inviters %}<div style="overflow-x:auto"><table class="t small" data-testid="inviters">
+    <tr><th>Inviting family</th><th>Joined with its link</th><th>Kept going</th><th>Extra months earned</th></tr>
+    {% for e in inv.inviters %}<tr><td>{{ e.name }}</td><td>{{ e.joined }}</td><td>{{ e.stayed }}</td><td>{{ e.stayed }}</td></tr>{% endfor %}
+  </table></div>
+  <p class="mut" style="margin-bottom:0">Each family that kept going also earns its own extra month (see “invited by” under Families).</p>
+  {% else %}<p class="mut" style="margin-bottom:0">No family has joined with another family's link yet.</p>{% endif %}
+</div>
+
 <h2 id="waitlist">Waiting list ({{ waiting|length }})</h2>
 <p class="mut small">Visitors without an invitation code who left their email on the landing or sign-up page, oldest first. Nothing has been emailed to them; signing up takes them off the list.</p>
 {% if waiting %}<div class="card" data-testid="waitlist"><ol class="small" style="margin:0;padding-left:20px">{% for w in waiting %}<li style="overflow-wrap:anywhere">{{ w._id }} <span class="mut">· {{ w.created.strftime('%d %b %Y') if w.created else '' }}</span></li>{% endfor %}</ol></div>
@@ -43,7 +55,7 @@
 <div class="card" style="overflow-x:auto">
 <table class="t small" data-testid="funnel-families">
   <tr><th>Family</th>{% for k, label in steps %}<th>{{ label }}</th>{% endfor %}<th>Active days</th><th></th></tr>
-  {% for r in rows %}<tr data-testid="fam-{{ r.id }}"><td style="min-width:170px"><b>{{ r.name }}</b>{% if r.test %} <span class="chip">test</span>{% endif %}<div class="mut" style="font-size:.75rem;overflow-wrap:anywhere">{{ r.emails|join(', ') }}</div></td>
+  {% for r in rows %}<tr data-testid="fam-{{ r.id }}"><td style="min-width:170px"><b>{{ r.name }}</b>{% if r.test %} <span class="chip">test</span>{% endif %}{% if r.via %}<div class="mut" style="font-size:.75rem" data-testid="via">invited by {{ r.via }}</div>{% endif %}<div class="mut" style="font-size:.75rem;overflow-wrap:anywhere">{{ r.emails|join(', ') }}</div></td>
     {% for k, label in steps %}{% set d = r.when.get(k) %}<td style="white-space:nowrap">{% if d %}{{ d.day }} {{ d.strftime('%b') }}{% elif r.due[k] %}<span class="mut">–</span>{% else %}<span class="mut">…</span>{% endif %}</td>{% endfor %}
     <td>{{ r.active_days }}</td>
     <td><form method="post" action="/team/{{ me._id }}/funnel/test"><input type="hidden" name="fid" value="{{ r.id }}"><input type="hidden" name="tests" value="{{ 1 if tests else 0 }}">

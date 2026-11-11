@@ -90,6 +90,7 @@ async def families(include_test: bool = False) -> list:
     answers = {r["_id"]: r async for r in db.attempts.aggregate(
         [{"$group": {"_id": "$family_id", "t": {"$min": "$ts"}, "days": {"$addToSet": "$day"}}}])}
     now, rows = today(), []
+    names = {f["_id"]: f.get("name", "") async for f in db.families.find({}, {"name": 1})}
     async for f in db.families.find({}).sort("created", -1):
         if not f.get("created"):
             continue
@@ -98,6 +99,9 @@ async def families(include_test: bool = False) -> list:
         r = _row(f, emails.get(f["_id"], []), verified.get(f["_id"]),
                  firsts(child.get(f["_id"]), f.get("first_child_at")), firsts(a.get("t"), f.get("first_answer_at")),
                  set(a.get("days") or []) | set(f.get("funnel_days") or []), now)
+        r["via"] = names.get(f.get("referred_by"), "a deleted family") if f.get("referred_by") else ""
+        r["via_id"] = f.get("referred_by") or ""
+        r["founding"] = bool(f.get("founding"))
         if include_test or not r["test"]:
             rows.append(r)
     return rows
@@ -143,3 +147,18 @@ async def card_for(account: dict, family: dict) -> str | None:
     if d.get("status") != "shown" or now - d["shown_at"] > datetime.timedelta(days=CARD_DAYS):
         return None
     return card
+
+
+def invitations(rows: list) -> dict:
+    """Who invited whom (app/referrals.py), from the funnel rows: per inviting family, the families that joined with
+    its link, how many kept going into week 2, and the extra free months both sides have earned so far."""
+    by = {}
+    for r in rows:
+        if r["via_id"]:
+            e = by.setdefault(r["via_id"], {"name": r["via"], "joined": 0, "stayed": 0})
+            e["joined"] += 1
+            e["stayed"] += bool(r["when"].get("week2"))
+    stayed_new = sum(bool(r["via_id"] and r["when"].get("week2")) for r in rows)
+    return {"inviters": sorted(by.values(), key=lambda e: (-e["stayed"], -e["joined"], e["name"])),
+            "founding": sum(r["founding"] for r in rows), "joined": sum(bool(r["via_id"]) for r in rows),
+            "stayed": stayed_new}

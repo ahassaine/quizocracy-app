@@ -322,7 +322,8 @@ async def funnel_page(request: Request, member_slug: str, tests: int = 0, q: str
     listed = [r for r in rows if q in r["name"].lower() or any(q in e.lower() for e in r["emails"])] if q else rows
     return page(request, "team/funnel.html", me=me, rows=listed[:300], cohorts=funnel.cohorts(rows),
                 steps=funnel.STEPS, tests=bool(tests), hidden=hidden, cards=cards, moods=funnel.MOODS,
-                card_names=funnel.CARDS, waiting=waiting, q=q)
+                card_names=funnel.CARDS, waiting=waiting, q=q,
+                inv=funnel.invitations(rows))
 
 
 @router.post("/{member_slug}/funnel/test")

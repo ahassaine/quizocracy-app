@@ -34,6 +34,18 @@
   {% if board %}<form method="post" action="/handover" style="display:inline"><button class="btn" type="submit">Hand over to a child</button></form>{% endif %}
 </div>
 {% include "_feedback_card.html" %}
+{% if invite %}<div class="card" data-testid="invite-family" id="invite">
+  {% if invite.founding %}<p style="margin-top:0" data-testid="founding"><b>You're a founding family.</b> Quizocracy is free for you during the beta, then for {{ invite.free_months }} months after launch, for all your children.</p>{% endif %}
+  <p style="margin:0 0 6px"><b>Invite a family you know</b></p>
+  <p class="small" style="margin:0 0 10px">Send them your family's link. It lets them join the beta without a code. When one of their children is still practising in their second week (days 8 to 14 after they sign up), both families get one more free month after launch.</p>
+  <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
+    <code data-testid="invite-link" style="overflow-wrap:anywhere;flex:1 1 220px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">{{ invite.link }}</code>
+    <button class="btn" type="button" id="inviteShare" data-link="{{ invite.link }}">Share the link</button></div>
+  <p class="mut small" style="margin:10px 0 0" data-testid="invite-count">{% if invite.joined %}{{ invite.joined }} {{ 'family has' if invite.joined == 1 else 'families have' }} joined with your link; {{ invite.stayed }} kept going into their second week.{% else %}No family has joined with your link yet.{% endif %}{% if invite.bonus %} You've earned {{ invite.bonus }} extra free month{{ 's' if invite.bonus > 1 }}.{% endif %} We only show you how many, never who.</p>
+</div>
+<script>(function(){const b=document.getElementById('inviteShare');if(!b)return;b.addEventListener('click',async()=>{const u=b.dataset.link,t='Try Quizocracy with us: short daily practice for Years 1 to 9. Our family link lets you join the beta:';
+  try{if(navigator.share){await navigator.share({title:'Quizocracy',text:t,url:u});return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(t+' '+u);b.textContent='Link copied'}catch(e){b.textContent='Copy the link above'}})})();</script>{% endif %}
 <style>#installTip[hidden], #installTip [hidden] { display:none !important; }</style>
 <div class="card small" id="installTip" hidden data-testid="install-tip" style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 16px">
   <img src="/static/img/icon-192.png" alt="" style="width:36px;height:36px;border-radius:9px">

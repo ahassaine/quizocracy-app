@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from pymongo.errors import DuplicateKeyError
 
-from .. import config, mailer
+from .. import config, mailer, referrals
 from ..activities import new_family_plan, plan_of
 from ..db import db
 from ..deps import (FULL_ROLES, ROLE_TITLES, Ctx, adult_name, client_ip, create_session, device_text, end_session,
@@ -58,15 +58,25 @@ async def _send_code(account: dict) -> None:
 
 @router.get("/signup")
 async def signup_form(request: Request):
-    return page(request, "signup.html", need_invite=bool(config.INVITE_CODE))
+    ref = referrals._norm(request.query_params.get("ref", ""))[:12]
+    return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), invite=ref, ref=ref)
+
+
+@router.get("/join/{code}")
+async def join(code: str):
+    """A family's invitation link (app/referrals.py): the sign-up form with that family's code filled in."""
+    f = await referrals.family_by_ref(code)
+    return RedirectResponse(f"/signup?ref={f['ref']}" if f else "/signup", 303)
 
 
 @router.post("/signup")
 async def signup(request: Request, email: str = Form(...), password: str = Form(...),
-                 family_name: str = Form(""), invite: str = Form(""), consent: str = Form("")):
+                 family_name: str = Form(""), invite: str = Form(""), consent: str = Form(""), ref: str = Form("")):
     email = email.strip().lower()
     err = None
-    if config.INVITE_CODE and _code(invite) != _code(config.INVITE_CODE):
+    # Another family's code (its invitation link) lets a family in like the beta's code, and is remembered.
+    by = await referrals.family_by_ref(invite) or await referrals.family_by_ref(ref)
+    if config.INVITE_CODE and _code(invite) != _code(config.INVITE_CODE) and not by:
         err = ("That invitation code is not right. Check it against your invitation (small or capital letters both work)."
                if invite.strip() else "Sign-up needs the invitation code from your invitation email.")
         err += " No code? Join the waiting list below."
@@ -81,9 +91,14 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
     if err:
         # Everything typed comes back, so one slip never means typing the code and password again.
         return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), error=err, email=email,
-                    password=password, family_name=family_name, invite=invite, consent=consent, status_code=400)
+                    password=password, family_name=family_name, invite=invite, consent=consent, ref=ref,
+                    status_code=400)
     fam = {"_id": new_id("fam"), "name": (family_name.strip() or "My family")[:60], "plan": new_family_plan(),
            "created": _now(), "reward": {"text": "", "threshold": 100}}
+    if config.FOUNDING:
+        fam["founding"] = True
+    if by:
+        fam["referred_by"] = by["_id"]
     acc = {"_id": new_id("acc"), "email": email, "pw": hash_secret(password), "family_id": fam["_id"],
            "role": "owner", "created": _now(), "verified_at": None, "report_emails": True}
     await db.families.insert_one(fam)

@@ -3,7 +3,7 @@
  * family's names and progress) or anything under /api/ (answers are checked on the server), so those always go
  * to the network. Static files are kept by their full URL: a new ?v= is a new URL and is fetched fresh.
  * Served at /sw.js (app/routes/extras.py) so that it may look after the whole site. */
-const SHELL = 'qz-shell-v1';
+const SHELL = 'qz-shell-v2';   // v2: the robin icons
 const OFFLINE = '/static/offline.html';
 const PRECACHE = [OFFLINE, '/static/img/icon-192.png', '/static/img/favicon-32.png'];
 const KEEP = /\.(css|js|png|svg|webp|ico|webmanifest|woff2?)$/;     // static files worth keeping (not audio)

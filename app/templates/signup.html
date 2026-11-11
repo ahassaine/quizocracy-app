@@ -1,9 +1,10 @@
 {% extends "base.html" %}{% block title %}Sign up · Quizocracy{% endblock %}{% block meta %}{% from "_meta.html" import meta %}{{ meta('Sign up · Quizocracy', 'Create a parent account for Quizocracy: daily maths, times tables, spelling, grammar and science practice for Years 1 to 9. Invitation only for now, with a waiting list.', '/signup') }}{% endblock %}
 {% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Create a parent account</h1>
-{% if need_invite %}<p class="small" data-testid="invite-only" style="text-align:center;margin-top:-.3em"><b>The beta is invitation-only right now.</b> You need the code from your invitation email. No code yet? <a href="#waitlist">Join the waiting list</a>.</p>{% endif %}
+{% if need_invite %}<p class="small" data-testid="invite-only" style="text-align:center;margin-top:-.3em"><b>The beta is invitation-only right now.</b> You need the code from your invitation, or from another family's invitation link. No code yet? <a href="#waitlist">Join the waiting list</a>.</p>{% endif %}
+{% if ref %}<div class="card small" data-testid="invited-by-family" style="text-align:center"><b>Another family invited you.</b> Their code is filled in below. When your children keep going into a second week, both families get an extra free month after launch.</div>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
-<form method="post" action="/signup" class="card">
+<form method="post" action="/signup" class="card"><input type="hidden" name="ref" value="{{ ref or '' }}">
   <div class="field"><label for="email">Your email</label><input id="email" name="email" type="email" required autocomplete="email" value="{{ email or '' }}"></div>
   <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="new-password" aria-describedby="pw-hint" value="{{ password or '' }}">
     <div class="mut small" id="pw-hint">8 characters or more</div></div>
