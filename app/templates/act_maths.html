@@ -10,14 +10,14 @@
 {% block scripts %}
 <script src="/static/maths/components/angle.js?v=4"></script>
 <script src="/static/maths/components/area_grid.js?v=5"></script>
-<script src="/static/maths/components/array.js?v=5"></script>
+<script src="/static/maths/components/array.js?v=6"></script>
 <script src="/static/maths/components/bar_chart.js?v=5"></script>
 <script src="/static/maths/components/base_ten.js?v=6"></script>
 <script src="/static/maths/components/circle.js?v=4"></script>
 <script src="/static/maths/components/clock.js?v=4"></script>
 <script src="/static/maths/components/coordinate_grid.js?v=4"></script>
 <script src="/static/maths/components/data_table.js?v=6"></script>
-<script src="/static/maths/components/equal_groups.js?v=5"></script>
+<script src="/static/maths/components/equal_groups.js?v=6"></script>
 <script src="/static/maths/components/fraction_bar.js?v=4"></script>
 <script src="/static/maths/components/inequality_line.js?v=4"></script>
 <script src="/static/maths/components/io_table.js?v=6"></script>
@@ -31,7 +31,7 @@
 <script src="/static/maths/components/scatter_plot.js?v=5"></script>
 <script src="/static/maths/components/shape.js?v=4"></script>
 <script src="/static/maths/components/strip_model.js?v=6"></script>
-<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=29"></script><script>
+<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=30"></script><script>
 window.MComp = window.MComp || {};
 const YEAR = parseInt(document.getElementById('drillHead').dataset.year, 10) || 0;
 let choices = null;
@@ -50,6 +50,8 @@ Drill({ activity: 'maths', idk: true,
     document.getElementById('skillTitle').textContent = q.title;
     const rt = document.getElementById('reviewTag'); rt.textContent = q.review_of || ''; rt.hidden = !q.review_of;   // "Warm-up": an earlier year's skill (no year number for the child)
     barAt = 0; skillBar(q.score, false);
+    // after a slip the next question is easier: one line says so ("Let's go over decimals with an easier one.")
+    if (q.ease) { const fb = document.getElementById('feedback'); fb.className = 'feedback warn'; fb.textContent = q.ease; }
     const stage = document.getElementById('mStage'); stage.innerHTML = '';
     const pr = document.createElement('div'); pr.className = 'm-prompt'; pr.textContent = q.prompt; stage.appendChild(pr);
     const host = document.createElement('div'); host.className = 'm-host'; host.id = 'mHost'; host.dataset.component = q.component; stage.appendChild(host);

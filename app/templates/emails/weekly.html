@@ -9,7 +9,8 @@
 <p style="margin:0 0 6px;font-size:18px;font-weight:bold">{{ c.name }} <span style="font-weight:normal;color:#6B7280;font-size:14px">Year {{ c.year }}</span></p>
 {% if c.answers %}
 <p style="margin:0 0 8px"><b>{{ c.done }} of {{ c.days }} days</b> done · {{ c.answers }} answers{% if c.first_pct is not none %} · <b>{{ c.first_pct }}%</b> right first time{% endif %} · {{ c.minutes }} minutes</p>
-<p style="margin:0 0 8px">{{ c.line }}</p>
+{% if c.extra or c.fixq %}<p style="margin:0 0 8px">{% if c.extra %}+ {{ c.extra }} extra question{{ "s" if c.extra != 1 }} after the targets, {{ c.extra_pct }}% right first time{% endif %}{% if c.extra and c.fixq %} · {% endif %}{% if c.fixq %}+ {{ c.fixq }} mistake{{ "s" if c.fixq != 1 }} practised{% endif %}</p>
+{% endif %}<p style="margin:0 0 8px">{{ c.line }}</p>
 {% if c.mastered %}<p style="margin:0 0 6px"><b>Learned this week:</b> {{ c.mastered|join("; ") }}</p>{% endif %}
 {% if c.weak %}<p style="margin:0 0 6px"><b>Help {{ c.name }} with:</b> {{ c.weak|join("; ") }}</p>{% endif %}
 {% if c.flags %}<p style="margin:0 0 6px;color:#92400E"><b>Please look at:</b> {{ c.flags|join("; ") }}</p>{% endif %}

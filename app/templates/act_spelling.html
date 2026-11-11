@@ -7,7 +7,7 @@
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=29"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=30"></script><script>
 const audio = document.getElementById('audio');
 let say = '';          // a school word with no recorded clip: the browser's own voice says it
 function voice(text, rate) { return new Promise(res => { const s = window.speechSynthesis; if (!s || !window.SpeechSynthesisUtterance) return res();
@@ -29,7 +29,7 @@ document.addEventListener('click', (e) => { if (e.target && e.target.closest && 
   heard = true; try { sessionStorage.setItem('qz_heard', '1'); } catch (x) {} } }, true);
 function soundTip(fb) { if (heard || !fb) return; const d = document.createElement('div'); d.className = 'kind';
   d.setAttribute('data-testid', 'sound-tip'); d.textContent = 'Turn your sound on to hear the word.'; fb.appendChild(d); }
-Drill({ activity: 'spelling',
+Drill({ activity: 'spelling', idk: true,
   render(q) { say = q.say ? [...atob(q.say)].reverse().join('') : '';
     // after a run of misses the server gives an easier word, with a kind word first (Years 1-2 hear it)
     const fb = document.getElementById('feedback');

@@ -1,4 +1,5 @@
 """Every answer is one row in `attempts`; the day's progress and the family board are read from it."""
+import contextvars
 import datetime
 import difflib
 import math
@@ -15,6 +16,21 @@ TZ = ZoneInfo(config.TIMEZONE)
 
 def today() -> str:
     return datetime.datetime.now(TZ).date().isoformat()
+
+
+def pct(part: int, whole: int) -> int | None:
+    """THE one rounding of every percent a parent reads: to the nearest whole number (2 of 3 is 67%, 1 of 8 is 13%),
+    but never 100% short of the whole, nor 0% with something done. None when there is nothing to count."""
+    if not whole:
+        return None
+    p = (200 * part + whole) // (2 * whole)
+    return p if part >= whole else 0 if part <= 0 else max(1, min(p, 99))
+
+
+# Set by routes/child.api_check while it checks the answer to a "Practise my mistakes" question: "fix", or "fixing"
+# when the question was the mistake itself. record() marks the row with it, so the parent's figures count mistake
+# practice on its own, never as extra practice (day_stats).
+FIX_MODE: contextvars.ContextVar = contextvars.ContextVar("fix_mode", default="")
 
 
 def day_list(n: int) -> list:
@@ -36,6 +52,10 @@ async def record(pupil: dict, activity: str, correct: bool, ms: int | None = Non
         row["copied"] = True
     if src:
         row["src"] = src
+    if FIX_MODE.get():
+        row["fix"] = True
+        if FIX_MODE.get() == "fixing":
+            row["fixing"] = True
     if correct and like:
         row["lq"] = str(like)[:400]
     if not correct and question:          # a mistake keeps what was asked, so the parent can go over it later
@@ -97,17 +117,21 @@ async def _scan(pupil: dict, days: list) -> list:
     bank question (detail), or for maths a question like it (alike); in grammar, science and spelling only once
     the miss is PUT_RIGHT_AFTER old (sooner, it is practised: asked again in a later sitting). A right answer
     copied straight after the correction puts nothing right. Once put right a mistake stays put right; missing
-    the item again is a new mistake."""
+    the item again is a new mistake. In "Practise my mistakes" (the row's fix): a wrong answer to a question asked
+    while a mistake waits for its gap (not "fixing") is never a mistake, so a round never ends with more mistakes
+    than it began with; the mistake itself missed again ("fixing") rests (rest), as one right again does."""
     out, waiting = [], {}
     async for r in db.attempts.find({"pupil_id": pupil["_id"], "day": {"$in": days}, "detail": {"$nin": ["", None]},
                                      "copied": {"$ne": True}},
                                     {"activity": 1, "detail": 1, "correct": 1, "ts": 1, "q": 1, "lq": 1, "nolike": 1,
-                                     "exp": 1, "got": 1, "day": 1, "idk": 1}).sort("ts", 1):
+                                     "exp": 1, "got": 1, "day": 1, "idk": 1, "fix": 1, "fixing": 1}).sort("ts", 1):
         k = (r["activity"], same_item(r["activity"], r["detail"]))
         if not r["correct"]:
+            if r.get("fix") and not r.get("fixing"):
+                continue                     # a filler question of "Practise my mistakes": a miss, not a mistake
             m = {"id": r["_id"], "activity": r["activity"], "detail": r["detail"], "ts": r["ts"], "q": r.get("q", ""),
                  "fixed": None, "nolike": bool(r.get("nolike")), "practised": None, "day": r.get("day", ""),
-                 "exp": r.get("exp", ""), "got": r.get("got", ""), "asked": "q" in r,
+                 "exp": r.get("exp", ""), "got": r.get("got", ""), "asked": "q" in r, "rest": bool(r.get("fixing")),
                  "idk": bool(r.get("idk")) or _said_idk(r.get("got", ""))}     # "I don't know": said neutrally
             out.append(m)
             waiting.setdefault(k, []).append(m)
@@ -147,8 +171,8 @@ async def mistake_book(pupil: dict, days: list | None = None, plan: set | None =
       - "fixed": put right (its latest miss was put right by a later right answer, see _scan);
       - "cannot": not put right, but the app won't ask it again (no question like it could be made, or its
         activity is not in `plan`): the parent sees it on a quieter line, the child never counts it;
-      - "later": right again in the same sitting (practised): it rests until `back` (PUT_RIGHT_AFTER after the
-        miss), then it is due again;
+      - "later": right again in the same sitting (practised), or missed again in "Practise my mistakes": it rests
+        until `back` (PUT_RIGHT_AFTER after the miss), then it is due again;
       - "due": to put right now.
     again: it had been put right, then was missed again (it shows once, as to go over, never also as put right).
     before: only items whose latest miss is older than this (the queue of a "Practise my mistakes" session that
@@ -173,9 +197,11 @@ async def mistake_book(pupil: dict, days: list | None = None, plan: set | None =
     for e in out:
         m = e["latest"]
         e.update(key=mistake_key(m), detail=m["detail"], fixed=m["fixed"], practised=bool(m["practised"] and not m["fixed"]),
-                 back=m["ts"] + PUT_RIGHT_AFTER if m["practised"] and not m["fixed"] else None)
+                 back=m["ts"] + PUT_RIGHT_AFTER if (m["practised"] or m.get("rest")) and not m["fixed"] else None)
+        # practised in "Practise my mistakes" and missed again (rest): it rests too, so the child's count goes down
+        # as each mistake is practised, and the round ends ("3 come back tomorrow")
         e["state"] = ("fixed" if m["fixed"] else "cannot" if m["nolike"] or (plan is not None and m["activity"] not in plan)
-                      else "later" if e["practised"] and now < e["back"] else "due")
+                      else "later" if e["back"] and now < e["back"] else "due")
     out.sort(key=lambda e: e["latest"]["ts"])
     if before is not None:
         out = [e for e in out if e["latest"]["ts"] < before]
@@ -260,8 +286,8 @@ async def counts(pupil_ids: list, days: list) -> dict:
 
 def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = None) -> dict:
     """Progress of one child on one day, against the plan of that day: per activity and overall percent.
-    Percents are rounded down (exact fractions), so 100% and a reward "at 100%" come only when every activity
-    is complete. A day that reached 100% or earned its reward keeps it (pupil.kept), whatever changes later.
+    Percents are rounded by pct (2 of 3 is 67%), never up to 100%, so 100% and a reward "at 100%" come only when
+    every activity is complete. A day that reached 100% or earned its reward keeps it (pupil.kept), whatever changes later.
     On a rest day (rest: "off" or "week", see activities.rest_day) nothing is due: every right answer is extra,
     and the day shows as rest, not as 0%; only what it had already kept stays. rest_next: tomorrow's rest ("off",
     "week" or ""), and back: the next practice day after it, so every screen can say "Tomorrow is a day off"."""
@@ -287,15 +313,17 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
         done_all, target_all = done_all + step_done, target_all + step_target
         items.append({**a, "done": done, "correct": c["correct"], "answered": c["answered"],
                       "extra": c["correct"] if rest else max(0, c["correct"] - a["target"]),
-                      "pct": math.floor(100 * frac), "complete": frac >= 1, "check": check, "capped": capped})
+                      "pct": pct(step_done, step_target), "complete": frac >= 1, "check": check, "capped": capped})
     # the day's percent weighs every planned answer the same: 5 science answers of 25 planned are 20%, not half
-    pct = 0 if rest else math.floor(100 * done_all / target_all) if target_all else 0
+    day_pct = 0 if rest else pct(done_all, target_all) if target_all else 0
     planned = {a["key"] for a in plan}
     # work in an activity not in that day's plan (unticked since): shown, never counted towards the day
     unplanned = [{**ACTIVITIES[k], "key": k, "correct": c["correct"], "answered": c["answered"]}
                  for k, c in day_counts.items() if k in ACTIVITIES and k not in planned and c.get("answered")]
     kept = (pupil.get("kept") or {}).get(day) or {}
-    return {"items": items, "pct": max(pct, int(kept.get("pct") or 0)), "kept": kept, "rest": rest, "unplanned": unplanned,
+    exact = 0 if rest or not target_all else 100 * done_all / target_all      # unrounded: what a reward threshold is met by
+    return {"items": items, "pct": max(day_pct, int(kept.get("pct") or 0)), "exact": max(exact, int(kept.get("pct") or 0)),
+            "kept": kept, "rest": rest, "unplanned": unplanned,
             "extra": sum(c.get("correct", 0) for c in day_counts.values()) if rest else 0,
             "rest_next": rest_day(pupil, next_day(day)), "back": back_on(pupil, day) if rest or rest_day(pupil, next_day(day)) else ""}
 
@@ -328,7 +356,7 @@ async def board(family: dict, pupils: list, day: str | None = None) -> list:
     for p in pupils:
         st = day_status(p, family, c.get(p["_id"], {}).get(day, {}), day)
         reward, kept = reward_for(p, family), st["kept"]
-        earned = bool(reward.get("text")) and st["pct"] >= int(reward.get("threshold") or 100)
+        earned = bool(reward.get("text")) and st.get("exact", st["pct"]) >= int(reward.get("threshold") or 100)
         if kept.get("reward"):                    # earned earlier today: never taken back, and the same reward
             reward, earned = {**reward, "text": kept["reward"]}, True
         if (earned or st["pct"] >= 100) and day == today() and (st["pct"] > int(kept.get("pct") or 0)
@@ -368,13 +396,14 @@ async def history(pupil: dict, family: dict, n: int = 14) -> list:
 
 def plan_targets(pupils: list, family: dict, days: list) -> dict:
     """What day_stats needs to keep answers after a target out of the day's headline, and to compare the time
-    spent with the plan: {pupil_id: {day: {"acts": {activity: target}, "min": planned minutes}}}. A rest day
-    has no targets (everything on it is extra anyway)."""
+    spent with the plan: {pupil_id: {day: {"acts": {activity: target}, "min": planned minutes, "rest": bool}}}. A
+    rest day has no targets: everything on it is extra."""
     out: dict = {}
     for p in pupils:
         for d in days:
-            plan = [] if rest_day(p, d) else todays_plan(p, family, d)
-            out.setdefault(p["_id"], {})[d] = {"acts": {a["key"]: a["target"] for a in plan},
+            rest = bool(rest_day(p, d))
+            plan = [] if rest else todays_plan(p, family, d)
+            out.setdefault(p["_id"], {})[d] = {"acts": {a["key"]: a["target"] for a in plan}, "rest": rest,
                                                "min": minutes(plan, p.get("year", 3), bool(check_due(p, d))) if plan else 0,
                                                "year": p.get("year", 3)}
     return out
@@ -392,7 +421,7 @@ GAP_MS = 120000           # longer pauses between answers do not count as time s
 def _no_stats() -> dict:
     return {"answers": 0, "first": 0, "first_right": 0, "first_pct": None, "minutes": 0, "rushed": 0, "copied": 0,
             "guesses": 0, "extra": 0, "extra_first": 0, "extra_right": 0, "extra_pct": None, "plan_min": 0, "acts": {}, "acts_extra": {},
-            "rushed_list": [], "idk": 0, "extra_at": "", "extra_after_day": False}
+            "rushed_list": [], "idk": 0, "extra_at": "", "extra_after_day": False, "fixq": 0, "acts_fix": {}}
 
 
 RUSHED_SHOW = 12          # rushed answers listed under "N wrong answers look rushed"
@@ -458,19 +487,25 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
     pauses; rushed = wrong answers given in under QUICK_MS (an option or a word picked: PICK_MS) or that look like
     random keys; guesses = other wrong
     answers that are a non-answer or every option (_guessed); copied = right answers to an item within COPY_MS
-    of getting it wrong (the answer was on screen). With targets (plan_targets), answers in an activity after its
-    target is reached are extra: they stay out of first/first_pct (more effort never lowers the day's score) and
-    are counted in extra, extra_first, extra_right, extra_pct; plan_min is the plan's minutes. acts: first tries
-    per activity, {activity: [first, first_right]}, extra answers left out like the headline (so extra practice
-    never turns an activity "needs help"), and so are Year 4 check facts beyond the child's year (_in_year);
-    acts_extra: the same for the extra answers (accuracy in routes/parent.py shows them beside it).
+    of getting it wrong (the answer was on screen). Each first try falls in ONE of three parts, the same on Home,
+    Progress, the printed report and the weekly email:
+      - the headline (first, first_right, first_pct, acts): the planned questions, up to each activity's target;
+      - extra (extra, extra_right, extra_pct, acts_extra): THE one "extra" figure, questions after the activity's
+        target (on a rest day, all of them), outside "Practise my mistakes"; the "+N" by an activity is its part;
+      - fixq (acts_fix): mistakes practised in "Practise my mistakes" (the mistake itself; the row has "fixing").
+    Other answers in "Practise my mistakes" (while a mistake waits for its gap) are in none of them, and neither
+    are retries, copies or a real word typed for a spelling word ("other"): all of them count in answers only.
+    So more effort never lowers the day's score. extra_first is extra (kept for older callers); plan_min is the
+    plan's minutes. acts ({activity: [first, first_right]}) also leaves out Year 4 check facts beyond the child's
+    year (_in_year), so extra practice or the optional check never turns an activity "needs help".
     rushed_list: the rushed answers ({time, activity, q, got, exp}); a time-out in the timed Year 4 check is
     never rushed. extra_at: when the extra answers were given ("19:08" or "19:08–19:20", UK time), and
     extra_after_day: they all came after the whole day's targets were met."""
     out: dict = {}
     rows = db.attempts.find({"pupil_id": {"$in": pupil_ids}, "day": {"$in": days}},
                             {"pupil_id": 1, "day": 1, "activity": 1, "detail": 1, "correct": 1, "ms": 1, "ts": 1,
-                             "got": 1, "exp": 1, "copied": 1, "q": 1, "src": 1, "other": 1, "pick": 1, "idk": 1}).sort("ts", 1)
+                             "got": 1, "exp": 1, "copied": 1, "q": 1, "src": 1, "other": 1, "pick": 1, "idk": 1,
+                             "fix": 1, "fixing": 1}).sort("ts", 1)
     wrong_at: dict = {}
     last_ts: dict = {}
     right_so_far: dict = {}
@@ -483,8 +518,8 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
         s["answers"] += 1
         ak = (r["pupil_id"], r["day"], r["activity"])
         lk = (r["pupil_id"], r["day"])
-        target = (plan.get("acts") or {}).get(r["activity"])
-        extra = target is not None and right_so_far.get(ak, 0) >= target
+        target = 0 if plan.get("rest") else (plan.get("acts") or {}).get(r["activity"])
+        extra = target is not None and right_so_far.get(ak, 0) >= target and not r.get("fix")
         if r["correct"]:
             right_so_far[ak] = right_so_far.get(ak, 0) + 1
         if extra:
@@ -501,11 +536,20 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
         last_ts[lk] = r["ts"]
         if r.get("other"):
             continue        # another real word, spelt right (spelling.check): its time counts, never as right or wrong
-        if extra:
-            s["extra"] += 1
+        if r.get("copied"):
+            # right straight after being shown the answer (the retype after another real word, a fact just given):
+            # a copy, never a right first try
+            s["copied"] += 1 if r["correct"] else 0
+            continue
+        if r.get("fixing") and not r.get("copied") and (prev_wrong is None or
+                                                         (r["ts"] - prev_wrong).total_seconds() * 1000 >= COPY_MS):
+            s["fixq"] += 1                         # a mistake practised ("+ 6 mistakes practised")
+            s["acts_fix"][r["activity"]] = s["acts_fix"].get(r["activity"], 0) + 1
         if prev_wrong is None:
-            if extra:
-                s["extra_first"] += 1
+            if r.get("fix"):
+                pass                               # "Practise my mistakes": neither the headline nor extra
+            elif extra:
+                s["extra"] += 1
                 s["extra_right"] += 1 if r["correct"] else 0
                 a = s["acts_extra"].setdefault(r["activity"], [0, 0])     # "plus 25 extra answers, 80% right"
                 a[0] += 1
@@ -545,8 +589,9 @@ async def day_stats(pupil_ids: list, days: list, targets: dict | None = None) ->
     for per in out.values():
         for s in per.values():
             s["minutes"] = round(s["minutes"])
-            s["first_pct"] = math.floor(100 * s["first_right"] / s["first"]) if s["first"] else None
-            s["extra_pct"] = math.floor(100 * s["extra_right"] / s["extra_first"]) if s["extra_first"] else None
+            s["first_pct"] = pct(s["first_right"], s["first"])
+            s["extra_first"] = s["extra"]
+            s["extra_pct"] = pct(s["extra_right"], s["extra"])
     return out
 
 

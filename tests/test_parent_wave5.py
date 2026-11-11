@@ -96,11 +96,11 @@ def test_needs_help_not_from_extras_the_check_or_a_thin_first_day(page):
     assert "Maths 100%" in acc                               # the extras are left out of it
     page.goto(f"/children/{pid}")
     assert page.get_by_test_id("needs-help").count() == 0
-    # ten first tries under 70% (in the day's own answers) does say it
+    # ten first tries under 70% on one day: "early days" (wave 8: "needs help" waits for 3 days and 30 tries)
     _rows(pid, fid, [("tables", i < 3, 4000, {"q": "3 × 4 =", "exp": "12", "got": "11", "detail": f"3x{i + 1}"}) for i in range(10)])
     DB.pupils.update_one({"_id": pid}, {"$set": {"activities.tables.target": 20}})
     page.goto("/home")
-    assert "Times tables 30% needs help" in page.get_by_test_id("home-accuracy").inner_text()
+    assert "Times tables 30% early days" in page.get_by_test_id("home-accuracy").inner_text()
 
 
 def test_extras_show_their_time_and_the_check_on_home(page):

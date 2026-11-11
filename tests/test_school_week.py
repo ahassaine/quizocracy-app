@@ -165,7 +165,7 @@ def test_rest_days_show_as_rest_and_never_take_back_a_reward(page):
     assert r["correct"] and r["day"]["reward"] == ""                     # extra: no reward on a rest day
     unlock_parent(page)
     page.goto("/home")
-    assert "1 extra right answer anyway" in page.inner_text("[data-testid='kid-Cara']")
+    assert "1 extra question on a rest day, 100% right first time" in page.inner_text("[data-testid='kid-Cara']")
     page.goto("/board")
     assert page.locator("[data-testid=rest-day]").count() == 1
 

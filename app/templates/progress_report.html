@@ -45,20 +45,22 @@
   <div><b data-testid="first-pct">{{ first_pct ~ '%' if first_pct is not none else '–' }}</b><span class="small mut">right first time</span></div>
   <div><b>{{ tot.minutes if tot.minutes or not tot.answers else 'under 1' }}</b><span class="small mut">minutes of practice</span></div>
 </div>
+<p class="small mut" style="margin:-4px 0 8px" data-testid="report-totals-rule">Answers counts every answer; right first time is the planned questions of all activities together, as in the table below.</p>
 {% if off_count or rest_count %}<p class="small" data-testid="report-days-off">{% if off_count %}<b>Days off:</b> {{ off_spans|join(', ') }} ({{ off_count }} day{{ '' if off_count == 1 else 's' }}, marked by a parent: a sick day or a holiday).{% endif %}{% if rest_count %} {{ rest_count }} day{{ ' was' if rest_count == 1 else 's were' }} not {{ pupil.name }}'s practice days.{% endif %} Nothing was due on these days; any practice on them counts as extra.</p>{% endif %}
 {% if tot.rushed or tot.copied %}<p class="small mut">{% if tot.rushed %}{{ tot.rushed }} wrong answer{{ ' was' if tot.rushed == 1 else 's were' }} rushed (very quick, blank or random keys). {% endif %}{% if tot.copied %}{{ tot.copied }} right answer{{ ' was' if tot.copied == 1 else 's were' }} typed within a minute of being shown the answer, so {{ 'it does' if tot.copied == 1 else 'they do' }} not count as right first time.{% endif %}</p>{% endif %}
 
 {% if acts %}<h2>By activity</h2>
 <div class="card" style="overflow-x:auto"><table class="t small" data-testid="report-acts">
-  <tr><th>Activity</th><th>Right answers</th><th>Answers</th><th>Right first time</th><th>Extra practice</th></tr>
-  {% for k, a in acts %}{% set f = acc.get(k) %}<tr data-testid="report-act-{{ k }}"><td>{{ ACTIVITIES[k].title }}</td><td>{{ a.correct }}</td><td>{{ a.answered }}</td><td>{% if f %}<b>{{ f.pct }}%</b>{% if f.weak %} <span class="mut">needs help</span>{% endif %}{% else %}–{% endif %}</td><td class="mut">{% if f and f.extra and not f.only_extra %}{{ f.extra }} answer{{ 's' if f.extra != 1 }}, {{ f.extra_pct }}% right{% else %}–{% endif %}</td></tr>{% endfor %}
+  <tr><th>Activity</th><th>Right first time</th><th>Extra practice</th><th>Mistakes practised</th><th>All answers</th></tr>
+  {% for k, a in acts %}{% set f = acc.get(k) %}<tr data-testid="report-act-{{ k }}"><td>{{ ACTIVITIES[k].title }}</td><td>{% if f and f.first %}<b>{{ f.pct }}%</b> <span class="mut" style="white-space:nowrap">({{ f.right }} of {{ f.first }})</span>{% if f.weak %} <span class="mut">needs help</span>{% elif f.early %} <span class="mut">early days</span>{% endif %}{% else %}–{% endif %}</td><td class="mut">{% if f and f.extra %}{{ f.extra }} question{{ 's' if f.extra != 1 }}, {{ f.extra_pct }}% right first time{% else %}–{% endif %}</td><td class="mut">{{ f.fixq if f and f.fixq else '–' }}</td><td>{{ a.answered }}</td></tr>{% endfor %}
 </table>
-<p class="small mut" style="margin:6px 0 0">Right first time counts the answers up to each day's target, as on {{ pupil.name }}'s progress page; answers after a target are extra practice, shown on their own.</p></div>{% endif %}
+<p class="small mut" style="margin:6px 0 0" data-testid="report-acts-rule">Each question counts once, at its first try: planned ones up to each day's target (right first time), extra ones after the target, and mistakes practised in “Practise my mistakes”; all answers also counts retries{% if other_n %} and {{ other_n }} real word{{ 's' if other_n != 1 }} typed for the spelling word asked, which {{ 'is' if other_n == 1 else 'are' }} neither right nor wrong{% endif %}.</p></div>
+<p class="scroll-hint no-print" style="margin-top:-4px">Swipe the table sideways to see every column →</p>{% endif %}
 {% endif %}
 
 {% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
 {% if skills or tables or verbs or spelling_on %}<h2>Learned so far</h2>
-<p class="small mut">Where {{ pupil.name }} stands today. A skill is secure once it is mastered: a run of right answers on it, checked again on a later day.</p>{% endif %}
+<p class="small mut">Where {{ pupil.name }} stands today. A skill is secure once it is mastered: a run of right answers on it, checked again on a later day. Practising: answered, not secure yet. Not started: not asked yet.</p>{% endif %}
 {% for subj, groups in skills.items() %}
 <div class="card" data-testid="report-skills-{{ subj }}" style="overflow-x:auto">
   <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>

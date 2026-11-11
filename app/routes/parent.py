@@ -23,7 +23,7 @@ from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
 from .auth import settings_view
-from .child import REPORT_REASONS, picker_page
+from .child import REPORT_REASONS, _due, pick_batch, picker_page
 
 router = APIRouter()
 PIN_RE = re.compile(r"^\d{4}$")
@@ -232,7 +232,7 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
     _mark_reported(mistakes, reports)
     _split_mistakes(mistakes, {a["key"] for a in now})
     skills = await _skill_views(p, on)
-    return page(request, "child_detail.html", ctx, pupil=p, hist=hist,
+    return page(request, "child_detail.html", ctx, pupil=p, hist=hist, fixc=await fix_counts(p, now),
                 hist_keys=[k for k in ORDER if any(it["key"] == k for h in hist for it in h["items"] + h["unplanned"])],
                 stats=stats, added=request.query_params.get("added"), maths_year=maths.engine_year(levels.level(p, "maths")),
                 mistakes=mistakes, pending=nxt if pending else None, reports=reports,
@@ -259,36 +259,60 @@ def _split_mistakes(mistakes: list, plan: set) -> None:
         d["items"] = [i for i in d["items"] if i not in d["cannot"]]
 
 
+async def fix_counts(p: dict, plan_items: list) -> dict:
+    """What the child's own My day shows (routes/child.me, the same rule: progress.mistake_book with today's plan):
+    ready, the number on "Practise my mistakes (N)" (a round of at most FIX_BATCH), and later, "N more come back
+    later" with when; open = due + later is "to go over", so the parent reads "8 to go over: 6 ready now, 2 come
+    back tomorrow" and can see both numbers on the child's screen."""
+    order = [a["key"] for a in plan_items]
+    book = await progress.mistake_book(p, plan=set(order))
+    due = _due(book)
+    later = [e for e in book if e["state"] == "later"]
+    n_due = sum(len(v) for v in due.values())
+    return {"open": n_due + len(later), "due": n_due, "ready": sum(len(v) for v in pick_batch(due, order).values()),
+            "later": len(later), "when": progress.back_when([e["back"] for e in later])}
+
+
 def accuracy(hist: list) -> list:
     """THE one rule for "right first time" per activity, on Home, Progress and the printed report: over these days
-    of progress.history, [{key, title, img, first, right, pct, extra, extra_right, extra_pct, weak}] in the plan's
-    order. pct is the answers up to each day's target; the extra answers after a target are counted on their own
-    (extra, extra_pct: "plus 25 extra answers, 80% right"). weak ("needs help"): below WEAK_PCT with at least
-    WEAK_MIN first tries, and still below it with the extras in, so extra practice never makes an activity "needs
-    help" by itself, and good extra practice can lift it out."""
+    of progress.history, [{key, title, img, first, right, pct, extra, extra_right, extra_pct, fixq, days, weak,
+    early}] in the plan's order. pct is the planned questions, up to each day's target; extra (extra_pct) is THE
+    one extra figure of progress.day_stats, questions after a target outside "Practise my mistakes"; fixq the
+    mistakes practised there. weak ("needs help"): below WEAK_PCT over at least WEAK_MIN first tries on at least
+    WEAK_DAYS days (days), and still below it with the extras in, so extra practice never makes an activity "needs
+    help" by itself, and good extra practice can lift it out. early ("early days"): below WEAK_PCT, but too soon to
+    say more."""
     tot: dict = {}
+    days: dict = {}
+    fixq: dict = {}
     for h in hist:
         st = h.get("stats") or {}
         for i, part in enumerate(("acts", "acts_extra")):
             for k, (first, right) in (st.get(part) or {}).items():
                 t = tot.setdefault(k, [0, 0, 0, 0])
                 t[2 * i], t[2 * i + 1] = t[2 * i] + first, t[2 * i + 1] + right
+        for k, (first, _) in (st.get("acts") or {}).items():
+            days[k] = days.get(k, 0) + (1 if first else 0)
+        for k, n in (st.get("acts_fix") or {}).items():
+            fixq[k] = fixq.get(k, 0) + n
     out = []
     for k in ORDER:
         if k not in tot or not (tot[k][0] or tot[k][2]):
             continue
         first, right, xf, xr = tot[k]
-        pct = 100 * right // first if first else None
-        weak = bool(first >= WEAK_MIN and pct < WEAK_PCT and 100 * (right + xr) < WEAK_PCT * (first + xf))
-        out.append({**ACTIVITIES[k], "key": k, "first": first, "right": right, "pct": pct if pct is not None else 100 * xr // xf,
-                    "extra": xf, "extra_right": xr, "extra_pct": 100 * xr // xf if xf else None, "only_extra": not first,
-                    "weak": weak})
+        pct = progress.pct(right, first)
+        low = pct is not None and pct < WEAK_PCT and 100 * (right + xr) < WEAK_PCT * (first + xf)
+        weak = bool(low and first >= WEAK_MIN and days.get(k, 0) >= WEAK_DAYS)
+        out.append({**ACTIVITIES[k], "key": k, "first": first, "right": right, "pct": pct if pct is not None else progress.pct(xr, xf),
+                    "extra": xf, "extra_right": xr, "extra_pct": progress.pct(xr, xf), "only_extra": not first,
+                    "fixq": fixq.get(k, 0), "days": days.get(k, 0), "weak": weak, "early": bool(low and not weak)})
     return out
 
 
-# "needs help": under 70% right first time, over at least 10 first tries in that activity (fewer, on a first day,
-# says nothing yet). Extra answers after a target and Year 4 check facts beyond the year are left out (day_stats).
-WEAK_PCT, WEAK_MIN = 70, 10
+# "needs help": under 70% right first time, over at least 30 first tries on at least 3 days in that activity (sooner
+# it says "early days"). Extra answers after a target and Year 4 check facts beyond the year are left out (day_stats).
+WEAK_PCT, WEAK_MIN, WEAK_DAYS = 70, 30, 3
+HINT_DAYS = 7                     # "a smaller target" or "a year lower": only once the child has had a week of practice
 AHEAD_PCT, AHEAD_MIN = 85, 30     # "Try Maths at Year 9 level": 85% right first time over 30 first tries in it
 LOW_PCT = 60                      # "Maths is hard at the moment": "needs help", and under 60% right first time
 
@@ -298,14 +322,16 @@ def level_hints(p: dict, acc: list) -> dict:
     each {key, title, pct, first, level, to}. up: maths, grammar or science mostly right first time (AHEAD_PCT over
     AHEAD_MIN first tries), below Year 9: try that subject a year up. down: an activity that "needs help" and is
     under LOW_PCT: maths, grammar and science can work a year lower (to: that year, none at Year 1), and any
-    activity can have a smaller daily target."""
+    activity can have a smaller daily target; only from HINT_DAYS after the child's first day."""
     up, down = [], []
+    first = progress.first_day(p)
+    week = bool(first) and (datetime.date.fromisoformat(progress.today()) - datetime.date.fromisoformat(first)).days >= HINT_DAYS
     for a in acc:
         lv = levels.level(p, a["key"]) if a["key"] in levels.SUBJECTS else None
         h = {"key": a["key"], "title": a["title"].split(" and ")[0], "pct": a["pct"], "first": a["first"], "level": lv}
         if lv and lv < YEARS[-1] and a["first"] >= AHEAD_MIN and 100 * a["right"] >= AHEAD_PCT * a["first"]:
             up.append({**h, "to": lv + 1})
-        elif a["weak"] and a["pct"] < LOW_PCT:
+        elif a["weak"] and a["pct"] < LOW_PCT and week:
             down.append({**h, "to": lv - 1 if lv and lv > YEARS[0] else None})
     return {"up": up, "down": down}
 

@@ -107,7 +107,12 @@ def test_suggestions_both_ways_per_subject(page):
     signup(page)
     pid = add_child(page, "Hana", 8, targets={"maths": 20, "grammar": 40})
     _only(pid, maths=20, grammar=40)
-    # maths: 4 of 14 right first time (needs help, under 60%); grammar: 30 of 32 (85% and more over 30)
+    # maths: 12 of 42 right first time over 3 days (needs help, under 60%); grammar: 30 of 32 (85% and more over 30);
+    # a week after the first day, so a lower level may be suggested (wave 8)
+    DB.pupils.update_one({"_id": pid}, {"$set": {"created": datetime.datetime.utcnow() - datetime.timedelta(days=8)}})
+    for back in (2, 1):
+        _rows(pid, [("maths", i < 4, 6000, {"q": f"q{i}", "exp": "1", "got": "2", "day": (datetime.datetime.now(TZ).date()
+                     - datetime.timedelta(days=back)).isoformat()}) for i in range(14)], minutes_ago=60 * 24 * back)
     _rows(pid, [("maths", i < 4, 6000, {"q": f"q{i}", "exp": "1", "got": "2"}) for i in range(14)]
           + [("grammar", i >= 2, 6000, {"q": f"g{i}", "exp": "a", "got": "b"}) for i in range(32)])
     page.goto(f"/children/{pid}")
@@ -130,14 +135,14 @@ def test_one_rule_for_right_first_time_and_extra_practice(page):
           + [("maths", True, 6000, {}) for _ in range(5)] + [("maths", True, 6000, {}) for _ in range(30)])
     page.goto("/home")
     acc = page.get_by_test_id("home-accuracy").inner_text()
-    assert "Maths 41%" in acc and "needs help" not in acc            # good extra practice lifts it out
-    assert "plus 30 extra, 100% right" in page.get_by_test_id("home-extra-maths").inner_text()
+    assert "Maths 42%" in acc and "needs help" not in acc            # 5 of 12, rounded; good extra practice lifts it out
+    assert "+ 30 extra questions after the targets, 100% right first time" in page.get_by_test_id("day-extra").inner_text()
     page.goto(f"/children/{pid}")
-    assert "41%" in page.get_by_test_id("glance-acts").inner_text()
-    assert "plus 30 extra answers, 100% right" in page.get_by_test_id("glance-extra-maths").inner_text()
+    assert "42%" in page.get_by_test_id("glance-acts").inner_text()
+    assert "plus 30 extra questions, 100% right first time" in page.get_by_test_id("glance-extra-maths").inner_text()
     page.goto(f"/children/{pid}/report?range=7")
     row = page.get_by_test_id("report-act-maths").inner_text()
-    assert "41%" in row and "30 answers, 100% right" in row
+    assert "42% (5 of 12)" in row and "30 questions, 100% right first time" in row
     # bad extra practice never makes it "needs help" by itself
     other = add_child(page, "Sam", 6, targets={"maths": 5})
     _only(other, maths=5)

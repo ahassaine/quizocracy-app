@@ -7,8 +7,8 @@ Mastery score 0-100 per (pupil, skill):
                  so the last stretch demands consistency (as IXL's does).
   * 100 = mastered.
 
-  * right every time FAST_STREAK in a row (or right first time on a hard placement probe) -> secure at
-    once, and checked back on a later day.
+  * right every time FAST_STREAK in a row (or HARD_RIGHT in a row at the hardest tier, a placement probe
+    included) -> secure at once, and checked back on a later day.
 
 Adaptive selection walks the pupil's year ladder (Yn.0 -> Yn.9, OUT_OF_YEAR skills left out):
 it works the lowest unfinished level of STRAND_WINDOW strands in turn (BLOCK questions at most before
@@ -36,7 +36,7 @@ BLOCK = 6                 # questions in a row on one skill before the next stra
 YOUNG_BLOCK = 3           # ... in Years 1-3: a young child tires of one kind of question after 3 or 4
 FAST_STREAK = 5           # right every time this many in a row: the skill is secure (checked back another day)
 CHECK_BACK_CHANCE = 0.35  # share of questions that check back a skill secured fast, on a later day
-PROBE_AFTER_FAST = 1      # skills secured fast before new skills open with one hard placement question
+PROBE_AFTER_FAST = 1      # skills secured fast before new skills open with hard placement questions
 HARD_TIER = 2             # the hardest tier (maths_engine.difficulty_for)
 HARD_RIGHT = 2            # right this many in a row at the hardest tier, with no slip, and the skill is secure
 FOCUS_WINDOW = 4          # a school-topic strand: its first unfinished skills take turns ...
@@ -138,10 +138,10 @@ async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
         streak += 1
         score = min(MASTERED, score + gain(score, streak))
         slips = attempts - right
-        if doc.get("probing") or (slips <= 1 and streak >= FAST_STREAK + 2 * slips) \
+        if (slips <= 1 and streak >= FAST_STREAK + 2 * slips) \
                 or (slips == 0 and hard >= HARD_RIGHT) or (slips == 1 and hard >= HARD_RIGHT + 1):
-            # right first time at the hardest tier (a placement probe), or right every time: secure now,
-            # checked back on a later day
+            # right every time, or HARD_RIGHT in a row at the hardest tier (a placement probe too: one right
+            # answer is not enough): secure now, checked back on a later day
             score, upd["fast"] = MASTERED, True
         if doc.get("fast") and int(doc.get("score", 0)) >= MASTERED and _earlier_day(doc.get("last")):
             upd["checked"] = True
@@ -150,7 +150,11 @@ async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
         score = max(0, score - penalty(score))
         upd["fast"] = False
     if doc.get("probing"):
-        upd.update({"probing": False, "probe": "right" if correct else "wrong"})
+        # a placement probe goes on at the hardest tier until HARD_RIGHT are right in a row, or one is missed
+        done = not correct or score >= MASTERED
+        upd.update({"probing": not done, **({"probe": "right" if correct else "wrong"} if done else {})})
+    if tier is not None:
+        upd["tier"] = int(tier)          # the tier last asked: the next drops at most one below it (start_tier)
     upd.update({
         "pupil": pupil, "skill": skill_key, "score": score, "streak": streak,
         "attempts": attempts, "correct_count": right, "last": _now(), "hard": hard,
@@ -368,11 +372,17 @@ async def start_tier(pupil, year, skill_key, score):
     5 to 9 a skill with no wrong answer yet is asked at the middle tier at least, and at the hardest once two are
     right (so a strong child meets the real thing by the third question, and secures it with HARD_RIGHT of
     those). One slip after two right, or a missed placement probe, keeps the middle tier. Otherwise the score
-    decides again, so a child who finds the skill hard gets the easier questions."""
+    decides again, so a child who finds the skill hard gets the easier questions, but never more than one tier
+    below the last question (a Year 8 slip on 3.95 − 0.9 is not followed by 0.5 + 0.4). A placement probe
+    stays at the hardest tier while it goes on (probe)."""
     tier = difficulty_for(score)
+    d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)}) or {}
+    if d.get("probing"):
+        return HARD_TIER
+    if d.get("tier") is not None:
+        tier = max(tier, int(d["tier"]) - 1)
     if tier >= HARD_TIER or int(year or 0) < MIDDLE_FROM_YEAR:
         return tier
-    d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)}) or {}
     right = int(d.get("correct_count", 0))
     wrong = int(d.get("attempts", 0)) - right
     if wrong <= 0:
@@ -382,10 +392,33 @@ async def start_tier(pupil, year, skill_key, score):
     return tier
 
 
+# What a skill is about, in a word a child knows, from its title (the first that fits): for the line shown when the
+# questions get easier after a slip.
+_TOPICS = (("decimal", "decimals"), ("fraction", "fractions"), ("percent", "percentages"), ("ratio", "ratio"),
+           ("times table", "times tables"), ("angle", "angles"), ("negative", "negative numbers"), ("time", "time"), ("money", "money"),
+           ("equation", "equations"), ("expression", "expressions"), ("area", "area"), ("perimeter", "perimeter"),
+           ("multipl", "multiplying"), ("divi", "dividing"), ("subtract", "taking away"), ("add", "adding"),
+           ("round", "rounding"), ("place value", "place value"), ("shape", "shapes"), ("graph", "graphs"),
+           ("chart", "charts"))
+
+
+def ease_note(title):
+    """The one line a child sees when the next question is easier after a slip."""
+    t = (title or "").lower()
+    topic = next((w for k, w in _TOPICS if k in t), "this")
+    return "Let's go over %s with an easier one." % topic
+
+
+async def eased(pupil, skill_key, tier):
+    """Is this question (at `tier`) easier than the last one on the skill, after that one was missed?"""
+    d = await db.maths_mastery.find_one({"_id": "%s:%s" % ((pupil or "").lower(), skill_key)}) or {}
+    return bool(d.get("attempts")) and not d.get("streak") and d.get("tier") is not None and int(tier) < int(d["tier"])
+
+
 async def probe(pupil, year, skill_key):
     """Placement for a strong pupil: once PROBE_AFTER_FAST skills of the year were secured fast, and the last
-    skill finished was one of them, a new skill opens with one question at the hardest tier. Right first time
-    secures it (checked back another day); wrong, and the skill is practised as usual. True = probing now."""
+    skill finished was one of them, a new skill opens with questions at the hardest tier. HARD_RIGHT right in a
+    row secure it (checked back another day); one wrong, and the skill is practised as usual. True = probing now."""
     keys = {s["key"] for s in _year_skills(year)}
     mm = {k: d for k, d in (await _mastery_map(pupil)).items() if k in keys}
     if mm.get(skill_key, {}).get("attempts"):

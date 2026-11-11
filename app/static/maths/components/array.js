@@ -1,5 +1,6 @@
 /* array — build a rows×cols rectangular array of dots. value = rows * cols.
  * spec: { mode:"build", maxRows, maxCols, targetRows, targetCols, typed, eitherWay }
+ *       { mode:"read", rows, cols, keypad } — the array drawn, the answer typed (value = the typed text)
  *   typed — the pupil also types the total; value = "R rows of C = N", so the server marks both the
  *           array asked for and the total (eitherWay: "show 3 × 4" may be built 4 rows of 3).
  * Until the pupil builds something, the value is null ("nothing built" is no answer, not 0).
@@ -9,9 +10,38 @@
   const NS = 'http://www.w3.org/2000/svg';
   function mk(t, a) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
 
+  // mode:"read" — the array drawn (spec.rows × spec.cols), the answer typed: a big array, or a child of Year 4 or
+  // above, never builds one counter by counter. A picture to count, not to move: a tap on it goes to the box.
+  function renderRead(host, spec, api) {
+    const R = Math.max(1, spec.rows | 0), C = Math.max(1, spec.cols | 0);
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;color:#e6edf3;font-family:system-ui,sans-serif';
+    const step = 34, pad = 18, W = pad * 2 + step * C, H = pad * 2 + step * R;
+    const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': `${R} rows of ${C} dots`,
+      style: `max-width:${Math.min(480, W * 1.4)}px;background:#0b0f14;border:1px solid #30363d;border-radius:10px;cursor:default` });
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        svg.appendChild(mk('circle', { cx: pad + step * (c + 0.5), cy: pad + step * (r + 0.5), r: 11, fill: '#4f8df7' }));
+      }
+    }
+    wrap.appendChild(svg);
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'm-input'; input.autocomplete = 'off';
+    input.inputMode = spec.keypad || 'numeric';
+    input.setAttribute('aria-label', 'Your answer');
+    input.style.cssText = 'font-size:1.3rem;padding:8px 12px;width:200px;max-width:100%;text-align:center';
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); api && api.submit && api.submit(); } });
+    wrap.appendChild(input);
+    svg.addEventListener('click', () => input.focus());
+    host.appendChild(wrap);
+    host.__getValue = () => input.value.trim();
+    host.__feedback = (res) => { input.style.borderColor = res && res.correct ? '#22c55e' : '#f85149'; };
+  }
+
   window.MComp["array"] = {
     render(host, spec, api) {
       host.innerHTML = '';
+      if (spec.mode === 'read') return renderRead(host, spec, api);
       // room for the array asked for either way round ("3 rows of 10" built as 10 rows of 3 must fit too)
       const need = Math.max(spec.targetRows || 0, spec.targetCols || 0);
       const maxRows = Math.min(12, Math.max(spec.maxRows ?? 10, need)), maxCols = Math.min(12, Math.max(spec.maxCols ?? 10, need));

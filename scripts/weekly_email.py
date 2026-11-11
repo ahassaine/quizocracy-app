@@ -76,7 +76,7 @@ async def child_summary(p: dict, fam: dict, days: list, today: str, start_utc, e
     st = (await progress.day_stats([pid], days, progress.plan_targets([p], fam, days))).get(pid, {})
     done = sum(1 for d in counted if progress.day_status(p, fam, c.get(d, {}), d)["pct"] >= 100)
     tot = {k: sum(int(s.get(k) or 0) for s in st.values())
-           for k in ("answers", "first", "first_right", "minutes", "rushed", "copied")}
+           for k in ("answers", "first", "first_right", "minutes", "rushed", "copied", "extra", "extra_right", "fixq")}
     titles = {s["key"]: s["title"] for s in maths_mastery.skill_list()}
     in_week = {"$gte": start_utc, "$lt": end_utc}
 
@@ -113,7 +113,9 @@ async def child_summary(p: dict, fam: dict, days: list, today: str, start_utc, e
         flags.append(plural(tot["copied"], "right answer") + " typed straight after being shown the answer")
     return {"name": p["name"], "year": p.get("year"), "days": max(1, len(counted)), "done": done,
             "answers": tot["answers"], "minutes": tot["minutes"],
-            "first_pct": (100 * tot["first_right"] // tot["first"]) if tot["first"] else None,
+            "first_pct": progress.pct(tot["first_right"], tot["first"]),
+            # THE one extra figure of the parent pages (progress.day_stats), and mistake practice on its own
+            "extra": tot["extra"], "extra_pct": progress.pct(tot["extra_right"], tot["extra"]), "fixq": tot["fixq"],
             "mastered": mastered[:6] + ([f"and {len(mastered) - 6} more"] if len(mastered) > 6 else []),
             "weak": weak, "flags": flags, "line": warm_line(p["name"], done, max(1, len(counted)), tot["answers"]),
             "url": f"{config.PUBLIC_URL}/children/{pid}"}

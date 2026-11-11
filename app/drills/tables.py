@@ -18,6 +18,14 @@ def tables_for_year(year: int) -> list:
     return list(range(2, 13))
 
 
+YOUNG_KNOWN = 2           # Years 1-2: right this many times in a row before a fact is also asked as division
+
+
+def young_top(year: int) -> int:
+    """The biggest number a fact goes up to: 10 for Years 1-2 (2, 5 and 10 times tables up to 10 × 10), else 12."""
+    return 10 if int(year or 4) <= 2 else 12
+
+
 def _weight(f: dict | None) -> float:
     if not f:
         return 1.5
@@ -54,24 +62,28 @@ async def next_question(pupil: dict, focus: str | None = None, near: list | None
     """focus: a fact such as "7x8" to ask again (a mistake being put right). near: facts waiting to be put right;
     the question then comes from their tables (7 x 8 waits: the 7 and 8 times tables), not one of them, for
     NEAR_RUN questions; then from the other tables until they come back."""
-    tabs = tables_for_year(pupil.get("year", 4))
+    year = pupil.get("year", 4)
+    tabs, top = tables_for_year(year), young_top(year)
+    facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
     m = re.fullmatch(r"(\d+)x(\d+)", focus or "")
     if m:
         a, b = int(m.group(1)), int(m.group(2))
     else:
-        facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
         shown = await items.just_shown(pupil, "tables")      # a missed fact comes back later, not straight away
         last = await items.last_answered(pupil, "tables")    # and no fact twice in a row
         shown |= set(near or []) | {((last or {}).get("meta") or {}).get("fact")}
         shown |= {"x".join(f.split("x")[::-1]) for f in shown if f}       # 8 x 7 is the same fact as 7 x 8
-        pool = [(a, b) for a in tabs for b in range(1, 13) if f"{a}x{b}" not in shown]
+        pool = [(a, b) for a in tabs for b in range(1, top + 1) if f"{a}x{b}" not in shown]
         close = [(a, b) for a, b in pool if any(_near(f, a, b) for f in near or [])]
         if close and await _near_run(pupil, near) >= NEAR_RUN:
             pool, close = [p for p in pool if p not in close] or pool, []
-        pool = close or pool or [(a, b) for a in tabs for b in range(1, 13)]
+        pool = close or pool or [(a, b) for a in tabs for b in range(1, top + 1)]
         weights = [_weight(facts.get(f"{pupil['_id']}:{a}x{b}")) for a, b in pool]
         a, b = random.choices(pool, weights=weights, k=1)[0]
-    divide = pupil.get("year", 4) >= 2 and random.random() < 0.3
+    # Years 1-2 meet a fact as division only once they know it as a times fact (YOUNG_KNOWN right in a row): a
+    # beginner starts with 2 × 5 and 10 × 3, never 120 ÷ 10
+    known = int((facts.get(f"{pupil['_id']}:{a}x{b}") or {}).get("streak", 0)) >= YOUNG_KNOWN
+    divide = year >= 2 and (year > 2 or known) and random.random() < 0.3
     if divide:
         prompt, answer = f"{a * b} ÷ {a} =", b
     else:
@@ -82,9 +94,10 @@ async def next_question(pupil: dict, focus: str | None = None, near: list | None
 
 
 async def mastered_count(pupil: dict) -> dict:
-    tabs = tables_for_year(pupil.get("year", 4))
-    n = await db.tables_facts.count_documents({"pupil_id": pupil["_id"], "streak": {"$gte": 3}, "a": {"$in": tabs}})
-    return {"mastered": n, "total": len(tabs) * 12, "weakest": weakest_text(await weakest(pupil))}
+    tabs, top = tables_for_year(pupil.get("year", 4)), young_top(pupil.get("year", 4))
+    n = await db.tables_facts.count_documents({"pupil_id": pupil["_id"], "streak": {"$gte": 3}, "a": {"$in": tabs},
+                                               "b": {"$lte": top}})
+    return {"mastered": n, "total": len(tabs) * top, "weakest": weakest_text(await weakest(pupil))}
 
 
 WEAK_MIN_WRONG = 3        # a table needs this many misses before it is called weak
@@ -173,12 +186,16 @@ async def misses(pupil: dict, a: int, b: int) -> int:
 TIP_AFTER = 2             # the trick shows from this miss of the same fact on
 
 
-async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | None:
+async def check(pupil: dict, token: str, value: str, ms: int | None, idk: bool = False) -> dict | None:
+    """idk: the child pressed "I don't know": a miss marked idk (not a guess, not rushed), with the answer and a
+    way to work it out (the tip), as in maths."""
     it = await items.claim(pupil, "tables", token)
     if not it:
         return None
+    if idk:
+        value = ""
     try:
-        correct = int(str(value).strip()) == int(it["answer"])
+        correct = not idk and int(str(value).strip()) == int(it["answer"])
     except ValueError:
         correct = False
     m = it["meta"]
@@ -196,9 +213,10 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         await db.tables_facts.update_one({"_id": fid}, {"$inc": {"wrong": 1}, "$set": {
             "streak": 0, "pupil_id": pupil["_id"], "family_id": pupil["family_id"], "a": m["a"], "b": m["b"],
             "last_ms": ms}}, upsert=True)
-    await progress.record(pupil, "tables", correct, ms, m["fact"], m.get("prompt", ""), it["answer"], value)
-    out = {"correct": correct, "expected": it["answer"]}
-    if not correct and await misses(pupil, m["a"], m["b"]) >= TIP_AFTER:
+    await progress.record(pupil, "tables", correct, ms, m["fact"], m.get("prompt", ""), it["answer"], value,
+                          extra={"idk": True} if idk else None)
+    out = {"correct": correct, "expected": it["answer"], **({"idk": True} if idk else {})}
+    if not correct and (idk or await misses(pupil, m["a"], m["b"]) >= TIP_AFTER):
         out["hint"] = "Tip: " + tip(m["a"], m["b"])
     return out
 

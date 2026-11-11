@@ -121,15 +121,17 @@ def test_a_strong_pupil_meets_several_strands_and_skips_ahead(monkeypatch):
             keys = []
             for _ in range(30):
                 key, reason = await mm.next_skill("sim", year)
-                if reason == "new":
-                    await mm.probe("sim", year, key)       # as drills/maths does: a hard question opens it
+                tier = await mm.start_tier("sim", year, key, await mm.skill_score("sim", key))
+                if reason == "new" and await mm.probe("sim", year, key):
+                    tier = 2                               # as drills/maths does: hard questions open it
                 keys.append(key)
-                await mm.record_attempt("sim", key, True)
+                await mm.record_attempt("sim", key, True, tier=tier)
             return keys
         keys = _run(monkeypatch, go)
         strands = {k.rsplit(".", 1)[0] for k in keys if k.startswith("Y%d." % year)}
         assert len(strands) >= 4, (year, strands)
-        assert len(set(keys)) >= 12, (year, len(set(keys)))    # placement: one right hard question secures a skill
+        # placement: 2 hard questions right in a row secure a skill (never one)
+        assert len(set(keys)) >= 9, (year, len(set(keys)), keys)
 
 
 def test_skills_done_elsewhere_today_wait(monkeypatch):

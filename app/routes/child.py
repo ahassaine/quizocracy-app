@@ -1,6 +1,7 @@
 """The child's side: pick yourself, enter your PIN, see your day, do the activities."""
 import datetime
 import json
+import random
 import re
 
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request
@@ -83,6 +84,7 @@ async def me(request: Request, ctx: Ctx = Depends(child_page)):
     tabs = next((a for a in b[0]["items"] if a["key"] == "tables"), None)
     return page(request, "me.html", ctx, status=b[0], reward=b[0]["reward"], fix=fix,
                 fix_later=len(later), fix_later_when=progress.back_when([e["back"] for e in later]),
+                fix_done_line=done_line(later),          # nothing to practise now: the round's own "done for now"
                 streak=(await progress.streaks(ctx.family, [ctx.child]))[ctx.child["_id"]],
                 wins=await progress.week_wins(ctx.child),
                 fix_first=(ready or [a["key"] for a in b[0]["items"] if fix.get(a["key"])] or [None])[0],
@@ -146,10 +148,16 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
         q, fixing = served
     else:
         # a mistake ready to put right; else (after the Year 4 check) the first look at a fact missed in it; else,
-        # while mistakes wait for their gap, practice on the same tables or skills (near)
+        # while mistakes wait for their gap, something the child already knows (_known: got right before, near the
+        # waiting ones where it can be), or if they know nothing here yet, practice on the same tables or skills
+        # (near). Either way a wrong answer to it is never a new mistake (progress._scan)
         focus = (fx["ready"] or fx["first"] or [None])[0] if fx else None
-        near = fx["waiting"] if fx and not focus and activity in NEAR else None
-        q = await DRILLS[activity].next_question(ctx.child, focus=focus, **({"near": near} if near else {}))
+        known = await _known(ctx, activity, fx) if fx and not focus else None
+        if fx:
+            fx["known"] = known
+        near = fx["waiting"] if fx and not focus and not known and activity in NEAR else None
+        kw = {"near": near} if near else {"known": True} if known and activity in KNOWN_FLAG else {}
+        q = await DRILLS[activity].next_question(ctx.child, focus=focus or known, **kw)
         if not q:
             return JSONResponse({"ok": False, "error": "no_question"}, status_code=500)
         fixing = bool(fx and focus in fx["ready"]) and not q.pop("no_like", False)
@@ -163,8 +171,70 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
 
 
 NEAR = ("tables", "grammar", "science")      # drills that can fill a wait with questions like the waiting ones
-IDK_ACTS = ("maths", "grammar", "science")   # those with an "I don't know" button next to Check (drill.js opts.idk)
-SESSION_HOURS = 6        # a "Practise my mistakes" session older than this (a page left open) starts again
+KNOWN_FLAG = ("maths", "grammar", "science")  # drills told that their focus is something known, not a mistake
+# those with an "I don't know" button next to Check (drill.js opts.idk), all with the same behaviour
+IDK_ACTS = ("maths", "grammar", "science", "tables", "spelling")
+KNOWN_DAYS = 30          # what a child got right this far back is "already known" filler in "Practise my mistakes"
+
+
+async def _known(ctx: Ctx, activity: str, fx: dict) -> str | None:
+    """Something to ask while this subject's mistakes wait for their gap in "Practise my mistakes": an item this
+    child got right before (not copied, in the last KNOWN_DAYS) that is not one of their open mistakes, not
+    asked in this round and askable today (a word of their lists, a question or skill of their level). Near
+    the waiting ones where it can be (the same tables, the same grammar or science skill); else any. The focus to
+    ask it with (a fact, word, "skill#question", maths skill, number or verb), or None: they know nothing here
+    yet."""
+    pupil = ctx.child
+    now = datetime.datetime.utcnow()
+    book = await progress.mistake_book(pupil, progress.day_list(KNOWN_DAYS))
+    shaky = {e["item"] if activity != "maths" else e["detail"] for e in book if e["activity"] == activity and not e["fixed"]}
+    # not one asked in this round or in the last few minutes (a maths skill may come again: its question is new)
+    after = min(fx.get("since") or now, now - datetime.timedelta(seconds=items.RECALL_SECONDS))
+    recent = set() if activity == "maths" else {progress.same_item(activity, r["detail"]) async for r in db.attempts.find(
+        {"pupil_id": pupil["_id"], "activity": activity, "ts": {"$gt": after}}, {"detail": 1}) if r.get("detail")}
+    askable = _askable(pupil, activity)
+    cands: list = []
+    async for r in db.attempts.find({"pupil_id": pupil["_id"], "activity": activity, "correct": True,
+                                     "copied": {"$ne": True}, "detail": {"$nin": ["", None]},
+                                     "day": {"$in": progress.day_list(KNOWN_DAYS)}},
+                                    {"detail": 1}).sort("ts", -1).limit(400):
+        d = r["detail"]
+        it = progress.same_item(activity, d)
+        if it in shaky or it in recent or d in cands or not askable(d):
+            continue
+        cands.append(d)
+    if not cands:
+        return None
+    waiting = fx.get("waiting") or []
+    if activity == "tables":
+        close = [d for d in cands if any(tables._near(w, *map(int, d.split("x"))) for w in waiting)]
+    elif activity in ("grammar", "science"):
+        close = [d for d in cands if any(d.split("#")[0] == w.split("#")[0] for w in waiting)]
+    else:
+        close = []
+    return random.choice(close or cands)
+
+
+def _askable(pupil: dict, activity: str):
+    """Whether an item (an attempt's detail) can be asked again today, as next_question's focus would ask it."""
+    if activity == "tables":
+        tabs, top = tables.tables_for_year(pupil.get("year", 4)), tables.young_top(pupil.get("year", 4))
+        return lambda d: bool(m := re.fullmatch(r"(\d+)x(\d+)", d)) and int(m.group(1)) in tabs and int(m.group(2)) <= top
+    if activity == "spelling":
+        words = set(spelling.list_for_year(pupil.get("year", 3))) | {w["w"] for w in spelling.school_words(pupil)} \
+            | set(spelling.carried_words(pupil))
+        return lambda d: d in words or spelling.has_clip(d)
+    if activity in ("grammar", "science"):
+        keys = {s["key"] for s in bank.engine.skills(activity, levels.level(pupil, activity))}
+        return lambda d: "#" in d and d.split("#")[0] in keys and bool(bank.engine.question(*d.split("#", 1)))
+    if activity == "maths":
+        return lambda d: d in maths.maths_engine.GENERATORS
+    if activity == "numbers":
+        return lambda d: d.isdigit()
+    return lambda d: any(v["base"] == d for b in verbs.LEVELS for v in b["verbs"])
+
+
+SESSION_HOURS = 6       # a "Practise my mistakes" session older than this (a page left open) starts again
 
 
 def _since(value) -> datetime.datetime:
@@ -260,37 +330,42 @@ async def _session_batch(ctx: Ctx, open_: dict, order: list, since: datetime.dat
     return {k: [x for x in v if (k, x) in keep] for k, v in open_.items() if any((k, x) in keep for x in v)}, keep
 
 
+def done_line(later: list, more: int = 0) -> str:
+    """THE child's "done for now", the same on My day and at the end of a round (later: the mistake_book entries
+    resting, "later"; more: mistakes due that were not in this round): "All your mistakes for now are done ✓ · 3
+    come back tomorrow"; "That round is done ✓ · 4 more are ready for another round"; "All your mistakes are
+    done ✓"."""
+    n = len(later)
+    back = f"{n} come{'s' if n == 1 else ''} back {progress.back_when([e['back'] for e in later])}" if n else ""
+    if more:
+        return f"That round is done ✓ · {more} more {'is' if more == 1 else 'are'} ready for another round" \
+            + (f" · {back}" if back else "")
+    return f"All your mistakes for now are done ✓ · {back}" if n else "All your mistakes are done ✓"
+
+
 async def _fix_end(ctx: Ctx, fx: dict) -> dict:
-    """The end of a "Practise my mistakes" session: what the child reads (fix_done), with how many mistakes come
-    back later and when (those right again in this sitting rest; those missed during it wait for the next
-    session)."""
+    """The end of a "Practise my mistakes" round: what the child reads (fix_done, done_line), with how many
+    mistakes come back later and when (those practised in it rest: right again or missed again), and how many
+    more are ready for another round (due, but not in this one: the round is at most FIX_BATCH)."""
     plan = {a["key"] for a in todays_plan(ctx.child, ctx.family)}
     book = await progress.mistake_book(ctx.child, plan=plan)
-    # the mistakes due that were left out of this round (FIX_BATCH): ready for another round, not "back later"
-    more = [e for e in book if fx.get("batch") is not None and e["state"] == "due" and e["latest"]["ts"] < fx["since"]
-            and (e["activity"], e["key"]) not in fx["batch"]]
-    later = [e for e in book if e["state"] in ("later", "due") and e not in more
-             and (not fx["check"] or e["activity"] == "tables" and e["item"] in fx["facts"])]
     if fx["check"]:
-        done = "All the facts you missed in the check are put right. Well done!" if not later else \
-            "All done for now with the facts you missed in the check."
-    elif more:
-        done = "That round is done. Well done!"
+        later = [e for e in book if e["state"] in ("later", "due") and e["activity"] == "tables" and e["item"] in fx["facts"]]
+        n = len(later)
+        done = "All the facts you missed in the check are put right ✓" if not n else \
+            (f"All done for now with the facts you missed in the check ✓ · {n} come{'s' if n == 1 else ''} back "
+             f"{progress.back_when([e['back'] for e in later if e['state'] == 'later'])}")
     else:
-        done = "All your mistakes are done. Well done!" if not later else "All done for now."
-    n = len(later)
-    if n:
-        done += (f" {n} mistake{'s' if n != 1 else ''} come{'s' if n == 1 else ''} back later "
-                 f"({progress.back_when([e['back'] for e in later if e['state'] == 'later'])}), to check you remember "
-                 f"{'it' if n == 1 else 'them'}.")
-    if more:
-        done += " More are ready for another round, another time."
+        later = [e for e in book if e["state"] == "later"]
+        n = len(later)
+        done = done_line(later, sum(1 for e in book if e["state"] == "due"))
     return {"fix_total": 0, "fix_msg": "", "fix_done": done, "fix_title": "", "fix_next": None, "fix_comeback": n}
 
 
-def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0) -> str:
-    """"Your 3 mistakes come back in about 2 minutes. Until then: more of the same tables." (total: the count
-    on screen, when it is more than these: "3 of your 7 mistakes come back…")"""
+def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0, known: bool = False) -> str:
+    """"Your 3 mistakes come back in about 2 minutes. Until then: some you already know." (total: the count
+    on screen, when it is more than these: "3 of your 7 mistakes come back…"; known: the filler is something the
+    child got right before, _known)"""
     what = (("The fact you missed comes back" if n == 1 else f"The {n} facts you missed come back") if check else
             f"{n} of your {total} mistakes come{'s' if n == 1 else ''} back" if total > n else
             ("Your mistake comes back" if n == 1 else f"Your {n} mistakes come back"))
@@ -299,6 +374,8 @@ def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0) ->
             "in less than a minute" if secs > 0 else "after a few more questions")
     fill = {"tables": "more of the same tables", "grammar": "more on the same skills",
             "science": "more on the same skills"}.get(activity, "other questions")
+    if known:
+        fill = "some you already know"
     it = "it" if n == 1 else "them"
     return f"{what} {when}, so you remember {it} rather than copy {it}. Until then: {fill}."
 
@@ -328,7 +405,10 @@ async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool, via=None) -
         if not out["fix_next"] and others and not open_.get(activity):
             out["fix_next"] = others[0]
         if out["fix_next"]:
-            out["fix_next_title"] = ACTIVITIES[out["fix_next"]]["title"]     # the child's "Next: Spelling →" card
+            # the child's card: "Maths: all done for now ✓" (or "1 more Maths mistake comes back after that", when
+            # this subject's wait for their gap: then it comes back here) and "Next: Spelling (2) →"
+            out.update(fix_next_title=ACTIVITIES[out["fix_next"]]["title"], fix_next_n=len(open_[out["fix_next"]]),
+                       fix_here_left=len(fx["todo"]))
     total = out["fix_total"]
     if fixing:
         out["fix_msg"] = f"Putting a mistake right · {total} left"
@@ -338,7 +418,7 @@ async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool, via=None) -
     elif fx["check"] and not fx["waiting"] and fx["todo"]:
         out["fix_msg"] = f"A fact you missed in the check · {total} to put right"
     elif fx["waiting"]:
-        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"], total)
+        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"], total, bool(fx.get("known")))
     else:
         out["fix_msg"] = f"Your other mistakes come back a little later · {total} waiting" if total else ""
     return out
@@ -387,14 +467,23 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
     # parent's rule; right again in the same sitting is practice, not that), the child sees the moment (put_right)
     before = {e["latest"]["id"] for e in await progress.mistake_book(ctx.child)
               if e["activity"] == activity and not e["fixed"]}
-    if activity == "verbs":
-        res = await verbs.check(ctx.child, payload.get("token"), payload.get("past", ""), payload.get("pp", ""), ms)
-    else:
-        # "I don't know" (maths, grammar, science): the answer and why, kept as a miss marked idk
-        idk = {"idk": True} if payload.get("idk") is True and activity in IDK_ACTS else {}
-        res = await DRILLS[activity].check(ctx.child, payload.get("token"), payload.get("value"), ms, **idk)
-        if idk and res is not None:
-            res["idk"] = True
+    # an answer to a question served in "Practise my mistakes" is recorded as such (progress.FIX_MODE), so the
+    # parent's figures count it as mistake practice, never as extra practice
+    coll, who = _served_in(activity)
+    sv = ((await coll.find_one({"_id": str(payload.get("token") or ""), who: ctx.child["_id"]}, {"served": 1}))
+          or {}).get("served") or {}
+    fix_mode = progress.FIX_MODE.set("fixing" if sv.get("fixing") else "fix" if sv.get("fix") else "")
+    try:
+        if activity == "verbs":
+            res = await verbs.check(ctx.child, payload.get("token"), payload.get("past", ""), payload.get("pp", ""), ms)
+        else:
+            # "I don't know" (IDK_ACTS): the answer and why, kept as a miss marked idk
+            idk = {"idk": True} if payload.get("idk") is True and activity in IDK_ACTS else {}
+            res = await DRILLS[activity].check(ctx.child, payload.get("token"), payload.get("value"), ms, **idk)
+            if idk and res is not None:
+                res["idk"] = True
+    finally:
+        progress.FIX_MODE.reset(fix_mode)
     if res is None:
         return JSONResponse({"ok": False, "error": "expired"}, status_code=409)
     if before and res.get("correct") and not res.get("retry"):

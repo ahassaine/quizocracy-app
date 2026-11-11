@@ -123,7 +123,7 @@ def test_glance_extras_guesses_and_cards_after_one_day(page):
     card = page.locator("[data-testid='kid-Amir']")
     stats = card.locator("[data-testid=day-stats]").inner_text()
     assert "75% right first time" in stats                    # 3 of 4 planned first tries; the 2 extras left out
-    assert "2 more after the targets were met" in card.inner_text()
+    assert "+ 2 extra questions after the targets, 0% right first time" in card.inner_text()
     assert "like a guess" in card.locator("[data-testid=flag-guesses]").inner_text()
     acc = card.locator("[data-testid=home-accuracy]").inner_text()
     # the extras are left out of it too (wave 5), and 3 or 4 first tries are too few to say "needs help"

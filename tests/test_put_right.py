@@ -130,7 +130,7 @@ def test_practise_my_mistakes_never_asks_the_same_question_twice_in_a_row(page):
     assert _check(s, "grammar", f["token"], _good(it["answer"]))["correct"]
     r = _next(s, "grammar", fix=1)                # right again in the same sitting: the session ends calmly
     assert r["fix_end"] and "token" not in r and r["fix_total"] == 0, r
-    assert r["fix_done"].startswith("All done for now. 1 mistake comes back later ("), r
+    assert r["fix_done"].startswith("All your mistakes for now are done ✓ · 1 comes back "), r
 
 
 def _fill(s, act, n=RECALL_ITEMS):
@@ -155,16 +155,16 @@ def test_right_again_in_the_same_sitting_is_practice_and_put_right_only_later(pa
     assert r["correct"] and r["again_later"] and not r["mastered"], r      # practice: it comes back later
     assert not r.get("put_right"), r              # no "★ You put right a mistake" for practice
     f = _next(s, "grammar", fix=1)                # nothing more to put right in this sitting: the end
-    assert f["fix_end"] and f["fix_total"] == 0 and "1 mistake comes back later" in f["fix_done"], f
+    assert f["fix_end"] and f["fix_total"] == 0 and "done ✓ · 1 comes back" in f["fix_done"], f
     page.goto("/me")
     assert page.locator("[data-testid=fix-all]").count() == 0
-    assert "1 mistake you practised comes back later" in page.inner_text("[data-testid=fix-later]")
+    assert page.inner_text("[data-testid=fix-later]") == f["fix_done"]       # My day says the round's own words
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     day = page.locator("[data-testid=mistakes-day]").first
     assert "1 to go over" in day.inner_text() and "put right since" not in day.inner_text(), day.inner_text()
     assert "right again today, checked again later" in day.locator("[data-testid=practised]").inner_text()
-    assert "1 of them right again today" in page.inner_text("[data-testid=mistakes-total]")
+    assert "1 to go over: 1 comes back" in page.inner_text("[data-testid=mistakes-total]")
     enter_child(page, "Rami")
     _age(pid, 60)                                 # a later sitting: it comes back, and now it counts
     f = _next(s, "grammar", fix=1)
@@ -318,7 +318,7 @@ def test_a_check_a_day_can_be_part_of_the_times_tables_target(page):
     assert "Part of today's times tables" in page.inner_text("[data-testid=mtc-card]")
     q = _next(s, "tables")
     r = _check(s, "tables", q["token"], str(DB.items.find_one({"_id": q["token"]})["answer"]))
-    assert r["day"]["day_pct"] == 16, r["day"]   # the target, not the check yet (it counts as 5 answers: 1 of 6)
+    assert r["day"]["day_pct"] == 17, r["day"]   # the target, not the check yet (it counts as 5 answers: 1 of 6)
     _, r = _check_run(s, 0)
     assert r["day"]["day_pct"] == 100, r
     page.goto("/me")

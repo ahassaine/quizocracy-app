@@ -88,7 +88,7 @@ def test_strong_child_tests_out_with_one_hard_question(monkeypatch):
         return [await _serve(8) for _ in range(30)]
     served = _run(monkeypatch, go)
     probes = [k for k, t, r in served if r == "new" and t == 2]
-    assert len(probes) >= 10, served                                  # skills opened (and secured) by one hard question
+    assert len(probes) >= 10, served                     # skills opened by a hard question (secured by 2 in a row)
     assert len({k for k, _, _ in served}) >= 15
 
 

@@ -102,7 +102,7 @@ def test_thru_is_a_mistake_and_another_real_word_is_kept_for_the_parent(page):
             assert "spelt right" not in (res.get("hint") or "")
         elif word == "busy":
             res = _check(s, q["token"], "elephant")
-            assert res["other"] and res["retry"] and "Listen again, then type it." in res["hint"]
+            assert res["other"] and res["retry"] and "is a different word. The word was" in res["hint"]
             res = _check(s, q["token"], "giraffe")                       # the one retry: another real word again
             assert res["other"] and not res.get("retry") and "It comes back later" in res["hint"]
         else:

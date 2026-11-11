@@ -24,7 +24,7 @@ if(C||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>{% block title %}Quizocracy{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/app.css?v=18">
+<link rel="stylesheet" href="/static/css/app.css?v=19">
 </head>
 <body{% if ctx and ctx.child %} data-pupil="{{ ctx.child._id }}" data-voice="{{ (ctx.child.voice or {}).mode or 'on' }}" data-voice-rate="{{ (ctx.child.voice or {}).rate or 'normal' }}"{% endif %}>
 <header class="top{% if ctx and (ctx.child or ctx.account.verified_at) %} signed{% endif %}">

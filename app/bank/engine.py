@@ -183,6 +183,7 @@ def serve(q: dict) -> tuple[dict, dict]:
         pub["s"] = q["s"]
         key["a"] = q["a"]
         key["prompt"] = q["q"]           # the task decides whether 'that' may be left out (same_form)
+        key["s"] = q["s"]                # the words the task did not ask to change (write_slips)
         if open_end(q["q"], q["s"]):
             key["open_end"] = True
     elif t == "num":
@@ -540,6 +541,8 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
     accepted answer, for a free retry. In science always; in grammar unless the skill is about how words are
     written (spelling_matters). Never a word the question itself offers ("living, dead or never alive?"), and in
     grammar never a short grammar word or another answer of the skill ("who" for "whom")."""
+    if key.get("t") == "write":
+        return write_slips(key, value, sk)
     if key.get("t") != "text":
         return []
     never = _NEVER | set(re.findall(r"[a-z]+", prompt.lower()))
@@ -567,6 +570,46 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
         pairs = [(t, w) for t, w in zip(tv, aw) if t != w] if len(tv) == len(aw) else []
         if len(pairs) == 1 and pairs[0][0] not in never and len(pairs[0][1]) >= 8 \
                 and _edits(*pairs[0]) <= 2 and pairs[0][0][:3] == pairs[0][1][:3]:
+            return pairs
+    return []
+
+
+def write_slips(key: dict, value, sk: dict | None = None) -> list:
+    """A rewritten sentence right but for one or two slips inside words the task did not ask to change ("Sam
+    shuold tidy his room." when the task was the verb after 'should'): [(typed, wanted)] for one free retry, as a
+    one-word answer gets. A slipped word must be in the given sentence as it is in the answer, the slip inside
+    the word (typos.inner_slip: its first two and last two letters right, no letter doubled or undoubled), and
+    not itself a word with a meaning here (a grammar word, another answer of the skill)."""
+    given = set(re.findall(r"[a-z]+", _quotes(key.get("s") or "").lower()))
+    if not given or not value:
+        return []
+    never = _NEVER | _GRAMMAR_WORDS | (_skill_words(sk) if sk else set())
+    norm = lambda x: same_form(norm_write(x), key.get("prompt", ""))       # noqa: E731
+    word = re.compile(r"^([^A-Za-z]*)([A-Za-z]+)([^A-Za-z]*)$")
+    tv = norm(value).split()
+    for a in key["a"]:
+        av = norm(a).split()
+        if key.get("open_end"):
+            tv2, av = norm(value).rstrip(". ").split(), norm(a).rstrip(". ").split()
+        else:
+            tv2 = tv
+        if len(tv2) != len(av):
+            continue
+        pairs, ok = [], True
+        for t, w in zip(tv2, av):
+            if t == w:
+                continue
+            mt, mw = word.match(t), word.match(w)
+            if not (mt and mw) or mt.group(1) != mw.group(1) or mt.group(3) != mw.group(3):
+                ok = False                            # punctuation differs too: not only a slip
+                break
+            tl, wl = mt.group(2).lower(), mw.group(2).lower()
+            if mt.group(2)[:1] != mw.group(2)[:1] or wl not in given or tl in never \
+                    or not typos.inner_slip(tl, wl):
+                ok = False
+                break
+            pairs.append((mt.group(2), mw.group(2)))
+        if ok and 0 < len(pairs) <= 2:
             return pairs
     return []
 

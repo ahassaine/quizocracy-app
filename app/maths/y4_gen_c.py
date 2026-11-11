@@ -671,12 +671,14 @@ def _(d=1):
                       "%d + %d = %d." % (tens // b, rest // b, k)])
 
     def array_model():
+        # the array is drawn (Year 4 types, never builds): it asks for the division, not the total it shows
         rows, cols = (b, k) if k <= 12 else (k, b)
-        return _arrayq("%d counters are shared into %d equal rows. Build the "
-                       "array, then type how many counters there are altogether."
-                       % (a, rows), rows, cols,
-                       ["%d ÷ %d = %d in each row." % (a, rows, cols),
-                        "%d × %d = %d counters." % (rows, cols, a)])
+        return {"prompt": "%d counters are shared into %d equal rows, as the array shows. How many counters are "
+                          "in each row?" % (a, rows),
+                "component": "array", "spec": {"mode": "read", "rows": rows, "cols": cols},
+                "answer": cols, "answer_type": "int",
+                "solution": ["%d ÷ %d = %d in each row." % (a, rows, cols),
+                             "Check: %d × %d = %d counters." % (rows, cols, a)]}
 
     def equal_groups():
         g, p = min(b, 8), min(k, 10)

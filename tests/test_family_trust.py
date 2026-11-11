@@ -284,7 +284,7 @@ def test_change_todays_plan_too_reopens_the_day_and_rest_days_agree(page):
     assert "You earned: Minecraft" in page.inner_text("[data-testid=reward]")
     unlock_parent(page)
     page.goto("/home")
-    assert page.inner_text("[data-testid='kid-Leo'] [data-testid=pct]") == "16%"     # 1 of 6 planned answers
+    assert page.inner_text("[data-testid='kid-Leo'] [data-testid=pct]") == "17%"     # 1 of 6 (rounded, wave 8) planned answers
     # tomorrow is a day off: Home, the Board, the child page and My day all say so
     page.goto(f"/children/{pid}/edit")
     page.fill("[data-testid=off-from]", (TODAY + datetime.timedelta(days=1)).isoformat())

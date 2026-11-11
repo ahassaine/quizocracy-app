@@ -4,7 +4,8 @@ Here is how {{ week_label }} went on Quizocracy.
 {% for c in children %}
 {{ c.name|upper }} (Year {{ c.year }})
 {% if c.answers %}Done {{ c.done }} of {{ c.days }} days · {{ c.answers }} answers{% if c.first_pct is not none %} · {{ c.first_pct }}% right first time{% endif %} · {{ c.minutes }} minutes
-{{ c.line }}
+{% if c.extra or c.fixq %}{% if c.extra %}+ {{ c.extra }} extra question{{ "s" if c.extra != 1 }} after the targets, {{ c.extra_pct }}% right first time{% endif %}{% if c.extra and c.fixq %} · {% endif %}{% if c.fixq %}+ {{ c.fixq }} mistake{{ "s" if c.fixq != 1 }} practised{% endif %}
+{% endif %}{{ c.line }}
 {% if c.mastered %}Learned this week: {{ c.mastered|join("; ") }}
 {% endif %}{% if c.weak %}Help {{ c.name }} with: {{ c.weak|join("; ") }}
 {% endif %}{% if c.flags %}Please look at: {{ c.flags|join("; ") }}

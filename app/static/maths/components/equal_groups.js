@@ -36,6 +36,7 @@
       let groups = build ? clamp(spec.groups ?? 1, 0, maxGroups) : Math.max(0, spec.groups ?? 0);
       let per = build ? clamp(spec.per ?? 1, 0, maxPer) : Math.max(0, spec.per ?? 0);
       let touched = false;
+      let shared = false;          // read mode with loose counters: after Check, drawn shared into their groups
 
       const wrap = document.createElement('div');
       wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;color:' + INK +
@@ -67,20 +68,21 @@
         for (let k = 0; k < n; k++) {
           const r = Math.floor(k / cols), c = k % cols;
           const inRow = Math.min(cols, n - r * cols), off = (cols - inRow) * sx / 2;
-          svg.appendChild(mk('circle', { cx: 20 + off + sx * (c + 0.5), cy: top + sy * (r + 0.5), r: dot, fill: ACCENT, stroke: '#79b0ff', 'stroke-width': 1 }));
+          // flat printed dots (no outline, no shine): a picture to count, not pieces to pick up
+          svg.appendChild(mk('circle', { cx: 20 + off + sx * (c + 0.5), cy: top + sy * (r + 0.5), r: dot * 0.85, fill: '#5b7fc4' }));
         }
         if (!rings) return;
         const y0 = top + bandH + 10, h = H - y0 - 10;
         const cw = (W - 20) / rings, R = Math.max(12, Math.min(cw / 2 - 6, h / 2));
         for (let i = 0; i < rings; i++) {
-          // solid, like the rings of a finished picture: a dashed "drop here" ring made children try to drag counters in
-          svg.appendChild(mk('circle', { cx: 10 + cw * (i + 0.5), cy: y0 + h / 2, r: R, fill: 'rgba(79,141,247,0.06)', stroke: BORDER, 'stroke-width': 2 }));
+          // a thin printed outline: a dashed or filled "drop here" ring made children try to drag counters in
+          svg.appendChild(mk('circle', { cx: 10 + cw * (i + 0.5), cy: y0 + h / 2, r: R, fill: 'none', stroke: BORDER, 'stroke-width': 1.5 }));
         }
       }
 
       function paint() {
         while (svg.firstChild) svg.removeChild(svg.firstChild);
-        if (!build && spec.loose) { paintLoose(spec.loose | 0, spec.rings | 0); return; }
+        if (!build && spec.loose && !shared) { paintLoose(spec.loose | 0, spec.rings | 0); return; }
         const g = build ? groups : groups;
         if (g <= 0) {
           svg.appendChild(mk('text', {
@@ -161,7 +163,21 @@
         svg.addEventListener('click', () => input.focus());
 
         host.__getValue = () => input.value.trim();
-        host.__feedback = (res) => { input.style.borderColor = res && res.correct ? GOOD : BAD; };
+        host.__feedback = (res) => {
+          input.style.borderColor = res && res.correct ? GOOD : BAD;
+          // after Check, the loose counters are shown shared out into their groups, so the answer can be seen:
+          // into the rings drawn (how many in each), or into groups of the size asked (how many groups)
+          const n = spec.loose | 0, want = parseInt(String(res && res.expected), 10);
+          if (!n || !(want > 0)) return;
+          const g = spec.rings ? spec.rings | 0 : want, p = n / g;
+          if (!(g > 0) || p !== Math.floor(p) || g > 12 || p > 12) return;
+          groups = g; per = p; shared = true; paint();
+          const say = document.createElement('div');
+          say.setAttribute('data-testid', 'eg-shared');
+          say.style.cssText = 'font-size:1.15rem;font-weight:800';
+          say.textContent = n + ' shared into ' + g + ' group' + (g === 1 ? '' : 's') + ': ' + p + ' in each group.';
+          wrap.insertBefore(say, inputWrap);
+        };
         return;
       }
 

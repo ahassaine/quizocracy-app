@@ -152,9 +152,11 @@ def glossed(pupil: dict) -> bool:
 def make(subject: str):
     """The drill module for one subject: next_question, check, summary."""
 
-    async def next_question(pupil: dict, focus: str | None = None, near: list | None = None) -> dict | None:
+    async def next_question(pupil: dict, focus: str | None = None, near: list | None = None,
+                            known: bool = False) -> dict | None:
         """focus: "skill#question" to ask again (a mistake being put right). near: questions ("skill#question")
-        waiting to be put right; the question then comes from their skills, not one of them."""
+        waiting to be put right; the question then comes from their skills, not one of them. known: focus is a
+        question this child got right before, asked while a mistake waits for its gap (not a mistake)."""
         skills = engine.skills(subject, level(pupil, subject))      # "working at" for this subject, else the school year
         if not skills:
             return None
@@ -164,7 +166,7 @@ def make(subject: str):
         if focus and "#" in focus:
             k, qid = focus.split("#", 1)
             sk, q = engine.skill(k), engine.question(k, qid)
-            reason = "fix" if sk and q else None
+            reason = ("known" if known else "fix") if sk and q else None
         # never a question whose answer was just shown (it waits for its gap), nor the one just answered
         last = ((await items.last_answered(pupil, subject)) or {}).get("meta") or {}
         away = await items.just_shown(pupil, subject) | set(near or []) | {f"{last.get('skill')}#{last.get('qid')}"}

@@ -469,15 +469,26 @@ def _(d=1):
                              % (_txt(s1), _txt(s2)),
                              "The %s total is larger." % bigger])
 
+    def mixed_dp():
+        # a different number of decimal places: the place where lining up the points matters (0.9 = 0.90)
+        a = _mk(2, *_by_d(d, (105, 995), (1005, 4995), (1005, 9995)))
+        b = _mk(1, *_by_d(d, (2, 9), (3, 49), (12, 89)))
+        if random.random() < 0.5 and a > b:
+            return _nq("Work out %s − %s" % (_txt(a), _txt(b)), a - b,
+                       ["%s − %s = %s." % (_txt(a), _txt(b), _txt(a - b))])
+        return _nq("Work out %s + %s" % (_txt(a), _txt(b)), a + b,
+                   ["%s + %s = %s." % (_txt(a), _txt(b), _txt(a + b))])
+
     common = [add_bare, sub_bare, missing_add, money_total, measure_word,
-              line_mark, table_receipt, three_add]
+              line_mark, table_receipt, three_add, mixed_dp]
+    # Year 8's easiest questions are still Year 8 ones: no number line of tenths under 1 (0.5 + 0.4) at tier 0
     return _pick_opts({
-        0: [add_bare, sub_bare, missing_add, money_total, line_mark,
+        0: [add_bare, sub_bare, missing_add, money_total, mixed_dp,
             table_receipt, measure_word],
         1: common + [money_change, compare_sums],
         2: [sub_bare, missing_add, inverse_sub, money_change, three_add,
-            measure_word, compare_sums, table_receipt, add_bare],
-    }, d, weighted_tail=[line_mark, table_receipt, line_mark])
+            measure_word, compare_sums, table_receipt, add_bare, mixed_dp],
+    }, d, weighted_tail=[mixed_dp, table_receipt])
 
 
 # ============================================================== 8.2.b ========

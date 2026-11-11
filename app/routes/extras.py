@@ -83,16 +83,19 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     for e in await progress.mistake_book(p, plan={a["key"] for a in todays_plan(p, ctx.family)}):
         if e["state"] in ("due", "later"):
             open_m.setdefault(e["activity"], []).append(e["detail"])
+    # right first time per activity: the same rule as Home and Progress (parent.accuracy); the headline tile is the
+    # table's rows added up, so the two can be traced
+    acc = {a["key"]: a for a in accuracy([{"stats": s} for s in st.values()])}
+    a_first, a_right = sum(a["first"] for a in acc.values()), sum(a["right"] for a in acc.values())
+    other_n = await db.attempts.count_documents({"pupil_id": p["_id"], "day": {"$in": days}, "other": True})
     words = spelling.list_for_year(p.get("year", 3))
     learned = sorted([w["word"] async for w in db.spelling_words.find(
         {"pupil_id": p["_id"], "box": {"$gte": spelling.LEARNED_BOX}, "word": {"$in": words}}, {"word": 1})],
         key=str.lower) if "spelling" in on else []
     return page(request, "progress_report.html", ctx, pupil=p, days=days, rng=rng, ranges=RANGES, **_rest_days(p, days),
                 practised=sum(1 for s in st.values() if s["answers"]), done_days=done, tot=tot,
-                first_pct=(100 * tot["first_right"] // tot["first"]) if tot["first"] else None,
-                acts=[(k, acts[k]) for k in ORDER if k in acts], skills=skills, new=new, weak=weak,
-                # right first time per activity: the same rule as Home and Progress (parent.accuracy)
-                acc={a["key"]: a for a in accuracy([{"stats": s} for s in st.values()])},
+                first_pct=progress.pct(a_right, a_first), other_n=other_n,
+                acts=[(k, acts[k]) for k in ORDER if k in acts], skills=skills, new=new, weak=weak, acc=acc,
                 to_fix={k: v for k, v in open_m.items() if k in ("tables", "spelling", "verbs", "numbers")},
                 words_total=len(words), learned=learned, spelling_on="spelling" in on,
                 school_lists=await spelling.school_report(p, days[0] if days else "") if "spelling" in on else [],

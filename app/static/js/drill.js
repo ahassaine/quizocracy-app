@@ -143,16 +143,17 @@
     function fixNote(text) {             // text null: every mistake is done
       const m = $('fixMsg');
       if (text) { m.textContent = text; return; }
-      m.innerHTML = esc(fixDone || 'All your mistakes are done. Well done!') + ' <a href="/me">Back to my day</a>'
+      m.innerHTML = esc(fixDone || 'All your mistakes are done ✓') + ' <a href="/me">Back to my day</a>'
         + (FIX_CHECK ? ' · <a href="/me/tables/year4-check">Try the check again</a>' : '');
     }
     /* The end of a "Practise my mistakes" session (the server's fix_end): a calm card instead of a question, with
        what comes back later and when, and the way back to My day. Nothing more is asked. */
     function fixEnd(q) {
       gone = true; token = null; answered = false;
-      const text = q.fix_done || 'All your mistakes are done. Well done!';
-      const cut = text.indexOf('. ') + 1;
-      const head = cut ? text.slice(0, cut) : text, rest = cut ? text.slice(cut + 1) : '';
+      // "All your mistakes for now are done ✓ · 3 come back tomorrow": the head, then the rest in smaller print
+      const text = q.fix_done || 'All your mistakes are done ✓';
+      const parts = text.split(' · ');
+      const head = parts[0], rest = parts.slice(1).join(' · ');
       $('fixMsg').textContent = '';
       $('stage').classList.remove('shake', 'flash');
       $('stage').innerHTML = '<div data-testid="fix-end" role="status" style="text-align:center;padding:12px 4px">'
@@ -162,7 +163,8 @@
         + '<div class="row" style="justify-content:center"><a class="btn primary big" href="/me" data-testid="fix-end-back">Back to My day</a>'
         + (FIX_CHECK ? '<a class="btn" href="/me/tables/year4-check">Try the check again</a>' : '') + '</div></div>';
       if ($('backDay')) $('backDay').style.display = 'none';
-      if (window.Speak) { Speak.set([text]); Speak.feedback(text); }
+      const said = parts.join('. ').replace(/\s*✓/g, '') + '.';
+      if (window.Speak) { Speak.set([said]); Speak.feedback(said); }
       const b = $('stage').querySelector('a'); if (b) b.focus();
     }
     /* On to the next subject of "Practise my mistakes": a short card that waits for a press, so a new activity
@@ -170,14 +172,21 @@
     let shownHere = false;
     function fixMove(q, to) {
       gone = true; token = null; answered = false;
-      const title = q.fix_next_title || 'the next one';
+      const title = q.fix_next_title || 'the next one', here = q.fix_title || 'This part', left = q.fix_here_left || 0;
+      // what is true here: done for now (then the round never comes back here), or some still waiting for their
+      // gap (then it does, after the next subject). No count of the whole round beside it ("1 left").
+      const line = left ? left + ' more ' + here + ' mistake' + (left === 1 ? ' comes' : 's come') + ' back after that.'
+        : here + ': all done for now ✓';
+      const go = 'Next: ' + title + (q.fix_next_n ? ' (' + q.fix_next_n + ')' : '') + ' →';
+      if ($('fixMsg')) $('fixMsg').textContent = '';
       $('stage').classList.remove('shake', 'flash');
       $('stage').innerHTML = '<div data-testid="fix-move" role="status" style="text-align:center;padding:12px 4px">'
-        + '<p class="mut" style="margin:0 0 12px">' + esc('Nothing more to put right here for now.') + '</p>'
+        + '<p class="mut" style="margin:0 0 12px" data-testid="fix-move-line">' + esc(line) + '</p>'
         + '<div class="row" style="justify-content:center"><a class="btn primary big" href="' + esc(to) + '" data-testid="fix-move-go">'
-        + esc('Next: ' + title + ' →') + '</a><a class="btn" href="/me">Back to My day</a></div></div>';
+        + esc(go) + '</a><a class="btn" href="/me">Back to My day</a></div></div>';
       if ($('backDay')) $('backDay').style.display = 'none';
-      if (window.Speak) { Speak.set(['Next: ' + title + '.']); Speak.feedback('Next: ' + title + '.'); }
+      const said = line.replace(/\s*✓/g, '.') + ' Next: ' + title + '.';
+      if (window.Speak) { Speak.set([said]); Speak.feedback(said); }
       const b = $('stage').querySelector('a'); if (b) b.focus();
     }
     /* "Something wrong with this question?" (_drill_buttons.html): a reason, a note if they like, sent with the
@@ -327,10 +336,11 @@
         return;
       }
       answered = true; const day = setDay(res.day);
-      if (fixing && res.correct && $('fixMsg')) {     // the count drops the moment a mistake is put right
+      if (fixing && $('fixMsg')) {     // the count drops the moment a mistake is practised, right or not
         fixing = false; fixLeft = Math.max(0, fixLeft - 1);
-        // right again in the same sitting: practised, and it comes back in a later one to count as put right
-        if (fixLeft) fixNote((res.again_later ? 'Good. It comes back later to make it stick' : 'Mistake put right') + ' · ' + fixLeft + ' left');
+        // right again in the same sitting: practised, and it comes back in a later one to count as put right;
+        // missed again: it rests too, and comes back another time (the server's rule, progress.mistake_book)
+        if (fixLeft) fixNote((!res.correct ? 'It comes back another time' : res.again_later ? 'Good. It comes back later to make it stick' : 'Mistake put right') + ' · ' + fixLeft + ' left');
       }
       $('check').disabled = true; $('next').style.display = '';
       if ($('idk')) $('idk').style.display = 'none';
@@ -338,9 +348,10 @@
       const fb = $('feedback');
       if (res.idk) {                       // calm and neutral: no "Not quite", no shake, no "slow down"
         fb.className = 'feedback warn';
-        fb.innerHTML = '<span data-testid="idk-said">That’s OK. Here is how it goes.</span> ' + opts.explain(res);
+        fb.innerHTML = '<span data-testid="idk-said">That’s OK. Here is how it goes.</span> ' + opts.explain(res)
+          + (res.hint ? '<div class="why" data-testid="hint">' + esc(res.hint) + '</div>' : '');   // a tip, the letters
         if (opts.after) opts.after(res);
-        if (window.Speak) Speak.feedback((fb.innerText || fb.textContent).replace(/\s*\n+\s*/g, '. '));
+        if (window.Speak) Speak.feedback((opts.spoken && opts.spoken(res)) || (fb.innerText || fb.textContent).replace(/\s*\n+\s*/g, '. '));
         $('next').focus();
         return;
       }

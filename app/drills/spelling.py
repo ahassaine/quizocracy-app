@@ -1114,14 +1114,18 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict:
     return q
 
 
-async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | None:
+async def check(pupil: dict, token: str, value: str, ms: int | None, idk: bool = False) -> dict | None:
+    """idk: the child pressed "I don't know": a miss marked idk (not a guess, not rushed), with the word spelt out,
+    as in maths."""
     it = await items.claim(pupil, "spelling", token)
     if not it:
         return None
     word = it["answer"]
+    if idk:
+        value = ""
     typed = " ".join(str(value or "").split()).lower()
-    correct = typed == word.lower() or typed in VARIANTS.get(word, ())
-    if not correct and other_word(typed, word):
+    correct = not idk and (typed == word.lower() or typed in VARIANTS.get(word, ()))
+    if not correct and not idk and other_word(typed, word):
         # another real word, spelt right ("supervise" for "accompany" with the sound off): not a spelling mistake,
         # and not counted in the day's % (progress.day_stats leaves "other" out). It is kept, so the parent sees it
         # ("wrote supervise: a real word, not the one asked"), and the word stays to learn: it comes back after the
@@ -1131,15 +1135,17 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
         await db.spelling_words.update_one({"_id": f"{pupil['_id']}:{word}"}, {
             "$setOnInsert": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": 0},
             "$set": {"due": _today().isoformat(), "other": typed}, "$inc": {"others": 1}}, upsert=True)
+        # never "spelt right" to a child: "rite" for fight read as praise for a homophone of a school word (P1)
         if not it.get("retried"):
             await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
-            msg = f"That is spelt right, but the word was {word}. Listen again, then type it."
+            msg = f"'{typed}' is a different word. The word was {word}. Listen again."
             return {"correct": False, "retry": True, "other": True, "expected": word, "hint": msg, "spoken": msg}
-        msg = f"That is spelt right too, but the word was {word}. It comes back later."
+        msg = f"'{typed}' is a different word too. The word was {word}. It comes back later."
         return {"correct": False, "other": True, "expected": word, "hint": msg, "spoken": msg}
-    if correct and word in await items.just_shown(pupil, "spelling"):
-        # right, but straight after being shown it: counts for today, not as learned or as a mistake put right
-        await progress.record(pupil, "spelling", correct, ms, "", "Spell the word you heard", word, value)
+    if not idk and correct and word in await items.just_shown(pupil, "spelling"):
+        # right, but straight after being shown it (the word was just given, or a retype after another real word): a
+        # copy, kept as one (progress.day_stats: never a right first try; never learned or a mistake put right)
+        await progress.record(pupil, "spelling", correct, ms, word, "Spell the word you heard", word, value, copied=True)
         return {"correct": True, "expected": word, "again_later": True}
     st = await db.spelling_words.find_one({"_id": f"{pupil['_id']}:{word}"}) or {}
     # a word missed in this sitting and right again is practice: it climbs no box and comes back another day
@@ -1154,9 +1160,14 @@ async def check(pupil: dict, token: str, value: str, ms: int | None) -> dict | N
     await db.spelling_words.update_one({"_id": f"{pupil['_id']}:{word}"}, {
         "$set": {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "word": word, "box": box, "due": due},
         "$inc": {"right" if correct else "wrong": 1}}, upsert=True)
-    await progress.record(pupil, "spelling", correct, ms, word, "Spell the word you heard", word, value)
+    await progress.record(pupil, "spelling", correct, ms, word, "Spell the word you heard", word, value,
+                          extra={"idk": True} if idk else None)
     out = {"correct": correct, "expected": word, **({"again_later": True} if practice else {})}
-    if not correct and typed:
+    if idk:
+        # the word's letters one by one, on screen and read out (Years 1-2 hear them): a way in, not a telling-off
+        out.update(idk=True, hint=typos.spelled(word),
+                   spoken=f"That's OK. {word} is spelt " + ", ".join(c.upper() for c in word if c.isalpha()) + ".")
+    elif not correct and typed:
         # which letters were wrong, not only the right spelling: "acsident → accident: cs should be cc"
         if typos.american(word, typed):
             out["hint"] = "That's the American spelling — in the UK we write %s." % word

@@ -13,6 +13,7 @@ from .. import items, progress
 ENGINE_YEARS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 REPEAT_HOURS = 6       # a question met in the last few hours is not asked again word for word ...
 REPEAT_TRIES = 6       # ... as far as the skill's generator can vary it
+TEMPLATE_CAP = 2       # questions of one kind (one picture, one wording) per skill in those hours
 
 
 async def _done_elsewhere(pupil: dict) -> set:
@@ -64,13 +65,15 @@ async def _just_missed(pupil: dict, skill_key: str) -> set:
             if (n := _numbers(r.get("q", "")))}
 
 
-async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
+async def next_question(pupil: dict, focus: str | None = None, known: bool = False) -> dict | None:
     """focus: a mistake to put right ("skill@attempt id"): a question like it, the same kind with new numbers
     (a generator never makes the same question twice). If none can be made, the mistake is marked nolike (it
-    stays on the parent's list, not in "Practise my mistakes") and the question is a practice one (no_like)."""
+    stays on the parent's list, not in "Practise my mistakes") and the question is a practice one (no_like).
+    known: focus is a skill this child has got right before, asked while a mistake waits for its gap: a new
+    question of it, one tier easier than where the skill starts."""
     pid, year = pupil["_id"], engine_year(level(pupil, "maths"))      # "working at" for maths, else the school year
-    miss = await _mistake(focus)
-    picked = (miss["detail"], "fix") if miss else \
+    miss = None if known else await _mistake(focus)
+    picked = (miss["detail"], "fix") if miss else (focus, "known") if known and focus in maths_engine.GENERATORS else \
         await maths_mastery.next_skill(pid, year, avoid=await _done_elsewhere(pupil))
     if not picked:
         return None
@@ -79,8 +82,10 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
     diff = await maths_mastery.start_tier(pid, year, skill_key, score)     # Years 5-9 open new skills mid-tier
     if miss and miss.get("dif"):
         diff = miss["dif"]                               # as hard as the question that was missed
+    if reason == "known":
+        diff = max(0, int(diff or 0) - 1)                # something they know, while a mistake waits: an easy one
     if reason == "new" and await maths_mastery.probe(pid, year, skill_key):
-        diff = 2                                         # placement: one hard question first
+        diff = 2                                         # placement: hard questions first (2 right in a row: secure)
     # never the same question twice in a sitting
     recent = {d.get("prompt") async for d in db.maths_lab_q.find(
         {"pupil": pid, "created": {"$gt": datetime.datetime.utcnow() - datetime.timedelta(hours=REPEAT_HOURS)}},
@@ -105,18 +110,37 @@ async def next_question(pupil: dict, focus: str | None = None) -> dict | None:
         q = await maths_engine.new_question(skill_key, tier, pupil=pid, made=made)
     else:
         missed = await _just_missed(pupil, skill_key)
-        for i in range(REPEAT_TRIES):
-            q = await maths_engine.new_question(skill_key, diff, pupil=pid)
-            if not q or (q["prompt"] not in recent and _numbers(q["prompt"]) not in missed) \
-                    or i == REPEAT_TRIES - 1:                                 # the last try is kept, repeat or not
+        # at most TEMPLATE_CAP of one kind of question per skill in a sitting (maths_engine.template_shape)
+        shapes = [d.get("shape") async for d in db.maths_lab_q.find(
+            {"pupil": pid, "skill": skill_key, "shape": {"$exists": True},
+             "created": {"$gt": datetime.datetime.utcnow() - datetime.timedelta(hours=REPEAT_HOURS)}}, {"shape": 1})]
+        # the first new question of a kind met less than TEMPLATE_CAP times; failing that (a skill of few kinds), the
+        # best of the rest: a word-for-word repeat over a new picture or table, then a kind met twice, then a repeat
+        fn, best = maths_engine.GENERATORS.get(skill_key), {}
+        for i in range(2 * REPEAT_TRIES if fn else 0):
+            g = maths_engine.call_generator(fn, diff)
+            capped = shapes.count(maths_engine.template_shape(g, skill_key)) >= TEMPLATE_CAP
+            pictured = g.get("component") not in (None, "number") and g.get("spec") not in (None, "", "{}", {})
+            if _numbers(g.get("prompt", "")) in missed:
+                rank = 4
+            elif g.get("prompt") in recent:
+                rank = 2 if pictured and not capped else 3 if not capped else 4
+            else:
+                rank = 1 if capped else 0
+            best.setdefault(rank, g)
+            if rank == 0:
                 break
-            await db.maths_lab_q.delete_one({"_id": q["token"]})
+        made = best[min(best)] if best else None
+        q = await maths_engine.new_question(skill_key, diff, pupil=pid, made=made)
     if not q:
         return None
     meta = next((s for s in maths_engine.skill_list() if s["key"] == skill_key), {})
+    # after a slip the questions get easier (one tier at most): one line says so
+    ease = not miss and reason != "known" and await maths_mastery.eased(pid, skill_key, diff)
     return {**q, "skill": skill_key, "title": meta.get("title", skill_key), "strand": meta.get("strand", ""),
             "reason": reason, "score": score, "progress": await maths_mastery.progress(pid, year),
             **({"review_of": tag} if (tag := review_tag(skill_key, year)) else {}),
+            **({"ease": maths_mastery.ease_note(meta.get("title"))} if ease else {}),
             **({"no_like": True} if no_like else {})}
 
 

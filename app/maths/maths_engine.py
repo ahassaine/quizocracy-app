@@ -725,6 +725,18 @@ def present(q, skill_key):
         spec["typed"] = True
         q["answer"] = f"{spec['targetGroups']} groups of {spec['targetPer']} = {int(a)}"
         q["answer_type"] = "str"
+    elif comp == "array" and spec.get("mode", "build") == "build" and spec.get("targetRows") \
+            and (spec["targetRows"] * spec.get("targetCols", 0) > BUILD_CELLS or _year_of(skill_key) >= 4) \
+            and (pic := _array_picture(prompt)):
+        # a big array (11 × 9: twenty taps on +), or a child of Year 4 or above: the array is drawn, the total typed
+        q["prompt"], spec = pic, {"mode": "read", "rows": spec["targetRows"], "cols": spec["targetCols"],
+                                  "keypad": spec.get("keypad")}
+    elif comp == "number" and _year_of(skill_key) in (1, 2) and a is not None \
+            and (m := _ROWS_OF.search(prompt)) and int(m.group(1)) * int(m.group(2)) == a \
+            and int(m.group(1)) <= 12 and int(m.group(2)) <= 12:
+        # "Chairs are put in 2 rows with 10 chairs in each row": the rows drawn, as "groups of" has its picture
+        q["component"] = "array"
+        spec = {"mode": "read", "rows": int(m.group(1)), "cols": int(m.group(2)), "keypad": spec.get("keypad")}
     elif comp == "array" and spec.get("mode", "build") == "build" and spec.get("targetRows") and a is not None \
             and a == spec["targetRows"] * spec.get("targetCols", 0):
         # build the array asked for AND type the total; "3 rows of 2" must be 3 rows, "show 3 × 2" either way round
@@ -750,7 +762,96 @@ def present(q, skill_key):
         # "4 x x = 4x": the letter x as a times sign reads as the unknown, so a number's " x " is shown as ×
         q["solution"] = [_TIMES_X.sub(" × ", s) if isinstance(s, str) else s for s in q["solution"]]
     rounding_step(q)
+    if any(s["key"] == skill_key and _DEC_SKILL.search(s["title"]) for s in SKILLS):
+        decimal_points_step(q)                          # adding and subtracting decimals: why the points line up
     return neutral_examples(q)
+
+
+BUILD_CELLS = 30       # an array to build has at most this many counters (more is tapping, not maths)
+_ROWS_OF = re.compile(r"\b(\d+) rows (?:of|with) (\d+)\b")
+# "Build an array that shows 11 × 9, then type the product." -> "Look at the array that shows 11 × 9, then ...":
+# the instruction to build, said of a drawn array (_array_picture)
+_UNBUILD = [
+    (re.compile(r"\bBuild only the full rows, then type how many counters are in your array\."),
+     lambda m: "Type how many counters are in the full rows."),
+    (re.compile(r"\b(?:Build the array(?: \([^)]*\))?|Build an array to show this)(?:, then| and) (\w)"),
+     lambda m: m.group(1).upper()),
+    (re.compile(r"\bBuild the array\. "), lambda m: ""),
+    (re.compile(r": build (\d+ rows of \d+) and type"), lambda m: ": here are %s. Type" % m.group(1)),
+    (re.compile(r"\b([Bb])uild (?:an?|the) (square )?array\b"),
+     lambda m: ("L" if m.group(1) == "B" else "l") + "ook at the %sarray" % (m.group(2) or "")),
+    (re.compile(r"\bMake an array to (model|show)\b"), lambda m: "Look at the array that %ss" % m.group(1)),
+    (re.compile(r"\bMake an array with\b"), lambda m: "Look at the array with"),
+    (re.compile(r"\byour array\b"), lambda m: "the array"),
+]
+
+
+def _year_of(skill_key):
+    m = re.match(r"Y(\d)\.", skill_key or "")
+    return int(m.group(1)) if m else 0
+
+
+def _array_picture(prompt):
+    """The prompt of an array to build, said of the array drawn for the child; None when some wording still asks
+    to build (then the array stays one to build)."""
+    for rx, to in _UNBUILD:
+        prompt = rx.sub(to, prompt)
+    return None if re.search(r"\b(?:build|make an array)\b", prompt, re.I) else prompt
+
+
+_DEC_SKILL = re.compile(r"^(?=.*decimal)(?=.*\b(?:add|subtract|problems|calculations)\b)", re.I)
+_DEC_CALC = re.compile(r"(?<![\d.,])£?(\d+(?:\.\d+)?)\s*([+−-])\s*£?(\d+(?:\.\d+)?)\s*=\s*£?(\d+(?:\.\d+)?)(?![\d])")
+
+
+def _dp(s):
+    return len(s.split(".", 1)[1]) if "." in s else 0
+
+
+def decimal_points_step(q):
+    """A decimal addition or subtraction in the working ("3.95 − 0.9 = 3.05.") says why the digits go where they
+    do: the points lined up, a number with fewer decimal places written with zeros ("0.9 = 0.90"). And the
+    classic slip of lining up the right-hand digits (3.95 − 0.09 = 3.86) gets its own why-not line."""
+    sol = q.get("solution")
+    if not isinstance(sol, list) or any(isinstance(s, str) and "0 = " in s and "line up" in s.lower() for s in sol):
+        return q
+    for i, s in enumerate(sol):
+        m = _DEC_CALC.search(s) if isinstance(s, str) else None
+        if not m or "." not in m.group(1) + m.group(3) or "£" in s:
+            continue
+        a, op, b = m.group(1), m.group(2), m.group(3)
+        n = max(_dp(a), _dp(b))
+        if _dp(a) == _dp(b):
+            if not any(isinstance(x, str) and "line" in x.lower() and "point" in x.lower() for x in sol):
+                sol.insert(i, "Line up the decimal points, then work each column as with whole numbers.")
+            return q
+        short = a if _dp(a) < _dp(b) else b
+        padded = "%.*f" % (n, float(short))
+        a2, b2 = (padded, b) if short is a else (a, padded)
+        step = "Line up the decimal points: %s = %s, so work out %s %s %s." % (short, padded, a2, op, b2)
+        bare = [k for k, x in enumerate(sol) if isinstance(x, str) and x.strip().lower().rstrip(".") ==
+                "line up the decimal points"]
+        if bare:
+            sol[bare[0]] = step
+        else:
+            sol.insert(i, step)
+        # the slip: the shorter number's digits put under the other's last digits (0.9 read as 0.09)
+        if not _dp(short):
+            return q
+        try:
+            slid = float(short) / 10 ** (n - _dp(short))
+            fa, fb = (slid, float(b)) if short is a else (float(a), slid)
+            wrong = round(fa + fb if op == "+" else fa - fb, n)
+        except ValueError:
+            return q
+        if wrong >= 0 and abs(wrong - float(m.group(4))) > 1e-9:
+            no = dict(q.get("no") or {})
+            no.setdefault("%.*f" % (n, wrong), "That is the answer for %s, with the digits lined up on the right. "
+                          "Line up the decimal points instead: %s is %s." % (
+                              ("%s %s %s" % (a, op, "%.*f" % (n, slid))) if short is b else
+                              ("%s %s %s" % ("%.*f" % (n, slid), op, b)), short, padded))
+            q["no"] = no
+        return q
+    return q
 
 
 _TIMES_X = re.compile(r"(?<=[\d)²³]) x (?=[\d(A-Za-z−-])")
@@ -824,12 +925,28 @@ def neutral_examples(q):
     return q
 
 
+_SHAPE_NAME = re.compile(r"(?<=[a-z,] )[A-Z][a-z]+(?: [A-Z][a-z]+)*")
+
+
+def template_shape(q, skill_key=""):
+    """Which kind of question this is, as a child would see it, for "at most TEMPLATE_CAP of a kind in a sitting":
+    from Year 3 a picture is its kind (a fourth bar chart of tickets is "the same one again", whatever the venues
+    or the wording); a typed question is its wording with the numbers and names left out. In Years 1-2 the
+    picture is the support, so there it is the wording too."""
+    comp = q.get("component") or "number"
+    if comp != "number" and not str(skill_key).startswith(("Y1.", "Y2.")):
+        return comp
+    p = _SHAPE_NAME.sub("W", re.sub(r"\d[\d,.]*", "#", q.get("prompt", "")))
+    return "%s:%s" % (comp, p[:40])
+
+
 async def new_question(skill_key, difficulty=1, pupil=None, made=None):
     """made: a question this skill's generator already made (to keep one picked from several), else a new one."""
     fn = GENERATORS.get(skill_key)
     if not fn:
         return None
     q = made or call_generator(fn, difficulty)
+    shape = template_shape(q, skill_key)               # as generated, before present() adds a picture
     # A coordinate_grid whose answer is NOT a coordinate is being used as a drawn
     # stimulus (read the gradient / y-value / intercept). The grid can only PLOT a
     # point, so such a question is unanswerable unless it also shows a typed box —
@@ -867,6 +984,7 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
             "no": [[k, v] for k, v in (q.get("no") or {}).items()],   # likely wrong answer, why (y9_gen_a._with_no)
             "labels": chart_labels(q),
             "difficulty": difficulty,
+            "shape": shape,
             "pupil": pupil,
             "created": datetime.datetime.utcnow(),
         }},

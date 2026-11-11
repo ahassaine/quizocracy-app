@@ -92,11 +92,12 @@ def test_with_nothing_due_anywhere_the_session_ends_calmly(page):
         assert r["correct"] and r["again_later"] and not r.get("put_right"), r
     page.goto("/me")
     assert page.locator("[data-testid=fix-all]").count() == 0       # nothing due now ...
-    assert "2 mistakes you practised come back later" in page.inner_text("[data-testid=fix-later]")   # ... and said so
+    said = page.inner_text("[data-testid=fix-later]")
+    assert said.startswith("All your mistakes for now are done ✓ · 2 come back "), said   # ... and said so
     loads = _loads(page, "/me/grammar?fix=1", 3)                     # an old link to it: no loop, the end screen
     assert loads <= 1, loads
-    end = page.inner_text("[data-testid=fix-end]")
-    assert "All done for now." in end and "2 mistakes come back later" in end, end
+    end = page.inner_text("[data-testid=fix-end]")                   # the same words as My day
+    assert "All your mistakes for now are done ✓" in end and said.split(" · ")[1] in end, end
     page.click("[data-testid=fix-end-back]")
     page.wait_for_url("**/me")
 
@@ -111,7 +112,7 @@ def test_a_session_ends_with_its_queue_and_new_mistakes_wait(page):
     assert f["fixing"] and f["fix_total"] == 1 and DB.items.find_one({"_id": f["token"]})["answer"] == word
     assert _check(s, "spelling", f["token"], "zzqx")["correct"] is False     # missed again during the session
     f = _next(s, "spelling", fix=1, since=since)
-    assert f["fix_end"] and "1 mistake comes back later" in f["fix_done"], f  # it waits for the next session
+    assert f["fix_end"] and "done ✓ · 1 comes back" in f["fix_done"], f      # it rests till a later sitting
     f = _next(s, "spelling", fix=1, since=since)                     # and stays ended (no open-ended run)
     assert f["fix_end"]
 
@@ -147,7 +148,7 @@ def test_counts_agree_everywhere_and_a_fact_and_its_reverse_are_one(page):
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     total = page.inner_text("[data-testid=mistakes-total]")
-    assert "3 to go over" in total and "1 put right" in total and "1 of them right again today" in total, total
+    assert "3 to go over: 2 ready now, 1 comes back" in total and "1 put right" in total, total
     day_txt = page.locator("[data-testid=mistakes-day]").first.inner_text()
     assert "3 to go over · 1 put right since" in day_txt, day_txt
     assert day_txt.count("× 5") + day_txt.count("5 ×") == 1, day_txt                     # 9 × 5 shows once

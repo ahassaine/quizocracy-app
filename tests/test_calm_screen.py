@@ -228,7 +228,7 @@ def test_shared_tablet_tiles_carry_on_and_a_neutral_board(page):
     page.goto("/board")                                                  # the family's screen: Ben is signed out
     assert page.locator("[data-testid=child-name]").count() == 0
     assert page.goto("/me").url.endswith("/learn")
-    assert page.inner_text("[data-testid=tile-pct-Ben]") == "12%"        # 1 of 8 planned answers
+    assert page.inner_text("[data-testid=tile-pct-Ben]") == "13%"        # 1 of 8 planned answers (12.5, to the nearest)
     assert page.inner_text("[data-testid=tile-pct-Ava]") == "0%"
 
 

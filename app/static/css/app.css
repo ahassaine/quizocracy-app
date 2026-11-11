@@ -195,6 +195,12 @@ svg { touch-action:none; max-width:100%; }
 @media (max-width:640px) { header.signed .wordmark { display:none; } header.signed nav.links { flex-wrap:nowrap; gap:0; }
   header.signed nav.links a, header.signed nav.links button.linkish { padding:6px 6px; font-size:.86rem; } header.signed .theme-btn { width:32px; height:32px; font-size:.9rem; margin-left:2px; } header.signed .who { padding:0 4px; } }
 @media (max-width:520px) { nav.links a, nav.links button.linkish { padding:6px 7px; font-size:.88rem; } .brand { font-size:1.15rem; } .brand img { width:28px; height:28px; } .wrap { padding:14px 14px 36px; } }
+/* a parent's five links on a 390 px phone: one tight row, and a second row rather than a page wider than the screen */
+@media (max-width:440px) { header.top { padding:10px 10px; gap:6px; } header.signed nav.links { flex-wrap:wrap; min-width:0; }
+  header.signed nav.links a, header.signed nav.links button.linkish { padding:6px 4px; font-size:.84rem; } header.signed .theme-btn { width:30px; height:30px; } }
+/* a wide table scrolls inside its own box; on a phone a line under it says so */
+.scroll-hint { display:none; }
+@media (max-width:640px) { .scroll-hint { display:block; margin:6px 0 0; color:var(--mut); font-size:.85rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none!important; transition:none!important; } }
 
 /* landing: how it works + benefit lists */

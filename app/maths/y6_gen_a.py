@@ -2015,11 +2015,28 @@ def _(d=1):
         cats = random.sample(_TOWNS, 4)
         vals = [random.randint(120, 980) * 100 for _ in range(4)]
         i, j = sorted(random.sample(range(4), 2))
-        return _bar("The bar chart shows tickets sold at four venues. How many "
-                    "tickets were sold at %s and %s altogether?" % (cats[i], cats[j]),
-                    cats, vals, vals[i] + vals[j],
-                    ["%s + %s = %s." % (_c(vals[i]), _c(vals[j]),
-                                        _c(vals[i] + vals[j]))])
+        a, b = cats[i], cats[j]
+        big, small = (i, j) if vals[i] >= vals[j] else (j, i)
+        # what the chart counts and what it asks, in several wordings (a sum, a difference, a total of all four)
+        what = pick([("tickets sold at four venues", "tickets were sold"),
+                     ("visitors to four museums last year", "visitors were there"),
+                     ("people who ran in four towns' fun runs", "runners were there"),
+                     ("books borrowed from four libraries in a year", "books were borrowed")])
+        k = random.randint(0, 2)
+        if k == 0:
+            return _bar("The bar chart shows %s. How many %s at %s and %s altogether?"
+                        % (what[0], what[1].split()[0], a, b), cats, vals, vals[i] + vals[j],
+                        ["Read the two bars: %s and %s." % (_c(vals[i]), _c(vals[j])),
+                         "%s + %s = %s." % (_c(vals[i]), _c(vals[j]), _c(vals[i] + vals[j]))])
+        if k == 1 and vals[big] != vals[small]:
+            return _bar("Look at the chart of %s. How many more %s at %s than at %s?"
+                        % (what[0], what[1].split()[0], cats[big], cats[small]), cats, vals,
+                        vals[big] - vals[small],
+                        ["Read the two bars: %s and %s." % (_c(vals[big]), _c(vals[small])),
+                         "%s − %s = %s." % (_c(vals[big]), _c(vals[small]), _c(vals[big] - vals[small]))])
+        return _bar("Using the chart of %s, what is the total for all four places?" % what[0],
+                    cats, vals, sum(vals),
+                    ["Add the four bars: %s = %s." % (" + ".join(_c(v) for v in vals), _c(sum(vals)))])
 
     def t_io():
         amt = _op(max(d, 1))
