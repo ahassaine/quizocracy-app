@@ -188,3 +188,48 @@ def test_feedback_card_retires_unanswered(page):
                            {"$set": {"shown_at": datetime.datetime.utcnow() - datetime.timedelta(days=8)}})
     page.goto("/home")                                       # a week on, never answered: it does not nag
     assert page.locator("[data-testid=feedback-card]").count() == 0
+
+
+PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                    "1f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4f90000000049454e44ae426082")
+
+
+def test_send_us_feedback_with_screenshots_reaches_the_board(page, tmp_path):
+    ali = _member()
+    email = signup(page, family="Message family")
+    fid = _fam(email)
+    add_child(page, "Noor", 2)
+    page.goto("/home")
+    page.click("[data-testid=home-feedback-link]")
+    page.wait_for_url("**/feedback")
+    page.click("[data-testid=feedback-send]")                        # nothing written: asked for a few words
+    assert "Write a few words" in page.inner_text("[role=alert]")
+    shot = tmp_path / "IMG_0042 my family.png"
+    shot.write_bytes(PNG)
+    page.fill("[data-testid=feedback-text]", "The clock question looked odd")
+    page.set_input_files("[data-testid=feedback-shots]", [str(shot), str(shot)])
+    page.click("[data-testid=feedback-send]")
+    page.wait_for_url("**/feedback?sent=1")
+    t = DB.team_threads.find_one({"kind": "family_feedback"})
+    m = DB.team_messages.find_one({"tid": t["_id"]}, sort=[("time", -1)])
+    assert "The clock question looked odd" in m["text"] and "2 screenshots" in m["text"] and "Noor" in m["text"]
+    assert m["attachments"] == ["00-screenshot.png", "01-screenshot.png"]   # never the parent's file name
+    # the team sees it on the board and on the funnel page
+    page.goto(f"/team/{ali}/{t['_id']}")
+    assert "The clock question looked odd" in page.content()
+    page.goto(f"/team/{ali}/funnel?tests=1")
+    assert "✉️ Message · 2 screenshots" in page.inner_text("#feedback ~ div")
+    # a child on the device never reaches it
+    enter_child(page, "Noor")
+    page.goto("/feedback")
+    assert "/parent-unlock" in page.url
+    # deleting the family takes the message and its screenshots away
+    up = os.path.join(os.getenv("QZ_DATA_DIR", os.path.join(ROOT, "data")), "team_uploads", t["_id"], str(m["_id"]))
+    assert os.path.isdir(up)
+    page.goto("/parent-unlock"); page.fill("input[name=password]", PASSWORD); page.click("button[type=submit]")
+    page.goto("/settings")
+    page.fill("#confirm", "DELETE"); page.fill("#delpw", PASSWORD)
+    page.click("form[action='/account/delete'] button")
+    page.wait_for_url("**/?deleted=1")
+    assert DB.team_messages.count_documents({"_id": m["_id"]}) == 0 and not os.path.exists(up)
+    assert DB.feedback.count_documents({"family_id": fid}) == 0

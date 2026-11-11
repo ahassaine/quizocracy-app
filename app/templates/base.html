@@ -47,7 +47,7 @@ if(C||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches
   </nav>
 </header>
 <main class="wrap">{% block body %}{% endblock %}</main>
-{% block foot %}<div class="foot"><a href="/help">Help</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>{% endblock %}
+{% block foot %}<div class="foot"><a href="/help">Help</a> · {% if ctx and ctx.family and not ctx.locked and not ctx.child %}<a href="/feedback">Feedback</a> · {% endif %}<a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>{% endblock %}
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:'){addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}</script>
 <script src="/static/js/ui.js?v=6"></script>
 {% block scripts %}{% endblock %}

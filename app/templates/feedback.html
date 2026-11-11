@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Send us feedback · Quizocracy{% endblock %}
+{% block body %}
+<p><a href="/home">&larr; Home</a></p>
+<h1>Send us feedback</h1>
+{% if sent %}<div class="card" role="status" data-testid="feedback-sent"><b>Thank you, it's on its way.</b> Our small team reads every message. If we need to know more, we'll email you.</div>{% endif %}
+<form method="post" action="/feedback" enctype="multipart/form-data" class="card" data-testid="feedback-form">
+  {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
+  <p style="margin-top:0">Something that works well, something confusing, a question that looks wrong, or what your child thinks: tell us anything. A screenshot helps us see exactly what you saw.</p>
+  <div class="field"><label for="fbtext">Your message</label>
+    <textarea id="fbtext" name="text" rows="6" maxlength="3000" dir="auto" style="width:100%" data-testid="feedback-text">{{ text or '' }}</textarea></div>
+  <div class="field"><label for="fbshots">Screenshots <span class="mut small">(up to {{ shots }} pictures, 8 MB each; optional)</span></label>
+    <input id="fbshots" name="files" type="file" accept="image/*" multiple data-testid="feedback-shots" style="max-width:100%"></div>
+  <p class="mut small">To take a screenshot: on most phones, press the power and volume-down buttons together; on an iPhone with Face ID, the side and volume-up buttons. Please check a screenshot shows nothing private before you add it.</p>
+  <div class="row"><button class="btn primary" type="submit" data-testid="feedback-send">Send</button></div>
+</form>
+<p class="mut small">Your message and screenshots go only to the Quizocracy team, and are deleted with your account.</p>
+{% endblock %}

@@ -48,7 +48,7 @@
   <p class="mut" style="margin:6px 0">What every grown-up changed lately, so everyone sees the same picture: plans and targets, rewards, days off, school spelling lists and topics, PINs and lock-outs, grown-ups joining or leaving, deleted children and new devices.</p>
   <ul style="margin:0;padding-left:0;list-style:none">{% for e in events %}<li style="padding:4px 0;border-top:1px solid var(--line)" data-testid="log-line"><span class="mut" style="white-space:nowrap">{{ e.when }}</span> · {{ e.text }}</li>{% endfor %}</ul>
 </details>{% endif %}
-<p class="mut small">Questions about PINs, targets or rewards? See <a href="/help">Help</a>.</p>
+<p class="mut small">Questions about PINs, targets or rewards? See <a href="/help">Help</a>. Something to tell us? <a href="/feedback" data-testid="home-feedback-link">Send us feedback</a>, with screenshots if you like.</p>
 <script>
   /* The home-screen tip: the browser's own install prompt where there is one (Chrome, Edge, Android), written steps on
      iPhone/iPad Safari. Never shown once installed, inside the app, or after "No thanks" on this device. */

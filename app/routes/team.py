@@ -20,6 +20,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import urllib.request
 from pathlib import Path
 
@@ -125,9 +126,13 @@ FAMILY_AUTHOR = {"_id": "families", "name": "Family feedback", "initials": "FF",
                  "telegram_chat_id": None, "active": False}     # never active: its id is not a link anyone can open
 
 
-async def post_family_feedback(text: str) -> ObjectId:
-    """A parent's "How is it going?" answer becomes a reply in the one "Family feedback" thread (made on first
-    use, reopened if resolved), so the members' Telegram pings and the team watcher see it like any message."""
+FAMILY_SHOTS, SHOT_TYPES = 5, {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic"}
+
+
+async def post_family_feedback(text: str, files: list = ()) -> ObjectId:
+    """A parent's "How is it going?" answer, or a message from "Send us feedback" (with up to FAMILY_SHOTS
+    screenshots), becomes a reply in the one "Family feedback" thread (made on first use, reopened if resolved),
+    so the members' Telegram pings and the team watcher see it like any message."""
     await db.team_members.update_one({"_id": FAMILY_AUTHOR["_id"]}, {"$setOnInsert": {**FAMILY_AUTHOR, "created": _now()}},
                                      upsert=True)
     now = _now()
@@ -139,9 +144,17 @@ async def post_family_feedback(text: str) -> ObjectId:
         await db.team_threads.insert_one(t)
     elif t["status"] == "resolved":
         await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {"status": "open"}})
-    mid = ObjectId()
+    mid, saved = ObjectId(), []
+    for up in _real(files)[:FAMILY_SHOTS]:
+        ext = os.path.splitext(up.filename)[1].lower()
+        blob = await up.read(MAX_BYTES + 1)
+        if ext in SHOT_TYPES and blob and len(blob) <= MAX_BYTES:
+            d = UPLOADS / t["_id"] / str(mid)
+            d.mkdir(parents=True, exist_ok=True)
+            saved.append(f"{len(saved):02d}-screenshot{ext}")      # never the parent's own file name
+            (d / saved[-1]).write_bytes(blob)
     await db.team_messages.insert_one({"_id": mid, "tid": t["_id"], "author": FAMILY_AUTHOR["_id"], "kind": "msg",
-                                       "text": text[:10000], "attachments": [], "time": now, "ip": ""})
+                                       "text": text[:10000], "attachments": saved, "time": now, "ip": ""})
     await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {"last_at": now, "last_author": FAMILY_AUTHOR["_id"],
                                                                   "last_preview": text[:140]}, "$inc": {"count": 1}})
     await _fanout(FAMILY_AUTHOR, t, "[quizocracy team] 💬 Family feedback", text)
@@ -154,6 +167,8 @@ async def drop_family_feedback(mids: list) -> None:
     if not mids or not t:
         return
     await db.team_messages.delete_many({"_id": {"$in": mids}, "tid": t["_id"]})
+    for mid in mids:                                    # and their screenshots
+        shutil.rmtree(UPLOADS / t["_id"] / str(mid), ignore_errors=True)
     last = await db.team_messages.find_one({"tid": t["_id"]}, sort=[("time", -1)])
     await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {
         "count": await db.team_messages.count_documents({"tid": t["_id"]}),

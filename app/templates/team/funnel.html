@@ -18,11 +18,11 @@
 <p class="scroll-hint" style="margin-top:-8px">Swipe the table sideways to see every column →</p>
 {% else %}<div class="card mut">No families yet.</div>{% endif %}
 
-<h2 id="feedback">“How is it going?” answers</h2>
-<p class="mut small">The card a parent sees on Home on the family's 3rd active day, and again from day 14. Each answer is also posted in the “Family feedback” thread of the board.</p>
+<h2 id="feedback">Feedback from families</h2>
+<p class="mut small">The “How is it going?” card a parent sees on Home on the family's 3rd active day and again from day 14, and messages sent from “Send us feedback” (/feedback). Each is also posted in the “Family feedback” thread of the board, with any screenshots.</p>
 {% for d in cards %}
 <div class="card" data-testid="feedback-answer">
-  <div class="kid"><b>{% if d.status == 'sent' %}{{ moods.get(d.mood, 'No face picked') }}{% else %}<span class="mut">Dismissed</span>{% endif %}</b><span class="chip">{{ card_names.get(d.card, d.card) }}</span></div>
+  <div class="kid"><b>{% if d.card == 'message' %}✉️ Message{% if d.shots %} · {{ d.shots }} screenshot{{ 's' if d.shots > 1 }}{% endif %}{% elif d.status == 'sent' %}{{ moods.get(d.mood, 'No face picked') }}{% else %}<span class="mut">Dismissed</span>{% endif %}</b>{% if d.card != 'message' %}<span class="chip">{{ card_names.get(d.card, d.card) }}</span>{% endif %}</div>
   {% if d.text %}<p dir="auto" style="white-space:pre-wrap;margin:8px 0 4px" data-testid="feedback-text">{{ d.text }}</p>{% endif %}
   <div class="mut small">{{ d.family }} · {{ d.role or 'grown-up' }} {{ d.email }} · {{ d.at.strftime('%d %b %H:%M') if d.at else '' }} UTC</div>
 </div>

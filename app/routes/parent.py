@@ -5,7 +5,7 @@ import re
 from urllib.parse import quote
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 
 from ..activities import (ACTIVITIES, ALL_WEEK, CAP_YEARS, CHECK_SECONDS, FOCUS_MAX, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SCIENCE_AREA,
@@ -24,7 +24,7 @@ from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
 from .auth import settings_view
 from .child import REPORT_REASONS, _due, pick_batch, picker_page
-from .team import drop_family_feedback, post_family_feedback
+from .team import FAMILY_SHOTS, drop_family_feedback, post_family_feedback
 
 router = APIRouter()
 PIN_RE = re.compile(r"^\d{4}$")
@@ -106,6 +106,40 @@ async def feedback_card(request: Request, ctx: Ctx = Depends(parent_page), card:
         f"{kids} {'child' if kids == 1 else 'children'} · {days} active {'day' if days == 1 else 'days'}")
     await db.feedback.update_one({"_id": d["_id"]}, {"$set": {"team_msg": mid}})     # deleted with the family
     return RedirectResponse("/home?fb=thanks", 303)
+
+
+FEEDBACK_PER_HOUR = 10
+
+
+@router.get("/feedback")
+async def feedback_form(request: Request, ctx: Ctx = Depends(parent_page)):
+    """"Send us feedback": any grown-up, any time, with screenshots if they like (the link shared with the beta
+    families). Never in child mode: a locked device asks for the password first."""
+    return page(request, "feedback.html", ctx, sent=request.query_params.get("sent"), shots=FAMILY_SHOTS)
+
+
+@router.post("/feedback")
+async def feedback_send(request: Request, ctx: Ctx = Depends(parent_page), text: str = Form(""),
+                        files: list[UploadFile] = File(default=[])):
+    """Kept with the family's other feedback (deleted with it) and posted to the "Family feedback" thread."""
+    text = (text or "").strip()[:3000]
+    shots = [f for f in files if f is not None and (f.filename or "").strip()]
+    key = f"feedback:{ctx.account['_id']}"
+    if not (text or shots) or await over_limit(key, FEEDBACK_PER_HOUR, 60):
+        err = ("You've sent a lot of messages in the last hour. Please try again a little later."
+               if text or shots else "Write a few words or add a screenshot first.")
+        return page(request, "feedback.html", ctx, status_code=400, error=err, text=text, shots=FAMILY_SHOTS)
+    await hit(key)
+    kids = [p["name"] async for p in db.pupils.find({"family_id": ctx.family["_id"]}, {"name": 1})]
+    mid = await post_family_feedback(
+        "✉️ Message" + (f" · {len(shots)} screenshot{'s' if len(shots) > 1 else ''}" if shots else "") + "\n"
+        + (f"“{text}”\n" if text else "")
+        + f"{ctx.family['name']} ({ctx.role}) · children: {', '.join(kids) or 'none yet'}", shots)
+    now = datetime.datetime.utcnow()
+    await db.feedback.insert_one({"_id": f"{ctx.account['_id']}:m:{mid}", "account_id": ctx.account["_id"],
+                                  "family_id": ctx.family["_id"], "card": "message", "status": "sent", "text": text,
+                                  "shots": len(shots), "shown_at": now, "at": now, "team_msg": mid})
+    return RedirectResponse("/feedback?sent=1", 303)
 
 
 def names_text(names: list) -> str:
