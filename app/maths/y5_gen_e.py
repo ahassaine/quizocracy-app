@@ -210,12 +210,15 @@ def _(d=1):
                    % inner, 360 - inner, "int", {"unit": "°"}, ["360 − %d = %d." % (inner, 360 - inner)])
 
     def t_difference():
-        u = _by(d, 10, 10, 5)
-        a, b = random.randint(2, 170 // u) * u, random.randint(2, 170 // u) * u
-        if a == b:
-            b += u
-        return _tb("One angle measures %d° and another measures %d°. What is the difference in degrees?" % (a, b),
-                   abs(a - b), "int", {"unit": "°"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
+        # measure first, then how far from a right angle or a straight line
+        deg = random.randint(*_by(d, (2, 8), (11, 34), (21, 35))) * 5 if d else random.randint(2, 8) * 10
+        if deg == 90:
+            deg += 10
+        full, name = (90, "a right angle (90°)") if deg < 90 else (180, "a straight line (180°)")
+        return {"prompt": "Measure this angle with the protractor. How many more degrees would make it %s?" % name,
+                "component": "angle", "spec": {"mode": "measure", "degrees": deg, "protractor": True},
+                "answer": full - deg, "answer_type": "num", "tolerance": 2,
+                "solution": ["The angle is %d°." % deg, "%d − %d = %d." % (full, deg, full - deg)]}
 
     def t_two_readings():
         if d == 0:                                        # one arm starts near zero
@@ -245,11 +248,17 @@ def _(d=1):
                    ["The two scales add up to 180°: 180 − %d = %d." % (180 - deg, deg)])
 
     def t_between():
-        a, b = random.sample(_by(d, list(range(20, 180, 10)), [20, 35, 50, 65, 80, 95, 110, 125, 140, 155, 170],
-                                 list(range(12, 178))), 2)
-        lo_, hi_ = min(a, b), max(a, b)
-        return _tb("How many degrees bigger is an angle of %d° than an angle of %d°?" % (hi_, lo_), hi_ - lo_, "int",
-                   {"unit": "°"}, ["%d − %d = %d." % (hi_, lo_, hi_ - lo_)])
+        # check a drawn angle against the one asked for
+        deg = random.randint(*_by(d, (3, 15), (3, 33), (5, 34))) * _by(d, 10, 5, 5)
+        off = pick([-1, 1]) * random.randint(*_by(d, (2, 4), (1, 4), (1, 3))) * 5
+        want = deg + off if 10 <= deg + off <= 175 else deg - off
+        return {"prompt": "%s was asked to draw an angle of %d°. This is the angle that was drawn. Measure it. By how "
+                          "many degrees is it wrong?" % (_who(), want),
+                "component": "angle", "spec": {"mode": "measure", "degrees": deg, "protractor": True},
+                "answer": abs(want - deg), "answer_type": "num", "tolerance": 2,
+                "solution": ["The angle drawn is %d°." % deg,
+                             "%d − %d = %d, so it is %d° too %s." % (max(want, deg), min(want, deg), abs(want - deg),
+                                                                     abs(want - deg), "big" if deg > want else "small")]}
 
     def t_possible():
         if d == 2:                                        # close to a right angle
@@ -279,14 +288,13 @@ def _(d=1):
                    90 - a, "int", {"unit": "°"}, ["90 − %d = %d." % (a, 90 - a)])
 
     def t_sum_measured():
-        if d == 0:
-            a, b = random.randint(2, 9) * 10, random.randint(2, 8) * 10
-        elif d == 1:
-            a, b = random.randint(2, 9) * 10, random.randint(2, 9) * 10 + 5
-        else:
-            a, b = random.randint(21, 89), random.randint(21, 89)
-        return _tb("Two angles next to each other are measured as %d° and %d°. How big is the angle they make together, in "
-                   "degrees?" % (a, b), a + b, "int", {"unit": "°"}, ["%d + %d = %d." % (a, b, a + b)])
+        # measure one angle, then put two of them together
+        deg = random.randint(*_by(d, (2, 8), (3, 17), (5, 17))) * _by(d, 10, 5, 5)
+        return {"prompt": "Measure this angle with the protractor. Two angles of this size are put next to each other. "
+                          "How big is the angle they make together, in degrees?",
+                "component": "angle", "spec": {"mode": "measure", "degrees": deg, "protractor": True},
+                "answer": 2 * deg, "answer_type": "num", "tolerance": 4,
+                "solution": ["The angle is %d°." % deg, "%d + %d = %d." % (deg, deg, 2 * deg)]}
 
     return _pick_t([t_reflex_from_inner, t_difference, t_two_readings, t_wrong_scale, t_between, t_possible,
                     t_halfway_mark, t_right_split, t_sum_measured],
@@ -455,12 +463,12 @@ def _(d=1):
     DIRS = ["north", "east", "south", "west"]
 
     def t_right_angles():
-        k = random.randint(*_by(d, (1, 2), (1, 4), (3, 8)))
+        k = random.randint(*_by(d, (2, 4), (3, 6), (5, 12)))
         return _tb("How many degrees %s %s?" % ("is" if k == 1 else "are", _pl(k, "right angle")), 90 * k, "int",
                    {"unit": "°"}, ["%d × 90 = %d." % (k, 90 * k)])
 
     def t_how_many_right():
-        deg = 90 * random.randint(*_by(d, (1, 2), (1, 4), (3, 8)))
+        deg = 90 * random.randint(*_by(d, (2, 4), (3, 6), (5, 12)))
         return _tb("How many right angles make %d°?" % deg, deg // 90, "int", {}, ["%d ÷ 90 = %d." % (deg, deg // 90)])
 
     def t_compass():
@@ -515,9 +523,11 @@ def _(d=1):
     d = _d(d)
 
     def t_opposite():
-        a = random.randint(*_by(d, (3, 12), (3, 30), (31, 99)))
-        return _tb("A rectangle has one side of %d cm. How long is the opposite side, in cm?" % a, a, "int",
-                   {"unit": "cm"}, ["Opposite sides of a rectangle are equal."])
+        a, b = random.sample(range(*_by(d, (3, 13), (6, 31), (21, 99))), 2)
+        return _tb("Rectangle ABCD has AB = %d cm and BC = %d cm. What is the total length of sides CD and DA, in cm?"
+                   % (a, b), a + b, "int", {"unit": "cm"},
+                   ["Opposite sides of a rectangle are equal: CD = AB = %d cm and DA = BC = %d cm." % (a, b),
+                    "%d + %d = %d." % (a, b, a + b)])
 
     def t_perimeter_side():
         a, b = (random.randint(*_by(d, (2, 10), (3, 25), (15, 60))) for _ in range(2))
@@ -526,8 +536,16 @@ def _(d=1):
                    ["Length + width = %d ÷ 2 = %d." % (2 * (a + b), a + b), "%d − %d = %d." % (a + b, a, b)])
 
     def t_angle():
-        return _tb("What is the size of each angle inside a rectangle, in degrees?", 90, "int", {"unit": "°"},
-                   ["All four angles of a rectangle are right angles."])
+        if d == 0:
+            return _tb("What is the size of each angle inside a rectangle, in degrees?", 90, "int", {"unit": "°"},
+                       ["All four angles of a rectangle are right angles."])
+        # a corner (90°) split into two parts, one a given number of degrees bigger
+        x = random.randint(1, 4) * 10 if d == 1 else random.randint(3, 22) * 2
+        return _tb("A straight line from corner A of rectangle ABCD splits the angle at A into two parts. One part is %d° "
+                   "bigger than the other. How big is the smaller part, in degrees?" % x, (90 - x) // 2, "int",
+                   {"unit": "°"}, ["The angle at A is a right angle: 90°.",
+                                   "Take away the difference: 90 − %d = %d. Halve it: %d ÷ 2 = %d."
+                                   % (x, 90 - x, 90 - x, (90 - x) // 2)])
 
     def t_diagonal_angle():
         a = random.randint(*_by(d, (2, 7), (15, 75), (11, 79))) * _by(d, 10, 1, 1)
@@ -543,12 +561,25 @@ def _(d=1):
 
     def t_split():
         W, a = random.randint(*_by(d, (10, 20), (12, 30), (30, 60))), random.randint(*_by(d, (2, 5), (3, 9), (11, 25)))
-        return _tb("A rectangle %d cm long is cut into two smaller rectangles. One piece is %d cm long. How long is "
-                   "the other piece, in cm?" % (W, a), W - a, "int", {"unit": "cm"}, ["%d − %d = %d." % (W, a, W - a)])
+        h = random.randint(*_by(d, (3, 9), (4, 15), (8, 25)))
+        return _tb("A rectangle %d cm long and %d cm wide is cut straight across into two smaller rectangles. One piece "
+                   "is %d cm by %d cm. What is the perimeter of the other piece, in cm?" % (W, h, a, h),
+                   2 * (W - a + h), "int", {"unit": "cm"},
+                   ["The other piece is %d − %d = %d cm long and still %d cm wide." % (W, a, W - a, h),
+                    "2 × (%d + %d) = %d." % (W - a, h, 2 * (W - a + h))])
 
     def t_corners():
-        return _wq("Is a square a special kind of rectangle? (yes or no)", "yes",
-                   ["A square has 4 right angles and opposite sides equal, so it is a rectangle."], "yes / no")
+        if d == 0:
+            return _wq("Is a square a special kind of rectangle? (yes or no)", "yes",
+                       ["A square has 4 right angles and opposite sides equal, so it is a rectangle."], "yes / no")
+        # length k times the width, perimeter given: the width is one of 2 × (k + 1) equal parts
+        k = random.randint(*_by(d, (2, 3), (2, 3), (3, 5)))
+        w = random.randint(*_by(d, (2, 9), (3, 12), (4, 15)))
+        P = 2 * (k + 1) * w
+        return _tb("A rectangle is %d times as long as it is wide. Its perimeter is %d cm. How wide is it, in cm?"
+                   % (k, P), w, "int", {"unit": "cm"},
+                   ["Length + width = %d ÷ 2 = %d, and that is %d widths (%d + 1)." % (P, P // 2, k + 1, k),
+                    "%d ÷ %d = %d." % (P // 2, k + 1, w)])
 
     def t_grid():
         x0, y0 = random.randint(1, 3), random.randint(1, 3)
@@ -564,9 +595,11 @@ def _(d=1):
                 "answer_type": "coord", "solution": ["Opposite sides are equal and parallel: (%d,%d)." % tuple(ans)]}
 
     def t_diagonals():
-        k = random.randint(*_by(d, (5, 12), (5, 25), (26, 60)))
-        return _tb("One diagonal of a rectangle is %d cm long. How long is the other diagonal, in cm?" % k, k, "int",
-                   {"unit": "cm"}, ["The diagonals of a rectangle are equal."])
+        k = random.randint(*_by(d, (3, 12), (6, 25), (13, 49)))
+        return _tb("The diagonals of a rectangle are equal and cut each other in half. One diagonal is %d cm long. How "
+                   "far is it from a corner to the point where the diagonals cross, in cm?" % (2 * k), k, "int",
+                   {"unit": "cm"}, ["Each diagonal is %d cm and is cut in half." % (2 * k),
+                                    "%d ÷ 2 = %d." % (2 * k, k)])
 
     def t_side_from_grid():
         x0, y0 = random.randint(1, 3), random.randint(1, 3)
@@ -594,8 +627,15 @@ def _(d=1):
                    ["Each side is %d cm because %d × %d = %d." % (s, s, s, s * s), "4 × %d = %d." % (s, 4 * s)])
 
     def t_corner_sum():
-        return _tb("What do the four inside angles of a rectangle add up to, in degrees?", 360, "int", {"unit": "°"},
-                   ["4 right angles: 4 × 90 = 360."])
+        if d == 0:
+            return _tb("What do the four inside angles of a rectangle add up to, in degrees?", 360, "int", {"unit": "°"},
+                       ["4 right angles: 4 × 90 = 360."])
+        # half a square: a rectangle s by s/2, so its perimeter is 3 sides of the square
+        sq = 2 * random.randint(*_by(d, (2, 6), (3, 10), (6, 20)))
+        return _tb("A square is cut in half to make two equal rectangles. Each rectangle has a perimeter of %d cm. How "
+                   "long is each side of the square, in cm?" % (3 * sq), sq, "int", {"unit": "cm"},
+                   ["Each rectangle is a whole side long and half a side wide.",
+                    "Its perimeter is 1 + 1/2 + 1 + 1/2 = 3 sides of the square: %d ÷ 3 = %d." % (3 * sq, sq)])
 
     return _pick_t([t_opposite, t_perimeter_side, t_angle, t_diagonal_angle, t_square_from_perimeter, t_split,
                     t_corners, t_diagonals, t_joined, t_square_area, t_corner_sum], [t_grid, t_side_from_grid])
@@ -633,7 +673,7 @@ def _(d=1):
         return _wq("What is the name of a polygon with %d sides?" % n, name, ["%d sides: %s." % (n, name)], "name")
 
     def t_sides():
-        name, n = pick(PL)
+        name, n = pick([p for p in POLY if p[1] >= _by(d, 5, 5, 7)])        # not "how many sides has a triangle"
         return _tb("How many sides does %s %s have?" % ("an" if name[0] in "aeiou" else "a", name), n, "int", {}, ["%s %s has %d sides." % ("An" if name[0] in "aeiou" else "A", name, n)])
 
     def t_perimeter():

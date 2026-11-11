@@ -19,6 +19,7 @@ import math
 import random
 from fractions import Fraction
 from .maths_engine import skill, pick, money, NAMES, n_words
+from .y4_money import pounds_from
 
 S6 = "4.6 Decimals"
 S7 = "4.7 Measurement, money & time"
@@ -134,7 +135,8 @@ def _hm24(h, m):
 
 
 def _clock_minutes(d):
-    return _by_d(d, [0, 15, 30, 45],
+    # Year 3 already reads the time to the minute: Year 4 starts at quarters and 5-minute times
+    return _by_d(d, [10, 15, 20, 40, 45, 50],
                  [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
                  [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55,
                   3, 7, 12, 18, 23, 37, 42, 48])
@@ -1120,11 +1122,11 @@ def _(d=1):
     def _m(lo, hi):
         """A measure in hundredths between lo and hi: one decimal place (easy),
         any (core), or within 0.05 of the halfway point (stretch)."""
-        if d == 0:
-            return random.randint(lo // 10 + 1, hi // 10) * 10
+        if d == 0:                   # never a whole number already ("4 metres, rounded")
+            return pick([v for v in range(lo // 10 + 1, hi // 10 + 1) if v % 10]) * 10
         if d == 2:
             return random.randint(lo // 100, hi // 100 - 1) * 100 + random.randint(45, 55)
-        return random.randint(lo, hi)
+        return pick([v for v in range(lo, hi + 1) if v % 100])
 
     t = _pick_t([1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
@@ -2773,7 +2775,7 @@ def _(d=1):
                              "The minute hand shows %d minutes." % m]}
 
     if t == 1:                       # set from words
-        mm = pick(_by_d(d, [0, 30], [0, 15, 30, 45], [15, 45]))
+        mm = pick(_by_d(d, [15, 45], [15, 30, 45], [15, 45]))
         phrase = {0: "%d o'clock" % h, 15: "quarter past %d" % h,
                   30: "half past %d" % h,
                   45: "quarter to %d" % (1 if h == 12 else h + 1)}[mm]
@@ -2841,8 +2843,8 @@ def _(d=1):
 
     if t == 6:                       # set a real-life time
         label, eh, em = pick(_by_d(
-            d, [("assembly", 9, 0), ("break", 10, 30), ("lunch", 12, 30),
-                ("home time", 3, 30), ("bedtime", 8, 0)],
+            d, [("assembly", 9, 5), ("break", 10, 45), ("lunch", 12, 15),
+                ("home time", 3, 20), ("bedtime", 7, 45)],
             [("assembly", 9, 10), ("break", 10, 45),
              ("lunch", 12, 20), ("home time", 3, 25),
              ("football club", 4, 50), ("bedtime", 8, 5)],
@@ -3093,10 +3095,12 @@ def _(d=1):
                           solution=[fact[0].upper() + fact[1:] + ".", "The answer is %d." % ans])
         if d == 0:
             q, ans, fact = pick([
-                ("How many days are there in 1 week?", 7, "1 week = 7 days"),
-                ("How many days are there in 2 weeks?", 14, "1 week = 7 days"),
-                ("How many months are there in 1 year?", 12, "1 year = 12 months"),
-                ("How many days are there in December?", 31, "December has 31 days"),
+                # Year 4 converts between the units, not just recalls 1 week = 7 days
+                ("How many days are there in 4 weeks?", 28, "1 week = 7 days, and 4 × 7 = 28"),
+                ("How many days are there in 3 weeks?", 21, "1 week = 7 days, and 3 × 7 = 21"),
+                ("How many months are there in 3 years?", 36, "1 year = 12 months, and 3 × 12 = 36"),
+                ("How many days are there in December and January?", 62,
+                 "December and January have 31 days each, and 31 + 31 = 62"),
             ])
             return _num_q(q, ans, "int",
                           solution=[fact.capitalize() + ".", "The answer is %d." % ans])
@@ -3374,3 +3378,7 @@ def _(d=1):
                     ["Work out how long each club lasts.",
                      "%s lasts %d minutes, which is the longest."
                      % (names[k], lens[k])])
+
+
+# changing pounds into pence is part of these skills, so only £10 or more moves to pounds (y4_money)
+pounds_from(1000, "Y4.7.f", "Y4.7.g", "Y4.7.h")

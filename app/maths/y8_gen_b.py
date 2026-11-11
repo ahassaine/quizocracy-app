@@ -123,6 +123,11 @@ def _simp(n, d):
     return n // g, d // g
 
 
+def _proper(den):
+    """A numerator for a proper fraction already in its simplest form: 1/4 or 3/4, never 2/4."""
+    return pick([n for n in range(1, den) if _hcf(n, den) == 1])
+
+
 def _mixed_str(w, n, d):
     """(2, 3, 4) -> '2 3/4';  (2, 0, 4) -> '2';  (0, 3, 4) -> '3/4'."""
     w, n, d = int(w), int(n), int(d)
@@ -547,7 +552,8 @@ def _(d=1):
                    solution=["%s × %d = %s." % (_lb(price), n, _lb(total))])
 
     def dec_square():
-        a = _mk(1, 2, 9)
+        # 0.6², then 1.3², then 0.15² or 2.4²: the hard tier is not a times-table fact
+        a = _mk(*_by_d(d, (1, 2, 9), (1, 11, 19), pick([(2, 11, 19), (1, 21, 35)])))
         p = a * a
         return _nq("Work out %s²  (that is %s × %s)." % (_txt(a), _txt(a),
                                                          _txt(a)), p,
@@ -818,12 +824,14 @@ def _(d=1):
     def mul_then_add():
         a = _mk(1, 12, 45)
         k = random.randint(2, 5)
-        b = _mk(1, 11, 60)
+        if d == 2:                       # a decimal times a decimal, then add
+            k = _mk(1, 2, 9)
+        b = _mk(*_by_d(d, (1, 11, 60), (1, 11, 60), (2, 105, 690)))
         r = a * k + b
-        return _nq("Using BIDMAS, work out %s × %d + %s" % (_txt(a), k,
+        return _nq("Using BIDMAS, work out %s × %s + %s" % (_txt(a), _txt(k),
                                                             _txt(b)), r,
-                   ["Multiply first: %s × %d = %s."
-                    % (_txt(a), k, _txt(a * k)),
+                   ["Multiply first: %s × %s = %s."
+                    % (_txt(a), _txt(k), _txt(a * k)),
                     "%s + %s = %s." % (_txt(a * k), _txt(b), _txt(r))])
 
     def sub_then_div():
@@ -906,11 +914,14 @@ def _(d=1):
         k = random.choice([2, 3, 4])
         while (a / k) != _rnd(a / k, 1):
             a = _mk(1, 24, 96)
+        if d == 2:                       # divide by a decimal: 8.4 ÷ 0.4 + 1.2
+            k = _mk(1, 2, 9)
+            a = k * random.randint(6, 24)
         b = _mk(1, 11, 40)
         r = a / k + b
-        return _nq("Work out %s ÷ %d + %s" % (_txt(a), k, _txt(b)), r,
-                   ["Divide first: %s ÷ %d = %s."
-                    % (_txt(a), k, _txt(a / k)),
+        return _nq("Work out %s ÷ %s + %s" % (_txt(a), _txt(k), _txt(b)), r,
+                   ["Divide first: %s ÷ %s = %s."
+                    % (_txt(a), _txt(k), _txt(a / k)),
                     "%s + %s = %s." % (_txt(a / k), _txt(b), _txt(r))])
 
     def menu_table():
@@ -1008,6 +1019,9 @@ def _(d=1):
     def line_add():
         a = random.randint(-8, 8)
         b = random.randint(max(-8, -12 - a), min(8, 12 - a))   # answer stays on the line
+        while a >= 0 and b >= 0:          # a directed-number sum: at least one of them is negative
+            a = random.randint(-8, 8)
+            b = random.randint(max(-8, -12 - a), min(8, 12 - a))
         s = a + b
         op = "%d + (%d)" % (a, b) if b < 0 else "%d + %d" % (a, b)
         return _nlq("The number line runs from −12 to 12. Mark the answer to "
@@ -1241,6 +1255,9 @@ def _(d=1):
         b = _D(random.randint(-40, 40)).scaleb(-1)
         while a == b:
             b = _D(random.randint(-40, 40)).scaleb(-1)
+        if d == 2:                        # two negatives close together, one with 2 decimal places
+            a = -_D(random.randint(11, 49)).scaleb(-1)
+            b = a - _D(pick([-1, 1]) * random.randint(1, 9)).scaleb(-2)
         big = a if a > b else b
         bigger = _txt(big)
         return _nq("Which is larger: %s or %s? Type the number."
@@ -1525,9 +1542,8 @@ def _(d=1):
                     "%d ÷ %d = %d." % (dd, _hcf(n, dd), bd)])
 
     def equiv_num():
-        bn, bd = random.randint(1, 4), pick([2, 3, 4, 5])
-        while bn >= bd:
-            bn = random.randint(1, bd - 1)
+        bd = pick(_by_d(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], [6, 7, 8, 9, 12]))
+        bn = random.randint(1, bd - 1)
         k = random.randint(2, _by_d(d, 4, 6, 9))
         return _iq("Fill in the missing number:  %d/%d = ___/%d"
                    % (bn, bd, bd * k), bn * k,
@@ -1535,9 +1551,8 @@ def _(d=1):
                     "So the numerator is %d × %d = %d." % (bn, k, bn * k)])
 
     def equiv_den():
-        bn, bd = random.randint(1, 4), pick([2, 3, 4, 5])
-        while bn >= bd:
-            bn = random.randint(1, bd - 1)
+        bd = pick(_by_d(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], [6, 7, 8, 9, 12]))
+        bn = random.randint(1, bd - 1)
         k = random.randint(2, _by_d(d, 4, 6, 9))
         return _iq("Fill in the missing number:  %d/%d = %d/___"
                    % (bn, bd, bn * k), bd * k,
@@ -1689,6 +1704,14 @@ def _(d=1):
         w = random.randint(1, 3)
         val = w + Fraction(n, dd)
         top = 4
+        if d == 2:                       # the improper fraction: change it to a mixed number first
+            top_n = w * dd + n
+            return _nlq("The number line is marked in %s. Mark %d/%d on it."
+                        % (_ths(dd), top_n, dd), _fl(val), 0, top,
+                        Fraction(1, dd), 1,
+                        ["%d ÷ %d = %d remainder %d, so %d/%d = %s." % (
+                            top_n, dd, w, n, top_n, dd, _mixed_str(w, n, dd)),
+                         "That is %d whole and %d/%d more." % (w, n, dd)])
         return _nlq("The number line is marked in %s. Mark %s on it."
                     % (_ths(dd), _mixed_str(w, n, dd)), _fl(val), 0, top,
                     Fraction(1, dd), 1,
@@ -1825,6 +1848,9 @@ def _(d=1):
     def compare_to_half():
         dd = pick([5, 6, 8, 10])
         n = random.randint(1, dd - 1)
+        if d >= 1:                       # close to a half, an odd denominator: 7/15, 9/17
+            dd = pick(_by_d(d, [], [7, 9, 11], [13, 15, 17, 19, 21]))
+            n = pick([(dd - 1) // 2, (dd + 1) // 2])
         f = Fraction(n, dd)
         if f == Fraction(1, 2):
             n = 1
@@ -1977,7 +2003,8 @@ def _(d=1):
                              "The larger value is %s." % bigger])
 
     def table_fill():
-        rows_data = [(1, 2), (1, 4), (3, 4), (1, 5)]
+        rows_data = _by_d(d, [(1, 2), (1, 4), (3, 4), (1, 5)], [(3, 8), (2, 5), (7, 10), (3, 20)],
+                          [(5, 8), (7, 20), (9, 25), (11, 40)])
         pick_row = random.randrange(len(rows_data))
         rows = []
         for i, (n, dd) in enumerate(rows_data):
@@ -2098,38 +2125,54 @@ def _(d=1):
                      solution=["Write both over %d and subtract." % dd,
                                "The answer is %s." % _mixed_str(w, rn, rd)])
 
+    def _related():
+        """Two denominators, the second a multiple of the first (4 and 8, 3 and 12): (small, big, k)."""
+        small = pick(_by_d(d, [2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]))
+        k = random.randint(2, _by_d(d, 2, 3, 4))
+        return small, small * k, k
+
+    def _top(den, hi):
+        """A numerator from 1 to hi that makes a fraction already in its simplest form (1 if none)."""
+        ok = [n for n in range(1, hi + 1) if _hcf(n, den) == 1]
+        return pick(ok) if ok else 1
+
     def missing_add():
-        dd = pick([4, 5, 6, 8])
-        a = random.randint(1, dd - 2)
-        s = random.randint(a + 1, dd - 1)
-        b = s - a
+        sm, dd, k = _related()
+        a = _top(sm, sm - 1)                       # a/sm is a*k/dd
+        s = pick([x for x in range(a * k + 1, dd) if _hcf(x, dd) == 1] or [a * k + 1])
+        b = s - a * k
         sn, sd = _simp(b, dd)
         return _fq("%d/%d + ___ = %d/%d . What is the missing fraction? Give it "
-                   "in simplest form." % (a, dd, s, dd), sn, sd,
-                   ["%d/%d − %d/%d = %d/%d." % (s, dd, a, dd, b, dd),
-                    "= %d/%d." % (sn, sd)])
+                   "in simplest form." % (a, sm, s, dd), sn, sd,
+                   ["%d/%d = %d/%d." % (a, sm, a * k, dd),
+                    "%d/%d − %d/%d = %d/%d%s." % (s, dd, a * k, dd, b, dd,
+                                                  "" if (sn, sd) == (b, dd) else " = %d/%d" % (sn, sd))])
 
     def word_pizza():
         who1, who2 = _two_names()
-        dd = pick([4, 6, 8])
-        a = random.randint(1, dd // 2)
-        b = random.randint(1, dd - a - 1) if dd - a - 1 >= 1 else 1
-        s = a + b
+        sm, dd, k = _related()
+        a = _top(sm, sm - 1)
+        b = _top(dd, max(1, dd - a * k - 1))
+        s = a * k + b
         sn, sd = _simp(s, dd)
         return _fq("%s eats %d/%d of a pizza and %s eats %d/%d of it. What "
                    "fraction of the pizza do they eat altogether? Give it in "
-                   "simplest form." % (who1, a, dd, who2, b, dd), sn, sd,
-                   ["%d/%d + %d/%d = %d/%d." % (a, dd, b, dd, s, dd),
-                    "= %d/%d." % (sn, sd)])
+                   "simplest form." % (who1, a, sm, who2, b, dd), sn, sd,
+                   ["%d/%d = %d/%d." % (a, sm, a * k, dd),
+                    "%d/%d + %d/%d = %d/%d%s." % (a * k, dd, b, dd, s, dd,
+                                                  "" if (sn, sd) == (s, dd) else " = %d/%d" % (sn, sd))])
 
     def bar_add():
-        dd = pick([6, 8, 10])
-        a = random.randint(1, dd - 2)
-        b = random.randint(1, dd - a - 1) if dd - a - 1 >= 1 else 1
-        s = a + b
-        return _fbq("Shade %d/%d, then a further %d/%d, of the bar. Read off "
-                    "the total shaded fraction." % (a, dd, b, dd), dd, s,
-                    ["%d/%d + %d/%d = %d/%d." % (a, dd, b, dd, s, dd)])
+        # the bar has the bigger denominator's parts; the first fraction must be changed to it first
+        sm, dd, k = _related()
+        a = _top(sm, sm - 1)
+        b = _top(dd, max(1, dd - a * k - 1))
+        s = a * k + b
+        return _fbq("This bar has %d equal parts. Shade %d/%d of it, then a further %d/%d. "
+                    "Read off the total shaded fraction." % (dd, a, sm, b, dd), dd, s,
+                    ["%d/%d = %d/%d, so shade %d parts first." % (a, sm, a * k, dd, a * k),
+                     "%d/%d + %d/%d = %d/%d%s." % (a * k, dd, b, dd, s, dd,
+                                                  "" if _hcf(s, dd) == 1 else " = %d/%d" % _simp(s, dd))])
 
     return _pick_opts({
         0: [same_den_add, same_den_sub, missing_add, word_pizza, bar_add,
@@ -2149,8 +2192,8 @@ def _(d=1):
     def frac_times_frac():
         d1 = pick([2, 3, 4, 5])
         d2 = pick([2, 3, 4, 5])
-        n1 = random.randint(1, d1 - 1)
-        n2 = random.randint(1, d2 - 1)
+        n1 = _proper(d1)
+        n2 = _proper(d2)
         num, den = n1 * n2, d1 * d2
         sn, sd = _simp(num, den)
         return _fq("Work out %d/%d × %d/%d. Give your answer as a fraction in "
@@ -2160,7 +2203,7 @@ def _(d=1):
 
     def frac_times_whole():
         dd = pick([2, 3, 4, 5, 6, 8])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         w = random.randint(*_by_d(d, (2, 6), (3, 12), (4, 20)))
         num, den = n * w, dd
         sn, sd = _simp(num, den)
@@ -2180,16 +2223,36 @@ def _(d=1):
                     % (n, dd, w, num, den, sn, sd)])
 
     def unit_frac_of():
-        dd = pick([2, 3, 4, 5])
-        whole = dd * random.randint(*_by_d(d, (2, 6), (3, 10), (4, 15)))
-        val = whole // dd
-        return _iq("Work out 1/%d of %d." % (dd, whole), val,
-                   ["%d ÷ %d = %d." % (whole, dd, val)])
+        # "of" means multiply: a fraction of a fraction
+        d1, d2 = pick(_by_d(d, [2, 3, 4], [3, 4, 5], [4, 5, 6, 8])), pick([3, 4, 5, 6])
+        n1 = _proper(d1)
+        n2 = _proper(d2)
+        sn, sd = _simp(n1 * n2, d1 * d2)
+        return _fq("Work out %d/%d of %d/%d. Give your answer as a fraction in its simplest form."
+                   % (n1, d1, n2, d2), sn, sd,
+                   ["'Of' means multiply: %d/%d × %d/%d = %d/%d." % (n1, d1, n2, d2, n1 * n2, d1 * d2),
+                    "In its simplest form that is %d/%d." % (sn, sd)])
+
+    def mixed_times_mixed():
+        w1, w2 = random.randint(1, 2), random.randint(1, _by_d(d, 1, 2, 3))
+        dd1, dd2 = pick([2, 3, 4]), pick([2, 3, 4, 5])
+        n1, n2 = _proper(dd1), _proper(dd2)
+        i1, i2 = w1 * dd1 + n1, w2 * dd2 + n2
+        prod = Fraction(i1 * i2, dd1 * dd2)
+        w, rn, rd = _improper_to_mixed(prod.numerator, prod.denominator)
+        steps = ["Change both to improper fractions: %s = %d/%d and %s = %d/%d."
+                 % (_mixed_str(w1, n1, dd1), i1, dd1, _mixed_str(w2, n2, dd2), i2, dd2),
+                 "%d/%d × %d/%d = %d/%d = %s." % (i1, dd1, i2, dd2, i1 * i2, dd1 * dd2,
+                                                  _mixed_str(w, rn, rd))]
+        if rn == 0:
+            return _iq("Work out %s × %s." % (_mixed_str(w1, n1, dd1), _mixed_str(w2, n2, dd2)), w, steps)
+        return _mixq("Work out %s × %s. Give your answer as a mixed number in simplest form."
+                     % (_mixed_str(w1, n1, dd1), _mixed_str(w2, n2, dd2)), w, rn, rd, solution=steps)
 
     def mixed_times_whole():
         w = random.randint(1, 3)
         dd = pick([2, 3, 4])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         k = random.randint(2, _by_d(d, 3, 4, 6))
         imp = w * dd + n
         prod = Fraction(imp * k, dd)
@@ -2207,7 +2270,7 @@ def _(d=1):
 
     def square_frac():
         dd = pick([2, 3, 4, 5])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         num, den = n * n, dd * dd
         sn, sd = _simp(num, den)
         return _fq("Work out (%d/%d)²  (that is %d/%d × %d/%d). Give it in "
@@ -2217,9 +2280,9 @@ def _(d=1):
 
     def missing_factor():
         d1 = pick([2, 3, 4])
-        n1 = random.randint(1, d1 - 1)
+        n1 = _proper(d1)
         d2 = pick([2, 3, 4])
-        n2 = random.randint(1, d2 - 1)
+        n2 = _proper(d2)
         pnum, pden = n1 * n2, d1 * d2
         return _fq("%d/%d × ___ = %d/%d . What is the missing fraction?"
                    % (n1, d1, pnum, pden), n2, d2,
@@ -2227,15 +2290,17 @@ def _(d=1):
                     % (pnum, pden, n1, d1, n2, d2)])
 
     def word_recipe():
+        # a fraction of a fraction in a context: 2/3 of a 3/4 kg bag
         who = pick(NAMES)
-        dd = pick([2, 3, 4])
-        n = 1
-        whole = dd * random.randint(2, 6)
-        val = whole // dd
-        return _iq("A recipe uses %d g of sugar. %s makes 1/%d of the recipe. "
-                   "How many grams of sugar does %s use?"
-                   % (whole, who, dd, who), val, unit="g",
-                   solution=["%d ÷ %d = %d g." % (whole, dd, val)])
+        d1, d2 = pick([3, 4, 5]), pick(_by_d(d, [2, 4], [3, 4, 5], [4, 5, 8]))
+        n1, n2 = _proper(d1), _proper(d2)
+        sn, sd = _simp(n1 * n2, d1 * d2)
+        return _fq("A recipe uses %d/%d kg of sugar. %s makes %d/%d of the recipe. "
+                   "What fraction of a kilogram of sugar does %s use? Give it in its simplest form."
+                   % (n2, d2, who, n1, d1, who), sn, sd,
+                   ["%d/%d of %d/%d kg = %d/%d × %d/%d = %d/%d kg." % (n1, d1, n2, d2, n1, d1, n2, d2,
+                                                                     n1 * n2, d1 * d2),
+                    "In its simplest form: %d/%d kg." % (sn, sd)])
 
     def bar_of_bar():
         d1 = pick([2, 3, 4])
@@ -2289,13 +2354,14 @@ def _(d=1):
         0: [frac_times_frac, frac_times_whole, unit_frac_of, word_recipe,
             bar_of_bar, missing_factor, mult_choose_model,
             mult_complete_equation],
+        # the area models (1/5 × 3 read off a grid) are Year 5 work: a warm-up on the easiest tier only
         1: [frac_times_frac, frac_times_whole, unit_frac_of, square_frac,
             missing_factor, word_recipe, bar_of_bar, mixed_times_whole,
-            mult_choose_model, mult_complete_equation],
+            mixed_times_mixed],
         2: [frac_times_frac, mixed_times_whole, square_frac, missing_factor,
             frac_times_whole, word_recipe, unit_frac_of, bar_of_bar,
-            mult_choose_model, mult_complete_equation],
-    }, d, weighted_tail=[bar_of_bar, mult_choose_model, mult_complete_equation])
+            mixed_times_mixed],
+    }, d, weighted_tail=[bar_of_bar] + ([mult_choose_model, mult_complete_equation] if d == 0 else []))
 
 
 # ============================================================== 8.3.g ========
@@ -2323,15 +2389,13 @@ def _(d=1):
                     "%d × %d = %d." % (whole // dd, n, val)])
 
     def money_of():
-        dd = pick([2, 4, 5])
-        n = random.randint(1, dd - 1)
-        while _hcf(n, dd) > 1:                        # no 2/4
-            n = random.randint(1, dd - 1)
-        pounds = dd * random.randint(4, 20)
+        dd = pick(_by_d(d, [2, 4, 5], [3, 4, 5, 8], [6, 8, 12, 20]))
+        n = _proper(dd) if d == 0 else pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
+        pounds = dd * random.randint(*_by_d(d, (4, 20), (6, 30), (8, 45)))
         val = pounds // dd * n
         return _iq("Work out %d/%d of £%d." % (n, dd, pounds), val, unit="£",
-                   solution=["£%d ÷ %d = £%d." % (pounds, dd, pounds // dd),
-                    "× %d = £%d." % (n, val)])
+                   solution=["£%d ÷ %d = £%d." % (pounds, dd, pounds // dd)]
+                   + (["£%d × %d = £%d." % (pounds // dd, n, val)] if n > 1 else []))
 
     def strip_of():
         dd = pick([3, 4, 5, 6])
@@ -2347,6 +2411,18 @@ def _(d=1):
                         "%d × %d = %d cm." % (each, n, val)])
 
     def find_whole():
+        if d == 2:                       # what is left is a fraction too: work back to the whole
+            who = pick(NAMES)
+            dd = pick([3, 4, 5, 8])
+            n = pick([k for k in range(1, dd) if _hcf(k, dd) == 1])
+            each = random.randint(2, 12)
+            left = (dd - n) * each
+            return _iq("%s spends %d/%d of their money and has £%d left. How much did %s have "
+                       "at the start, in pounds?" % (who, n, dd, left, who), dd * each, unit="£",
+                       solution=["What is left is 1 − %d/%d = %d/%d of the money." % (n, dd, dd - n, dd),
+                                 "%d/%d is £%d, so 1/%d is £%d ÷ %d = £%d." % (dd - n, dd, left, dd, left,
+                                                                              dd - n, each),
+                                 "The whole is %d × £%d = £%d." % (dd, each, dd * each)])
         dd = pick([2, 3, 4, 5])
         part = random.randint(*_by_d(d, (2, 8), (4, 15), (6, 25)))
         whole = part * dd
@@ -2393,16 +2469,14 @@ def _(d=1):
                              "So %s of %d is more." % (bigger, whole)])
 
     def word_class():
-        dd = pick([3, 4, 5])
-        n = random.randint(1, dd - 1)
-        while _hcf(n, dd) > 1:
-            n = random.randint(1, dd - 1)
-        total = dd * random.randint(5, 9)
+        dd = pick(_by_d(d, [3, 4, 5], [4, 5, 6, 8], [6, 8, 9, 12]))
+        n = pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
+        total = dd * random.randint(*_by_d(d, (5, 9), (6, 15), (10, 25)))
         val = total // dd * n
         return _iq("A school has %d pupils in Year 8. %d/%d of them walk to "
                    "school. How many pupils walk to school?" % (total, n, dd),
                    val, ["%d ÷ %d = %d." % (total, dd, total // dd),
-                         "× %d = %d." % (n, val)], unit="pupils")
+                         "%d × %d = %d." % (total // dd, n, val)], unit="pupils")
 
     return _pick_opts({
         0: [unit_of, nonunit_of, money_of, strip_of, word_class, find_whole],
@@ -2420,7 +2494,13 @@ def _(d=1):
 
     def reciprocal_frac():
         dd = pick([2, 3, 4, 5, 6, 8])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
+        if d == 2:                       # a mixed number: make it improper first
+            w = random.randint(1, 3)
+            top = w * dd + n
+            return _fq("What is the reciprocal of %s? Give it as a fraction." % _mixed_str(w, n, dd),
+                       dd, top, ["%s = %d/%d." % (_mixed_str(w, n, dd), top, dd),
+                                 "Turn it upside down: the reciprocal is %d/%d." % (dd, top)])
         return _fq("What is the reciprocal of %d/%d? (Turn the fraction upside "
                    "down.)" % (n, dd), dd, n,
                    ["The reciprocal of %d/%d is %d/%d." % (n, dd, dd, n)])
@@ -2433,9 +2513,9 @@ def _(d=1):
 
     def frac_div_frac():
         d1 = pick([2, 3, 4, 5])
-        n1 = random.randint(1, d1 - 1)
+        n1 = _proper(d1)
         d2 = pick([2, 3, 4, 5])
-        n2 = random.randint(1, d2 - 1)
+        n2 = _proper(d2)
         num, den = n1 * d2, d1 * n2
         sn, sd = _simp(num, den)
         w2, rn, rd = _improper_to_mixed(sn, sd)
@@ -2459,7 +2539,7 @@ def _(d=1):
 
     def frac_div_whole():
         dd = pick([2, 3, 4, 5, 6])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         w = random.randint(2, _by_d(d, 3, 5, 8))
         num, den = n, dd * w
         sn, sd = _simp(num, den)
@@ -2474,6 +2554,15 @@ def _(d=1):
         dd = pick([2, 3, 4])
         n = 1
         val = w * dd  # w ÷ (1/dd) = w*dd
+        if d >= 1:                       # a non-unit fraction: 6 ÷ 2/3
+            dd = pick([3, 4, 5])
+            n = pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
+            w = n * random.randint(1, _by_d(d, 3, 4, 6))
+            val = w * dd // n
+            return _iq("Work out %d ÷ %d/%d." % (w, n, dd), val,
+                       ["Dividing by %d/%d is the same as multiplying by its reciprocal, %d/%d."
+                        % (n, dd, dd, n),
+                        "%d × %d/%d = %d ÷ %d × %d = %d." % (w, dd, n, w, n, dd, val)])
         return _iq("Work out %d ÷ 1/%d." % (w, dd), val,
                    ["Dividing by 1/%d is the same as multiplying by %d."
                     % (dd, dd),
@@ -2483,6 +2572,16 @@ def _(d=1):
         dd = pick([2, 3, 4])
         wholes = random.randint(2, 6)
         val = wholes * dd
+        if d == 2:                       # 3/4-litre cups from 6 litres
+            dd = pick([3, 4, 5])
+            n = pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
+            wholes = n * random.randint(2, 5)
+            val = wholes * dd // n
+            return _iq("How many %d/%d-litre cups can be filled from %d litres of juice?"
+                       % (n, dd, wholes), val,
+                       ["%d ÷ %d/%d = %d × %d/%d." % (wholes, n, dd, wholes, dd, n),
+                        "%d ÷ %d = %d, and %d × %d = %d cups." % (wholes, n, wholes // n,
+                                                                 wholes // n, dd, val)], unit="cups")
         return _iq("How many 1/%d-litre cups can be filled from %d litres of "
                    "juice?" % (dd, wholes), val,
                    ["%d ÷ 1/%d = %d × %d = %d." % (wholes, dd, wholes, dd,
@@ -2491,7 +2590,7 @@ def _(d=1):
     def mixed_div_whole():
         w = random.randint(1, 3)
         dd = pick([2, 3, 4])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         imp = w * dd + n
         k = random.randint(2, 4)
         num, den = imp, dd * k
@@ -2512,7 +2611,7 @@ def _(d=1):
 
     def is_reciprocal():
         dd = pick([2, 3, 4, 5])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         if random.random() < 0.5:
             return _sq("Two numbers are reciprocals if they multiply to make "
                        "1. Do %d/%d and %d/%d multiply to make 1? Type yes or "
@@ -2526,11 +2625,20 @@ def _(d=1):
                              % (n, dd, n, dd, n * n, dd * dd)])
 
     def line_recip():
+        # the reciprocal is found, not given: "Mark the reciprocal of 6" (of 4/3 on the hard tier)
         dd = pick([2, 3, 4, 5, 6, 8])
-        return _nlq("The reciprocal of %d is 1/%d. The number line runs from 0 "
-                    "to 1 in %s. Mark 1/%d on it." % (dd, dd, _ths(dd), dd),
+        if d == 2:
+            dd = pick([3, 4, 5, 8])
+            n = pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
+            return _nlq("The number line runs from 0 to 1 in %s. Mark the reciprocal of %d/%d on it."
+                        % (_ths(dd), dd, n), _fl(Fraction(n, dd)), 0, 1, Fraction(1, dd), 1,
+                        ["Turn %d/%d upside down: its reciprocal is %d/%d." % (dd, n, n, dd),
+                         "Check: %d/%d × %d/%d = 1. Count %d step%s of 1/%d from 0."
+                         % (dd, n, n, dd, n, "" if n == 1 else "s", dd)])
+        return _nlq("The number line runs from 0 to 1 in %s. Mark the reciprocal of %d on it."
+                    % (_ths(dd), dd),
                     _fl(Fraction(1, dd)), 0, 1, Fraction(1, dd), 1,
-                    ["The reciprocal of %d is 1/%d." % (dd, dd),
+                    ["%d = %d/1, so its reciprocal is 1/%d (and %d × 1/%d = 1)." % (dd, dd, dd, dd, dd),
                      "It is one step of 1/%d from 0." % dd])
 
     def strip_fit():
@@ -2600,13 +2708,12 @@ def _(d=1):
             div_whole_by_unit_model, div_area_model],
         1: [reciprocal_frac, reciprocal_whole, frac_div_frac, frac_div_whole,
             whole_div_frac, how_many_fit, is_reciprocal, mixed_div_whole,
-            line_recip, div_unit_by_whole_model, div_whole_by_unit_model,
-            div_area_model],
+            line_recip, strip_fit],
+        # the area models (1/5 ÷ 2, 4 ÷ 1/5) are Year 6 work: the easiest tier only
         2: [reciprocal_frac, frac_div_frac, frac_div_whole, whole_div_frac,
-            mixed_div_whole, how_many_fit, is_reciprocal, line_recip,
-            div_unit_by_whole_model, div_whole_by_unit_model, div_area_model],
+            mixed_div_whole, how_many_fit, is_reciprocal, line_recip, strip_fit],
     }, d, weighted_tail=[div_unit_by_whole_model, div_whole_by_unit_model,
-                         div_area_model])
+                         div_area_model] if d == 0 else [frac_div_frac, mixed_div_whole])
 
 
 # ============================================================== 8.3.i ========
@@ -2615,31 +2722,21 @@ def _(d=1):
     d = _t(d)
 
     def add_then_mult():
-        dd = pick([3, 4, 6])
-        a = random.randint(1, dd - 2)
-        b = random.randint(1, dd - a - 1) if dd - a - 1 >= 1 else 1
-        k = random.randint(2, 4)
-        # (a/dd + b/dd) × k
-        s = a + b
-        res = Fraction(s * k, dd)
-        sn, sd = res.numerator, res.denominator
-        w2, rn, rd = _improper_to_mixed(sn, sd)
-        if sd == 1:
-            return _iq("Work out (%d/%d + %d/%d) × %d." % (a, dd, b, dd, k),
-                       sn, ["Brackets: %d/%d + %d/%d = %d/%d."
-                            % (a, dd, b, dd, s, dd),
-                            "× %d = %d." % (k, sn)])
-        if w2 > 0:
-            return _mixq("Work out (%d/%d + %d/%d) × %d. Give a mixed number in "
-                         "simplest form."
-                         % (a, dd, b, dd, k), w2, rn, rd,
-                         solution=["%d/%d + %d/%d = %d/%d." % (a, dd, b, dd, s,
-                                                               dd),
-                                   "× %d = %s." % (k, _mixed_str(w2, rn, rd))])
-        return _fq("Work out (%d/%d + %d/%d) × %d. Give it in simplest form."
-                   % (a, dd, b, dd, k), sn, sd,
-                   ["%d/%d + %d/%d = %d/%d, × %d = %d/%d."
-                    % (a, dd, b, dd, s, dd, k, sn, sd)])
+        # (1/3 + 1/6) × 4: different denominators inside the bracket
+        sm = pick([2, 3, 4])
+        dd = sm * pick(_by_d(d, [2], [2, 3], [2, 3, 4]))
+        a_, b_ = Fraction(_proper(sm), sm), Fraction(_proper(dd), dd)
+        k = random.randint(2, _by_d(d, 3, 4, 6))
+        inner = a_ + b_
+        res = inner * k
+        return _frac_result_q("Work out (%s + %s) × %d." % (_fracstr(a_), _fracstr(b_), k), res,
+                              ["Brackets first: %s + %s = %d/%d + %d/%d = %s."
+                               % (_fracstr(a_), _fracstr(b_), a_.numerator * dd // sm, dd,
+                                  b_.numerator, dd, _fracstr(inner)),
+                               "Then %s × %d = %s%s." % (_fracstr(inner), k, _fracstr(res),
+                                                         " = %s" % _mixed_str(*_improper_to_mixed(
+                                                             res.numerator, res.denominator))
+                                                         if res > 1 and res.denominator > 1 else "")])
 
     def mult_then_add():
         d1 = pick([2, 3, 4])
@@ -2671,17 +2768,20 @@ def _(d=1):
                     "+ %d/%d = %d/%d." % (n3, dd, sn, sd)])
 
     def sub_then_div():
-        dd = pick([4, 6, 8])
-        a = random.randint(3, dd - 1)
-        b = random.randint(1, a - 1)
+        # (3/4 − 1/3) ÷ 2
+        for _try in range(40):
+            d1, d2 = random.sample([2, 3, 4, 5, 6], 2)
+            f1, f2 = Fraction(_proper(d1), d1), Fraction(_proper(d2), d2)
+            if f1 > f2:
+                break
+        else:
+            f1, f2 = Fraction(3, 4), Fraction(1, 3)
         k = random.randint(2, 3)
-        res = Fraction(a - b, dd) / k
-        sn, sd = res.numerator, res.denominator
-        return _fq("Work out (%d/%d − %d/%d) ÷ %d. Give it in simplest form."
-                   % (a, dd, b, dd, k), sn, sd,
-                   ["Brackets: %d/%d − %d/%d = %d/%d."
-                    % (a, dd, b, dd, a - b, dd),
-                    "÷ %d = %d/%d." % (k, sn, sd)])
+        res = (f1 - f2) / k
+        return _fq("Work out (%s − %s) ÷ %d. Give it in simplest form." % (_fracstr(f1), _fracstr(f2), k),
+                   res.numerator, res.denominator,
+                   ["Brackets first: %s − %s = %s." % (_fracstr(f1), _fracstr(f2), _fracstr(f1 - f2)),
+                    "Then ÷ %d: %s ÷ %d = %s." % (k, _fracstr(f1 - f2), k, _fracstr(res))])
 
     def div_then_sub():
         d1 = pick([2, 3, 4])
@@ -2704,51 +2804,71 @@ def _(d=1):
                     "The result is %d/%d." % (sn, sd)])
 
     def three_add():
-        dd = pick([6, 8, 12])
-        a = random.randint(1, dd - 3)
-        b = random.randint(1, dd - a - 2)
-        c = random.randint(1, dd - a - b - 1) if dd - a - b - 1 >= 1 else 1
-        s = a + b + c
-        sn, sd = _simp(s, dd)
-        return _fq("Work out %d/%d + %d/%d + %d/%d. Give it in simplest form."
-                   % (a, dd, b, dd, c, dd), sn, sd,
-                   ["%d/%d + %d/%d + %d/%d = %d/%d."
-                    % (a, dd, b, dd, c, dd, s, dd),
-                    "= %d/%d." % (sn, sd)])
+        # add and subtract three fractions with different denominators: 1/2 + 1/3 − 1/4
+        for _try in range(60):
+            ds = random.sample(_by_d(d, [2, 4, 8], [2, 3, 4, 6], [3, 4, 5, 6, 10, 12]), 3)
+            ns = [_proper(x) for x in ds]
+            fs = [Fraction(n, x) for n, x in zip(ns, ds)]
+            res = fs[0] + fs[1] - fs[2]
+            if 0 < res < 1:
+                break
+        else:
+            ds, ns = [2, 3, 4], [1, 1, 1]
+            fs = [Fraction(1, 2), Fraction(1, 3), Fraction(1, 4)]
+            res = fs[0] + fs[1] - fs[2]
+        den = ds[0]
+        for x in ds[1:]:
+            den = den * x // _hcf(den, x)
+        tops = [f.numerator * den // f.denominator for f in fs]
+        expr = "%d/%d + %d/%d − %d/%d" % (ns[0], ds[0], ns[1], ds[1], ns[2], ds[2])
+        return _fq("Work out %s. Give it in simplest form." % expr, res.numerator, res.denominator,
+                   ["Use the common denominator %d: %d/%d + %d/%d − %d/%d = %d/%d."
+                    % (den, tops[0], den, tops[1], den, tops[2], den, tops[0] + tops[1] - tops[2], den),
+                    "In its simplest form: %s." % _fracstr(res)])
 
     def word_multi():
+        # two steps of different kinds: a fraction of the jug, then a fraction of what is LEFT
         who = pick(NAMES)
-        dd = pick([4, 6, 8])
-        used1 = random.randint(1, dd // 2)
-        used2 = random.randint(1, dd - used1 - 1) if dd - used1 - 1 >= 1 else 1
-        left = dd - used1 - used2
-        sn, sd = _simp(left, dd)
-        return _fq("%s starts with a full jug. %s pours out %d/%d, then a "
-                   "further %d/%d. What fraction of the jug is left? Give it in "
-                   "simplest form." % (who, who, used1, dd, used2, dd), sn, sd,
-                   ["Poured out: %d/%d + %d/%d = %d/%d."
-                    % (used1, dd, used2, dd, used1 + used2, dd),
-                    "Left: 1 − %d/%d = %d/%d = %d/%d."
-                    % (used1 + used2, dd, left, dd, sn, sd)])
+        dd = pick(_by_d(d, [3, 4], [3, 4, 5], [4, 5, 6, 8]))
+        used = _proper(dd)
+        k = pick(_by_d(d, [2], [2, 3], [3, 4]))
+        left = (1 - Fraction(used, dd)) * (1 - Fraction(1, k))
+        return _fq("%s starts with a full jug of juice. %s pours out %d/%d of it, then drinks 1/%d of "
+                   "what is left. What fraction of the jug is still there? Give it in simplest form."
+                   % (who, who, used, dd, k), left.numerator, left.denominator,
+                   ["After pouring: 1 − %d/%d = %d/%d of the jug." % (used, dd, dd - used, dd),
+                    "Drinking 1/%d of that leaves %d/%d of it: %d/%d × %d/%d = %s."
+                    % (k, k - 1, k, k - 1, k, dd - used, dd, _fracstr(left))])
 
     def bracket_bar():
-        dd = pick([8, 10, 12])
-        a = random.randint(2, dd - 2)
-        b = random.randint(1, a - 1)
-        return _fbq("Shade %d/%d of the bar, then rub out %d/%d. Read off the "
-                    "fraction that stays shaded." % (a, dd, b, dd), dd, a - b,
-                    ["%d/%d − %d/%d = %d/%d." % (a, dd, b, dd, a - b, dd)])
+        # shade a fraction of the bar, then rub out a fraction OF THE SHADED PART: × then −
+        dd = pick([6, 8, 10, 12])
+        sm = pick([x for x in (2, 3, 4, 5, 6) if dd % x == 0 and x < dd])
+        n = _proper(sm)
+        shaded = n * dd // sm
+        k = pick([x for x in (2, 3, 4, 5) if shaded % x == 0] or [shaded])
+        gone = shaded // k
+        stays = shaded - gone
+        return _fbq("This bar has %d equal parts. Shade %d/%d of the bar, then rub out 1/%d of the "
+                    "shaded part. Read off the fraction that stays shaded." % (dd, n, sm, k), dd, stays,
+                    ["%d/%d of the bar is %d of the %d parts." % (n, sm, shaded, dd),
+                     "1/%d of those %d parts is %d, so %d − %d = %d part%s: %d/%d%s."
+                     % (k, shaded, gone, shaded, gone, stays, " stays" if stays == 1 else "s stay", stays, dd,
+                        "" if _hcf(stays, dd) == 1 else " = %d/%d" % _simp(stays, dd))])
 
     def missing_in_chain():
-        dd = pick([4, 6, 8])
-        a = random.randint(1, dd - 2)
-        r = random.randint(a + 1, dd - 1)
-        b = r - a
-        sn, sd = _simp(b, dd)
-        return _fq("%d/%d + ___ = %d/%d . Find the missing fraction, in "
-                   "simplest form." % (a, dd, r, dd), sn, sd,
-                   ["%d/%d − %d/%d = %d/%d = %d/%d."
-                    % (r, dd, a, dd, b, dd, sn, sd)])
+        # undo two operations: (___ + 1/4) × 2 = 3/2
+        c_den = pick([2, 3, 4, 6])
+        c = Fraction(_proper(c_den), c_den)
+        x_den = pick([2, 3, 4, 5, 6])
+        x = Fraction(_proper(x_den), x_den)
+        k = random.randint(2, _by_d(d, 2, 3, 4))
+        r = (x + c) * k
+        return _fq("(___ + %s) × %d = %s . Find the missing fraction, in simplest form."
+                   % (_fracstr(c), k, _mixed_str(*_improper_to_mixed(r.numerator, r.denominator))),
+                   x.numerator, x.denominator,
+                   ["Undo the × %d first: %s ÷ %d = %s." % (k, _fracstr(r), k, _fracstr(r / k)),
+                    "Then undo the + %s: %s − %s = %s." % (_fracstr(c), _fracstr(r / k), _fracstr(c), _fracstr(x))])
 
     def evaluate_fraction_expr():
         # Evaluate numerical expressions involving fractions (BIDMAS).
@@ -2825,18 +2945,18 @@ def _(d=1):
 
     def word_of_quantity():
         dd = pick([3, 4, 5, 6])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         total = dd * random.randint(*_by_d(d, (4, 8), (6, 15), (8, 25)))
         val = total // dd * n
         item = pick(["books", "apples", "pens", "toy cars", "mugs", "tickets"])
         return _iq("A shop has %d %s. %d/%d of them are sold. How many are "
                    "sold?" % (total, item, n, dd), val,
-                   ["%d ÷ %d = %d, × %d = %d." % (total, dd, total // dd, n,
-                                                  val)], unit=item)
+                   ["%d ÷ %d = %d." % (total, dd, total // dd)]
+                   + (["%d × %d = %d." % (total // dd, n, val)] if n > 1 else []), unit=item)
 
     def remaining():
         dd = pick([3, 4, 5, 6, 8])
-        n = random.randint(1, dd - 1)
+        n = _proper(dd)
         total = dd * random.randint(3, 12)
         left = total - total // dd * n
         return _iq("A tank holds %d litres. %d/%d of it is used. How many "
@@ -2845,8 +2965,8 @@ def _(d=1):
                     "Left: %d − %d = %d." % (total, total // dd * n, left)])
 
     def find_whole_word():
-        dd = pick([2, 3, 4, 5])
-        n = random.randint(1, dd - 1)
+        dd = pick(_by_d(d, [2, 3, 4, 5], [3, 4, 5, 6], [5, 6, 7, 8, 9]))
+        n = _proper(dd) if d == 0 else pick([k for k in range(2, dd) if _hcf(k, dd) == 1])
         each = random.randint(*_by_d(d, (3, 9), (5, 15), (8, 25)))
         part = each * n
         whole = each * dd
@@ -2856,17 +2976,21 @@ def _(d=1):
                     "The whole is %d × %d = %d." % (each, dd, whole)])
 
     def two_fractions_left():
+        # two fractions with different denominators, then what is left: 1 − (1/4 + 1/3)
         who = pick(NAMES)
-        dd = pick([6, 8, 10, 12])
-        a = random.randint(1, dd // 2)
-        b = random.randint(1, dd - a - 1) if dd - a - 1 >= 1 else 1
-        left = dd - a - b
-        sn, sd = _simp(left, dd)
-        return _fq("%s spends %d/%d of the money on food and %d/%d on travel. "
+        for _try in range(40):
+            d1, d2 = random.sample([2, 3, 4, 5, 6, 8], 2)
+            f1, f2 = Fraction(_proper(d1), d1), Fraction(_proper(d2), d2)
+            if f1 + f2 < 1:
+                break
+        else:
+            f1, f2 = Fraction(1, 4), Fraction(1, 3)
+        left = 1 - f1 - f2
+        return _fq("%s spends %s of the money on food and %s on travel. "
                    "What fraction is left? Give it in simplest form."
-                   % (who, a, dd, b, dd), sn, sd,
-                   ["Spent: %d/%d + %d/%d = %d/%d." % (a, dd, b, dd, a + b, dd),
-                    "Left: %d/%d = %d/%d." % (left, dd, sn, sd)])
+                   % (who, _fracstr(f1), _fracstr(f2)), left.numerator, left.denominator,
+                   ["Spent: %s + %s = %s." % (_fracstr(f1), _fracstr(f2), _fracstr(f1 + f2)),
+                    "Left: 1 − %s = %s." % (_fracstr(f1 + f2), _fracstr(left))])
 
     def strip_word():
         dd = pick([4, 5, 6])
@@ -2874,11 +2998,17 @@ def _(d=1):
         each = random.randint(6, 20)
         whole = each * dd
         val = each * n
+        if d >= 1:                       # work back: a fraction of the journey is known, the whole is not
+            return _stripq("Use the strip model. A journey is split into %d equal stages. The first %d "
+                           "stages are %d km altogether. How long is the whole journey, in km?"
+                           % (dd, n, val), dd, "?", "?", "total", whole, "int",
+                           ["%d stages are %d km, so one stage is %d ÷ %d = %d km." % (n, val, val, n, each),
+                            "The whole journey is %d × %d = %d km." % (dd, each, whole)])
         return _stripq("Use the strip model. A journey of %d km is split into "
                        "%d equal stages. How far are %d stages, in km?"
-                       % (whole, dd, n), dd, "%d km" % each, "%d km" % whole,
+                       % (whole, dd, n), dd, "?", "%d km" % whole,
                        n, val, "int",
-                       ["Each stage is %d km." % each,
+                       ["Each stage is %d ÷ %d = %d km." % (whole, dd, each),
                         "%d × %d = %d km." % (each, n, val)])
 
     def better_estimate():

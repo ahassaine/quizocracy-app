@@ -1,20 +1,22 @@
-"""Pages around the practice: the help page, a printable progress report, example questions for a parent, and
-the service worker."""
+"""Pages around the practice: the help page, a printable progress report, example questions for a parent, the
+service worker, and the waiting list for families without an invitation code."""
 import datetime
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
 
 from ..activities import ACTIVITIES, ORDER, day_label, rest_day, strand_label, todays_plan
 from ..bank import engine as bank_engine
+from .. import config
 from ..config import BASE_DIR
 from ..db import db
-from ..deps import Ctx, load, own_pupil, parent_page
+from ..deps import Ctx, client_ip, hit, load, over_limit, own_pupil, parent_page
 from ..drills import maths, spelling, tables, verbs
 from ..maths import maths_engine, maths_mastery
 from .. import levels, progress
 from ..web import page
+from .auth import EMAIL_RE
 from .parent import _skill_views, accuracy, work_on
 
 router = APIRouter()
@@ -36,6 +38,33 @@ async def service_worker():
 @router.get("/help")
 async def help_page(request: Request):
     return page(request, "help.html", await load(request), uk_years=UK_YEARS)
+
+
+# ---- "Join the waiting list" (_waitlist.html): sign-up needs an invitation code, so a family without one leaves an
+# email here. Kept in our own database only, one row per address (the address is the _id), with the date it joined;
+# nothing is emailed (the next email is the invitation). Per connection, at most WAITLIST_PER_IP tries an hour.
+WAITLIST_BACK = ("/", "/signup")
+WAITLIST_PER_IP = 10
+
+
+@router.post("/waitlist")
+async def waitlist_join(request: Request, email: str = Form(""), back: str = Form("/"), website: str = Form("")):
+    back = back if back in WAITLIST_BACK else "/"
+    if not config.INVITE_CODE:                     # anyone may sign up: no list to wait on
+        return RedirectResponse("/signup", 303)
+    email = email.strip().lower()
+    if website:                                    # the hidden field only a robot fills: it looks done, nothing kept
+        return RedirectResponse(f"{back}?waitlist=ok#waitlist", 303)
+    if len(email) > 200 or not EMAIL_RE.match(email):
+        return RedirectResponse(f"{back}?waitlist=bad#waitlist", 303)
+    key = f"waitlist:ip:{client_ip(request)}"
+    if await over_limit(key, WAITLIST_PER_IP, 60):
+        return RedirectResponse(f"{back}?waitlist=busy#waitlist", 303)
+    await hit(key)
+    # the same address twice is one row, keeping the date it first joined
+    await db.waitlist.update_one({"_id": email}, {"$setOnInsert": {"created": datetime.datetime.utcnow(),
+                                                                    "page": back}}, upsert=True)
+    return RedirectResponse(f"{back}?waitlist=ok#waitlist", 303)
 
 
 def term_start(day: datetime.date) -> datetime.date:

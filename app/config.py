@@ -29,6 +29,8 @@ MAIL_PORT = int(os.getenv("QZ_MAIL_PORT", "25"))
 MAIL_FROM = os.getenv("QZ_MAIL_FROM", "Quizocracy <noreply@quizocracy.com>")
 # Addresses on these domains are never sent, only captured (used by the end-to-end tests).
 CAPTURE_DOMAINS = tuple(d.strip().lower() for d in os.getenv("QZ_CAPTURE_DOMAINS", "example.test").split(",") if d.strip())
+# Families with an address on these domains are test accounts, left out of the team's funnel page (app/funnel.py).
+FUNNEL_TEST_DOMAINS = tuple(d.strip().lower() for d in os.getenv("QZ_FUNNEL_TEST_DOMAINS", "example.test,example.com").split(",") if d.strip())
 # Unhandled server errors (500s) are emailed here, throttled (app/main.py); unset: logged only.
 ALERT_EMAIL = os.getenv("QZ_ALERT_EMAIL", "").strip()
 

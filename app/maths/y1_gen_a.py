@@ -149,10 +149,10 @@ def _(d=1):
         return _wq("Write %d in words." % n, n_words(n), ["%d is %s." % (n, n_words(n))], "word")
 
     def t_count_objects():
-        k = random.randint(2, 10)
-        return {"prompt": "How many counters are there altogether?", "component": "equal_groups",
-                "spec": {"mode": "read", "groups": 1, "per": k}, "answer": k, "answer_type": "int",
-                "solution": ["Count them: %d." % k]}
+        k = random.randint(2, _by(d, 10, 12, 12))      # counted, then written as a word (the skill)
+        return {"prompt": "Count the counters. Write how many in words.", "component": "equal_groups",
+                "spec": {"mode": "read", "groups": 1, "per": k}, "answer": n_words(k), "answer_type": "str",
+                "solution": ["Count them: %d." % k, "%d in words is %s." % (k, n_words(k))]}
 
     def t_blocks():
         return {"prompt": "Make %s with the blocks." % n_words(n), "component": "base_ten",
@@ -504,8 +504,8 @@ def _(d=1):
 @skill("Y1.1.c", "Add and subtract within 20", S1)
 def _(d=1):
     d = _d(d)
-    a = random.randint(1, _by(d, 10, 15, 19))
-    b = random.randint(1, 20 - a)
+    a = random.randint(_by(d, 1, 2, 4), _by(d, 10, 15, 17))
+    b = random.randint(_by(d, 1, 2, 3), 20 - a)          # hard: no "+ 1" or "− 1" facts
 
     def t_add():
         return _tb("%d + %d = ___" % (a, b), a + b, "int", {}, ["Count on %d from %d." % (b, a)])
@@ -581,8 +581,8 @@ def _(d=1):
         return _tb("A frog is on step %d. It hops up %s. Which step is it on now?" % (a, _pn(b, "step")), a + b, "int", {},
                    ["%d + %d = %d." % (a, b, a + b)])
 
-    return _pick_t([t_add, t_sub, t_zero, t_cross_ten, t_teen_add, t_teen_sub, t_more_sum, t_add_three, t_add_word, t_sub_word,
-                    t_which_sum, t_steps], [t_line_add, t_line_sub, t_count_all, t_take_bar])
+    return _pick_t([t_add, t_sub, t_cross_ten, t_teen_add, t_teen_sub, t_more_sum, t_add_three, t_add_word, t_sub_word,
+                    t_which_sum, t_steps] + ([t_zero] if d < 2 else []), [t_line_add, t_line_sub, t_count_all, t_take_bar])
 
 
 @skill("Y1.1.d", "Missing numbers and the = sign", S1)
@@ -716,13 +716,14 @@ def _(d=1):
                    [_counted(p, g)])
 
     def t_legs():
-        n, legs, what = pick([(random.randint(2, 6), 2, "birds"), (random.randint(2, 5), 4, "dogs")])
-        return _tb("How many legs do %d %s have?" % (n, what), n * legs, "int", {}, ["%s each: %s" % (_pn(legs, "leg"), _counted(legs, n))])
+        # Year 1 counts in 2s, 5s and 10s (not 4s): birds' legs, starfish arms
+        n, legs, what, part = pick([(random.randint(2, 8), 2, "birds", "leg"), (random.randint(2, 6), 5, "starfish", "arm")])
+        return _tb("How many %ss do %d %s have?" % (part, n, what), n * legs, "int", {},
+                   ["%s each: %s" % (_pn(legs, part), _counted(legs, n))])
 
     def t_wheels():
-        n = random.randint(2, 5)
-        what, w = pick([("bikes", 2), ("cars", 4)])
-        return _tb("How many wheels are on %d %s?" % (n, what), n * w, "int", {}, [_counted(w, n)])
+        n = random.randint(2, _by(d, 5, 8, 10))        # 2 wheels each: count in 2s (not 4s for cars)
+        return _tb("How many wheels are on %d bikes?" % n, n * 2, "int", {}, [_counted(2, n)])
 
     def t_shoes():
         n = random.randint(2, 10)

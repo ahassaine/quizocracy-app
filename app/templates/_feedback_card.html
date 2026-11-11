@@ -1,0 +1,37 @@
+{# "How is it going?" on the parent's Home, on the family's 3rd active day and again from day 14 (app/funnel.py).
+   Home is parent mode only, so children never see it. #}
+{% set fb = request.query_params.get('fb') %}
+{% if fb == 'thanks' %}<div class="ok" role="status" data-testid="feedback-thanks">Thank you. We read every answer.</div>{% endif %}
+{% if feedback_card %}
+<style>
+  .fbmood { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; border:0; padding:0; }
+  .fbmood label { flex:1 1 90px; display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:8px 10px;
+    border:1px solid var(--line); border-radius:10px; background:var(--card); cursor:pointer; font-weight:600; }
+  .fbmood input { position:absolute; opacity:0; width:1px; height:1px; }
+  .fbmood label:has(input:checked) { border-color:var(--violet); box-shadow:0 0 0 2px color-mix(in srgb, var(--violet) 35%, transparent); }
+  .fbmood label:has(input:focus-visible) { outline:2px solid var(--ink); outline-offset:2px; }
+  .fbmood .e { font-size:1.4rem; line-height:1; }
+</style>
+<div class="card" id="feedback-card" data-testid="feedback-card" style="position:relative">
+  <form method="post" action="/home/feedback" style="position:absolute;top:8px;right:8px;margin:0">
+    <input type="hidden" name="card" value="{{ feedback_card }}">
+    <button class="btn" type="submit" name="action" value="dismiss" data-testid="feedback-dismiss" aria-label="No thanks, close this question"
+            style="background:none;border-color:transparent;color:var(--mut);padding:6px 10px">No thanks ✕</button>
+  </form>
+  <form method="post" action="/home/feedback">
+    <input type="hidden" name="card" value="{{ feedback_card }}">
+    <fieldset class="fbmood" style="margin-top:0">
+      <legend style="padding:0 90px 0 0"><b class="display" style="font-size:1.15rem">How is it going?</b>
+        <span class="mut small" style="display:block;font-weight:400">A quick word helps us make Quizocracy better for your family.</span></legend>
+      <label data-testid="mood-good"><input type="radio" name="mood" value="good"><span class="e" aria-hidden="true">😊</span> Good</label>
+      <label data-testid="mood-ok"><input type="radio" name="mood" value="ok"><span class="e" aria-hidden="true">😐</span> OK</label>
+      <label data-testid="mood-bad"><input type="radio" name="mood" value="bad"><span class="e" aria-hidden="true">🙁</span> Not great</label>
+    </fieldset>
+    <label class="small" for="fbtext">Anything to tell us? <span class="mut">(optional)</span></label>
+    <textarea id="fbtext" name="text" rows="3" maxlength="1000" dir="auto" data-testid="feedback-text"
+              style="width:100%;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;margin-top:4px"></textarea>
+    {% if fb == 'empty' %}<div class="err" role="alert" data-testid="feedback-empty">Pick a face or write a few words, then press Send.</div>{% endif %}
+    <div class="row"><button class="btn primary" type="submit" name="action" value="send" data-testid="feedback-send">Send</button></div>
+  </form>
+</div>
+{% endif %}

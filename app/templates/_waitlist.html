@@ -1,0 +1,21 @@
+{# "Join the waiting list" (landing and sign-up pages) while sign-up needs an invitation code: an email goes into our
+   own database (waitlist, routes/extras.py), once per address. Nothing is sent: the next email is the invitation.
+   `back` is the page to come back to ("/" or "/signup"). #}
+{% if cfg.INVITE_CODE %}{% set w = request.query_params.get('waitlist') %}
+<section class="card" id="waitlist" data-testid="waitlist" style="scroll-margin-top:80px">
+  {% if w == 'ok' %}<div class="ok" role="status" data-testid="waitlist-ok" style="margin:0"><b>You're on the waiting list.</b> We'll email you when there is a place for your family. That is the only email you'll get from the list: no newsletters, no adverts, and your address is never shared.</div>
+  {% else %}
+  <b class="display" style="font-size:1.15rem">No invitation code yet?</b>
+  <p class="mut small" style="margin:.3em 0 .6em">Quizocracy is invitation-only while it is in beta. Leave your email and we'll write when there is a place for your family. Nothing else: no newsletters, no adverts.</p>
+  {% if w == 'bad' %}<div class="err" role="alert" data-testid="waitlist-bad">That email address doesn't look right. Check it and try again.</div>
+  {% elif w == 'busy' %}<div class="err" role="alert" data-testid="waitlist-busy">Too many tries from this connection just now. Please try again in an hour.</div>{% endif %}
+  <form method="post" action="/waitlist" class="row" style="margin:0;align-items:flex-end">
+    <input type="hidden" name="back" value="{{ back }}">
+    {# left empty by people; a form-filling robot fills it, and its entry is not kept #}
+    <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label for="wl-site-{{ back|replace('/', '') }}">Leave this empty</label><input id="wl-site-{{ back|replace('/', '') }}" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+    <div class="field" style="flex:1 1 220px;margin:0"><label for="wl-email" class="small">Your email</label><input id="wl-email" name="email" type="email" required autocomplete="email" inputmode="email" data-testid="waitlist-email"></div>
+    <button class="btn primary" type="submit" data-testid="waitlist-join">Join the waiting list</button>
+  </form>
+  <p class="mut small" style="margin:.6em 0 0">We keep only the email and the date you joined. See the <a href="/privacy#waitlist">privacy notice</a>.</p>
+  {% endif %}
+</section>{% endif %}

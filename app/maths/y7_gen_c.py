@@ -26,7 +26,7 @@ def _neg(n):
 @skill("Y7.4.a", "Convert between fractions, decimals and percentages", S4)
 def _(d=1):
     d = _d(d)
-    f = pick(TERM[: _by(d, 7, 15, len(TERM))])
+    f = pick(_by(d, TERM[:7], TERM[:15], TERM[7:]))      # the hardest tier: eighths, twentieths, fiftieths, over 1
 
     def t_f_to_d():
         return _tb("Write %s as a decimal." % _fs(f), _ds(f), "num", {}, ["%d ÷ %d = %s." % (f.numerator, f.denominator, _ds(f))])

@@ -315,19 +315,27 @@ def _x31a(d):
                    atype="str", placeholder="school name")
 
     def t_bars():
+        # close numbers (one hundreds digit, or one tens digit in the easy tier), so the bars look alike and the
+        # digits decide: comparing the numbers, not spotting the tallest bar
         cats = random.sample(["Class 3A", "Class 3B", "Class 3C", "Class 3D"], 3)
+        base = random.randint(2, 8) * 10 if d == 0 else random.randint(2, 8) * 100
+        span = 10 if d == 0 else 100
         while True:
-            vals = [random.randint(2, 9) * (10 if d == 0 else 100) for _ in cats]
-            if len(set(vals)) == 3:
+            vals = [base + random.randint(1, span - 1) for _ in cats]
+            if len(set(vals)) == 3 and all(v % 10 for v in vals):
                 break
         most = random.random() < 0.5
         tgt = vals.index(max(vals) if most else min(vals))
+        place = "ones" if d == 0 else "tens, then the ones"
         return {"prompt": "The bar chart shows how many cans each class collected. Which class collected the %s? "
                           "(type the class, like 3B)" % ("most" if most else "fewest"),
-                "component": "bar_chart", "spec": {"categories": cats, "values": vals, "mode": "read"},
+                "component": "bar_chart", "spec": {"categories": cats, "values": vals, "mode": "read",
+                                                   "showValues": True},
                 "answer": cats[tgt].replace("Class ", ""), "answer_type": "str",
-                "solution": ["The %s bar is %s." % ("tallest" if most else "shortest", cats[tgt]),
-                             "%s collected %d cans." % (cats[tgt], vals[tgt])]}
+                "solution": ["The bars are close, so compare the numbers: %s." % ", ".join(str(v) for v in vals),
+                             "They have the same %s digit, so compare the %s." % ("tens" if d == 0 else "hundreds",
+                                                                              place),
+                             "%s collected %d cans, the %s." % (cats[tgt], vals[tgt], "most" if most else "fewest")]}
 
     def t_build_between():
         n = random.randint(lo + 1, min(hi - 1, 999 if d else 98))
@@ -674,7 +682,10 @@ def _x32d(d):
             while a % 10 + b % 10 >= 10:
                 b = random.randint(11, 30)
             return a, b
-        return random.randint(15, 89), random.randint(15, 89)
+        while True:                      # the hard tier always makes a ten from the ones
+            a, b = random.randint(15, 89), random.randint(15, 89)
+            if d == 1 or a % 10 + b % 10 >= 10:
+                return a, b
 
     def t_money():
         a, b = two()
@@ -720,12 +731,18 @@ def _x32d(d):
                    [["Game 1", a], ["Game 2", b], ["Total", a + b]], a + b, ["%d + %d = %d." % (a, b, a + b)], missing=(2, 1))
 
     def t_bars():
+        # two 2-digit numbers to add (the chart prints a value that is not on a gridline), not two round tens
         cats = ["Mon", "Tue", "Wed", "Thu"]
-        vals = random.sample(range(2, 10), 4)
-        vals = [v * 5 for v in vals] if d == 0 else [v * 10 for v in vals]
-        i, j = random.sample(range(4), 2)
+        while True:
+            a, b = two()
+            vals = [a, b] + [random.randint(11, 89) for _ in range(2)]
+            if len(set(vals)) == 4:
+                break
+        random.shuffle(vals)
+        i, j = vals.index(a), vals.index(b)
         return _bar("The chart shows how many books were borrowed each day. How many were borrowed on %s and %s together?"
-                    % (cats[i], cats[j]), cats, vals, vals[i] + vals[j], ["%d + %d = %d." % (vals[i], vals[j], vals[i] + vals[j])])
+                    % (cats[i], cats[j]), cats, vals, a + b,
+                    ["%s: %d. %s: %d." % (cats[i], a, cats[j], b), "%d + %d = %d." % (a, b, a + b)])
 
     return [t_money, t_bond100, t_error, t_cards, t_length, t_table, t_table, t_bars, t_bars]
 
@@ -746,13 +763,13 @@ def _x32e(d):
                       a - b, ["%d − %d = %d." % (a, b, a - b)])
 
     def t_bars():
+        # two 2-digit numbers (not round tens: 50 − 20 is not this skill); the chart prints values off the gridlines
         cats = random.sample(["Red", "Blue", "Green", "Yellow"], 2)
         a, b = two()
-        a, b = 10 * (a // 10), 10 * (b // 10)
-        if a == b:
-            a += 10
+        while a % 10 == 0 or b % 10 == 0 or a - b < 5:
+            a, b = two()
         return _bar("The chart shows votes for two colours. How many more votes did %s get than %s?" % (cats[0], cats[1]),
-                    cats, [a, b], a - b, ["%d − %d = %d." % (a, b, a - b)])
+                    cats, [a, b], a - b, ["%s: %d. %s: %d." % (cats[0], a, cats[1], b), "%d − %d = %d." % (a, b, a - b)])
 
     def t_error():
         while True:
@@ -938,37 +955,30 @@ def _column_set(kind, d=1):
     def t_strip():
         a, b = pair()
         if add:
-            return _strip("The strip model shows a whole of %d. One part is %d. Use column subtraction to check: what is "
-                          "the other part?" % (a + b, a),
-                          {"mode": "part_whole", "parts": 2, "totalLabel": str(a + b), "partLabel": str(a), "unknown": "part"},
-                          b, ["%d − %d = %d." % (a + b, a, b), "Check: %d + %d = %d." % (a, b, a + b)])
+            # the two parts are known: the whole is the column addition (finding a part would be a subtraction)
+            return _strip("The strip model shows two parts, %d and %d. Use column addition: what is the whole?" % (a, b),
+                          {"mode": "part_whole", "parts": 2, "totalLabel": "?", "partLabel": str(a),
+                           "partLabels": [str(a), str(b)], "unknown": "total"},
+                          a + b, ["Add the columns from the ones: %d + %d = %d." % (a, b, a + b),
+                                  "The whole is %d." % (a + b)])
         return _strip("The whole is %d and one part is %d. What is the other part?" % (a, b),
                       {"mode": "part_whole", "parts": 2, "totalLabel": str(a), "partLabel": str(b), "unknown": "part"},
                       a - b, ["%d − %d = %d." % (a, b, a - b)])
 
     def t_bars():
+        # the chart carries the skill's own pair of 3-digit numbers (it prints a value between gridlines), not two
+        # round tens: 400 + 520 read off two bars is not column addition
         cats = random.sample(["Year 3", "Year 4", "Year 5", "Year 6"], 2)
         a, b = pair()
-        a, b = 10 * (a // 10), 10 * (b // 10)                 # rounding keeps the no-regrouping kinds regroup-free
-        while kind == "sub" and a == b:                        # re-pick: bumping 290 to 300 would need an exchange
+        while a == b or a % 10 == 0 or b % 10 == 0 or b < 100:
             a, b = pair()
-            a, b = 10 * (a // 10), 10 * (b // 10)
-        if kind in ("carry", "exchange"):
-            # tens values whose tens column really regroups into or out of the hundreds (70 + 50, 130 − 80)
-            hi = _by(d, 49, 79, 99)
-            while True:
-                a, b = 10 * random.randint(_by(d, 4, 6, 20), hi), 10 * random.randint(_by(d, 4, 6, 15), hi)
-                if kind == "carry" and a // 10 % 10 + b // 10 % 10 >= 10 and a + b < 1000:
-                    break
-                if kind == "exchange" and a > b and a // 10 % 10 < b // 10 % 10:
-                    break
+        sol = ["%s sold %d and %s sold %d." % (cats[0], a, cats[1], b),
+               "Line up the columns and work from the ones: %d %s %d = %d." % (a, op, b, res(a, b))]
         if add:
             return _bar("The chart shows how many raffle tickets two year groups sold. How many did they sell altogether?",
-                        cats, [a, b], a + b, ["%d + %d = %d." % (a, b, a + b)])
-        if a == b:
-            a += 10
+                        cats, [a, b], a + b, sol)
         return _bar("The chart shows how many raffle tickets two year groups sold. How many more did %s sell than %s?"
-                    % (cats[0], cats[1]), cats, [a, b], a - b, ["%d − %d = %d." % (a, b, a - b)])
+                    % (cats[0], cats[1]), cats, [a, b], a - b, sol)
 
     def t_error():
         who = pick(NAMES)
@@ -1223,7 +1233,8 @@ def _table_extra(tabs):
     """Extra framings for the times-table skills; tabs is the table(s) the skill covers."""
     def builder(d):
         t = pick(tabs)
-        k = random.randint(1, 6) if d == 0 else random.randint(2, 12)
+        lo, hi = {0: (1, 6), 1: (2, 12), 2: (6, 12)}[d]       # the tiers of _table_q: the hard one never asks 2 × 3
+        k = random.randint(lo, hi)
         p = t * k
 
         def t_double():
@@ -1275,15 +1286,15 @@ def _table_extra(tabs):
                        ["%s of %d." % (_pl(g, "group"), t), "%d × %d = %d." % (g, t, g * t)])
 
         def t_io():
-            ins = random.sample(range(2, 13), 4)
-            miss = random.randrange(4)
+            ins = sorted(random.sample(range(lo, 13), 4))
+            miss = random.choice([i for i in range(4) if ins[i] >= (lo + hi) // 2] or [3])
             return _io("Each Out number is the In number multiplied by %d. Type the missing Out number." % t,
                        [[i, i * t] for i in ins], miss, ins[miss] * t, ["%d × %d = %d." % (ins[miss], t, ins[miss] * t)],
                        rule="× %d" % t)
 
         def t_pictogram():
             cats = random.sample(["Cars", "Bikes", "Buses", "Vans"], 3)
-            vals = [t * random.randint(1, 6) for _ in cats]
+            vals = [t * random.randint(max(1, lo - 2), min(hi, 9)) for _ in cats]
             i = random.randrange(3)
             return _pict("Each symbol stands for %d. How many %s are there?" % (t, cats[i].lower()), cats, vals, t, "circle", vals[i],
                          ["That row has %s." % _pl(vals[i] // t, "symbol"), "%d × %d = %d." % (vals[i] // t, t, vals[i])])
@@ -1294,8 +1305,8 @@ def _table_extra(tabs):
 
 
 def _x34f(d):
-    per = random.randint(2, 5 if d == 0 else 10)
-    n = pick([2, 3, 4, 5] if d == 0 else [2, 3, 4, 5, 8])
+    per = random.randint(*{0: (2, 5), 1: (2, 10), 2: (5, 10)}[d])      # the hard tier never shares 10 between 5
+    n = pick({0: [2, 3, 4, 5], 1: [2, 3, 4, 5, 8], 2: [3, 4, 5, 8]}[d])
     tot = per * n
 
     def t_strip():
@@ -1345,7 +1356,7 @@ def _x34f(d):
 
 def _x34g(d):
     t = pick([3, 4, 8] if d else [3, 4])
-    k = random.randint(2, 6) if d == 0 else random.randint(2, 12)
+    k = random.randint(*{0: (2, 6), 1: (2, 12), 2: (6, 12)}[d])
     p = t * k
 
     def t_strip():
@@ -1383,7 +1394,7 @@ def _x34g(d):
                    ["%d ÷ 4 = %d and %d ÷ 8 = %d." % (m, m // 4, m, m // 8), "Sharing between fewer gives more each."])
 
     def t_halve():
-        m = 8 * random.randint(2, 12)
+        m = 8 * random.randint(*{0: (2, 6), 1: (3, 12), 2: (6, 12)}[d])
         return _tb("%d ÷ 4 = %d. Use this to work out %d ÷ 8." % (m, m // 4, m), m // 8, "int", {},
                    ["Dividing by 8 is half of dividing by 4.", "%d ÷ 2 = %d." % (m // 4, m // 8)])
 
@@ -1501,6 +1512,8 @@ def _x34i(d):
 def _x35a(d):
     t = random.randint(2, 4) if d == 0 else pick([3, 4, 5, 8])
     n = random.randint(11, 24) if d == 0 else random.randint(13, 49 if d == 1 else 99)
+    while n % 10 < 2:                      # a ones part to multiply (20 × 3 would leave an empty box of 0 × 3)
+        n += 1
     tens, ones = n // 10 * 10, n % 10
 
     def t_grid():
@@ -1600,7 +1613,7 @@ def _x35b(d):
 
 def _x35c(d):
     t = random.randint(2, 5) if d == 0 else pick([3, 4, 5, 8, 10])
-    q = random.randint(2, 9)
+    q = random.randint(*{0: (2, 6), 1: (3, 9), 2: (6, 12)}[d])      # the hard tier never asks 9 ÷ 4
     r = random.randint(1, t - 1)
     n = t * q + r
 
@@ -1668,8 +1681,8 @@ def _x35d(d):
                     vals[i] * t, ["%s got %d votes." % (cats[i], vals[i]), "%d × %d = %d points." % (vals[i], t, vals[i] * t)])
 
     def t_plates():
-        g = random.randint(2, 8)
-        per = random.randint(2, 6)
+        g = random.randint(*{0: (2, 5), 1: (3, 8), 2: (5, 8)}[d])
+        per = random.randint(*{0: (2, 5), 1: (3, 6), 2: (4, 8)}[d])
         return _eg("Each plate has %d cakes on it. How many cakes are there altogether?" % per, g, per, g * per,
                    ["'Each' plate has %d — the same number on every plate, so multiply. 'Altogether' means "
                     "all the plates together." % per, "%d plates of %d." % (g, per), "%d × %d = %d." % (g, per, g * per)])
@@ -1696,14 +1709,14 @@ def _x35e(d):
     n = t * k
 
     def t_price_table():
-        price = pick([2, 4, 5, 10])
-        m = random.randint(2, 9)
+        price = pick([2, 5, 10]) if d == 0 else pick([3, 4, 5, 8])
+        m = random.randint(2, 6) if d == 0 else random.randint(4, 12)
         thing = pick(["pencil", "badge", "sticker"])
         return _dt("The price list shows that one %s costs %dp. How many can you buy with %dp?" % (thing, price, price * m),
                    ["Item", "Price"], [[thing, "%dp" % price]], m, ["%d ÷ %d = %d." % (price * m, price, m)])
 
     def t_weeks():
-        w = random.randint(2, 4)
+        w = random.randint(*{0: (2, 3), 1: (2, 4), 2: (3, 5)}[d])
         return _tb("A holiday lasts %d days. How many weeks is that?" % (7 * w), w, "int", {}, ["7 days = 1 week.", "%d ÷ 7 = %d." % (7 * w, w)])
 
     def t_ribbon():
@@ -1736,12 +1749,13 @@ def _x35f(d):
     def t_balance():
         a, b = pick([(2, 6), (3, 4), (2, 12), (4, 6), (3, 8), (2, 8), (4, 4), (2, 10)])
         tot = a * b
-        x = pick([y for y in (2, 3, 4, 6, 8, 12) if tot % y == 0 and y not in (a, tot)])
+        # never one of the factors already shown: "___ × 6 = 4 × 6" gives the answer away
+        x = pick([y for y in (2, 3, 4, 6, 8, 12) if tot % y == 0 and y not in (a, b, tot)])
         return _tb("Find the missing number:  ___ × %d = %d × %d" % (x, a, b), tot // x, "int", {},
                    ["%d × %d = %d." % (a, b, tot), "%d ÷ %d = %d." % (tot, x, tot // x)])
 
     def t_rule():
-        ins = random.sample(range(1, 13), 4)
+        ins = random.sample(range(2, 13), 4)               # no In of 1: 1 → 5 would show the rule
         return _io("Each Out number is the In number multiplied by the same number. What is that number?", [[i, i * t] for i in ins],
                    None, t, ["%d × %d = %d." % (ins[0], t, ins[0] * t)])
 
@@ -2191,8 +2205,9 @@ def _x37b(d):
                    abs(10 * c - m), "int", {"unit": "mm"}, ["%d cm = %d mm." % (c, 10 * c), "%d − %d = %d mm." % (max(10 * c, m), min(10 * c, m), abs(10 * c - m))])
 
     def t_bars():
+        # jumps measured to the centimetre (the chart prints a value between gridlines): 30 − 20 was not this skill
         cats = random.sample(NAMES, 3)
-        vals = [10 * v for v in random.sample(range(*_by(d, (2, 10), (6, 19), (11, 30))), 3)]
+        vals = random.sample([v for v in range(*_by(d, (21, 99), (61, 199), (111, 299))) if v % 10], 3)
         i, j = random.sample(range(3), 2)
         if vals[i] < vals[j]:
             i, j = j, i

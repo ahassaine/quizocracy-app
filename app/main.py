@@ -4,8 +4,10 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config, errors, levels
 from .config import BASE_DIR
@@ -39,6 +41,41 @@ async def _redirect(request: Request, exc: Redirect):
 
 # Any other exception is a 500: a friendly page, a log line and a throttled email to the operator (app/errors.py).
 app.add_exception_handler(Exception, errors.handler)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request: Request, exc: StarletteHTTPException):
+    """An unknown address (or a page that isn't this family's) gets a friendly page with a way back; /api/ keeps
+    its JSON 404 and /static/ its plain one, and every other status is handled as before."""
+    path = request.url.path
+    if exc.status_code != 404 or path.startswith(("/api/", "/static/")):
+        return await http_exception_handler(request, exc)
+    try:
+        ctx = await load(request)
+    except Exception:  # noqa: BLE001 - the page must show even when the session can't be read
+        ctx = None
+    return page(request, "not_found.html", ctx, status_code=404)
+
+
+# ---- For search engines: the public pages may be listed; the family and team areas may not ----
+PUBLIC_PAGES = ("/", "/signup", "/login", "/help", "/privacy", "/terms")
+PRIVATE_AREAS = ("/home", "/me", "/learn", "/board", "/children/", "/settings", "/account/", "/team/", "/api/",
+                 "/verify", "/reset", "/invite", "/handover", "/parent-unlock", "/not-allowed", "/unsubscribe",
+                 "/waitlist", "/logout")
+
+
+@app.get("/robots.txt")
+async def robots():
+    lines = ["User-agent: *"] + [f"Disallow: {p}" for p in PRIVATE_AREAS] + [f"Allow: {p}" for p in PUBLIC_PAGES]
+    return PlainTextResponse("\n".join(lines + ["", f"Sitemap: {config.PUBLIC_URL}/sitemap.xml", ""]))
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    urls = "".join(f"  <url><loc>{config.PUBLIC_URL}{p}</loc></url>\n" for p in PUBLIC_PAGES)
+    return Response('<?xml version="1.0" encoding="UTF-8"?>\n'
+                    f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}</urlset>\n',
+                    media_type="application/xml")
 
 
 SAFE = {"GET", "HEAD", "OPTIONS"}

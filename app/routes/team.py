@@ -12,6 +12,7 @@ Telegram with the recipient's own link.
   GET  /team/{member}/{tid}/files/{mid}/{f}   attachment
   GET  /team/{member}/maths · POST next/check  try any maths skill (testing aid; no progress recorded)
   GET  /team/{member}/reports · POST {rid}/status  children's question reports: open / fixed / not a problem
+  GET  /team/{member}/funnel · POST funnel/test   do families stay: the funnel, families' dates, feedback cards
 """
 import asyncio
 import datetime
@@ -26,7 +27,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
-from .. import config, mailer
+from .. import config, funnel, mailer
 from ..db import db
 from ..maths import maths_engine
 from ..web import page
@@ -118,6 +119,46 @@ async def _add(request: Request, thread: dict, author: dict, text: str, files: l
     await db.team_threads.update_one({"_id": thread["_id"]}, {
         "$set": {"last_at": now, "last_author": author["_id"],
                  "last_preview": (text or f"[{len(saved)} files]")[:140]}, "$inc": {"count": 1}})
+
+
+FAMILY_AUTHOR = {"_id": "families", "name": "Family feedback", "initials": "FF", "role": "family",
+                 "telegram_chat_id": None, "active": False}     # never active: its id is not a link anyone can open
+
+
+async def post_family_feedback(text: str) -> ObjectId:
+    """A parent's "How is it going?" answer becomes a reply in the one "Family feedback" thread (made on first
+    use, reopened if resolved), so the members' Telegram pings and the team watcher see it like any message."""
+    await db.team_members.update_one({"_id": FAMILY_AUTHOR["_id"]}, {"$setOnInsert": {**FAMILY_AUTHOR, "created": _now()}},
+                                     upsert=True)
+    now = _now()
+    t = await db.team_threads.find_one({"kind": "family_feedback"})
+    if not t:
+        t = {"_id": gen_slug(6), "kind": "family_feedback", "title": "Family feedback", "author": FAMILY_AUTHOR["_id"],
+             "status": "open", "created": now, "last_at": now, "last_author": FAMILY_AUTHOR["_id"],
+             "last_preview": "", "count": 0}
+        await db.team_threads.insert_one(t)
+    elif t["status"] == "resolved":
+        await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {"status": "open"}})
+    mid = ObjectId()
+    await db.team_messages.insert_one({"_id": mid, "tid": t["_id"], "author": FAMILY_AUTHOR["_id"], "kind": "msg",
+                                       "text": text[:10000], "attachments": [], "time": now, "ip": ""})
+    await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {"last_at": now, "last_author": FAMILY_AUTHOR["_id"],
+                                                                  "last_preview": text[:140]}, "$inc": {"count": 1}})
+    await _fanout(FAMILY_AUTHOR, t, "[quizocracy team] 💬 Family feedback", text)
+    return mid
+
+
+async def drop_family_feedback(mids: list) -> None:
+    """A deleted family's answers leave the board too, and the thread's count and preview are worked out again."""
+    t = await db.team_threads.find_one({"kind": "family_feedback"})
+    if not mids or not t:
+        return
+    await db.team_messages.delete_many({"_id": {"$in": mids}, "tid": t["_id"]})
+    last = await db.team_messages.find_one({"tid": t["_id"]}, sort=[("time", -1)])
+    await db.team_threads.update_one({"_id": t["_id"]}, {"$set": {
+        "count": await db.team_messages.count_documents({"tid": t["_id"]}),
+        "last_preview": (last or {}).get("text", "")[:140], "last_at": (last or {}).get("time", t["created"]),
+        "last_author": (last or {}).get("author", FAMILY_AUTHOR["_id"])}})
 
 
 async def _names() -> dict:
@@ -242,6 +283,39 @@ async def report_status(member_slug: str, rid: str, status: str = Form(...), bac
                                f"You get this email because you ticked it in Settings: {config.PUBLIC_URL}/settings#login\n",
                                roles=("owner", "parent", "carer"), flag="report_emails")
     return RedirectResponse(f"/team/{member_slug}/reports?status={back if back in REPORT_STATUSES else 'all'}#r{rid}", 303)
+
+
+@router.get("/{member_slug}/funnel")
+async def funnel_page(request: Request, member_slug: str, tests: int = 0, q: str = ""):
+    """Do families stay? The sign-up funnel per week of sign-up, every family's dates, and the parents' answers to
+    the "How is it going?" cards. Test accounts are left out unless ?tests=1 (app/funnel.py)."""
+    me = await _member(member_slug)
+    rows = await funnel.families(include_test=bool(tests))
+    fams = {f["_id"]: f async for f in db.families.find({}, {"name": 1})}
+    accs = {a["_id"]: a async for a in db.accounts.find({}, {"email": 1, "role": 1})}
+    shown = {r["id"] for r in rows}
+    cards = []
+    async for d in db.feedback.find({"status": {"$ne": "shown"}}).sort("at", -1).limit(500):
+        if d["family_id"] in shown:
+            cards.append({**d, "family": fams.get(d["family_id"], {}).get("name", "(deleted)"),
+                          "email": accs.get(d["account_id"], {}).get("email", ""),
+                          "role": accs.get(d["account_id"], {}).get("role", "")})
+    hidden = await db.families.count_documents({}) - len(rows) if not tests else 0
+    waiting = [w async for w in db.waitlist.find().sort("created", 1).limit(500)]   # signing up removes the address
+    # the families table shows the newest 300, or those whose name or a grown-up's email contains q
+    q = q.strip().lower()[:100]
+    listed = [r for r in rows if q in r["name"].lower() or any(q in e.lower() for e in r["emails"])] if q else rows
+    return page(request, "team/funnel.html", me=me, rows=listed[:300], cohorts=funnel.cohorts(rows),
+                steps=funnel.STEPS, tests=bool(tests), hidden=hidden, cards=cards, moods=funnel.MOODS,
+                card_names=funnel.CARDS, waiting=waiting, q=q)
+
+
+@router.post("/{member_slug}/funnel/test")
+async def funnel_test(member_slug: str, fid: str = Form(...), test: str = Form(...), tests: int = Form(0)):
+    """Mark a family as a test account (or as a real one, overriding its email domain) for the funnel page."""
+    await _member(member_slug)
+    await db.families.update_one({"_id": fid}, {"$set": {"test": test == "1"}})
+    return RedirectResponse(f"/team/{member_slug}/funnel" + ("?tests=1" if tests else "") + "#families", 303)
 
 
 @router.get("/{member_slug}/{tid}")

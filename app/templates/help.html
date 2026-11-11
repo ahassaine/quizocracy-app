@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Help · Quizocracy{% endblock %}
+{% extends "base.html" %}{% block title %}Help · Quizocracy{% endblock %}{% block meta %}{% from "_meta.html" import meta %}{{ meta('Help · Quizocracy', 'Answers for parents: setting up children, daily targets, the family board, read-aloud, the curriculum and the Year 4 times tables check.', '/help') }}{% endblock %}
 {% block body %}
 <style>
   .help-toc { columns:2 240px; column-gap:18px; margin:0; padding-left:18px; }
@@ -94,7 +94,7 @@
   <details class="help-more"><summary>More</summary>
   <ul>
     <li><b>Maths, grammar and science:</b> each skill has a score from 0 to 100. Right answers raise it. Wrong answers lower it, more so near the top. At 100 the skill is <b>secure</b>: that is our word for learned well (mastered).</li>
-    <li>In maths, a skill is secure after 5 right in a row (7 after one wrong answer, more after several), or after 2 of the hardest questions right in a row with no wrong answer (3 after one). A child who is doing well may start a new skill on the hardest questions; one right answer there is never enough. In grammar and science, after about 8 right in a row. Every secure skill is checked again on a later day; the progress page says “re-checked on a later day” until then. Secure skills come back now and then, so they are not forgotten.</li>
+    <li>In maths, a skill is secure after 5 right in a row (7 after one wrong answer, more after several), or after 3 of the hardest questions right in a row, of at least 2 different kinds, with no wrong answer (4 after one). A child who is doing well may start a new skill on the hardest questions; the same rule applies, so one or two right answers there are never enough. In grammar and science, after about 8 right in a row. Every secure skill is checked again on a later day; the progress page says “re-checked on a later day” until then. Secure skills come back now and then, so they are not forgotten.</li>
     <li>In grammar and science, a question your child got wrong before never makes a skill secure, even when it is right later: only a question not missed before can. Right again in the same sitting as the mistake doesn't raise the score at all.</li>
     <li>From Year 5, a new maths skill starts with middle-level questions; easier ones come only after a wrong answer, one level at a time, and your child sees a line such as “Let's go over decimals with an easier one.”</li>
     <li><b>Times tables:</b> a fact is known after 3 right answers in a row.</li>
@@ -354,8 +354,8 @@
   </details>
 </section>
 
-<section class="card help-q" id="curriculum" data-keys="curriculum national england scotland wales northern ireland age year group school year"><h2>Which curriculum does it follow?<a class="anchor" href="#curriculum" aria-label="Link to this answer">#</a></h2>
-  <p class="help-short" data-testid="help-curriculum"><b>Follows the national curriculum in England (Years 1–9).</b></p>
+<section class="card help-q" id="curriculum" data-keys="curriculum national england scotland wales northern ireland age year group school year evolution puberty reproduction left out missing topics"><h2>Which curriculum does it follow?<a class="anchor" href="#curriculum" aria-label="Link to this answer">#</a></h2>
+  <p class="help-short" data-testid="help-curriculum"><b>Follows the national curriculum in England (Years 1–9).</b> <span data-testid="left-out">{{ LEFT_OUT }}</span></p>
   <details class="help-more"><summary>More</summary>
   <p>Maths, grammar and punctuation, and science follow what the national curriculum sets for each school year (its “programme of study”), skill by skill. Spelling uses the national curriculum word lists for Years 1 to 6, and longer, harder words for Years 7 to 9. Times tables start in Year 2 and irregular verbs in Year 3.</p>
   </details>

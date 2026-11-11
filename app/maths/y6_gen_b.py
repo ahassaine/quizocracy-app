@@ -593,13 +593,13 @@ def _(d=1):
                      % (other, L)])
 
     def io_multiples():
-        rows = [[i, a * i] for i in range(1, 5)]
+        # the common multiples of a and b, in order: the step between them is the LCM
+        rows = [[i, L * i] for i in range(1, 5)]
         k = random.randrange(4)
-        return _ioq("This table lists the multiples of %d in order. Type the "
-                    "missing Out number." % a, rows, k, rows[k][1],
-                    ["The rule is × %d." % a,
-                     "%d × %d = %d." % (rows[k][0], a, rows[k][1])],
-                    rule="× %d" % a)
+        return _ioq("This table lists the 1st, 2nd, 3rd and 4th common multiples of %d and %d. Type the "
+                    "missing Out number." % (a, b), rows, k, rows[k][1],
+                    ["The lowest common multiple of %d and %d is %d." % (a, b, L),
+                     "Every common multiple is a multiple of %d: %d × %d = %d." % (L, rows[k][0], L, rows[k][1])])
 
     def lcm_three():
         c = pick([x for x in (2, 3, 4, 5, 6) if x != a and x != b] or [7])
@@ -767,19 +767,17 @@ def _(d=1):
 
     def array_reason():
         n = pick([x for x in comp_pool if len(_factor_pairs(x)) > 1
-                  and x <= 60])
+                  and 12 <= x <= 60] or [24, 36, 42])
         pairs = [(r, c) for r, c in _factor_pairs(n)
                  if 1 < r <= 10 and c <= 12]
         if not pairs:
             return is_prime_q()
         r, c = pick(pairs)
-        return _arrayq("Build an array with %d rows of %d counters and type "
-                       "how many counters it holds. The array shows that this "
-                       "number has a factor other than 1 and itself, so it is "
-                       "composite." % (r, c), r, c,
-                       ["%d × %d = %d." % (r, c, n),
-                        "%d is a factor of %d, so %d is not prime."
-                        % (r, n, n)])
+        return _arrayq("Show that %d is composite: build an array of %d counters in %d equal rows. How many "
+                       "counters are in each row?" % (n, n, r), r, c,
+                       ["%d ÷ %d = %d, so %d rows of %d make %d." % (n, r, c, r, c, n),
+                        "%d is a factor of %d other than 1 and %d, so %d is composite."
+                        % (r, n, n, n)], answer=c)
 
     def only_even_prime():
         return _numq("Exactly one even number is prime. What is it?", 2,
@@ -903,10 +901,20 @@ def _(d=1):
                       "%d appears %s." % (target, _pl(c, "time"))])
 
     def product_check():
-        r, c = pick([pr for pr in pairs if pr[0] > 1] or pairs)
-        return _numq("%d × %d = ___ . Both numbers are factors of the answer."
-                     % (r, c), r * c,
-                     ["%d × %d = %d." % (r, c, r * c)])
+        # spot the pair that is not a factor pair: each one has to be checked
+        true = [pr for pr in pairs if pr[0] > 1] or pairs
+        r, c = pick(true)
+        fake = (r, c + pick([1, -1])) if c > r + 1 else (r + 1, c)
+        opts = random.sample(true, min(2, len(true))) + [fake]
+        opts = list(dict.fromkeys(opts))
+        random.shuffle(opts)
+        letter = "ABC"[opts.index(fake)]
+        return _wordq("Which of these is NOT a factor pair of %d?   %s   Type the letter."
+                      % (n, "   ".join("%s: %d × %d" % ("ABC"[i], x, y) for i, (x, y) in enumerate(opts))),
+                      letter,
+                      ["%s." % ", ".join("%d × %d = %d" % (x, y, x * y) for x, y in opts),
+                       "%d × %d is not %d, so %s is not a factor pair." % (fake[0], fake[1], n, letter)],
+                      placeholder="A, B or C")
 
     def array_pair():
         cands = [(r, c) for r, c in pairs if 1 < r <= 10 and c <= 12]
@@ -985,6 +993,18 @@ def _(d=1):
 
     def _digsum(x):
         return sum(int(c) for c in str(x))
+
+    def _why_rule(n, k):
+        """One divisibility test worked: the digit sum, the last digit or the last two digits."""
+        yes = "passes" if n % k == 0 else "fails"
+        if k in (3, 9):
+            return "the digit sum %s = %d, which %s, so it %s" % (" + ".join(str(n)), _digsum(n),
+                                                                 "divides by %d" % k if _digsum(n) % k == 0
+                                                                 else "does not divide by %d" % k, yes)
+        if k == 4:
+            return "the last two digits make %d, and %d ÷ 4 %s, so it %s" % (
+                n % 100, n % 100, "has no remainder" if n % 4 == 0 else "leaves a remainder", yes)
+        return "the last digit is %d, so it %s" % (n % 10, yes)
 
     def yes_no():
         k = pick(divisors)
@@ -1098,21 +1118,35 @@ def _(d=1):
                        % _pl(n % k, "sweet")], placeholder="yes or no")
 
     def word_boxes():
-        k = pick([4, 6, 8, 9])
+        # which total packs exactly: a divisibility rule picks it without dividing
+        k = pick([3, 4, 6, 9])
         n = random.randint(max(2, lo // k), hi // k) * k
-        return _numq("%d pencils are packed into boxes of %d with none left "
-                     "over. How many boxes are filled?" % (n, k), n // k,
-                     ["%d is divisible by %d." % (n, k),
-                      "%d ÷ %d = %d boxes." % (n, k, n // k)], unit="boxes")
+        others = set()
+        while len(others) < 2:
+            x = n + random.randint(1, k - 1) * pick([1, -1]) + k * random.randint(-3, 3)
+            if x > 0 and x % k and x != n:
+                others.add(x)
+        nums = [n] + sorted(others)
+        random.shuffle(nums)
+        return _numq("Pencils are packed into boxes of %d. Which of these numbers of pencils can be packed with "
+                     "none left over: %s? Use a divisibility rule and type that number."
+                     % (k, ", ".join(str(x) for x in nums)), n,
+                     ["Remember: %s." % _rule(k),
+                      "Only %d passes the test: %d ÷ %d = %d." % (n, n, k, n // k)])
 
     def rule_naming():
-        k = pick([2, 5, 10])
-        n = random.randint(lo // k, hi // k) * k
-        return _numq("%d is divisible by %d. What is the last digit of %d?"
-                     % (n, k, n), n % 10,
-                     ["Remember: %s." % _rule(k),
-                      "The last digit of %d is %d." % (n, n % 10)],
-                     placeholder="a digit")
+        # two rules together: divisible by 6 means by 2 and by 3, by 15 means by 3 and by 5, ...
+        k, (p, q) = pick([(6, (2, 3)), (12, (3, 4)), (15, (3, 5)), (18, (2, 9))])
+        n = random.randint(max(1, lo // k), max(2, hi // k)) * k
+        if random.random() < 0.5:
+            n += pick([p, q]) * pick([1, 2])            # still passes one of the two tests, often not both
+        ok = n % k == 0
+        return _wordq("A number is divisible by %d when it is divisible by both %d and %d. Is %d divisible "
+                      "by %d? Type yes or no." % (k, p, q, n, k), "yes" if ok else "no",
+                      ["Test %d: %s." % (p, _why_rule(n, p)), "Test %d: %s." % (q, _why_rule(n, q)),
+                       "%s, so %d %s divisible by %d." % ("Both tests pass" if ok else "A test fails", n,
+                                                         "is" if ok else "is not", k)],
+                      placeholder="yes or no")
 
     def next_multiple():
         k = pick([3, 4, 6, 9])
@@ -1976,17 +2010,29 @@ def _(d=1):
                        % (max(w * dd + p, imp_n), dd, ans)],
                       placeholder="A or B")
 
+    def _related():
+        """Two fractions to compare, one over a denominator that divides the other's (2/3 and 5/6): Year 6
+        compares across denominators, and the bar or line is ruled in the larger one."""
+        dd = pick([4, 6, 8, 9, 10, 12])
+        small = pick([x for x in (2, 3, 4, 5, 6) if dd % x == 0 and x < dd])
+        m = dd // small
+        while True:
+            a = random.randint(1, small - 1)
+            b = random.randint(1, dd - 1)
+            if a * m != b:
+                return dd, small, a, b, a * m
+
     def order_line():
-        dd = pick([4, 5, 6, 8, 10])
-        a, b = random.sample(range(1, dd), 2)
+        dd, small, a, b, am = _related()
         want_larger = random.random() < 0.5
-        k = max(a, b) if want_larger else min(a, b)
+        k = max(am, b) if want_larger else min(am, b)
         word = "larger" if want_larger else "smaller"
-        return _nlfrac("Compare %d/%d and %d/%d, then mark the %s fraction on "
-                       "the number line." % (a, dd, b, dd, word), k, dd, 1,
-                       ["The denominators match, so compare the numerators %d "
-                        "and %d." % (a, b),
-                        "The %s fraction is %d/%d." % (word, k, dd)])
+        first = (a, small) if random.random() < 0.5 else None
+        pair = "%d/%d and %d/%d" % ((a, small, b, dd) if first else (b, dd, a, small))
+        return _nlfrac("Compare %s, then mark the %s fraction on the number line." % (pair, word), k, dd, 1,
+                       ["Write %d/%d in %ss: %d/%d = %d/%d." % (a, small, _FRAC_WORDS[dd], a, small, am, dd),
+                        "Now compare %d/%d and %d/%d: the %s is %s." % (am, dd, b, dd, word,
+                                                                       "%d/%d" % ((a, small) if k == am else (b, dd)))])
 
     def order_line_greater_than_one():
         dd = pick([3, 4, 5, 6])
@@ -2003,16 +2049,14 @@ def _(d=1):
                         % (k, dd, _mixed_str(*_improper_to_mixed(k, dd)))])
 
     def shade_larger():
-        dd = pick([4, 5, 6, 8, 10, 12])
-        a, b = random.sample(range(1, dd), 2)
+        dd, small, a, b, am = _related()
         which = "larger" if random.random() < 0.5 else "smaller"
-        k = max(a, b) if which == "larger" else min(a, b)
-        return _fbq("Shade this bar of %d equal parts to show the %s of %d/%d "
-                    "and %d/%d." % (dd, which, a, dd, b, dd), dd, k,
-                    ["Same denominator: compare the numerators %d and %d."
-                     % (a, b),
-                     "The %s fraction is %d/%d, so shade %s."
-                     % (which, k, dd, _pl(k, "part"))])
+        k = max(am, b) if which == "larger" else min(am, b)
+        pair = "%d/%d and %d/%d" % ((a, small, b, dd) if random.random() < 0.5 else (b, dd, a, small))
+        return _fbq("Shade this bar of %d equal parts to show the %s of %s." % (dd, which, pair), dd, k,
+                    ["Write %d/%d in %ss: %d/%d = %d/%d." % (a, small, _FRAC_WORDS[dd], a, small, am, dd),
+                     "Compare %d/%d and %d/%d: the %s is %s, so shade %s."
+                     % (am, dd, b, dd, which, "%d/%d" % ((a, small) if k == am else (b, dd)), _pl(k, "part"))])
 
     def word_who():
         p, q = _two_names()
@@ -2682,28 +2726,38 @@ def _(d=1):
                        % (used, L, L - used, L)])
 
     def strip_problem():
-        who = pick(NAMES)
+        # two fractions of the ribbon are used: add them, take the total from one whole, then find that part
+        p, q = _two_names()
         parts = min(den, 8)
         each = random.randint(4, 30)
         total = parts * each
-        return _stripq("Use the strip model. A ribbon %d cm long is cut into "
-                       "%d equal parts. %s uses one part. How many centimetres "
-                       "does %s use?" % (total, parts, who, who), parts, "?",
-                       "%d cm" % total, "part", each,
-                       ["Each part is 1/%d of %d cm." % (parts, total),
-                        "%d ÷ %d = %d cm." % (total, parts, each)])
+        a = random.randint(1, parts - 2)
+        b = random.randint(1, parts - a - 1)
+        left = parts - a - b
+        return _stripq("Use the strip model. A ribbon is %d cm long. %s uses %d/%d of it and %s uses %d/%d of "
+                       "it. How many centimetres of ribbon are left?" % (total, p, a, parts, q, b, parts),
+                       parts, "?", "%d cm" % total, "part", left * each,
+                       ["%d/%d + %d/%d = %d/%d is used, so %d/%d is left." % (a, parts, b, parts, a + b, parts,
+                                                                           left, parts),
+                        "One part is %d ÷ %d = %d cm." % (total, parts, each),
+                        "%d × %d = %d cm are left." % (left, each, left * each)])
 
     def bar_chart_problem():
+        # each bar as a fraction of all the hours, then two of them added
         cats = ["Reading", "Sport", "Music"]
         vals = random.sample(range(3, 10), 3)
-        i = pick([x for x in range(3) if vals[x] != max(vals)])
-        return _barq("The chart shows how many hours a class spent on each "
-                     "activity last week. How many more hours were spent on "
-                     "the largest activity than on %s?" % cats[i].lower(),
-                     cats, vals, max(vals) - vals[i],
-                     ["The largest bar is %d hours." % max(vals),
-                      "%d − %d = %s." % (max(vals), vals[i],
-                                          _pl(max(vals) - vals[i], "hour"))])
+        tot = sum(vals)
+        i, j = random.sample(range(3), 2)
+        q = _barq("The chart shows how many hours a class spent on each activity last week. What fraction of "
+                  "all the hours was spent on %s and %s together? Write it as a fraction."
+                  % (cats[i].lower(), cats[j].lower()), cats, vals, 0,
+                  ["Altogether %d + %d + %d = %d hours." % (vals[0], vals[1], vals[2], tot),
+                   "%s is %d/%d and %s is %d/%d of the hours." % (cats[i], vals[i], tot, cats[j].lower(),
+                                                                   vals[j], tot),
+                   "%d/%d + %d/%d = %d/%d." % (vals[i], tot, vals[j], tot, vals[i] + vals[j], tot)])
+        q.update({"answer": "%d/%d" % (vals[i] + vals[j], tot), "answer_type": "frac"})
+        q["spec"].update({"text": True, "placeholder": "e.g. 3/4"})
+        return q
 
     def data_table_problem():
         rows = []
@@ -2805,17 +2859,21 @@ def _(d=1):
                       "That is %s km." % _mixed_str(W, N, D)])
 
     def money_fraction():
-        d1 = pick([2, 4, 5, 10])
+        # two fractions of the pot are spent (different denominators): add them, then find what is left
+        d1, d2 = pick([(4, 2), (10, 5), (8, 4), (6, 3), (12, 4), (10, 2)])
         tot = random.randint(2, 12) * d1 * 10
-        n1 = random.randint(1, d1 - 1)
-        spent = tot * n1 // d1
-        return _numq("%s of a savings pot is spent, which is %d/%d of the "
-                     "money. The pot held %s. How much is spent, in pence?"
-                     % (_frac_words(n1, d1).capitalize(), n1, d1, money(tot)),
-                     spent,
-                     ["%dp ÷ %d = %dp is one %s."
-                      % (tot, d1, tot // d1, _FRAC_WORDS.get(d1, "part")),
-                      "%d × %d = %dp." % (tot // d1, n1, spent)], unit="p")
+        n1 = random.randint(1, d1 - 2)
+        n2 = random.randint(1, max(1, (d1 - n1 - 1) * d2 // d1))
+        while n1 + n2 * d1 // d2 >= d1 or Fraction(n2, d2).denominator != d2:
+            n1, n2 = random.randint(1, d1 - 2), random.randint(1, d2 - 1)
+        used = n1 + n2 * d1 // d2
+        left = tot * (d1 - used) // d1
+        return _numq("A savings pot holds %s. %d/%d of it is spent on Saturday and %d/%d of it on Sunday. "
+                     "How much money is left, in pence?" % (money(tot), n1, d1, n2, d2), left,
+                     ["%d/%d = %d/%d, so %d/%d + %d/%d = %d/%d is spent." % (n2, d2, n2 * d1 // d2, d1, n1, d1,
+                                                                         n2 * d1 // d2, d1, used, d1),
+                      "%d/%d of the pot is left." % (d1 - used, d1),
+                      "%dp ÷ %d × %d = %dp." % (tot, d1, d1 - used, left)], unit="p")
 
     opts = [two_step_same, two_step_different, strip_problem,
             data_table_problem, shade_problem, line_problem, missing_start,
@@ -3154,11 +3212,12 @@ def _(d=1):
 @skill("Y6.4.c", "Find a fraction of a quantity", S4)
 def _(d=1):
     d = _t(d)
-    den = pick(_by_d(d, [2, 3, 4, 5], [3, 4, 5, 6, 8, 10],
+    # Year 6 amounts: no "1/2 of 12" (Year 2); the easiest tier still has a fraction of a 2- or 3-digit amount
+    den = pick(_by_d(d, [3, 4, 5, 6, 8], [3, 4, 5, 6, 8, 10],
                      [5, 6, 7, 8, 9, 10, 12]))
     num = random.randint(1, den - 1)
-    per = _by_d(d, random.randint(2, 9), random.randint(3, 20),
-                random.randint(6, 40))
+    per = _by_d(d, random.randint(6, 15), random.randint(8, 30),
+                random.randint(12, 60))
     total = den * per
 
     def bare():
@@ -3190,18 +3249,20 @@ def _(d=1):
                                            grams // den * num)], unit="g")
 
     def time_of():
-        dd = pick([2, 3, 4, 5, 6, 10, 12])
+        dd = pick([3, 4, 5, 6, 10, 12])
         nn = random.randint(1, dd - 1)
-        return _numq("What is %d/%d of an hour, in minutes?" % (nn, dd),
-                     60 // dd * nn,
-                     ["60 ÷ %d = %d minutes." % (dd, 60 // dd),
-                      "%d × %d = %d minutes." % (60 // dd, nn,
-                                                 60 // dd * nn)],
+        hrs = random.randint(2, 4)
+        whole = 60 * hrs
+        return _numq("What is %d/%d of %d hours, in minutes?" % (nn, dd, hrs),
+                     whole // dd * nn,
+                     ["%d hours = %d minutes." % (hrs, whole),
+                      "%d ÷ %d = %d minutes." % (whole, dd, whole // dd),
+                      "%d × %d = %d minutes." % (whole // dd, nn, whole // dd * nn)],
                      unit="minutes")
 
     def word_class():
         who = pick(NAMES)
-        return _numq("A school has %d pupils. %d/%d of the pupils walk to "
+        return _numq("A year group has %d pupils. %d/%d of the pupils walk to "
                      "school. How many pupils walk to school?"
                      % (total, num, den), num * per,
                      ["%d ÷ %d = %d pupils in one %s."
@@ -3286,7 +3347,7 @@ def _(d=1):
     def area_of_quantity():
         parts = pick([4, 6, 8, 10, 12])
         shaded = random.randint(1, parts - 1)
-        each = random.randint(2, 12)
+        each = random.randint(*_by_d(d, (6, 15), (8, 20), (12, 30)))
         return _agread("This area model shows a bag of %d sweets split into %d "
                        "equal parts, with %s shaded. How many sweets "
                        "does the shaded part represent?"
@@ -3299,8 +3360,8 @@ def _(d=1):
                        placeholder="number of sweets")
 
     def compare_two():
-        dd1 = pick([2, 3, 4, 5])
-        dd2 = pick([x for x in [2, 3, 4, 5, 6] if x != dd1])
+        dd1 = pick([3, 4, 5, 6, 8])
+        dd2 = pick([x for x in [3, 4, 5, 6, 8, 10] if x != dd1])
         L = _lcm(dd1, dd2) * random.randint(2, 8)
         n_1 = random.randint(1, dd1 - 1)
         n_2 = random.randint(1, dd2 - 1)
@@ -3526,22 +3587,31 @@ def _(d=1):
                       "%d/%d = %s." % (big, small, _mixed_str(W, N, D))])
 
     def exact_division():
-        q = random.randint(2, 9)
+        # a fraction read as a division: 84/12 means 84 ÷ 12
+        q = random.randint(*_by_d(d, (3, 9), (6, 12), (11, 25)))
         n = q * b
-        return _numq("Work out %d ÷ %d. The answer is a whole number — type "
-                     "it." % (n, b), q,
-                     ["%d ÷ %d = %d/%d." % (n, b, n, b),
-                      "%d/%d = %d." % (n, b, q)])
+        return _numq("The fraction %d/%d means %d ÷ %d. What whole number is %d/%d equal to?"
+                     % (n, b, n, b, n, b), q,
+                     ["A fraction is a division: the numerator divided by the denominator.",
+                      "%d ÷ %d = %d, so %d/%d = %d." % (n, b, q, n, b, q)])
 
     def strip_share():
-        parts = min(max(b, 2), 8)
-        each = random.randint(3, 20)
-        return _stripq("Use the strip model. %d cakes weigh %d g altogether "
-                       "and are shared equally between %d people. How many "
-                       "grams of cake does each person get?"
-                       % (parts, parts * each, parts), parts, "?",
-                       "%d g" % (parts * each), "part", each,
-                       ["%d ÷ %d = %d g." % (parts * each, parts, each)])
+        # the bar is the pizzas laid end to end, cut into one equal part per person: each part is pizzas ÷ people
+        people = min(max(b, 2), 8)
+        pizzas = random.randint(2, people - 1) if people > 2 and random.random() < 0.6 else \
+            random.randint(people + 1, 2 * people)
+        while pizzas % people == 0:
+            pizzas += 1
+        q = _stripq("Use the strip model. %d pizzas are laid end to end and shared equally between %d people, "
+                    "so the bar is split into %d equal parts. What fraction of a pizza does each person get?"
+                    % (pizzas, people, people), people, "?", "%d pizzas" % pizzas, "part", 0,
+                    ["Each person gets %d ÷ %d of a pizza." % (pizzas, people),
+                     "%d ÷ %d = %d/%d%s." % (pizzas, people, pizzas, people,
+                                            "" if pizzas < people else " = %s" % _mixed_str(
+                                                *_improper_to_mixed(pizzas, people)))])
+        q.update({"answer": "%d/%d" % (pizzas, people), "answer_type": "frac"})
+        q["spec"].update({"text": True, "placeholder": "e.g. 3/4"})
+        return q
 
     def line_share():
         dd = pick([3, 4, 5, 6, 8])
@@ -3675,7 +3745,7 @@ def _(d=1):
 
     def fraction_then_remainder():
         dd = pick([2, 3, 4, 5])
-        per = random.randint(4, _by_d(d, 10, 20, 40))
+        per = 2 * random.randint(2, _by_d(d, 5, 10, 20))   # even, so what is left always halves (two steps)
         total = dd * per
         nn = random.randint(1, dd - 1)
         used = nn * per
@@ -3753,43 +3823,45 @@ def _(d=1):
         per = random.randint(5, 25)
         total = parts * per
         want = random.randint(1, parts - 1)
-        return _stripq("Use the strip model. A rope %d cm long is cut into %d "
-                       "equal pieces. How long is one piece, in cm?"
-                       % (total, parts), parts, "?", "%d cm" % total, "part",
-                       per,
-                       ["%d ÷ %d = %d cm." % (total, parts, per)])
+        return _stripq("Use the strip model. A rope %d cm long is cut into %d equal pieces, and %d/%d of the "
+                       "rope is used. How many centimetres of rope are left?"
+                       % (total, parts, want, parts), parts, "?", "%d cm" % total, "part",
+                       (parts - want) * per,
+                       ["1 − %d/%d = %d/%d of the rope is left." % (want, parts, parts - want, parts),
+                        "One piece is %d ÷ %d = %d cm." % (total, parts, per),
+                        "%d × %d = %d cm." % (parts - want, per, (parts - want) * per)])
 
     def bar_two_step():
         cats = ["Year 4", "Year 5", "Year 6"]
         dd = pick([2, 3, 4])
         vals = [dd * random.randint(4, 15) for _ in cats]
-        i = random.randrange(3)
+        i, j = sorted(random.sample(range(3), 2))
         nn = random.randint(1, dd - 1)
-        got = vals[i] // dd * nn
-        return _barq("The chart shows how many books each year group borrowed. "
-                     "%d/%d of the %s books were novels. How many %s books "
-                     "were novels?" % (nn, dd, cats[i], cats[i]), cats, vals,
-                     got,
-                     ["%s borrowed %d books." % (cats[i], vals[i]),
+        both = vals[i] + vals[j]
+        got = both // dd * nn
+        return _barq("The chart shows how many books each year group borrowed. %d/%d of all the books borrowed "
+                     "by %s and %s were novels. How many novels was that?" % (nn, dd, cats[i], cats[j]),
+                     cats, vals, got,
+                     ["%s and %s borrowed %d + %d = %d books." % (cats[i], cats[j], vals[i], vals[j], both),
                       "%d ÷ %d = %d, and %d × %d = %d novels."
-                      % (vals[i], dd, vals[i] // dd, vals[i] // dd, nn, got)])
+                      % (both, dd, both // dd, both // dd, nn, got)])
 
     def recipe_table():
-        dd = pick([2, 4])
-        base = [dd * random.randint(2, 10) for _ in range(3)]
+        dd = pick(_by_d(d, [2, 4], [3, 4, 5], [3, 4, 5, 8]))
+        base = [dd * random.randint(4, 30) * 5 for _ in range(3)]       # 40 g to 1,200 g, as a recipe has
         items = ["Flour (g)", "Sugar (g)", "Butter (g)"]
         rows = [[items[i], str(base[i])] for i in range(3)]
         i = random.randrange(3)
         nn = random.randint(1, dd - 1)
+        small = base[i] // dd * nn
         return _dtq("The table shows the ingredients for one cake. A smaller "
-                    "cake uses %d/%d of every amount. How many grams of the "
-                    "ingredient on row %d — %s — does the smaller cake need?"
-                    % (nn, dd, i + 1, items[i].split(" ")[0].lower()),
-                    ["Ingredient", "Amount"], rows, base[i] // dd * nn,
+                    "cake uses %d/%d of every amount. How many grams LESS %s does the smaller cake need than "
+                    "the full recipe?" % (nn, dd, items[i].split(" ")[0].lower()),
+                    ["Ingredient", "Amount"], rows, base[i] - small,
                     ["The full recipe uses %d g." % base[i],
-                     "%d ÷ %d = %d, and %d × %d = %d g."
-                     % (base[i], dd, base[i] // dd, base[i] // dd, nn,
-                        base[i] // dd * nn)])
+                     "%d ÷ %d = %d, and %d × %d = %d g for the smaller cake."
+                     % (base[i], dd, base[i] // dd, base[i] // dd, nn, small),
+                     "%d − %d = %d g less." % (base[i], small, base[i] - small)])
 
     def area_two_step():
         parts = pick([8, 10, 12])

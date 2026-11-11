@@ -424,9 +424,17 @@ def _(d=1):
                    "e.g. CXLII")
 
     def t_value():
-        sym, v = pick([("C", 100), ("D", 500), ("M", 1000), ("L", 50), ("X", 10)])
-        return _tb("What number does the Roman numeral %s stand for?" % sym, v, "int", {},
-                   ["%s = %d." % (sym, v)])
+        if d == 0:
+            sym, v = pick([("C", 100), ("D", 500), ("M", 1000), ("L", 50)])
+            return _tb("What number does the Roman numeral %s stand for?" % sym, v, "int", {},
+                       ["%s = %d." % (sym, v)])
+        # how the symbols relate: how many of a smaller one make a bigger one
+        (big, bv), (small, sv) = pick([(("M", 1000), ("C", 100)), (("D", 500), ("L", 50)),
+                                       (("M", 1000), ("L", 50)), (("D", 500), ("X", 10)),
+                                       (("C", 100), ("V", 5)), (("M", 1000), ("D", 500))])
+        return _tb("How many %s's are worth the same as one %s?" % (small, big), bv // sv, "int", {},
+                   ["%s = %d and %s = %d." % (big, bv, small, sv),
+                    "%d ÷ %d = %d." % (bv, sv, bv // sv)])
 
     def t_compare():
         a, b = random.sample(range(_by(d, 11, 40, 100), _by(d, 100, 500, 1000)), 2)
@@ -440,9 +448,19 @@ def _(d=1):
                                "%d + %d = %d." % (a, b, a + b)])
 
     def t_subtractive():
-        v, s = pick([(4, "IV"), (9, "IX"), (40, "XL"), (90, "XC"), (400, "CD"), (900, "CM")])
-        return _tb("In Roman numerals, a smaller symbol before a larger one is subtracted. What is "
-                   "%s?" % s, v, "int", {}, ["%s = %d." % (s, v)])
+        if d == 0:
+            v, s = pick([(4, "IV"), (9, "IX"), (40, "XL"), (90, "XC"), (400, "CD"), (900, "CM")])
+            return _tb("In Roman numerals, a smaller symbol before a larger one is subtracted. What is "
+                       "%s?" % s, v, "int", {}, ["%s = %d." % (s, v)])
+        # a numeral with two (core) or three (stretch) subtracted pairs in it
+        parts = [pick([(400, "CD"), (900, "CM")]), pick([(40, "XL"), (90, "XC")]), pick([(4, "IV"), (9, "IX")])]
+        if d == 1:
+            parts.pop(random.randrange(3))
+        v = sum(p[0] for p in parts)
+        num = "".join(p[1] for p in parts)
+        return _tb("In Roman numerals, a smaller symbol before a larger one is subtracted. What number "
+                   "is %s?" % num, v, "int", {},
+                   [" + ".join("%s (%d)" % (p[1], p[0]) for p in parts) + " = %d." % v])
 
     def t_table():
         nums = random.sample(range(_by(d, 11, 40, 100), _by(d, 100, 500, 1000)), 4)
@@ -727,10 +745,18 @@ def _(d=1):
 
     def t_bar():
         towns = random.sample(["Fenton", "Oakfield", "Redhill", "Stanton"], 4)
-        vals = [random.randint(10, 99) * 10000 for _ in range(4)]
+        # close populations (same hundred thousands, often the same ten thousands), so the bars look alike and
+        # the printed numbers have to be compared digit by digit
+        base = random.randint(1, 8) * 100000 + (random.randint(0, 9) * 10000 if d else 0)
+        spread = _by(d, 90000, 9000, 9000)
+        vals = random.sample(range(base + 100, base + spread, 100), 4)
         k = vals.index(max(vals))
-        return _bar("The chart shows the population of four towns. Type the LARGEST population.",
-                    towns, vals, max(vals), ["%s has the tallest bar: %s." % (towns[k], _c(max(vals)))])
+        q = _bar("The chart shows the population of four towns. Type the LARGEST population.",
+                 towns, vals, max(vals),
+                 ["Compare the numbers from the left: the first digit that differs decides.",
+                  "%s has the largest population: %s." % (towns[k], _c(max(vals)))])
+        q["spec"]["showValues"] = True
+        return q
 
     return _pick_t([t_symbol, t_greater, t_true_false, t_context, t_missing_digit], [t_bar])
 

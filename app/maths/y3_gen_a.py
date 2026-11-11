@@ -132,8 +132,9 @@ def _(d=1):
                    ["%s %d each time: %s." % ("Subtract" if back else "Add", step, _lst(seq))])
 
     def t_forward():
-        st = 1 if d == 0 else pick([1, 1, 2, 5, 10])
-        s = random.randint(10, 1000 - 4 * st)
+        # the same steps from a number that is not a multiple of them: 35, 85, 135, ... (counting on, not reciting)
+        st = step
+        s = random.randint(1, (1000 - 4 * st) // st) * st + random.randint(1, min(st, 50) - 1 if st > 4 else 3)
         seq = [s + (i + 1) * st for i in range(3)]
         return _tb("Count forward in %ds from %d, up to 1,000. Write the next three numbers."
                    % (st, s), _lst(seq), "str",

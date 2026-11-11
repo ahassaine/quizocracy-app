@@ -87,6 +87,22 @@ _UNITW = {10: "10", 100: "100", 1000: "1,000", 10000: "10,000",
 
 
 # --------------------------------------------------------- number sources ---
+def _short_steps(a, b):
+    """The short-division working for a ÷ b (b one digit), digit by digit, as one line:
+    "4 ÷ 7 = 0 r 4, 49 ÷ 7 = 7, 2 ÷ 7 = 0 r 2 (a 0 in the answer), 27 ÷ 7 = 3 r 6"."""
+    out, carry, started = [], 0, False
+    for ch in str(a):
+        x = carry * 10 + int(ch)
+        q, carry = divmod(x, b)
+        if not started and q == 0:
+            out.append("%d ÷ %d = 0 r %d" % (x, b, carry))
+            continue
+        note = " (a 0 in the answer)" if started and q == 0 else ""
+        started = True
+        out.append("%d ÷ %d = %d%s%s" % (x, b, q, " r %d" % carry if carry else "", note))
+    return ", ".join(out) + "."
+
+
 def _bignum(d):
     """A number of the right size for this difficulty."""
     if d == 0:
@@ -736,12 +752,15 @@ def _(d=1):
         a = _bignum(max(d, 1))
         amt = pick([1000, 10000, 100000])
         b = a + amt + pick([-1, 1]) * random.randint(1, 9) * 100
-        return _tb("%s adds %s to %s, then checks whether the result is greater or "
-                   "less than %s. What is the result? Type the number." % (pick(NAMES), _c(amt), _c(a), _c(b)),
-                   a + amt, "int", {},
+        bigger = a + amt > b
+        return _wq("%s adds %s to %s. Is the result greater or less than %s? (type 'greater' or 'less')"
+                   % (pick(NAMES), _c(amt), _c(a), _c(b)),
+                   "greater" if bigger else "less",
                    ["%s + %s = %s." % (_c(a), _c(amt), _c(a + amt)),
-                    "%s is %s %s." % (_c(a + amt), "greater than" if a + amt > b
-                                      else "less than", _c(b))])
+                    "Compare %s with %s digit by digit from the left: the first digits that differ decide."
+                    % (_c(a + amt), _c(b)),
+                    "%s is %s %s." % (_c(a + amt), "greater than" if bigger else "less than", _c(b))],
+                   "greater / less")
 
     def t_between():
         a = random.randint(2, 8) * 1000000
@@ -959,6 +978,8 @@ def _(d=1):
     def t_context():
         n = random.randint(*{0: (1100, 8900), 1: (11000, 89000), 2: (110000, 990000)}[d])
         unit = pick({0: [10, 100], 1: [100, 1000], 2: [1000, 10000]}[d])
+        if n % unit == 0:                         # never already rounded
+            n += random.randint(1, unit - 1)
         return _tb("%s people attended a concert. Round %s to the nearest %s."
                    % (_c(n), _c(n), _UNITW[unit]), _r(n, unit), "int", {},
                    ["%s to the nearest %s is %s."
@@ -1224,9 +1245,11 @@ def _(d=1):
         return random.randint(-min(R, 30), min(R, 30))
 
     def t_colder():
-        a, b = _temp(), _temp()
+        a, b = -random.randint(1, min(R, 30)), _temp()      # always a temperature below zero in the pair
         while a == b:
             b = _temp()
+        if random.random() < 0.5:
+            a, b = b, a
         return _tb("On Monday the temperature was %d °C and on Tuesday it was %d °C. "
                    "Which was the colder temperature? Type that temperature."
                    % (a, b), min(a, b), "int", {"unit": "°C"},
@@ -1234,9 +1257,11 @@ def _(d=1):
                     "So %d °C is colder." % min(a, b)])
 
     def t_warmer():
-        a, b = _temp(), _temp()
+        a, b = -random.randint(1, min(R, 30)), _temp()      # always a temperature below zero in the pair
         while a == b:
             b = _temp()
+        if random.random() < 0.5:
+            a, b = b, a
         return _tb("Which is the warmer temperature, %d °C or %d °C? Type that "
                    "temperature." % (a, b), max(a, b), "int", {"unit": "°C"},
                    ["%d is further right on a number line than %d."
@@ -1534,8 +1559,8 @@ def _(d=1):
 
     def t_sub_line():
         L = {0: 5, 1: 8, 2: 12}[d]
-        a = random.randint(-L, L)
-        b = random.randint(1, L)
+        a = random.randint(1, L)
+        b = random.randint(a + 1, a + L)          # the subtraction always crosses zero
         ans = a - b
         return _nlq("Use the number line to subtract the integers:   %d − %d   "
                     "Place the answer on the number line." % (a, b), ans,
@@ -1819,73 +1844,27 @@ def _(d=1):
                       "No other pair in the list has that difference."],
                      "type two numbers")
 
-    def t_venn():
-        clubs = random.sample(["Football club", "Chess club", "Art club",
-                               "Judo club", "Coding club", "Drama club"], 2)
-        A, B = clubs
-        hi = {0: 10, 1: 20, 2: 30}[d]
-        a_only = random.randint(4 if d else 2, hi)
-        b_only = random.randint(4 if d else 2, hi)
-        both = random.randint(2, {0: 6, 1: 12, 2: 15}[d])
-        none = random.randint(0, 8)
-        rows = [["%s only" % A, str(a_only)],
-                ["Both %s and %s" % (A, B), str(both)],
-                ["%s only" % B, str(b_only)],
-                ["Neither club", str(none)]]
-        kind = pick({0: ["a", "b", "total"], 1: ["a", "b", "total", "one"],
-                     2: ["one", "not_a", "not_b", "neither"]}[d])
-        miss = None
-        if kind == "neither":                     # inverse: work back from the class size
-            total = a_only + b_only + both + none
-            qtext = ("There are %d pupils in the class. How many pupils are in neither "
-                     "club?" % total)
-            ans = none
-            rows[3][1] = ""
-            miss = [3, 1]
-            sol = ["Add the three regions inside the rings: %d + %d + %d = %d."
-                   % (a_only, both, b_only, a_only + both + b_only),
-                   "%d − %d = %d." % (total, a_only + both + b_only, ans)]
-        elif kind in ("not_a", "not_b"):
-            X, Y = (A, B) if kind == "not_a" else (B, A)
-            y_only = b_only if kind == "not_a" else a_only
-            qtext = "How many pupils are NOT in %s?" % X
-            ans = y_only + none
-            sol = ["Not in %s means %s only (%d) and neither club (%d)." % (X, Y, y_only, none),
-                   "%d + %d = %d." % (y_only, none, ans)]
-        elif kind == "a":
-            qtext = "How many pupils are in %s altogether?" % A
-            ans = a_only + both
-            sol = ["%s only (%d) and both clubs (%d) are all in %s."
-                   % (A, a_only, both, A),
-                   "%d + %d = %d." % (a_only, both, ans)]
-        elif kind == "b":
-            qtext = "How many pupils are in %s altogether?" % B
-            ans = b_only + both
-            sol = ["%s only (%d) and both clubs (%d) are all in %s."
-                   % (B, b_only, both, B),
-                   "%d + %d = %d." % (b_only, both, ans)]
-        elif kind == "total":
-            qtext = "How many pupils are in the class altogether?"
-            ans = a_only + b_only + both + none
-            sol = ["Add all four regions of the Venn diagram.",
-                   "%d + %d + %d + %d = %d."
-                   % (a_only, both, b_only, none, ans)]
-        else:
-            qtext = "How many pupils are in exactly one of the two clubs?"
-            ans = a_only + b_only
-            sol = ["Exactly one club means the two 'only' regions.",
-                   "%d + %d = %d." % (a_only, b_only, ans)]
-        return _dt("A Venn diagram has two overlapping rings, one for %s and one "
-                   "for %s. The table gives the number of pupils in each region of "
-                   "the Venn diagram. %s" % (A, B, qtext),
-                   ["Region of the Venn diagram", "Number of pupils"], rows,
-                   ans, sol, missing=miss, atype="int")
+    def t_odd_total():
+        # parity reasoning in a table: the total's parity from how many odd numbers there are, without adding
+        n = 4 if d < 2 else 5
+        ns = [_bignum(d) for _ in range(n)]
+        odd = sum(x % 2 for x in ns)
+        ans = "odd" if odd % 2 else "even"
+        rows = [["Class %s" % "ABCDE"[k], _c(x)] for k, x in enumerate(ns)]
+        return _dt("The table shows the points scored by each class in a school quiz. Without adding them up, is "
+                   "the total number of points even or odd? (type 'even' or 'odd')",
+                   ["Class", "Points"], rows, ans,
+                   ["Look at the ones digits: %d of the %d numbers %s odd." % (odd, n, "is" if odd == 1 else "are"),
+                    "Even numbers never change whether a total is even or odd; each pair of odd numbers makes an "
+                    "even total.",
+                    "%d odd number%s, so the total is %s." % (odd, "" if odd == 1 else "s", ans)],
+                   atype="str")
 
     return _pick_t([t_how_many_thousands, t_how_many_hundreds, t_parity_sum,
                     t_parity_product, t_parity_apply, t_cards_even, t_cards_odd,
                     t_which_even, t_ten_more, t_which_digit_changes,
                     t_choose_sum, t_choose_difference],
-                   [t_io, t_table_parity, t_table_thousands, t_venn])
+                   [t_io, t_table_parity, t_table_thousands, t_odd_total])
 
 
 # ================================================================== 6.1 ======
@@ -1966,14 +1945,20 @@ def _(d=1):
                 ["£%s + £%s = £%s." % (_c(raised), _c(target - raised), _c(target))])
 
     def t_inverse_check():
+        # the written answer is wrong about half the time, so the check must really be worked out
         a, b = _op(d), _op(d)
         a, b = max(a, b), min(a, b)
-        return _tb("%s works out %s − %s = %s. Which addition checks this answer? "
-                   "Type the total that the addition should give."
-                   % (pick(NAMES), _c(a), _c(b), _c(a - b)), a, "int", {},
-                   ["The inverse check is %s + %s." % (_c(a - b), _c(b)),
-                    "%s + %s = %s, which matches the starting number."
-                    % (_c(a - b), _c(b), _c(a))])
+        got = a - b
+        if got >= 100 and random.random() < 0.5:
+            got += pick([1, -1]) * 10 ** random.randint(1, len(str(got)) - 2)
+        who = pick(NAMES)
+        right = got == a - b
+        return _tb("%s works out %s − %s and writes %s. Check it with the inverse: work out %s + %s."
+                   % (who, _c(a), _c(b), _c(got), _c(got), _c(b)), got + b, "int", {},
+                   ["%s + %s = %s." % (_c(got), _c(b), _c(got + b)),
+                    ("That is the starting number %s, so %s's answer is right." % (_c(a), who)) if right else
+                    ("That is not the starting number %s, so %s's answer is wrong: %s − %s = %s."
+                     % (_c(a), who, _c(a), _c(b), _c(a - b)))])
 
     def t_multi():
         a, b = _op(d), _op(d)
@@ -2063,7 +2048,7 @@ def _(d=1):
 @skill("Y6.1.b", "Multiplication and division facts to 12 x 12", S1)
 def _(d=1):
     d = _d(d)
-    LO, HI = {0: (2, 8), 1: (2, 12), 2: (6, 12)}[d]
+    LO, HI = {0: (3, 9), 1: (3, 12), 2: (6, 12)}[d]     # Year 6 review: no × 2 or × 1 facts
 
     def _f():
         return random.randint(LO, HI), random.randint(LO, HI)
@@ -2145,15 +2130,15 @@ def _(d=1):
                                      "%d × %d = %d." % (a, b, a * b)])
 
     def t_eg():
-        a = random.randint(*{0: (2, 5), 1: (2, 8), 2: (5, 8)}[d])
-        b = random.randint(*{0: (2, 5), 1: (2, 10), 2: (6, 10)}[d])
+        a = random.randint(*{0: (3, 6), 1: (4, 8), 2: (6, 9)}[d])
+        b = random.randint(*{0: (4, 7), 1: (6, 10), 2: (7, 10)}[d])
         return _eg("The picture shows %d equal groups. How many counters are there "
                    "altogether?" % a, a, b, a * b,
                    ["%d groups of %d." % (a, b), "%d × %d = %d." % (a, b, a * b)])
 
     def t_eg_div():
-        a = random.randint(*{0: (2, 5), 1: (2, 8), 2: (5, 8)}[d])
-        b = random.randint(*{0: (2, 5), 1: (2, 10), 2: (6, 10)}[d])
+        a = random.randint(*{0: (3, 6), 1: (4, 8), 2: (6, 9)}[d])
+        b = random.randint(*{0: (4, 7), 1: (6, 10), 2: (7, 10)}[d])
         return _eg("%d counters have been shared into %d equal groups. How many "
                    "counters are in each group?" % (a * b, a), a, b, b,
                    ["%d ÷ %d = %d." % (a * b, a, b)])
@@ -2170,8 +2155,8 @@ def _(d=1):
                    rule="× %d" % b)
 
     def t_area():
-        a = random.randint(*{0: (2, 6), 1: (2, 10), 2: (6, 10)}[d])
-        b = random.randint(*{0: (2, 8), 1: (2, 12), 2: (7, 12)}[d])
+        a = random.randint(*{0: (3, 8), 1: (4, 10), 2: (6, 10)}[d])
+        b = random.randint(*{0: (4, 9), 1: (6, 12), 2: (7, 12)}[d])
         return _area("The grid is %d squares tall and %d squares wide. How many "
                      "small squares are there altogether?" % (a, b), a, b,
                      ["%d × %d = %d." % (a, b, a * b)])
@@ -2188,9 +2173,9 @@ def _(d=1):
 
     def t_choose_multiples():
         if d == 0:
-            n = pick([2, 5, 10])
+            n = pick([3, 4, 6, 8])
         elif d == 1:
-            n = random.randint(3, pick([10, 12]))
+            n = random.randint(4, pick([9, 12]))
         else:
             n = random.randint(6, 12)
         ks = random.sample(range(2, 13) if d < 2 else range(6, 13), 3)
@@ -2208,7 +2193,7 @@ def _(d=1):
                      "e.g. 12, 24, 36")
 
     def t_choose_product():
-        a, b = random.sample({0: range(2, 8), 1: range(3, 13), 2: range(6, 13)}[d], 2)
+        a, b = random.sample({0: range(3, 10), 1: range(4, 13), 2: range(6, 13)}[d], 2)
         p = a * b
         nums = _pair_list(a, b, range(2, 13), lambda x, y: x * y == p)
         return _setq("Choose the TWO numbers from this list with a product of %d, "
@@ -2219,8 +2204,8 @@ def _(d=1):
                      "type two numbers")
 
     def t_choose_quotient():
-        q = random.randint(*{0: (2, 5), 1: (2, 9), 2: (6, 12)}[d])
-        b = random.randint(*{0: (2, 6), 1: (2, 12), 2: (6, 12)}[d])
+        q = random.randint(*{0: (3, 7), 1: (4, 9), 2: (6, 12)}[d])
+        b = random.randint(*{0: (3, 8), 1: (4, 12), 2: (6, 12)}[d])
         a = q * b
         nums = _pair_list(a, b, range(2, 121 if d < 2 else 145), lambda x, y: y != 0 and x == y * q)
         return _setq("Choose the TWO numbers from this list that give a quotient of "
@@ -2289,17 +2274,26 @@ def _(d=1):
                    ["%s + %s = %s." % (_c(p1), _c(p2), _c(a * b))])
 
     def t_missing_factor():
+        # a missing digit in a long multiplication answer: the whole product must be worked out
         a, b = _pair()
-        return _tb("Find the missing number:   ___ × %d = %s" % (b, _c(a * b)),
-                   a, "int", {},
-                   ["Use the inverse: %s ÷ %d = %s." % (_c(a * b), b, _c(a))])
+        digits = list(str(a * b))
+        k = random.randint(1, len(digits) - 2)
+        shown = digits[:]
+        shown[k] = "?"
+        return _tb("One digit of this long multiplication has been rubbed out:   %s × %d = %s. "
+                   "What is the missing digit?" % (_c(a), b, "".join(shown)), int(digits[k]), "int", {},
+                   ["%s × %d = %s + %s = %s." % (_c(a), b, _c(a * (b % 10)), _c(a * (b // 10) * 10), _c(a * b)),
+                    "The missing digit is %s." % digits[k]])
 
     def t_inverse():
+        # a known product used to reach the next one: one more lot of the 4-digit number
         a, b = _pair()
-        return _tb("%s knows that %s × %d = %s. What is %s ÷ %d?"
-                   % (pick(NAMES), _c(a), b, _c(a * b), _c(a * b), b), a, "int", {},
-                   ["Division undoes multiplication.",
-                    "%s ÷ %d = %s." % (_c(a * b), b, _c(a))])
+        nb = b + pick([1, -1]) if b > 11 else b + 1
+        return _tb("%s knows that %s × %d = %s. Use this to work out %s × %d."
+                   % (pick(NAMES), _c(a), b, _c(a * b), _c(a), nb), a * nb, "int", {},
+                   ["%s × %d is one %s lot of %s than %s × %d."
+                    % (_c(a), nb, "more" if nb > b else "fewer", _c(a), _c(a), b),
+                    "%s %s %s = %s." % (_c(a * b), "+" if nb > b else "−", _c(a), _c(a * nb))])
 
     def t_compare():
         a, b = _pair()
@@ -2620,14 +2614,17 @@ def _(d=1):
                     "%d are left over." % (a % b)])
 
     def t_check():
+        # a slip to put right: the quotient is one too small, so the remainder is bigger than the divisor
         a, b = _pair()
-        return _tb("%s divides %s by %d and gets %s remainder %d. Multiply and add "
-                   "to check: what does %d × %s + %d come to?"
-                   % (pick(NAMES), _c(a), b, _c(a // b), a % b, b, _c(a // b), a % b),
-                   a, "int", {},
-                   ["%d × %s = %s." % (b, _c(a // b), _c(b * (a // b))),
-                    "%s + %d = %s, the starting number."
-                    % (_c(b * (a // b)), a % b, _c(a))])
+        q, r = divmod(a, b)
+        who = pick(NAMES)
+        return _wq("%s works out %s ÷ %d and gets %s remainder %d. That cannot be right: the remainder is "
+                   "bigger than %d. What is the correct answer? Type it like 23 r 4."
+                   % (who, _c(a), b, _c(q - 1), r + b, b), "%d r %d" % (q, r),
+                   ["A remainder must be smaller than the number you divide by.",
+                    "%d is one more lot of %d with %d over, so the answer is one more: %s r %d."
+                    % (r + b, b, r, _c(q), r),
+                    _short_steps(a, b)], "e.g. 23 r 4")
 
     def t_missing_dividend():
         a, b = _pair()
@@ -2701,9 +2698,9 @@ def _(d=1):
                      "%s ÷ %d = %s." % (_c(vals[i]), b, _c(vals[i] // b))])
 
     def t_div_pattern():
-        b = random.randint(2, 9)
-        q = random.randint(2, 9)
-        steps = {0: 3, 1: 4, 2: 5}[d]
+        b = random.randint(3, 9)
+        q = random.randint(*{0: (11, 25), 1: (12, 40), 2: (21, 99)}[d])
+        steps = {0: 3, 1: 4, 2: 4}[d]
         lines = []
         for i in range(steps - 1):
             x = q * b * (10 ** i)
@@ -2718,34 +2715,31 @@ def _(d=1):
                     "is ten times as large.",
                     "%s ÷ %d = %s." % (_c(last), b, _c(last // b))])
 
+    def _zero_quotient():
+        """A dividend whose quotient has a 0 inside (703, 4,060): the place a 0 must be written."""
+        b = random.randint(*{0: (3, 6), 1: (3, 9), 2: (6, 9)}[d])
+        lo, hi = {0: (100, 999), 1: (1000, 9999), 2: (1000, 9999)}[d]
+        q = 0
+        while not (lo <= q * b < hi - b and "0" in str(q)[1:]):
+            q = random.randint(lo // b + 1, hi // b - 1)
+            q = int(str(q)[0] + "0" + str(q)[2:]) if len(str(q)) > 2 else q
+        return q * b + random.randint(1, b - 1), b
+
     def t_div_zeros():
-        if d == 0:
-            b = random.randint(2, 9) * 10
-            q = random.randint(2, 9)
-        elif d == 1:
-            b = random.randint(2, 9) * 100
-            q = random.randint(2, 9) * 10
-        else:
-            b = random.randint(11, 49) * 10
-            q = random.randint(2, 9) * 100
-        a = b * q
-        zb = len(str(b)) - len(str(b).rstrip("0"))
-        return _tb("Both of these numbers end in zeros. Work out:   %s ÷ %s"
-                   % (_c(a), _c(b)), q, "int", {},
-                   ["Cross out %d zero%s from the end of each number: %s ÷ %s."
-                    % (zb, "" if zb == 1 else "s", _c(a // (10 ** zb)),
-                       _c(b // (10 ** zb))),
-                    "%s ÷ %s = %s." % (_c(a), _c(b), _c(q))])
+        a, b = _zero_quotient()
+        q, r = divmod(a, b)
+        return _wq("Take care with the zeros. Work out %s ÷ %d by short division. Type the answer with its "
+                   "remainder, like 23 r 4." % (_c(a), b), "%d r %d" % (q, r),
+                   [_short_steps(a, b), "So %s ÷ %d = %s r %d." % (_c(a), b, _c(q), r)], "e.g. 23 r 4")
 
     def t_div_zeros_word():
-        b = random.randint(2, 9) * (100 if d else 10)
-        q = random.randint(2, 9) * (10 if d else 1)
-        a = b * q
+        a, b = _zero_quotient()
         thing = pick(_OBJ)
-        return _tb("A warehouse divides %s %s equally into packs of %s. Both "
-                   "numbers end in zeros. How many packs are made?"
-                   % (_c(a), thing, _c(b)), q, "int", {"unit": "packs"},
-                   ["%s ÷ %s = %s." % (_c(a), _c(b), _c(q))])
+        return _tb("A warehouse packs %s %s into boxes of %d. How many boxes can be filled completely?"
+                   % (_c(a), thing, b), a // b, "int", {"unit": "boxes"},
+                   [_short_steps(a, b),
+                    "%s boxes are full and %s left over." % (_c(a // b), ("%d %s are" % (a % b, thing))
+                                                               if a % b > 1 else "1 is")])
 
     return _pick_t([t_quotient, t_remainder, t_exact, t_full_boxes, t_left_over,
                     t_check, t_missing_dividend, t_divides_exactly, t_money,
@@ -2838,10 +2832,16 @@ def _(d=1):
                     "There are %s full boxes." % _c(a // b)])
 
     def t_missing():
+        # a digit of the quotient is hidden: the long division has to be done to find it
         a, b = _pair(exact=True)
-        return _tb("Find the missing number:   ___ ÷ %d = %s" % (b, _c(a // b)),
-                   a, "int", {},
-                   ["%d × %s = %s." % (b, _c(a // b), _c(a))])
+        q = str(a // b)
+        k = random.randint(0, len(q) - 1)
+        shown = q[:k] + "?" + q[k + 1:]
+        return _tb("In this long division one digit of the answer is hidden:   %s ÷ %d = %s. "
+                   "What is the hidden digit?" % (_c(a), b, shown), int(q[k]), "int", {},
+                   ["%s ÷ %d = %s." % (_c(a), b, _c(a // b)),
+                    "Check: %d × %s = %s." % (b, _c(a // b), _c(a)),
+                    "The hidden digit is %s." % q[k]])
 
     def t_price():
         b = random.randint(*{0: (11, 20), 1: (12, 48), 2: (25, 49)}[d])
@@ -2852,12 +2852,15 @@ def _(d=1):
                    ["£%s ÷ %d = £%s." % (_c(total), b, _c(each))])
 
     def t_check():
+        # a slip to put right: the quotient is one too small, so the remainder is bigger than the divisor
         a, b = _pair()
-        return _tb("%s divides %s by %d and gets %s remainder %d. Check it: what is "
-                   "%d × %s + %d?" % (pick(NAMES), _c(a), b, _c(a // b), a % b,
-                                      b, _c(a // b), a % b), a, "int", {},
-                   ["%d × %s = %s." % (b, _c(a // b), _c(b * (a // b))),
-                    "%s + %d = %s." % (_c(b * (a // b)), a % b, _c(a))])
+        q, r = divmod(a, b)
+        return _wq("%s works out %s ÷ %d by long division and gets %s remainder %d. The remainder is "
+                   "bigger than %d, so the answer is wrong. What is the correct answer? Type it like 23 r 4."
+                   % (pick(NAMES), _c(a), b, _c(q - 1), r + b, b), "%d r %d" % (q, r),
+                   ["A remainder must be smaller than the number you divide by.",
+                    "%d is one more lot of %d with %d over, so the answer is %s r %d." % (r + b, b, r, _c(q), r),
+                    "Check: %d × %s + %d = %s." % (b, _c(q), r, _c(a))], "e.g. 23 r 4")
 
     def t_table():
         b = _b()
@@ -2885,8 +2888,8 @@ def _(d=1):
                    rule="÷ %d" % b)
 
     def t_strip():
-        b = random.randint(*{0: (3, 6), 1: (3, 12), 2: (11, 19)}[d])
-        q = random.randint(*{0: (12, 99), 1: (120, 800), 2: (120, 9999 // b)}[d])
+        b = random.randint(*{0: (11, 14), 1: (12, 18), 2: (13, 19)}[d])      # a two-digit divisor at every tier
+        q = random.randint(*{0: (12, 70), 1: (60, 9999 // b), 2: (120, 9999 // b)}[d])
         return _strip("The bar shows %s shared into %d equal parts. How big is one "
                       "part?" % (_c(q * b), b), b, "?", _c(q * b), "part", q,
                       ["%s ÷ %d = %s." % (_c(q * b), b, _c(q))])
@@ -2979,20 +2982,30 @@ def _(d=1):
             a, b = random.randint(1000001, 4999999), random.randint(1000001, 4999999)
         else:
             a, b = _op(d), _op(d)
-        return _tb("%s works out %s + %s = %s. Which subtraction checks this? Type "
-                   "the answer to %s − %s." % (pick(NAMES), _c(a), _c(b), _c(a + b),
-                                               _c(a + b), _c(b)), a, "int", {},
-                   ["%s − %s = %s, which is the number we started with."
-                    % (_c(a + b), _c(b), _c(a))])
+        got = a + b
+        if random.random() < 0.5:                 # the written total is wrong about half the time
+            got += pick([1, -1]) * 10 ** random.randint(1, len(str(got)) - 2)
+        who = pick(NAMES)
+        return _tb("%s works out %s + %s and writes %s. Check it with the inverse: work out %s − %s."
+                   % (who, _c(a), _c(b), _c(got), _c(got), _c(b)), got - b, "int", {},
+                   ["%s − %s = %s." % (_c(got), _c(b), _c(got - b)),
+                    ("That is the number %s started with, %s, so the total is right." % (who, _c(a)))
+                    if got == a + b else
+                    ("That is not %s, the number %s started with, so the total is wrong: %s + %s = %s."
+                     % (_c(a), who, _c(a), _c(b), _c(a + b)))])
 
     def t_inverse_mult():
         a = random.randint(*{0: (100, 999), 1: (1000, 9999), 2: (1000, 9999)}[d])
         b = random.randint(*{0: (3, 9), 1: (12, 49), 2: (51, 99)}[d])
-        return _tb("A calculation gives %s × %d = %s. Use the inverse to check it: "
-                   "what is %s ÷ %d?" % (_c(a), b, _c(a * b), _c(a * b), b),
-                   a, "int", {},
-                   ["%s ÷ %d = %s, which is the number we started with."
-                    % (_c(a * b), b, _c(a))])
+        q = a
+        if random.random() < 0.5:                 # the written product is wrong about half the time
+            q += (1 if a < 200 else pick([1, -1])) * 10 ** random.randint(1, len(str(a)) - 2)
+        return _tb("A calculation of %s × %d gives %s. Use the inverse to check it: what is %s ÷ %d?"
+                   % (_c(a), b, _c(q * b), _c(q * b), b), q, "int", {},
+                   ["%s ÷ %d = %s." % (_c(q * b), b, _c(q)),
+                    ("That is %s, the number multiplied, so the product is right." % _c(a)) if q == a else
+                    ("That is not %s, the number multiplied, so the product is wrong: %s × %d = %s."
+                     % (_c(a), _c(a), b, _c(a * b)))])
 
     def t_find_error():
         a, b = _op(d), _op(d)
@@ -3145,9 +3158,10 @@ def _(d=1):
         a = comp + (off if random.random() < 0.5 else -off)
         if a % b == 0:
             a += 1
-        return _tb("Estimate the quotient %s ÷ %d using compatible numbers. Replace "
-                   "%s with the compatible number %s, which divides exactly by %d, "
-                   "and work out the estimate." % (_c(a), b, _c(a), _c(comp), b),
+        how = ("Replace %s with the compatible number %s, which divides exactly by %d, and work out the "
+               "estimate." % (_c(a), _c(comp), b)) if d == 0 else \
+              ("Replace %s with the nearest multiple of %s, then divide." % (_c(a), _c(scale * b)))
+        return _tb("Estimate the quotient %s ÷ %d using compatible numbers. %s" % (_c(a), b, how),
                    comp // b, "int", {},
                    ["%s and %d are compatible numbers because %s ÷ %d has no "
                     "remainder." % (_c(comp), b, _c(comp), b),
@@ -3333,32 +3347,38 @@ def _(d=1):
     TF = {0: (3, 6), 1: (3, 12), 2: (6, 12)}[d]          # tables factors
     SM = {0: (2, 5), 1: (2, 9), 2: (6, 12)}[d]           # a small multiplier
 
+    def _sign(which):
+        """(a ___ b) × c = r with exactly one of the four operations making it true: the bracket is worked
+        backwards from r first, so this is an expression with two operations, not a single fact."""
+        for _ in range(60):
+            a, b, c = random.randint(*TF), random.randint(*TF), random.randint(*SM)
+            if which == "divide":
+                a *= b
+            elif which == "subtract" and a <= b:
+                a += b
+            vals = {"add": (a + b) * c, "subtract": (a - b) * c if a > b else None, "multiply": a * b * c,
+                    "divide": a // b * c if a % b == 0 else None}
+            r = vals[which]
+            if r and list(vals.values()).count(r) == 1:
+                break
+        sym = {"add": "+", "subtract": "−", "multiply": "×", "divide": "÷"}[which]
+        return _wq("Which operation makes this true?   (%d ___ %d) × %d = %d   (type 'add', 'subtract', "
+                   "'multiply' or 'divide')" % (a, b, c, r), which,
+                   ["Work backwards from the answer: %d ÷ %d = %d, so the bracket must be worth %d."
+                    % (r, c, r // c, r // c),
+                    "%d %s %d = %d, and no other operation gives %d." % (a, sym, b, r // c, r // c)], SIGNS)
+
     def t_sign_add():
-        a, b = random.randint(3, HI), random.randint(3, HI)
-        return _wq("Which operation makes this true?   %d ___ %d = %d   (type "
-                   "'add', 'subtract', 'multiply' or 'divide')" % (a, b, a + b),
-                   "add", ["%d + %d = %d." % (a, b, a + b)], SIGNS)
+        return _sign("add")
 
     def t_sign_sub():
-        b = random.randint(3, HI - 1)
-        a = random.randint(HI, HI * 2)
-        if a % b == 0:                    # else a ÷ b could also fit
-            a += 1
-        return _wq("Which operation makes this true?   %d ___ %d = %d   (type "
-                   "'add', 'subtract', 'multiply' or 'divide')" % (a, b, a - b),
-                   "subtract", ["%d − %d = %d." % (a, b, a - b)], SIGNS)
+        return _sign("subtract")
 
     def t_sign_mult():
-        a, b = random.randint(*TF), random.randint(*TF)
-        return _wq("Which operation makes this true?   %d ___ %d = %d   (type "
-                   "'add', 'subtract', 'multiply' or 'divide')" % (a, b, a * b),
-                   "multiply", ["%d × %d = %d." % (a, b, a * b)], SIGNS)
+        return _sign("multiply")
 
     def t_sign_div():
-        b, q = random.randint(*TF), random.randint(*TF)
-        return _wq("Which operation makes this true?   %d ___ %d = %d   (type "
-                   "'add', 'subtract', 'multiply' or 'divide')" % (q * b, b, q),
-                   "divide", ["%d ÷ %d = %d." % (q * b, b, q)], SIGNS)
+        return _sign("divide")
 
     def t_product_minus():
         a, b = random.randint(*TF), random.randint(*TF)
@@ -3660,14 +3680,17 @@ def _(d=1):
         counts = random.sample(range(2, 10), 4)
         vals = [cc * key for cc in counts]
         i, j = sorted(random.sample(range(4), 2))
-        return _pict("The pictogram shows tickets sold. How many more tickets were "
-                     "sold at %s than at %s?"
-                     % (cats[i] if vals[i] >= vals[j] else cats[j],
-                        cats[j] if vals[i] >= vals[j] else cats[i]),
-                     cats, vals, key, "★", abs(vals[i] - vals[j]),
-                     ["%s sold %d and %s sold %d."
-                      % (cats[i], vals[i], cats[j], vals[j]),
-                      "The difference is %d." % abs(vals[i] - vals[j])])
+        if vals[i] < vals[j]:
+            i, j = j, i
+        price = random.randint(*{0: (2, 5), 1: (3, 9), 2: (6, 15)}[d])
+        diff = vals[i] - vals[j]
+        return _pict("The pictogram shows tickets sold. Every ticket costs £%d. How much more money was taken "
+                     "at %s than at %s, in pounds?" % (price, cats[i], cats[j]),
+                     cats, vals, key, "★", diff * price,
+                     ["Each ★ stands for %d tickets: %s sold %d and %s sold %d." % (key, cats[i], vals[i],
+                                                                                  cats[j], vals[j]),
+                      "%d − %d = %d more tickets." % (vals[i], vals[j], diff),
+                      "%d × £%d = £%s." % (diff, price, _c(diff * price))])
 
     def t_strip():
         parts = R((3, 5), (3, 8), (6, 12))
@@ -3938,12 +3961,21 @@ def _(d=1):
                         -(-vals[i] // per))])
 
     def t_strip():
+        # the bar gives one group's share; the remainder is then interpreted (boxes are needed for every item)
         parts = R((2, 5), (3, 9), (6, 12))
         each = R((10, 50), (20, 200), (100, 800))
-        return _strip("The bar shows %s items shared equally into %d groups. How "
-                      "many items are in each group?" % (_c(parts * each), parts),
-                      parts, "?", _c(parts * each), "part", each,
-                      ["%s ÷ %d = %s." % (_c(parts * each), parts, _c(each))])
+        box = random.randint(*{0: (3, 6), 1: (4, 9), 2: (6, 12)}[d])
+        if each % box == 0:
+            each += 1
+        need = -(-each // box)
+        return _strip("The bar shows %s cupcakes shared equally between %d classes. Each class packs its "
+                      "cupcakes into boxes that hold %d. How many boxes does one class need so that every "
+                      "cupcake is packed?" % (_c(parts * each), parts, box),
+                      parts, "?", _c(parts * each), "part", need,
+                      ["%s ÷ %d = %s cupcakes for each class." % (_c(parts * each), parts, _c(each)),
+                       "%s ÷ %d = %s remainder %d." % (_c(each), box, _c(each // box), each % box),
+                       "The %d left over still need a box, so one class needs %s boxes."
+                       % (each % box, _c(need))])
 
     return _pick_t([t_coaches, t_full_boxes, t_left_over, t_how_many_more,
                     t_money_left, t_fraction, t_rounded, t_reasonable, t_lifts],

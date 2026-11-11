@@ -416,8 +416,17 @@ def _(d=1):
     k = random.randrange(4)
 
     def t_total():
-        return _dt("The frequency table shows the %s of a class. How many pupils are there?" % topic, ["Choice", "Frequency"],
-                   [[c, n] for c, n in zip(cats, v)], sum(v), ["%s = %d." % (" + ".join(map(str, v)), sum(v))])
+        # a percentage of the class: the total first, then one frequency out of it
+        tot = pick(_by(d, [20, 25], [20, 25, 40, 50], [40, 50, 80]))
+        while True:
+            cuts = sorted(random.sample(range(1, tot), 3))
+            f = [b - a for a, b in zip([0] + cuts, cuts + [tot])]
+            if (100 * f[k]) % tot == 0:
+                break
+        return _dt("The frequency table shows the %s of a class. What percentage of the class chose %s? Give the number only."
+                   % (topic, cats[k]), ["Choice", "Frequency"], [[c, n] for c, n in zip(cats, f)], 100 * f[k] // tot,
+                   ["The class has %s = %d pupils." % (" + ".join(map(str, f)), tot),
+                    "%d out of %d = %d ÷ %d × 100 = %d%%." % (f[k], tot, f[k], tot, 100 * f[k] // tot)])
 
     def t_missing_freq():
         rows = [[c, n] for c, n in zip(cats, v)] + [["Total", sum(v)]]
@@ -440,9 +449,15 @@ def _(d=1):
             return _dt("The table shows the number of goals a team scored in each match. In how many matches did they score "
                        "%d or more goals?" % g, ["Goals in a match", "Number of matches"], [[i, n] for i, n in enumerate(f)],
                        sum(f[g:]), ["%s = %d." % (" + ".join(map(str, f[g:])), sum(f[g:]))])
-        return _dt("The table shows the number of goals a team scored in each match. How many matches did they play?",
-                   ["Goals in a match", "Number of matches"], [[g, n] for g, n in enumerate(f)], sum(f),
-                   ["Add the frequencies: %d." % sum(f)])
+        # the mean from a frequency table: total goals ÷ number of matches, a whole number or one decimal place
+        while (10 * sum(g * n for g, n in enumerate(f))) % sum(f):
+            f = [random.randint(1, _by(d, 5, 8, 12)) for _ in range(_by(d, 3, 5, 6))]
+        tg, nm = sum(g * n for g, n in enumerate(f)), sum(f)
+        return _dt("The table shows the number of goals a team scored in each match. What is the mean number of goals per "
+                   "match?", ["Goals in a match", "Number of matches"], [[g, n] for g, n in enumerate(f)],
+                   _ds(Decimal(tg) / nm), ["Total goals: %s = %d." % (" + ".join("%d × %d" % (g, n) for g, n in enumerate(f)), tg),
+                                           "Matches: %d. Mean = %d ÷ %d = %s." % (nm, tg, nm, _ds(Decimal(tg) / nm))],
+                   atype="num")
 
     def t_grouped():
         groups = ["0–9", "10–19", "20–29", "30–39", "40–49"]
@@ -469,34 +484,32 @@ def _(d=1):
             return _bar("The bar chart shows how many books were borrowed each day. How many books were borrowed altogether on "
                         "the days when more than %d were borrowed?" % lim, days, vals, sum(over),
                         ["Bars above %d: %s." % (lim, ", ".join(map(str, over)) or "none"), "Total %d." % sum(over)])
-        return _bar("The bar chart shows how many books were borrowed each day. On how many days were more than %d books "
-                    "borrowed?" % lim, days, vals, len(over),
-                    ["Bars above %d: %s." % (lim, ", ".join(dd for dd, x in zip(days, vals) if x > lim) or "none")])
+        vals[-1] += (-sum(vals)) % 5
+        return _bar("The bar chart shows how many books were borrowed each day. What is the mean number of books borrowed "
+                    "per day?", days, vals, sum(vals) // 5,
+                    ["%s = %d books in 5 days." % (" + ".join(map(str, vals)), sum(vals)),
+                     "Mean = %d ÷ 5 = %d." % (sum(vals), sum(vals) // 5)])
 
     def t_bar_two_smallest():
         s = sorted(v)
         if s[1] == s[2]:
             v[v.index(s[2])] += 1
             s = sorted(v)
-        return _bar("The bar chart shows the %s of a class. How many pupils are in the two smallest groups together?" % topic,
-                    cats, v, s[0] + s[1], ["%d + %d = %d." % (s[0], s[1], s[0] + s[1])])
+        f = Fraction(s[0] + s[1], sum(v))
+        return _bar("The bar chart shows the %s of a class. What fraction of the class is in the two smallest groups "
+                    "together? Simplest form." % topic, cats, v, _fs(f),
+                    ["The two smallest groups: %d + %d = %d. The class: %s = %d." % (s[0], s[1], s[0] + s[1],
+                                                                                   " + ".join(map(str, v)), sum(v)),
+                     "%d out of %d = %s." % (s[0] + s[1], sum(v), _fs(f))], atype="frac")
 
     def t_line_read():
         hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm"]
         t = [random.randint(8, 24) // _by(d, 2, 1, 1) * _by(d, 2, 1, 1) for _ in hours]      # easy: even readings
-        i = random.randrange(6)
-        if d == 2:      # hard: read two points and find the change
-            j = random.choice([x for x in range(6) if x != i and t[x] != t[i]] or [i])
-            i, j = min(i, j), max(i, j)
-            if t[i] == t[j]:
-                t[j] += 3
-            word = "rise" if t[j] > t[i] else "fall"
-            return _lg("The line graph shows the temperature during a day. By how many degrees did the temperature %s between "
-                       "%s and %s?" % (word, hours[i], hours[j]), list(zip(hours, t)), abs(t[j] - t[i]),
-                       ["%s: %d °C, %s: %d °C." % (hours[i], t[i], hours[j], t[j]), "Difference %d °C." % abs(t[j] - t[i])],
-                       "°C", "Time")
-        return _lg("The line graph shows the temperature during a day. What was the temperature at %s, in °C?" % hours[i],
-                   list(zip(hours, t)), t[i], ["Read up from %s: %d °C." % (hours[i], t[i])], "°C", "Time")
+        t[-1] += (-sum(t)) % 6
+        return _lg("The line graph shows the temperature during a day. What was the mean of the six temperatures, in °C?",
+                   list(zip(hours, t)), sum(t) // 6,
+                   ["Read every point: %s = %d." % (" + ".join(map(str, t)), sum(t)), "Mean = %d ÷ 6 = %d °C." % (sum(t), sum(t) // 6)],
+                   "°C", "Time")
 
     def t_line_range():
         hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm"][: _by(d, 4, 6, 8)]
@@ -516,26 +529,27 @@ def _(d=1):
                    ["%d − %d = %d." % (max(t), min(t), max(t) - min(t))], "°C", "Time")
 
     def t_two_classes():
-        a, b = [random.randint(2, _by(d, 10, 15, 25)) for _ in cats], [random.randint(2, _by(d, 10, 15, 25)) for _ in cats]
-        if a[k] == b[k]:
-            b[k] += 3
-        if d == 2:      # hard: compare the class totals
-            if sum(a) == sum(b):
-                b[k] += 1
-            return _dt("The table shows the %s of two classes. How many more pupils are there in %s than in %s altogether?"
-                       % (topic, "7A" if sum(a) > sum(b) else "7B", "7B" if sum(a) > sum(b) else "7A"),
-                       ["Choice", "7A", "7B"], [[c, x, y] for c, x, y in zip(cats, a, b)], abs(sum(a) - sum(b)),
-                       ["7A: %d, 7B: %d." % (sum(a), sum(b)), "%d − %d = %d." % (max(sum(a), sum(b)), min(sum(a), sum(b)),
-                                                                              abs(sum(a) - sum(b)))])
-        return _dt("The table shows the %s of two classes. How many more pupils in %s than in %s chose %s?"
-                   % (topic, "7A" if a[k] > b[k] else "7B", "7B" if a[k] > b[k] else "7A", cats[k]),
-                   ["Choice", "7A", "7B"], [[c, x, y] for c, x, y in zip(cats, a, b)], abs(a[k] - b[k]),
-                   ["%d − %d = %d." % (max(a[k], b[k]), min(a[k], b[k]), abs(a[k] - b[k]))])
+        # compare proportions, not counts: 7A has 25 pupils and 7B has 20 (a harder pair: 30 and 40)
+        def split(tot):
+            cuts = sorted(random.sample(range(1, tot), 3))
+            return [y - x for x, y in zip([0] + cuts, cuts + [tot])]
+        na, nb = (25, 20) if d < 2 else (40, 50)
+        a, b = split(na), split(nb)
+        while a[k] * nb == b[k] * na:
+            a, b = split(na), split(nb)
+        pa, pb = Fraction(100 * a[k], na), Fraction(100 * b[k], nb)
+        return _dt("The table shows the %s of two classes. 7A has %d pupils and 7B has %d. Which class has the greater "
+                   "PERCENTAGE of pupils who chose %s? (type 7A or 7B)" % (topic, na, nb, cats[k]),
+                   ["Choice", "7A", "7B"], [[c, x, y] for c, x, y in zip(cats, a, b)], "7A" if pa > pb else "7B",
+                   ["7A: %d out of %d = %s%%. 7B: %d out of %d = %s%%." % (a[k], na, _ds(Decimal(pa.numerator) / pa.denominator),
+                                                                        b[k], nb, _ds(Decimal(pb.numerator) / pb.denominator)),
+                    "The classes are different sizes, so compare percentages: %s has the greater one." % ("7A" if pa > pb else "7B")],
+                   atype="str")
 
     def t_pictogram_half():
         # easy: whole symbols only; medium: halves; hard: halves of bigger keys, and comparing two rows
-        key = pick(_by(d, [2, 5, 10], [2, 4, 6, 10], [4, 6, 8, 12]))
-        vals = [key * random.randint(1, 6) + (key // 2 if d and random.random() < 0.5 else 0) for _ in cats]
+        key = pick(_by(d, [2, 4, 10], [2, 4, 6, 10], [4, 6, 8, 12]))
+        vals = [key * random.randint(1, 6) + (key // 2 if random.random() < 0.5 else 0) for _ in cats]
         spec = {"categories": cats, "values": vals, "key": key, "symbol": "star", "unit": "people"}
         if d == 2:
             j = random.choice([x for x in range(4) if x != k])
@@ -550,8 +564,7 @@ def _(d=1):
         return {"prompt": "The pictogram shows the %s of a group. Each symbol stands for %d people. How many people chose %s?"
                           % (topic, key, cats[k]), "component": "pictogram",
                 "spec": spec, "answer": vals[k], "answer_type": "int",
-                "solution": ["Whole symbols × %d, and half a symbol is %d: %d." % (key, key // 2, vals[k]) if d else
-                             "Count the symbols and multiply by %d: %d." % (key, vals[k])]}
+                "solution": ["Whole symbols × %d, and half a symbol is %d: %d." % (key, key // 2, vals[k])]}
 
     def t_modal_group():
         groups = ["0–9", "10–19", "20–29", "30–39", "40–49"][: _by(d, 3, 4, 5)]

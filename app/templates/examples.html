@@ -3,7 +3,7 @@
 <p class="small" style="margin:0 0 6px"><a href="/children/{{ pupil._id }}#skills-{{ subject }}">← {{ pupil.name }}'s progress</a></p>
 <h1 class="rise" style="margin-bottom:.2em">{{ strand_name }}</h1>
 <p class="mut" style="margin-top:0">{{ subject_title }} · Year {{ year }} · example questions</p>
-<div class="card small" data-testid="examples-note">These are questions of this topic as {{ pupil.name }} gets them, with the answers. Only grown-ups see this page, and nothing here is recorded: looking doesn't change {{ pupil.name }}'s practice or progress.</div>
+<div class="card small" data-testid="examples-note">These are questions of this topic as {{ pupil.name }} gets them, with the answers. Only grown-ups see this page, and nothing here is recorded: looking doesn't change {{ pupil.name }}'s practice or progress.{% if subject == 'science' %} <span data-testid="left-out">The questions follow the national curriculum in England. {{ LEFT_OUT }}</span>{% endif %}</div>
 {% if words %}<details class="card" data-testid="strand-key-words"><summary style="cursor:pointer;font-weight:700">Key words in {{ strand_name }} ({{ words|length }})</summary>
   <dl class="small" style="margin:.5em 0 0">{% for t, line in words %}<dt style="font-weight:700;margin-top:.4em">{{ t }}</dt><dd style="margin:0">{{ line }}</dd>{% endfor %}</dl>
   <p class="small" style="margin:.6em 0 0"><a href="/children/{{ pupil._id }}/keywords?subject={{ subject }}">All {{ subject_title|lower }} key words</a></p></details>{% endif %}

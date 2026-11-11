@@ -96,6 +96,12 @@ def _(d=1):
     return _pick_t([t_value, t_place, t_count, t_partition, t_thousandths, t_relate], [t_line])
 
 
+def _then_simplest(n, den):
+    """'54/100 = 27/50': a fraction from a decimal, finished in its simplest form."""
+    f = Fraction(n, den)
+    return "%d/%d" % (n, den) if f.denominator == den else "%d/%d = %s" % (n, den, _fs(f))
+
+
 @skill("Y5.6.b", "Write decimals as fractions", S6)
 def _(d=1):
     d = _d(d)
@@ -111,7 +117,7 @@ def _(d=1):
 
     def t_fraction():
         return _fq("Write %s as a fraction." % _ds(x), Fraction(n, 10 ** dp),
-                   ["%s = %d/%d." % (_ds(x), n, 10 ** dp)])
+                   ["%s = %s." % (_ds(x), _then_simplest(n, 10 ** dp))])
 
     def t_simplest():
         f = Fraction(n, 10 ** dp)
@@ -132,11 +138,11 @@ def _(d=1):
         hund = int(x * 100)
         return _area("This square is one whole split into 100 parts. Shade it to show %s." % _ds(x),
                      {"mode": "fraction", "parts": 100}, "%d/100" % hund,
-                     ["%s = %d/100." % (_ds(x), hund)], atype="frac")
+                     ["%s = %s." % (_ds(x), _then_simplest(hund, 100))], atype="frac")
 
     def t_race():
         return _fq("%s has run %s of a race. What fraction of the race is that?" % (_who(), _ds(x)), Fraction(n, 10 ** dp),
-                   ["%s = %d/%d." % (_ds(x), n, 10 ** dp)])
+                   ["%s = %s." % (_ds(x), _then_simplest(n, 10 ** dp))])
 
     def t_yes_no():
         right = random.random() < 0.5
@@ -147,7 +153,7 @@ def _(d=1):
     def t_money():
         p = random.randint(1, 99)
         return _fq("£%s is what fraction of £1?" % format(Decimal(p) / 100, ".2f"), Fraction(p, 100),
-                   ["£1 = 100p, so %dp is %d/100 of £1." % (p, p)])
+                   ["£1 = 100p, so %dp is %s of £1." % (p, _then_simplest(p, 100))])
 
     def t_count():
         name = DPLACE[dp]
@@ -820,7 +826,7 @@ def _(d=1):
                    ["%d/%d = %d/100 = %d%%." % (sc, den, sc * 100 // den, sc * 100 // den)])
 
     def t_pie():
-        a = pick(_by(d, [50, 25], [50, 25, 20, 10], [50, 25, 20, 10]))
+        a = pick(_by(d, [50, 25], [25, 20, 10, 75], [10, 20, 40, 60, 75]))
         rest = 100 - a
         b = rest // 2
         slices = [["Football", a], ["Swimming", b], ["Tennis", rest - b]]
@@ -862,10 +868,14 @@ def _(d=1):
                    ["%s = %s = %d%%." % (_fs(fs[r]), _ds(fs[r]), int(fs[r] * 100))], missing=[r, 2])
 
     def t_bar():
-        k = random.randint(1, 4)
-        return {"prompt": "The bar is split into 5 equal parts. Shade %d%% of it." % (k * 20),
-                "component": "fraction_bar", "spec": {"parts": 5, "mode": "shade"},
-                "answer": "%d/5" % k, "answer_type": "frac", "solution": ["%d%% = %d/5." % (k * 20, k)]}
+        parts = pick(_by(d, [5], [4, 5, 10], [4, 10, 20]))
+        k = random.randint(1, parts - 1)
+        pc_ = k * 100 // parts
+        return {"prompt": "The bar is split into %d equal parts. Shade %d%% of it." % (parts, pc_),
+                "component": "fraction_bar", "spec": {"parts": parts, "mode": "shade"},
+                "answer": "%d/%d" % (k, parts), "answer_type": "frac",
+                "solution": ["Each part is 100 ÷ %d = %d%%." % (parts, 100 // parts),
+                             "%d%% ÷ %d%% = %d, so shade %s." % (pc_, 100 // parts, k, _pl(k, "part"))]}
 
     def t_class():
         den = pick(_by(d, [10, 20], [20, 25, 50], [25, 50]))
@@ -1496,7 +1506,9 @@ def _(d=1):
 @skill("Y5.7.f", "Volume of cuboids using 1 cm³ cubes", S7)
 def _(d=1):
     d = _d(d)
-    l, w, h = random.randint(2, _by(d, 4, 6, 10)), random.randint(2, _by(d, 3, 5, 8)), random.randint(1, _by(d, 3, 5, 6))
+    # at least 2 cubes every way (a cuboid 1 tall is a flat layer, and "how tall?" would always be 1); bigger with the tier
+    l, w, h = (random.randint(_by(d, 2, 3, 4), _by(d, 4, 6, 10)), random.randint(2, _by(d, 3, 5, 8)),
+               random.randint(2, _by(d, 3, 5, 7)))
 
     def t_count():
         return _tb("A cuboid is built from 1 cm cubes: %d cubes long, %d wide and %d tall. How many cubes "
@@ -1690,17 +1702,20 @@ def _(d=1):
                    ["%d × 12 = %d." % (y, 12 * y)])
 
     def t_month_days():
-        if d == 2:                                     # hard: two months together
-            ms = [("January", 31), ("February", 28), ("March", 31), ("April", 30), ("May", 31), ("June", 30),
-                  ("July", 31), ("August", 31), ("September", 30), ("October", 31), ("November", 30), ("December", 31)]
-            i = random.randint(2, 10)
-            (a, da), (b, db) = ms[i], ms[i + 1]
-            return _tb("How many days are there in %s and %s together?" % (a, b), da + db, "int", {"unit": "days"},
-                       ["%s has %d days and %s has %d." % (a, da, b, db), "%d + %d = %d." % (da, db, da + db)])
-        m, days = pick([("April", 30), ("June", 30), ("September", 30), ("November", 30), ("January", 31),
-                        ("March", 31), ("July", 31), ("October", 31), ("December", 31)])
-        return _tb("How many days are there in %s?" % m, days, "int", {"unit": "days"},
-                   ["30 days has September, April, June and November."])
+        # months to days (2 months, then 3), and at the hardest tier on to whole weeks: Year 3 knows the days in
+        # one month; Year 5 converts with them
+        ms = [("January", 31), ("February", 28), ("March", 31), ("April", 30), ("May", 31), ("June", 30),
+              ("July", 31), ("August", 31), ("September", 30), ("October", 31), ("November", 30), ("December", 31)]
+        k = _by(d, 2, 3, 3)
+        i = random.randint(2, 12 - k)                  # never February, so no leap-year question
+        run = ms[i:i + k]
+        tot = sum(x for _, x in run)
+        names = ", ".join(m for m, _ in run[:-1]) + " and " + run[-1][0]
+        why = ["%s: %s = %d days." % (names, " + ".join(str(x) for _, x in run), tot)]
+        if d == 2:
+            return _tb("How many COMPLETE weeks are there in %s together?" % names, tot // 7, "int", {"unit": "weeks"},
+                       why + ["%d ÷ 7 = %d remainder %d, so %d complete weeks." % (tot, tot // 7, tot % 7, tot // 7)])
+        return _tb("How many days are there in %s together?" % names, tot, "int", {"unit": "days"}, why)
 
     def t_leap():
         y = pick([2024, 2028, 2032, 2025, 2026, 2027, 2030])

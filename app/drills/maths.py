@@ -85,7 +85,7 @@ async def next_question(pupil: dict, focus: str | None = None, known: bool = Fal
     if reason == "known":
         diff = max(0, int(diff or 0) - 1)                # something they know, while a mistake waits: an easy one
     if reason == "new" and await maths_mastery.probe(pid, year, skill_key):
-        diff = 2                                         # placement: hard questions first (2 right in a row: secure)
+        diff = 2                                         # placement: hard questions first (3 right in a row, of 2 kinds: secure)
     # never the same question twice in a sitting
     recent = {d.get("prompt") async for d in db.maths_lab_q.find(
         {"pupil": pid, "created": {"$gt": datetime.datetime.utcnow() - datetime.timedelta(hours=REPEAT_HOURS)}},
@@ -147,7 +147,7 @@ async def next_question(pupil: dict, focus: str | None = None, known: bool = Fal
 async def check(pupil: dict, token: str, value, ms: int | None, idk: bool = False) -> dict | None:
     """idk: the child pressed "I don't know": a miss marked idk (not a guess, not rushed), with the answer and why."""
     pid = pupil["_id"]
-    served = await db.maths_lab_q.find_one({"_id": str(token or "")}, {"difficulty": 1})
+    served = await db.maths_lab_q.find_one({"_id": str(token or "")}, {"difficulty": 1, "shape": 1})
     if idk:
         value = ""
     res = await maths_engine.check(token, value, pid)
@@ -156,7 +156,7 @@ async def check(pupil: dict, token: str, value, ms: int | None, idk: bool = Fals
     if res.get("retry"):                 # a spelling slip: try again, nothing recorded yet
         return {"correct": False, "retry": True, "hint": res["hint"]}
     m = await maths_mastery.record_attempt(pid, res["skill"], res["correct"], value,
-                                           tier=(served or {}).get("difficulty"))
+                                           tier=(served or {}).get("difficulty"), shape=(served or {}).get("shape"))
     prompt = res.pop("prompt", "")
     # a right answer keeps its question (like), so it can put right an earlier mistake like it;
     # a mistake keeps how hard it was (dif), so the question that puts it right is as hard

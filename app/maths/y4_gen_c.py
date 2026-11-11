@@ -13,6 +13,7 @@
 import random
 from fractions import Fraction
 from .maths_engine import skill, pick, NAMES, n_words, money
+from .y4_money import pounds_from
 
 S4 = "4.4 Multiplication & division methods"
 S5 = "4.5 Fractions"
@@ -95,6 +96,11 @@ def _agread(prompt, parts, shaded, solution, answer=None, answer_type="frac",
     return {"prompt": prompt, "component": "area_grid", "spec": spec,
             "answer": answer if answer is not None else "%d/%d" % (shaded, parts),
             "answer_type": answer_type, "solution": solution}
+
+
+def _cnt(n, word):
+    """3 tens, 1 ten, 0 ones."""
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
 
 
 def _agarea(prompt, rows, cols, solution, answer=None):
@@ -400,32 +406,42 @@ def _(d=1):
         return _numq("Work out %d × %d using short multiplication." % (a, b),
                      a * b, part)
 
+    # the pictures stay small enough to draw (at most 25 columns), and grow with the tier like the sums
+    pic_r = min(b, {0: 4, 1: 6, 2: 8}[d])
+    pic_c = pick([c for c in range(*{0: (13, 20), 1: (14, 24), 2: (17, 26)}[d]) if c % 10])
+    pic_t, pic_o = (pic_c // 10) * 10, pic_c % 10
+
     def area_model():
-        r = random.randint(2, 5)
-        c = random.randint(11, 16)
-        return _agarea("Use the area model to work out %d × %d. Count all the "
-                       "squares — how many are there altogether?" % (r, c),
-                       r, c,
-                       ["The area model is %d rows of %d squares." % (r, c),
-                        "%d × %d = %d." % (r, c, r * c)])
+        r, c = pic_r, pic_c
+        return _agarea("Use the area model to work out %d × %d. Split the %d columns into %d and %d "
+                       "and add the two parts. How many squares are there altogether?"
+                       % (r, c, c, pic_t, pic_o), r, c,
+                       ["%d × %d = %d and %d × %d = %d." % (r, pic_t, r * pic_t, r, pic_o, r * pic_o),
+                        "%d + %d = %d." % (r * pic_t, r * pic_o, r * c)])
 
     def array_model():
-        r = random.randint(2, 6)
-        c = random.randint(10, 12)
-        return _arrayq("Build an array with %d rows of %d to model %d × %d, then "
-                       "type the total." % (r, c, r, c), r, c,
-                       ["%d rows of %d." % (r, c),
-                        "%d × %d = %d." % (r, c, r * c)])
+        # drawn, not built (Year 4 types its answers): the array asks for the product it shows
+        r, c = pic_r, pic_c
+        return {"prompt": "The array shows %d rows of %d counters. Work out %d × %d to find how many "
+                          "counters there are." % (r, c, r, c),
+                "component": "array", "spec": {"mode": "read", "rows": r, "cols": c},
+                "answer": r * c, "answer_type": "int",
+                "solution": ["%d × %d = %d and %d × %d = %d." % (r, pic_t, r * pic_t, r, pic_o, r * pic_o),
+                             "%d + %d = %d counters." % (r * pic_t, r * pic_o, r * c)]}
 
     def partial_products():
         return _numq("Use partitioning:  %d × %d = (%d × %d) + (%d × %d) = ___"
                      % (a, b, tens, b, ones, b), a * b, part)
 
     def carry_digit():
-        return _numq("In the short multiplication %d × %d, the ones are done "
-                     "first. What is %d × %d?" % (a, b, ones, b), ones * b,
-                     ["The ones digit of %d is %d." % (a, ones),
-                      "%d × %d = %d." % (ones, b, ones * b)])
+        if ones * b < 10:
+            return bare()
+        return _numq("In the short multiplication %d × %d, the ones are done first: %d × %d = %d. "
+                     "Which digit is carried into the tens column?" % (a, b, ones, b, ones * b),
+                     ones * b // 10,
+                     ["%d is %s and %s." % (ones * b, _cnt(ones * b // 10, "ten"), _cnt(ones * b % 10, "one")),
+                      "The ones digit, %d, is written in the ones column and %s carried."
+                      % (ones * b % 10, "1 ten is" if ones * b // 10 == 1 else "%d tens are" % (ones * b // 10))])
 
     def missing_factor():
         return _numq("Find the missing number:  %d × ___ = %d" % (a, a * b), b,
@@ -638,15 +654,10 @@ def _(d=1):
 @skill("Y4.4.d", "Divide a 2-digit number by a 1-digit number", S4)
 def _(d=1):
     d = _t(d)
-    if d == 0:
-        b = random.randint(2, 4)
-        k = random.randint(3, 9)
-    elif d == 1:
-        b = random.randint(3, 8)
-        k = random.randint(4, 12)
-    else:
-        b = random.randint(4, 9)
-        k = random.randint(7, 12)
+    # a 2-digit number whose answer is beyond the tables (72 ÷ 3 = 24), as Year 4 divides mentally;
+    # 9 ÷ 3 or 60 ÷ 5 are table facts (Y4.3.c)
+    b = random.randint(*{0: (2, 4), 1: (3, 6), 2: (4, 9)}[d])
+    k = random.randint(11, min({0: 25, 1: 30, 2: 49}[d], 99 // b))
     a = b * k
 
     def bare():
@@ -654,8 +665,11 @@ def _(d=1):
                      ["%d × %d = %d, so %d ÷ %d = %d." % (b, k, a, a, b, k)])
 
     def bare_other():
-        return _numq("Work out %d ÷ %d." % (a, k), b,
-                     ["%d × %d = %d, so %d ÷ %d = %d." % (k, b, a, a, k, b)])
+        tens = (a // b // 10) * 10
+        return _numq("Divide %d by %d." % (a, b), k,
+                     ["%d × %d = %d, and %d − %d = %d." % (tens, b, tens * b, a, tens * b, a - tens * b),
+                      "%d ÷ %d = %d, so %d ÷ %d = %d + %d = %d."
+                      % (a - tens * b, b, k - tens, a, b, tens, k - tens, k)])
 
     def partition():
         tens = (a // 10) * 10
@@ -672,7 +686,7 @@ def _(d=1):
 
     def array_model():
         # the array is drawn (Year 4 types, never builds): it asks for the division, not the total it shows
-        rows, cols = (b, k) if k <= 12 else (k, b)
+        rows, cols = b, k
         return {"prompt": "%d counters are shared into %d equal rows, as the array shows. How many counters are "
                           "in each row?" % (a, rows),
                 "component": "array", "spec": {"mode": "read", "rows": rows, "cols": cols},
@@ -681,12 +695,14 @@ def _(d=1):
                              "Check: %d × %d = %d counters." % (rows, cols, a)]}
 
     def equal_groups():
-        g, p = min(b, 8), min(k, 10)
-        return _egq("Show a division with the counters: %d counters are put into "
-                    "equal groups of %d. How many equal groups are there?"
-                    % (g * p, p), g, p, g,
-                    ["Make groups of %d: there are %d groups." % (p, g),
-                     "%d ÷ %d = %d groups." % (g * p, p, g)])
+        g, p = b, k
+        big = (k // 10) * 10 * b                 # 78 ÷ 6: 60 ÷ 6 = 10 and 18 ÷ 6 = 3
+        how = ["%d = %d + %d. %d ÷ %d = %d and %d ÷ %d = %d."
+               % (a, big, a - big, big, b, big // b, a - big, b, k % 10)] if k % 10 else []
+        return _egq("Show a division with the counters: %d counters are shared equally between "
+                    "%d groups. How many counters are in each group?"
+                    % (g * p, g), g, p, p,
+                    how + ["%d ÷ %d = %d in each group." % (g * p, g, p)])
 
     def word_share():
         who = pick(NAMES)
@@ -723,8 +739,8 @@ def _(d=1):
                         "%d ÷ %d = %d marbles each." % (a, b, k)])
 
     def io_div():
-        kk = random.randint(2, 9)
-        ins = sorted(random.sample([kk * m for m in range(2, 12)], 4))
+        kk = random.randint(3, 6)
+        ins = sorted(random.sample([kk * m for m in range(11, 99 // kk + 1)], 4))
         m = random.randrange(4)
         rows = [[i, i // kk] for i in ins]
         return _ioq("This table divides each In number by %d. Type the missing "
@@ -734,8 +750,7 @@ def _(d=1):
                     rule="÷ %d" % kk)
 
     def money_word():
-        each = random.randint(4, 12)
-        n = random.randint(3, 8)
+        each, n = k, b
         tot = each * n
         return _numq("%s is shared equally between %d children. How much does "
                      "each child get, in pence?" % (money(tot), n), each,
@@ -1030,9 +1045,10 @@ def _(d=1):
 @skill("Y4.4.g", "Multiplication word problems", S4)
 def _(d=1):
     d = _t(d)
-    n = _by_d(d, random.randint(2, 5), random.randint(3, 9), random.randint(4, 12))
-    per = _by_d(d, random.randint(3, 8), random.randint(4, 12),
-                random.randint(11, 32))
+    # Year 4 multiplies 2- and 3-digit numbers by 1 digit: tables facts to start, then 2-digit amounts
+    n = _by_d(d, random.randint(3, 6), random.randint(3, 9), random.randint(4, 9))
+    per = _by_d(d, random.randint(6, 12), random.randint(12, 40),
+                random.randint(25, 99))
 
     def correspondence():
         who = pick(NAMES)
@@ -1044,7 +1060,7 @@ def _(d=1):
 
     def scaling():
         who = pick(NAMES)
-        base = random.randint(6, 40)
+        base = _by_d(d, random.randint(6, 12), random.randint(12, 40), random.randint(25, 99))
         k = random.randint(3, 8)
         return _numq("A blue ribbon is %d cm long. A red ribbon is %d times as "
                      "long as the blue ribbon. How long is the red ribbon, in cm?"
@@ -1073,8 +1089,8 @@ def _(d=1):
                       "%d × %d = %dp." % (cost, m, cost * m)], unit="p")
 
     def rows_of():
-        rows = random.randint(6, 14)
-        cols = random.randint(8, 20)
+        rows = random.randint(6, 9) if d else random.randint(6, 12)
+        cols = random.randint(*{0: (6, 12), 1: (12, 25), 2: (15, 39)}[d])
         return _numq("A hall has %d rows of chairs with %d chairs in each row. "
                      "How many chairs are there altogether?" % (rows, cols),
                      rows * cols,
@@ -1085,7 +1101,7 @@ def _(d=1):
 
     def area_model():
         rows = random.randint(3, 8)
-        cols = random.randint(6, 14)
+        cols = random.randint(*{0: (6, 12), 1: (11, 19), 2: (13, 24)}[d])
         return _agarea("A patio is made from square tiles. Use the area model to "
                        "work out how many tiles there are altogether.",
                        rows, cols,
@@ -1096,14 +1112,14 @@ def _(d=1):
         key = pick([5, 10])
         cats = ["Class 4A", "Class 4B", "Class 4C"]
         vals = [key * random.randint(3, 9) for _ in cats]
-        return _pictq("The pictogram shows how many books each class read. How "
-                      "many books were read altogether?", cats, vals, key,
-                      "book", sum(vals),
-                      ["'Altogether' means all the classes together, so add.",
-                       "%s." % ", ".join("%s: %d" % (c, v)
-                                         for c, v in zip(cats, vals)),
-                       "%s = %d books." % (" + ".join(str(v) for v in vals),
-                                           sum(vals))])
+        i = random.randrange(len(cats))
+        pts = random.randint(3, 9)
+        return _pictq("The pictogram shows how many books each class read. Every book read earns "
+                      "%d house points. How many house points did %s earn?" % (pts, cats[i]),
+                      cats, vals, key, "book", vals[i] * pts,
+                      ["%s read %d books." % (cats[i], vals[i]),
+                       "Each book earns %d points, the same every time, so multiply." % pts,
+                       "%d × %d = %d house points." % (vals[i], pts, vals[i] * pts)])
 
     def bar_chart():
         cats = ["Mon", "Tue", "Wed", "Thu"]
@@ -1174,10 +1190,11 @@ def _(d=1):
 @skill("Y4.4.h", "Division word problems", S4)
 def _(d=1):
     d = _t(d)
+    # Year 4 divides 2- and 3-digit numbers by 1 digit: 52 ÷ 4, not 12 ÷ 3 (a Year 2 fact)
     groups = _by_d(d, random.randint(2, 5), random.randint(3, 8),
                    random.randint(4, 9))
-    per = _by_d(d, random.randint(3, 8), random.randint(4, 14),
-                random.randint(12, 40))
+    per = _by_d(d, random.randint(11, 25), random.randint(12, 40),
+                random.randint(25, 99))
     total = groups * per
 
     def sharing():
@@ -1192,13 +1209,13 @@ def _(d=1):
     def grouping():
         thing = pick(_OBJ)
         return _numq("%d %s are packed into bags of %d. How many bags are filled?"
-                     % (total, thing, per), groups,
+                     % (total, thing, groups), per,
                      ["'Bags of %d' means %d in every bag: how many %ds fit into %d? Divide."
-                      % (per, per, per, total),
-                      "%d ÷ %d = %d bags." % (total, per, groups)], unit="bags")
+                      % (groups, groups, groups, total),
+                      "%d ÷ %d = %d bags." % (total, groups, per)], unit="bags")
 
     def scaling_down():
-        base = random.randint(4, 30)
+        base = _by_d(d, random.randint(6, 15), random.randint(12, 30), random.randint(15, 60))
         k = random.randint(3, 8)
         return _numq("A red ribbon is %d cm long. That is %d times as long as a "
                      "blue ribbon. How long is the blue ribbon, in cm?"
@@ -1207,7 +1224,7 @@ def _(d=1):
 
     def comparison():
         a, b = _two_names()
-        base = random.randint(4, 20)
+        base = _by_d(d, random.randint(6, 15), random.randint(12, 30), random.randint(15, 60))
         k = random.randint(3, 7)
         return _numq("%s has %d marbles. That is %d times as many marbles as %s "
                      "has. How many marbles does %s have?"
@@ -1264,11 +1281,11 @@ def _(d=1):
                         "%d ÷ %d = %d conkers each." % (total, groups, per)])
 
     def equal_groups():
-        g, p = min(groups, 8), min(per, 10)
-        return _egq("Use the counters. %d shells are put into equal groups of "
-                    "%d. How many equal groups are made?" % (g * p, p), g, p, g,
-                    ["Make groups of %d: there are %d groups." % (p, g),
-                     "%d ÷ %d = %d groups." % (g * p, p, g)])
+        g, p = min(groups, 6), min(per, 24)
+        return _egq("Use the counters. %d shells are shared equally between %d buckets. How many "
+                    "shells go in each bucket?" % (g * p, g), g, p, p,
+                    ["'Shared equally' means every bucket gets the same, so divide.",
+                     "%d ÷ %d = %d shells in each bucket." % (g * p, g, p)])
 
     def two_step():
         each = random.randint(6, 20)
@@ -1378,46 +1395,30 @@ def _(d=1):
                       "%d ÷ %d = %d." % (tot, c, tot // c)])
 
     def missing_sign():
-        while True:
-            x = random.randint(2, _by_d(d, 9, 12, 20))
-            y = random.randint(2, _by_d(d, 6, 9, 12))
-            op = pick(["add", "subtract", "multiply", "divide"])
-            vals = {"add": x + y, "subtract": x - y, "multiply": x * y,
-                    "divide": x // y if y and x % y == 0 else None}
-            target = vals[op]
-            if target is None or target < 1:
-                continue
-            hits = [k for k, v in vals.items() if v == target]
-            if len(hits) == 1:
-                break
-        return _wordq("Which operation makes this true?  %d ___ %d = %d.  Type "
-                      "add, subtract, multiply or divide." % (x, y, target), op,
-                      ["Try each operation: only one gives %d." % target,
-                       "%d %s %d = %d." % (x, {"add": "+", "subtract": "−",
-                                               "multiply": "×",
-                                               "divide": "÷"}[op], y, target)],
-                      placeholder="add / subtract / multiply / divide")
+        # the missing sign comes after a multiplication, which is done first
+        x, y = random.randint(2, _by_d(d, 6, 9, 12)), random.randint(2, _by_d(d, 6, 9, 12))
+        z = random.randint(2, min(x * y - 1, _by_d(d, 9, 20, 40)))
+        op = pick(["add", "subtract"])
+        target = x * y + z if op == "add" else x * y - z
+        return _wordq("Which operation makes this true?  %d × %d ___ %d = %d.  Type "
+                      "add or subtract." % (x, y, z, target), op,
+                      ["Do the multiplication first: %d × %d = %d." % (x, y, x * y),
+                       "%d %s %d = %d, so the missing sign is %s."
+                       % (x * y, "+" if op == "add" else "−", z, target, op)],
+                      placeholder="add / subtract")
 
     def find_missing_sign():
-        while True:
-            x = random.randint(2, _by_d(d, 9, 12, 20))
-            y = random.randint(2, _by_d(d, 6, 9, 12))
-            op = pick(["add", "subtract", "multiply", "divide"])
-            vals = {"add": x + y, "subtract": x - y, "multiply": x * y,
-                    "divide": x // y if y and x % y == 0 else None}
-            target = vals[op]
-            if target is None or target < 1:
-                continue
-            if len([k for k, v in vals.items() if v == target]) == 1:
-                break
+        # the missing sign comes before a multiplication: multiply first, then try + and −
+        x = random.randint(_by_d(d, 10, 20, 40), _by_d(d, 30, 60, 99))
+        y, z = random.randint(2, _by_d(d, 5, 9, 12)), random.randint(2, _by_d(d, 5, 9, 12))
+        op = pick(["add", "subtract"]) if x > y * z else "add"
+        target = x + y * z if op == "add" else x - y * z
         return _wordq("Find the missing sign in this numerical operation:  "
-                      "%d ___ %d = %d.  Type add, subtract, multiply or divide "
-                      "for the missing sign." % (x, y, target), op,
-                      ["Only one sign makes the operation give %d." % target,
-                       "%d %s %d = %d." % (x, {"add": "+", "subtract": "−",
-                                               "multiply": "×",
-                                               "divide": "÷"}[op], y, target)],
-                      placeholder="add / subtract / multiply / divide")
+                      "%d ___ %d × %d = %d.  Type add or subtract for the missing sign."
+                      % (x, y, z, target), op,
+                      ["Multiplication is done before adding or subtracting: %d × %d = %d." % (y, z, y * z),
+                       "%d %s %d = %d." % (x, "+" if op == "add" else "−", y * z, target)],
+                      placeholder="add / subtract")
 
     def balance():
         cands = []
@@ -1816,11 +1817,11 @@ def _(d=1):
         per = random.randint(2, 6)
         tot = den * per
         thing = pick(_OBJ)
-        return _numq("%s has %d %s and puts them into %d equal groups. How many "
-                     "%s are in each group?" % (pick(NAMES), tot, thing, den,
-                                                thing), per,
-                     ["%d ÷ %d = %d." % (tot, den, per),
-                      "Each group is 1/%d of the %s." % (den, thing)],
+        return _numq("%s has %d %s and puts them into %d equal groups. One group is 1/%d of the "
+                     "%s. How many %s is 1/%d of %d?" % (pick(NAMES), tot, thing, den, den, thing,
+                                                         thing, den, tot), per,
+                     ["1/%d means one of %d equal parts." % (den, den),
+                      "%d ÷ %d = %d, so 1/%d of %d is %d." % (tot, den, per, den, tot, per)],
                      unit=thing)
 
     def not_shaded():
@@ -2854,14 +2855,14 @@ def _(d=1):
                      unit="parts")
 
     def compare_word():
-        den = pick([5, 6, 8, 10])
-        a, b = random.sample(range(1, den), 2)
+        # the hard tier: the same numerator, so the larger denominator is the smaller fraction
+        a = random.randint(1, 3)
+        d1, d2 = random.sample([x for x in (4, 5, 6, 8, 10, 12) if x > a], 2)
+        ans = "larger" if d1 < d2 else "smaller"
         return _wordq("Is %d/%d larger or smaller than %d/%d? Type larger or "
-                      "smaller." % (a, den, b, den),
-                      "larger" if a > b else "smaller",
-                      ["Same denominator, so compare %d and %d." % (a, b),
-                       "%d/%d is %s than %d/%d."
-                       % (a, den, "larger" if a > b else "smaller", b, den)],
+                      "smaller." % (a, d1, a, d2), ans,
+                      ["Same numerator: the fewer the equal parts, the bigger each part.",
+                       "%d/%d is %s than %d/%d." % (a, d1, ans, a, d2)],
                       placeholder="larger or smaller")
 
     opts = [same_den_larger, same_den_smaller, same_num_larger, same_num_smaller,
@@ -3004,10 +3005,11 @@ def _(d=1):
 @skill("Y4.5.j", "Find a fraction of a quantity", S5)
 def _(d=1):
     d = _t(d)
-    den = pick(_by_d(d, [2, 4], [2, 3, 4, 5, 6], [3, 4, 5, 6, 8, 10]))
-    per = random.randint(2, _by_d(d, 6, 12, 20))
+    # Year 4: unit and non-unit fractions of amounts (one half of 4 is Year 1 work)
+    den = pick(_by_d(d, [3, 4, 5, 8, 10], [3, 4, 5, 6, 8, 10], [3, 4, 5, 6, 7, 8, 9, 10, 12]))
+    per = random.randint(_by_d(d, 3, 4, 6), _by_d(d, 9, 12, 20))
     total = den * per
-    n = 1 if d == 0 else random.randint(1, den - 1)
+    n = 1 if d == 0 else random.randint(2 if den > 2 else 1, den - 1)
 
     def bare():
         return _numq("What is %d/%d of %d?" % (n, den, total), per * n,
@@ -3077,8 +3079,8 @@ def _(d=1):
 
     def bar_chart():
         cats = ["Reading", "Maths", "Art"]
-        dn = pick([2, 4, 5])
-        base = random.randint(4, 15) * dn
+        dn = pick([3, 4, 5, 8, 10])
+        base = random.randint(_by_d(d, 3, 4, 6), _by_d(d, 8, 12, 15)) * dn
         vals = [base, random.randint(10, 60), random.randint(10, 60)]
         num = random.randint(1, dn - 1)
         return _barq("The chart shows how many minutes were spent on each "
@@ -3316,3 +3318,7 @@ def _(d=1):
                    unit_fraction_model, unit_fraction_model_quantity,
                    area_context]
     return pick(opts)()
+
+
+# money answers of £1 or more are asked in pounds and pence, not as "1,008p" (y4_money)
+pounds_from(100, "Y4.4.a", "Y4.4.b", "Y4.4.c", "Y4.4.e", "Y4.4.g", "Y4.4.h", "Y4.4.i", "Y4.5.j", "Y4.5.k")

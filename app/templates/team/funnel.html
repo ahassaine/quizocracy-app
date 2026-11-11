@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% block title %}Funnel · Team board{% endblock %}
+{% block body %}
+<p><a href="/team/{{ me._id }}">← Team board</a></p>
+<h1>Do families stay?</h1>
+<p class="mut small">From our own database only: sign-ups, children and answers. Day 1 is the sign-up day (London time); week 1 is days 1–7, week 2 days 8–14, and so on. <b>Active</b>: at least one child answered a question that day or week. Each percentage counts only the families whose window for that step is over, so a family that signed up yesterday is not yet counted for week 2. Deleted families are not here.</p>
+<p class="small" data-testid="funnel-tests">{% if tests %}Test accounts included. <a href="/team/{{ me._id }}/funnel">Leave them out</a>{% else %}Test accounts left out{% if hidden %} ({{ hidden }}){% endif %}: an address on {{ cfg.FUNNEL_TEST_DOMAINS|join(', ') }}, or marked below. <a href="/team/{{ me._id }}/funnel?tests=1">Include them</a>{% endif %}</p>
+
+<h2>By week of sign-up</h2>
+{% if cohorts %}
+<div class="card" style="overflow-x:auto" data-testid="funnel-box">
+<table class="t small" data-testid="funnel">
+  <tr><th>Signed up in</th>{% for k, label in steps %}<th>{{ label }}</th>{% endfor %}</tr>
+  {% for c in cohorts %}<tr data-testid="cohort"{% if loop.last %} style="font-weight:700"{% endif %}><td style="white-space:nowrap">{{ c.label }}</td>
+    {% for k, label in steps %}{% set x = c.cells[k] %}<td style="white-space:nowrap" data-testid="cell-{{ k }}">{% if x.due %}{{ x.n }} <span class="mut">· {{ x.pct }}%</span>{% if x.due < c.size %}<div class="mut" style="font-size:.75rem">of {{ x.due }} so far</div>{% endif %}{% else %}<span class="mut">not yet</span>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+</table>
+</div>
+<p class="scroll-hint" style="margin-top:-8px">Swipe the table sideways to see every column →</p>
+{% else %}<div class="card mut">No families yet.</div>{% endif %}
+
+<h2 id="feedback">“How is it going?” answers</h2>
+<p class="mut small">The card a parent sees on Home on the family's 3rd active day, and again from day 14. Each answer is also posted in the “Family feedback” thread of the board.</p>
+{% for d in cards %}
+<div class="card" data-testid="feedback-answer">
+  <div class="kid"><b>{% if d.status == 'sent' %}{{ moods.get(d.mood, 'No face picked') }}{% else %}<span class="mut">Dismissed</span>{% endif %}</b><span class="chip">{{ card_names.get(d.card, d.card) }}</span></div>
+  {% if d.text %}<p dir="auto" style="white-space:pre-wrap;margin:8px 0 4px" data-testid="feedback-text">{{ d.text }}</p>{% endif %}
+  <div class="mut small">{{ d.family }} · {{ d.role or 'grown-up' }} {{ d.email }} · {{ d.at.strftime('%d %b %H:%M') if d.at else '' }} UTC</div>
+</div>
+{% else %}<div class="card mut">No answers yet.</div>{% endfor %}
+
+<h2 id="waitlist">Waiting list ({{ waiting|length }})</h2>
+<p class="mut small">Visitors without an invitation code who left their email on the landing or sign-up page, oldest first. Nothing has been emailed to them; signing up takes them off the list.</p>
+{% if waiting %}<div class="card" data-testid="waitlist"><ol class="small" style="margin:0;padding-left:20px">{% for w in waiting %}<li style="overflow-wrap:anywhere">{{ w._id }} <span class="mut">· {{ w.created.strftime('%d %b %Y') if w.created else '' }}</span></li>{% endfor %}</ol></div>
+{% else %}<div class="card mut">Nobody yet.</div>{% endif %}
+
+<h2 id="families">Families</h2>
+<form method="get" action="/team/{{ me._id }}/funnel#families" class="small" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+  {% if tests %}<input type="hidden" name="tests" value="1">{% endif %}
+  <input name="q" value="{{ q }}" placeholder="Family name or email" aria-label="Find a family" style="flex:1;min-width:0">
+  <button class="btn" style="padding:4px 12px">Find</button>{% if q %} <a href="/team/{{ me._id }}/funnel{{ '?tests=1' if tests else '' }}#families" style="align-self:center">Show all</a>{% endif %}
+</form>
+<p class="mut small">{% if q %}Families matching “{{ q }}”{% else %}The newest {{ [rows|length, 300]|min }}{% endif %}.</p>
+<div class="card" style="overflow-x:auto">
+<table class="t small" data-testid="funnel-families">
+  <tr><th>Family</th>{% for k, label in steps %}<th>{{ label }}</th>{% endfor %}<th>Active days</th><th></th></tr>
+  {% for r in rows %}<tr data-testid="fam-{{ r.id }}"><td style="min-width:170px"><b>{{ r.name }}</b>{% if r.test %} <span class="chip">test</span>{% endif %}<div class="mut" style="font-size:.75rem;overflow-wrap:anywhere">{{ r.emails|join(', ') }}</div></td>
+    {% for k, label in steps %}{% set d = r.when.get(k) %}<td style="white-space:nowrap">{% if d %}{{ d.day }} {{ d.strftime('%b') }}{% elif r.due[k] %}<span class="mut">–</span>{% else %}<span class="mut">…</span>{% endif %}</td>{% endfor %}
+    <td>{{ r.active_days }}</td>
+    <td><form method="post" action="/team/{{ me._id }}/funnel/test"><input type="hidden" name="fid" value="{{ r.id }}"><input type="hidden" name="tests" value="{{ 1 if tests else 0 }}">
+      {% if r.test %}<button class="btn" name="test" value="0" style="padding:4px 8px;font-size:.8rem;white-space:nowrap">Not a test</button>{% else %}<button class="btn" name="test" value="1" style="padding:4px 8px;font-size:.8rem;white-space:nowrap" data-testid="mark-test">Mark as test</button>{% endif %}</form></td></tr>
+  {% endfor %}
+</table>
+</div>
+<p class="mut small">– : did not happen in its window · … : its window is still open.</p>
+{% endblock %}

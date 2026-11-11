@@ -145,6 +145,38 @@ def _lowest(sh):
     return False
 
 
+def simplest(x):
+    """The simplest form of a written fraction that is not in it ("12/28" -> "3/7", "6/6" -> "1", "3 2/4" ->
+    "3 1/2", "14/4" -> "7/2"), else None (not a fraction, or already simplest). A mixed number stays mixed and
+    an improper fraction stays improper."""
+    sh = _frac_shape(x)
+    if sh[0] not in ("simple", "mixed") or _lowest(sh):
+        return None
+    v = _frac(x)
+    if v is None:
+        return None
+    sign, v = ("-" if v < 0 else ""), abs(v)
+    if v.denominator == 1:
+        return sign + str(v.numerator)
+    if sh[0] == "mixed":
+        w, r = divmod(v.numerator, v.denominator)
+        return sign + ("%d %d/%d" % (w, r, v.denominator) if w else "%d/%d" % (r, v.denominator))
+    return sign + "%d/%d" % (v.numerator, v.denominator)
+
+
+def simplest_line(x):
+    """'12/28 = 3/7 in its simplest form.', for a fraction answer that is not in its simplest form, else ''."""
+    s = simplest(x)
+    return "%s = %s in its simplest form." % (_frac_text(x), s) if s else ""
+
+
+def _shows_simplest(solution, x):
+    """Does the "why" already end on the simplest form ("… = 3/7")?"""
+    s = simplest(x)
+    rx = re.compile(r"=\s*%s(?![\d/]|\.\d)" % re.escape(s).replace(r"\ ", r"\s+"))
+    return any(rx.search(str(line).replace("−", "-")) for line in solution or [])
+
+
 # What a fraction question asks for. Each rule applies only when the stored answer is itself in that form.
 _SIMPLEST = re.compile(r"simplest|lowest terms|simplif", re.I)
 _AS_MIXED = re.compile(r"(?:\bas a|\(|\bgive (?:it|your answer|the answer) as a)\s*mixed number(?! or)", re.I)
@@ -165,8 +197,12 @@ def _frac_form(expected, value, prompt):
     if es[0] == "simple" and vs[0] != "simple" and _AS_IMPROPER.search(p):
         return "Right value — now write it as an improper fraction."
     if _SIMPLEST.search(p) and _lowest(es) and not _lowest(vs):
-        return "Right value — now simplify it."
+        return SIMPLIFY_HINT
     return ""
+
+
+SIMPLIFY_HINT = "Right value — now simplify it."
+NEARLY_SIMPLIFY = "Nearly: simplify it."
 
 
 _SUP = str.maketrans("⁻⁰¹²³⁴⁵⁶⁷⁸⁹", "-0123456789")
@@ -357,7 +393,7 @@ def check_answer(answer_type, expected, value, tolerance=0, unit=None, prompt=""
             v = _WORD_NUM.get(str(value).strip().lower())        # "two" for 2, unless the task is writing it in digits
         if v is None or e is None:
             return False
-        near = lambda a, b: abs(a - b) <= (tolerance or 0) + 1e-9 * max(abs(b), 1e-6)   # noqa: E731 float noise only
+        near = lambda a, b: abs(a - b) <= (tolerance or 0) + 1e-11 * max(abs(b), 1e-6)   # noqa: E731 float noise only
         typed, want = _typed_unit(_drop_var(value, prompt)), _wanted_units(unit, prompt)
         same = [w for w in want if typed and w[0] == typed[0]]
         if same and all(w[1] != typed[1] for w in same):
@@ -967,6 +1003,12 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
     if q.get("component") == "angle" and q.get("answer_type", "num") in ("int", "num"):
         q["spec"] = {**q["spec"], "numeric": True}     # a number answer gets a "degrees" box, not "acute / ..."
     q = present(q, skill_key)                           # keypad, clock snap, fraction lines, typed boxes, start pictures
+    display, solution = answer_text(q), list(q.get("solution") or [])
+    if q.get("answer_type", "num") in ("frac", "str") and simplest(q["answer"]):
+        # a fraction answer is always shown with its simplest form ("12/28 = 3/7"), and the why ends on it
+        display = "%s = %s" % (_frac_text(q["answer"]), simplest(q["answer"]))
+        if not _shows_simplest(solution, q["answer"]):
+            solution.append(simplest_line(q["answer"]))
     token = secrets.token_urlsafe(16)
     await db.maths_lab_q.update_one(
         {"_id": token},
@@ -974,11 +1016,11 @@ async def new_question(skill_key, difficulty=1, pupil=None, made=None):
             "skill": skill_key,
             "prompt": q["prompt"],
             "answer": q["answer"],
-            "display": answer_text(q),
+            "display": display,
             "answer_type": q.get("answer_type", "num"),
             "tolerance": q.get("tolerance", 0),
             "unit": (q.get("spec") or {}).get("unit"),
-            "solution": q.get("solution", []),
+            "solution": solution,
             # the written method, set out, for the explanation (arithmetic skills only)
             "layout": layout_for(q, next((s for s in SKILLS if s["key"] == skill_key), {})),
             "no": [[k, v] for k, v in (q.get("no") or {}).items()],   # likely wrong answer, why (y9_gen_a._with_no)
@@ -1031,6 +1073,11 @@ async def check(token, value, pupil):
             return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"),
                     "hint": "Nearly: in England we write a decimal point, %s" % point.strip()}
         solution.insert(0, "In England we write a decimal point: %s, not %s." % (point.strip(), str(value).strip()))
+    elif not correct and _SIMPLEST.search(prompt) and form_hint(*args, value, prompt) == SIMPLIFY_HINT \
+            and not doc.get("retried"):
+        # the right value where the question asks for the simplest form: "Nearly", with one free retry
+        await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
+        return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"), "hint": NEARLY_SIMPLIFY}
     elif not correct:
         slipped = slipped_words(doc["answer_type"], doc["answer"], value, prompt)
         if slipped and not doc.get("retried"):
@@ -1047,7 +1094,9 @@ async def check(token, value, pupil):
         why_not = {_no_key(k): v for k, v in (doc.get("no") or [])}.get(_no_key(value))
         if why_not and not hint:                 # a likely slip (2^-3 typed as 1/6): why that answer is wrong
             solution.insert(0, why_not)
+    simpler = simplest_line(value) if correct and doc["answer_type"] in ("frac", "str") else ""
     return {"ok": True, "correct": bool(correct),
+            **({"hint": simpler} if simpler else {}),     # right, not simplified (not asked): "12/28 = 3/7 in ..."
             "expected": doc.get("display", doc["answer"]), "solution": solution,
             **({"layout": doc["layout"]} if doc.get("layout") else {}),
             "skill": doc.get("skill"), "prompt": doc.get("prompt", "")}

@@ -2486,7 +2486,9 @@ def _(d):
     yes = (val - b) % a == 0
     return _yn("A sequence has nth term %s. Is %d a term of the sequence?" % (rule, val), yes,
                ["Solve %s = %d: %dn = %d." % (rule, val, a, val - b),
-                "n = %s, %s a whole number." % (_ds(Decimal(val - b) / a), "which is" if yes else "which is not")])
+                ("n = %d ÷ %d = %d, which is a whole number." % (val - b, a, (val - b) // a)) if yes else
+                ("%d ÷ %d = %d remainder %d, so n is not a whole number."
+                 % (val - b, a, (val - b) // a, (val - b) % a))])
 
 
 @_more("Y8.6.h", 10)

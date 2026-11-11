@@ -18,12 +18,13 @@ from ..db import FAMILY_COLLECTIONS, db
 from ..deps import (Ctx, adult_name, clear_pin_lock, family_adult, family_events, family_page, full_page,
                     hit, local_time, log_event, over_limit, own_pupil, parent_page, pin_lock_until, pin_locks)
 from ..drills import bank, maths, spelling, tables, verbs
-from .. import config, levels, mailer, progress
+from .. import config, funnel, levels, mailer, progress
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
 from .auth import settings_view
 from .child import REPORT_REASONS, _due, pick_batch, picker_page
+from .team import drop_family_feedback, post_family_feedback
 
 router = APIRouter()
 PIN_RE = re.compile(r"^\d{4}$")
@@ -74,7 +75,37 @@ async def home(request: Request, ctx: Ctx = Depends(parent_page)):
                 unlocked=request.query_params.get("unlocked"), events=await family_events(ctx.family["_id"], 12),
                 deleted_name=request.query_params.get("deleted_name", "")[:30],
                 pending={p["_id"]: _pending(p, ctx.family) for p in pupils},
-                checks={p["_id"]: _check_today(p) for p in pupils}, reward_gap=reward_gap(ctx.family, pupils))
+                checks={p["_id"]: _check_today(p) for p in pupils}, reward_gap=reward_gap(ctx.family, pupils),
+                feedback_card=await funnel.card_for(ctx.account, ctx.family))
+
+
+@router.post("/home/feedback")
+async def feedback_card(request: Request, ctx: Ctx = Depends(parent_page), card: str = Form(""),
+                        action: str = Form(""), mood: str = Form(""), text: str = Form("")):
+    """The "How is it going?" card on Home (app/funnel.py): Send keeps the answer and posts it to the team board's
+    "Family feedback" thread; "No thanks" closes it. Either way that card never shows again. Never in child mode."""
+    d = await db.feedback.find_one({"_id": f"{ctx.account['_id']}:{card}"})
+    if not d or d.get("status") != "shown":
+        return RedirectResponse("/home", 303)
+    now = datetime.datetime.utcnow()
+    if action == "dismiss":
+        await db.feedback.update_one({"_id": d["_id"]}, {"$set": {"status": "dismissed", "at": now}})
+        return RedirectResponse("/home", 303)
+    mood = mood if mood in funnel.MOODS else ""
+    text = (text or "").strip()[:1000]
+    if not (mood or text):
+        return RedirectResponse("/home?fb=empty#feedback-card", 303)
+    await db.feedback.update_one({"_id": d["_id"]}, {"$set": {"status": "sent", "mood": mood, "text": text, "at": now}})
+    kids = await db.pupils.count_documents({"family_id": ctx.family["_id"]})
+    days = len(await funnel.active_days(ctx.family))
+    d1 = funnel.local_day(ctx.family["created"])
+    mid = await post_family_feedback(
+        f"{funnel.MOODS.get(mood, 'No face picked')} · {funnel.CARDS[card]} card\n"
+        + (f"“{text}”\n" if text else "")
+        + f"{ctx.family['name']} ({ctx.role}) · signed up {d1.day} {d1:%b} · "
+        f"{kids} {'child' if kids == 1 else 'children'} · {days} active {'day' if days == 1 else 'days'}")
+    await db.feedback.update_one({"_id": d["_id"]}, {"$set": {"team_msg": mid}})     # deleted with the family
+    return RedirectResponse("/home?fb=thanks", 303)
 
 
 def names_text(names: list) -> str:
@@ -1303,6 +1334,7 @@ def _school_week_view(p: dict, family: dict, draft: dict | None = None) -> dict:
 
 
 async def _delete_pupils(ids: list) -> None:
+    await funnel.keep(ids)              # the family's funnel dates outlive the child's answers (app/funnel.py)
     for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
         await db[c].delete_many({"pupil": {"$in": ids}})
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
@@ -1311,6 +1343,8 @@ async def _delete_pupils(ids: list) -> None:
     # A device that child was using goes back to "Who's learning?", still locked: never to parent mode.
     await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None, "locked": True}})
     await db.pupils.delete_many({"_id": {"$in": ids}})
+    if ids:
+        await db.deletions.insert_many([{"kind": "pupil", "ref": i, "at": datetime.datetime.utcnow()} for i in ids])
 
 
 @router.get("/children/{pid}/delete")
@@ -1384,6 +1418,7 @@ async def export(request: Request, ctx: Ctx = Depends(full_page)):
     for c in ("maths_attempts", "maths_mastery", "maths_lab_q"):
         data[c] = [d async for d in db[c].find({"pupil": {"$in": ids}}, {"_id": 0})]
     data["family_log"] = [d async for d in db.family_log.find({"family_id": fid}, {"_id": 0})]
+    data["feedback"] = [d async for d in db.feedback.find({"family_id": fid}, {"_id": 0, "team_msg": 0})]
     data["emails"] = [d async for d in db.outbox.find({"to": {"$in": [a["email"] for a in accounts]}},
                                                       {"_id": 0, "to": 1, "subject": 1, "created": 1})]
     body = json.dumps(data, default=_json_default, indent=1)
@@ -1412,6 +1447,9 @@ async def delete_account(request: Request, ctx: Ctx = Depends(full_page), passwo
     await _delete_pupils([p["_id"] async for p in db.pupils.find({"family_id": fid}, {"_id": 1})])
     # every adult's address, and the ones they changed from, so the mail log about them goes too
     emails = [e async for a in db.accounts.find({"family_id": fid}) for e in [a["email"], *a.get("past_emails", [])]]
+    # the team board's copy of the family's "How is it going?" answers goes too
+    await drop_family_feedback([d["team_msg"] async for d in db.feedback.find(
+        {"family_id": fid, "team_msg": {"$exists": True}}, {"team_msg": 1})])
     for c in FAMILY_COLLECTIONS:
         await db[c].delete_many({"family_id": fid})
     await db.codes.delete_many({"family_id": fid})             # invitations still open
@@ -1419,6 +1457,7 @@ async def delete_account(request: Request, ctx: Ctx = Depends(full_page), passwo
     await db.codes.delete_many({"email": {"$in": emails}})
     await db.outbox.delete_many({"to": {"$in": emails}})
     await db.families.delete_one({"_id": fid})
+    await db.deletions.insert_one({"kind": "family", "ref": fid, "at": datetime.datetime.utcnow()})
     # after the mail log is cleared, so this last message is the one left (every grown-up, the owner too)
     who, when = adult_name(ctx.account), local_time(datetime.datetime.utcnow())
     for a in adults:
@@ -1463,6 +1502,17 @@ async def handover(request: Request, ctx: Ctx = Depends(family_page)):
     """Lock the device before it changes hands: from here only a child's PIN or the parent's password works."""
     await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"locked": True}})
     return RedirectResponse("/learn", 303)
+
+
+@router.post("/children/{pid}/start")
+async def start_now(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
+    """"Start now with Maya" (just after adding a child): the grown-up is here, so the child's day opens on this
+    device without the picker and the PIN. The parent area locks as on a hand-over: the password brings it back."""
+    p = await own_pupil(ctx, pid)
+    await db.sessions.update_one({"_id": ctx.session["_id"]},
+                                 {"$set": {"child_id": p["_id"], "locked": True, "handed": True},
+                                  "$unset": {"pin_show": ""}})
+    return RedirectResponse("/me", 303)
 
 
 @router.get("/parent-unlock")

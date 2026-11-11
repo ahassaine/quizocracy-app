@@ -10,6 +10,7 @@
 #   statistics .... data_table / pictogram / bar_chart / line_graph
 import random
 from .maths_engine import skill, pick, money, NAMES
+from .y4_money import pounds_from
 
 S8 = "4.8 Geometry"
 S9 = "4.9 Statistics & consolidation"
@@ -699,22 +700,24 @@ def _(d=1):
     if t == 4:                                        # visual: square / rectangle
         nm = pick(["square", "rectangle"])
         ask = pick(["sides", "vertices", "parallel", "symmetry"])
+        # what the picture shows decides the answer: the name, or whether all four sides are equal
         if ask == "sides":
-            return {"prompt": "This quadrilateral has square corners. How many sides does "
-                              "it have?",
+            return {"prompt": "This quadrilateral has square corners. Look at its sides. Is it a square "
+                              "or a rectangle? (type the name)",
                     "component": "shape",
-                    "spec": {"kind": "2d", "name": nm, "ask": "sides",
-                             "marks": "right_angle"},
-                    "answer": 4, "answer_type": "int",
-                    "solution": ["A quadrilateral always has 4 sides."]}
+                    "spec": {"kind": "2d", "name": nm, "ask": "name", "marks": "right_angle"},
+                    "answer": nm, "answer_type": "str",
+                    "solution": ["Both have 4 right angles.",
+                                 "All four sides are equal, so it is a square." if nm == "square" else
+                                 "Two sides are longer than the other two, so it is a rectangle."]}
         if ask == "vertices":
-            return {"prompt": "Every corner of this quadrilateral is a right angle. "
-                              "How many right angles does it have?",
+            return {"prompt": "Every corner of this quadrilateral is a right angle. How many of its sides "
+                              "are longer than its shortest side? (type 0 if none)",
                     "component": "shape",
-                    "spec": {"kind": "2d", "name": nm, "ask": "vertices",
-                             "marks": "right_angle"},
-                    "answer": 4, "answer_type": "int",
-                    "solution": ["It has 4 corners and every one is a right angle."]}
+                    "spec": {"kind": "2d", "name": nm, "ask": "vertices", "marks": "right_angle"},
+                    "answer": 0 if nm == "square" else 2, "answer_type": "int",
+                    "solution": ["It is a square: all four sides are equal, so none is longer." if nm == "square"
+                                 else "It is a rectangle: its two long sides are longer than the short ones."]}
         if ask == "parallel":
             return {"prompt": "In this quadrilateral the opposite sides are parallel. "
                               "How many PAIRS of parallel sides does it have?",
@@ -1363,8 +1366,9 @@ def _(d=1):
                                 "%d + %d = %d, so the reflection is at %s."
                                 % (m, gap, m + gap, img)])
 
-    # reflections: distance from the mirror line, and what a reflection keeps the same
-    if random.random() < 0.5:
+    # reflections: distance from the mirror line (a reflected shape keeps its sides and size, but "how many
+    # sides has the reflection of a hexagon?" asks nothing about symmetry, so it is not asked)
+    if True:
         gap = random.randint(1, _by_d(d, 5, 9, 15))
         return _num_q("A shape is reflected in a mirror line. One corner of the shape is %s "
                       "from the mirror line. How many squares from the mirror line is the "
@@ -1374,21 +1378,6 @@ def _(d=1):
                                 "the original, but on the other side.",
                                 "So the reflection is %s from the mirror line."
                                 % _pl(gap, "square")])
-    nm, sd = pick(_by_d(d, _POLY[:4], _POLY[:6], _POLY))
-    ask_sides = random.random() < 0.5
-    if ask_sides:
-        return _num_q("%s is reflected in a mirror line. How many sides does the reflection "
-                      "have?" % _a(nm).capitalize(),
-                      sd, "int", unit="sides",
-                      solution=["A reflection flips a shape over but does not change its "
-                                "size or how many sides it has.",
-                                "So the reflection has %d sides." % sd])
-    s = random.randint(2, _by_d(d, 9, 15, 30))
-    return _num_q("A square with sides of %d cm is reflected in a mirror line. What is the "
-                  "length of each side of the reflection, in cm?" % s,
-                  s, "int", unit="cm",
-                  solution=["A reflection does not change the size of a shape.",
-                            "Each side of the reflection is still %d cm." % s])
 
 
 @skill("Y4.8.h", "Coordinates in the first quadrant", S8)
@@ -1660,23 +1649,18 @@ def _(d=1):
                       solution=["%d + %d = %s right altogether." % (a, b, _pl(a + b, "square")),
                                 "The counter finishes at %s." % _coord(x + a + b, y)])
 
-    if t == 6:                                        # translation keeps the shape
-        nm, sd = pick(_by_d(d, _POLY[:4], _POLY[:6], _POLY))
-        ask = pick(["sides", "size"])
-        if ask == "sides":
-            return _num_q("%s is translated 5 squares right and 3 squares down. "
-                          "How many sides does the translated shape have?"
-                          % _a(nm).capitalize(),
-                          sd, "int", unit="sides",
-                          solution=["A translation slides a shape without turning it or "
-                                    "changing its size.",
-                                    "So it still has %d sides." % sd])
-        s = random.randint(2, 9)
-        return _num_q("A square with sides of %d cm is translated 4 squares up. "
-                      "What is the length of each side of the translated square, in cm?" % s,
-                      s, "int", unit="cm",
-                      solution=["A translation does not change the size of a shape.",
-                                "Each side is still %d cm." % s])
+    if t == 6:                                        # every corner moves the same way
+        dx, dy = random.randint(1, 3), random.randint(1, 3)
+        x1, y1 = random.randint(0, size - 5), random.randint(0, size - 5)
+        x2, y2 = min(x1 + random.randint(1, 2), size - dx), y1 + random.randint(0, 2)
+        return _num_q("A triangle is translated. Its corner at %s moves to %s. Another corner is at "
+                      "%s. Where does that corner move to? Write its coordinates."
+                      % (_coord(x1, y1), _coord(x1 + dx, y1 + dy), _coord(x2, y2)),
+                      _coord(x2 + dx, y2 + dy), "coord", text=True, placeholder="e.g. (3,5)",
+                      solution=["The first corner moves %s right and %s up." % (_pl(dx, "square"),
+                                                                                _pl(dy, "square")),
+                                "In a translation every corner moves the same way, so %s moves to %s."
+                                % (_coord(x2, y2), _coord(x2 + dx, y2 + dy))])
 
     if t == 7:                                        # word problem on a grid
         who = pick(NAMES)
@@ -2503,14 +2487,15 @@ def _(d=1):
                 "solution": ["Each symbol stands for %d." % key,
                              "%s × %d = %d." % (_pl(vals[i] // key, "symbol"), key, vals[i])]}
 
-    if t == 1:                                        # count symbols
-        return {"prompt": "Use the pictogram. How many symbols are drawn in the %s row?"
-                          % cats[i].lower(),
+    if t == 1:                                        # symbols added: read the key both ways
+        more = random.randint(2, 4)
+        return {"prompt": "Use the pictogram. %d more symbols are drawn in the %s row. How many %s does "
+                          "the row show now?" % (more, cats[i].lower(), cats[i].lower()),
                 "component": "pictogram", "spec": spec,
-                "answer": vals[i] // key, "answer_type": "int",
-                "solution": ["%s is %d and each symbol stands for %d."
-                             % (cats[i], vals[i], key),
-                             "%d ÷ %d = %s." % (vals[i], key, _pl(vals[i] // key, "symbol"))]}
+                "answer": vals[i] + more * key, "answer_type": "int",
+                "solution": ["Each symbol stands for %d, so %d more symbols are %d × %d = %d more."
+                             % (key, more, more, key, more * key),
+                             "%d + %d = %d." % (vals[i], more * key, vals[i] + more * key)]}
 
     if t == 2:                                        # total of two rows
         return {"prompt": "Use the pictogram. How many %s and %s are there altogether?"
@@ -2539,16 +2524,18 @@ def _(d=1):
                 "solution": ["%s." % " + ".join(str(v) for v in vals),
                              "The total is %d." % sum(vals)]}
 
-    if t == 5:                                        # most / fewest (typed)
-        want_most = random.random() < 0.5
-        which = cats[vals.index(max(vals) if want_most else min(vals))]
-        return {"prompt": "Use the pictogram. Which fruit has the %s? (type the name)"
-                          % ("longest row" if want_most else "shortest row"),
+    if t == 5:                                        # which row is so many more (fewer) than another
+        hi_, lo_ = (i, j) if vals[i] > vals[j] else (j, i)
+        gap = vals[hi_] - vals[lo_]
+        more = random.random() < 0.5
+        ans, ref = (hi_, lo_) if more else (lo_, hi_)
+        return {"prompt": "Use the pictogram. Which fruit has %d %s than the %s? (type the name)"
+                          % (gap, "more" if more else "fewer", cats[ref].lower()),
                 "component": "pictogram", "spec": spec,
-                "answer": which, "answer_type": "str",
-                "solution": ["The %s row is %s with %d."
-                             % ("longest" if want_most else "shortest", which,
-                                max(vals) if want_most else min(vals))]}
+                "answer": cats[ans], "answer_type": "str",
+                "solution": ["Each symbol stands for %d. There are %d %s." % (key, vals[ref], cats[ref].lower()),
+                             "%d %s %d = %d: the %s." % (vals[ref], "+" if more else "−", gap, vals[ans],
+                                                          cats[ans].lower())]}
 
     if t == 6:                                        # create a pictogram
         k = random.randrange(4)
@@ -2594,6 +2581,9 @@ def _(d=1):
     else:
         cats, vals = _chart(d, 4)
         what, unit = "votes", "votes"
+    # Year 4 reads scales in 2s, 5s, 10s and more (a scale in 1s, values to 24, is Year 2 work)
+    sc = pick(_by_d(d, [2, 5], [5, 10], [10, 20, 25] if not grouped else [5, 10]))
+    vals = [v * sc for v in vals]
     spec = {"categories": cats, "values": vals, "mode": "read"}
     i, j = random.sample(range(4), 2)
     t = _pick_t([2, 1, 1, 1, 1, 1, 1, 1, 1, 2])
@@ -2605,19 +2595,18 @@ def _(d=1):
                 "answer": vals[i], "answer_type": "int",
                 "solution": ["The %s bar reaches %d." % (cats[i], vals[i])]}
 
-    if t == 1:                                        # tallest bar
-        top = cats[vals.index(max(vals))]
-        return {"prompt": "Use the bar chart. Which bar is the TALLEST? (type its label)",
+    if t in (1, 2):                                   # which bar is so many more (fewer) than another
+        hi_, lo_ = (i, j) if vals[i] > vals[j] else (j, i)
+        gap = vals[hi_] - vals[lo_]
+        more = t == 1
+        ans, ref = (hi_, lo_) if more else (lo_, hi_)
+        return {"prompt": "Use the bar chart. Which bar shows %d %s than the %s bar? (type its label)"
+                          % (gap, "more" if more else "fewer", cats[ref]),
                 "component": "bar_chart", "spec": spec,
-                "answer": top, "answer_type": "str",
-                "solution": ["The tallest bar is %s with %d." % (top, max(vals))]}
-
-    if t == 2:                                        # shortest bar
-        bot = cats[vals.index(min(vals))]
-        return {"prompt": "Use the bar chart. Which bar is the SHORTEST? (type its label)",
-                "component": "bar_chart", "spec": spec,
-                "answer": bot, "answer_type": "str",
-                "solution": ["The shortest bar is %s with %d." % (bot, min(vals))]}
+                "answer": cats[ans], "answer_type": "str",
+                "solution": ["The %s bar shows %d." % (cats[ref], vals[ref]),
+                             "%d %s %d = %d, and that is the %s bar."
+                             % (vals[ref], "+" if more else "−", gap, vals[ans], cats[ans])]}
 
     if t == 3:                                        # total
         return {"prompt": "Use the bar chart. What is the total of all four bars?",
@@ -2636,7 +2625,7 @@ def _(d=1):
                                                 abs(vals[i] - vals[j]))]}
 
     if t == 5:                                        # how many more to reach a target
-        target = max(vals) + random.randint(1, 8)
+        target = max(vals) + random.randint(1, 8) * sc
         return {"prompt": "Use the bar chart. How many more would the %s bar need to reach "
                           "%d?" % (cats[i], target),
                 "component": "bar_chart", "spec": spec,
@@ -2653,7 +2642,7 @@ def _(d=1):
 
     if t == 7:                                        # grouped: last two groups
         cats2 = list(pick(_GROUPS))
-        vals2 = _distinct(4, 3, 18)
+        vals2 = [v * sc for v in _distinct(4, 3, 18)]
         # the two TALLEST bars, named so the pupil still has to read their heights
         a, b = sorted(sorted(range(4), key=lambda k: -vals2[k])[:2])
         return {"prompt": "This bar chart shows grouped data. The two tallest bars are "
@@ -2689,7 +2678,7 @@ def _(d=1):
                              % (vals[i] + vals[j], vals[k],
                                 vals[i] + vals[j] - vals[k])]}
     if style == 1:
-        extra = random.randint(2, _by_d(d, 6, 10, 20))
+        extra = random.randint(2, _by_d(d, 6, 10, 20)) * sc
         return {"prompt": "Interpret the bar chart to solve this two-step problem. The %s "
                           "bar and the %s bar are added together, then %d more %s are "
                           "counted. What is the new total?"
@@ -2983,7 +2972,10 @@ def _(d=1):
 def _(d=1):
     d = _tier(d)
     cats, vals = _chart(d, 4, pool=["Rovers", "United", "City", "Albion", "Wanderers"])
-    unit = pick(["goals", "points", "runs"])
+    # Year 4 compares bigger amounts than a scale in 1s to 24: a season's points, a cricket club's runs
+    unit = pick(_by_d(d, ["goals", "points"], ["points", "runs"], ["runs", "points"]))
+    sc = _by_d(d, 2, 5, pick([10, 20]))
+    vals = [v * sc for v in vals]
     bar = {"categories": cats, "values": vals, "mode": "read"}
     tbl_rows = [[c, str(v)] for c, v in zip(cats, vals)]
     tbl = {"caption": "%s scored" % unit.capitalize(),
@@ -3008,19 +3000,18 @@ def _(d=1):
                 "solution": ["%d − %d = %d." % (max(vals[i], vals[j]), min(vals[i], vals[j]),
                                                 abs(vals[i] - vals[j]))]}
 
-    if t == 2:                                        # most (typed)
-        return {"prompt": "Use the table. Which team got the MOST %s? (type the name)" % unit,
+    if t in (2, 3):                                   # which team got so many more (fewer) than another
+        hi_, lo_ = (i, j) if vals[i] > vals[j] else (j, i)
+        gap = vals[hi_] - vals[lo_]
+        more = t == 2
+        ans, ref = (hi_, lo_) if more else (lo_, hi_)
+        return {"prompt": "Use the table. Which team got %d %s %s than %s? (type the name)"
+                          % (gap, unit, "more" if more else "fewer", cats[ref]),
                 "component": "data_table", "spec": tbl,
-                "answer": cats[vals.index(max(vals))], "answer_type": "str",
-                "solution": ["The largest number is %d." % max(vals),
-                             "That is %s." % cats[vals.index(max(vals))]]}
-
-    if t == 3:                                        # least (typed)
-        return {"prompt": "Use the table. Which team got the FEWEST %s? (type the name)" % unit,
-                "component": "data_table", "spec": tbl,
-                "answer": cats[vals.index(min(vals))], "answer_type": "str",
-                "solution": ["The smallest number is %d." % min(vals),
-                             "That is %s." % cats[vals.index(min(vals))]]}
+                "answer": cats[ans], "answer_type": "str",
+                "solution": ["%s got %d." % (cats[ref], vals[ref]),
+                             "%d %s %d = %d, which is %s." % (vals[ref], "+" if more else "−", gap, vals[ans],
+                                                              cats[ans])]}
 
     if t == 4:                                        # total of all
         return {"prompt": "Use the table. How many %s were scored altogether?" % unit,
@@ -3052,7 +3043,7 @@ def _(d=1):
                              "%d − %d = %d." % (a + b, c, a + b - c)]}
 
     if t == 7:                                        # comparison from a bar chart, two-step
-        k = pick([2, 3, 4])
+        k = pick([2, 3, 4]) * sc
         return {"prompt": "Use the bar chart. How many more %s would %s and %s need "
                           "between them to reach %d %s altogether?"
                           % (unit, cats[i], cats[j], vals[i] + vals[j] + k, unit),
@@ -3062,13 +3053,14 @@ def _(d=1):
                              % (cats[i], cats[j], vals[i], vals[j], vals[i] + vals[j]),
                              "%d − %d = %d." % (vals[i] + vals[j] + k, vals[i] + vals[j], k)]}
 
-    # comparison as a multiple
-    base = vals[0]
-    mult = pick([2, 3])
-    return _num_q("%s scored %d %s. %s scored %d times as many. How many %s did %s score?"
-                  % (cats[0], base, unit, cats[1], mult, unit, cats[1]),
-                  base * mult, "int", unit=unit,
-                  solution=["%d × %d = %d." % (base, mult, base * mult)])
+    # comparison as a multiple, read from the table
+    mult = pick([2, 3, 4])
+    return {"prompt": "Use the table. Next season %s scored %d times as many %s as this season. How many "
+                      "%s is that?" % (cats[i], mult, unit, unit),
+            "component": "data_table", "spec": tbl,
+            "answer": vals[i] * mult, "answer_type": "int",
+            "solution": ["This season %s scored %d." % (cats[i], vals[i]),
+                         "%d × %d = %d %s." % (vals[i], mult, vals[i] * mult, unit)]}
 
 
 # (title, column A, column B, row A, row B, phrases for each of the four labels,
@@ -3662,3 +3654,7 @@ def _(d=1):
                   small * mult - extra, "int", unit="marbles",
                   solution=["%d × %d = %d." % (small, mult, small * mult),
                             "%d − %d = %d." % (small * mult, extra, small * mult - extra)])
+
+
+# money answers of £1 or more are asked in pounds and pence, not in pence (y4_money)
+pounds_from(100, "Y4.9.j")

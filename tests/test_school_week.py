@@ -120,11 +120,11 @@ def test_focus_strand_gets_most_questions_and_shows_on_the_child_page(page):
     assert sum(st == f[0]["strand"] for st in strands) >= 13, strands   # about two in three
     assert len(set(strands)) > 1                                         # the rest of the plan carries on
     gs = []
-    for _ in range(18):
+    for _ in range(60):     # 2 in 3 go to the focus, 70% of those to its own strand: about 28 expected
         q = s.post(BASE + "/api/grammar/next", json={}).json()
         gs.append(q["strand"])
         s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": "zzzz"})
-    assert sum(st == "Punctuation" for st in gs) >= 7, gs
+    assert sum(st == "Punctuation" for st in gs) >= 18, gs
 
     # it ends by itself
     DB.pupils.update_one({"_id": pid}, {"$set": {"focus.0.until": TODAY.isoformat(), "focus.1.until": TODAY.isoformat()}})

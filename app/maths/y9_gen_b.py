@@ -498,7 +498,7 @@ def _(d=1):
                    ["£%d − £%d = £%d for the hours." % (fixed + rate * h, fixed, rate * h), "%d ÷ %d = %d hours." % (rate * h, rate, h)])
 
     def t_conversion():
-        m = 5 * random.randint(*_by(d, (1, 6), (2, 16), (10, 40)))
+        m = 5 * random.randint(*_by(d, (2, 8), (3, 16), (10, 40)))      # never 5 miles itself: that is read straight off
         return _tb("A conversion graph shows 5 miles = 8 km. Use it to convert %d miles to km." % m, m // 5 * 8, "int", {"unit": "km"},
                    ["%d ÷ 5 × 8 = %d." % (m, m // 5 * 8)])
 

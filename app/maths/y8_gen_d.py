@@ -259,23 +259,48 @@ def _(d=1):
                        % (k, v, _coef(k, v), j, _lin_str(k, -j, v))], ex)
 
     def perimeter_square():
+        if d >= 1:                       # a regular polygon whose side is itself an expression
+            sides, name = pick([(5, "pentagon"), (6, "hexagon"), (8, "octagon")])
+            return _exprq("A regular %s has sides of length (%s) cm. Write an expression for its "
+                          "perimeter, in cm." % (name, _lin_str(1, j, v)), _lin_str(sides, sides * j, v),
+                          ["A regular %s has %d equal sides: %d(%s)." % (name, sides, sides, _lin_str(1, j, v)),
+                           "%d × %s = %s and %d × %d = %d, so the perimeter is %s."
+                           % (sides, v, _coef(sides, v), sides, j, sides * j, _lin_str(sides, sides * j, v))], ex)
         return _exprq("A square has sides of length %s cm. Write an expression for its "
                       "perimeter, in cm." % v, _coef(4, v),
                       ["A square has 4 equal sides: 4 x %s = %s." % (v, _coef(4, v))], ex)
 
     def cost():
         name = pick(NAMES)
+        if d >= 1:                       # two kinds of item: k tickets and one programme
+            return _exprq("A ticket costs %s pounds and a programme costs £%d. Write an expression for "
+                          "the cost, in pounds, of %d tickets and one programme." % (v, j, k),
+                          _lin_str(k, j, v),
+                          ["%d tickets cost %s pounds; the programme adds %d." % (k, _coef(k, v), j),
+                           "Total: %s." % _lin_str(k, j, v)], ex)
         return _exprq("One ticket costs %s pounds. Write an expression for the cost of %d "
                       "tickets that %s buys, in pounds." % (v, k, name), _coef(k, v),
                       ["%d tickets at %s pounds each cost %s." % (k, v, _coef(k, v))], ex)
 
     def age():
         name = pick(NAMES)
+        if d >= 1:                       # two ages, then their total
+            other = pick([n for n in NAMES if n != name])
+            return _exprq("%s is %s years old. %s is %d years younger than %s. Write an expression "
+                          "for the total of their ages." % (name, v, other, j, name), _lin_str(2, -j, v),
+                          ["%s is %s years old." % (other, _lin_str(1, -j, v)),
+                           "Total: %s + (%s) = %s." % (v, _lin_str(1, -j, v), _lin_str(2, -j, v))], ex)
         return _exprq("%s is %s years old now. Write an expression for %s's age in %d "
                       "%s time." % (name, v, name, j, "year's" if j == 1 else "years'"), _lin_str(1, j, v),
                       ["In %d years %s will be %s." % (j, name, _lin_str(1, j, v))], ex)
 
     def consecutive():
+        if d >= 1:                       # the sum of three consecutive whole numbers
+            return _exprq("The smallest of three consecutive whole numbers is %s. Write a simplified "
+                          "expression for the sum of the three numbers." % v, _lin_str(3, 3, v),
+                          ["The numbers are %s, %s and %s." % (v, _lin_str(1, 1, v), _lin_str(1, 2, v)),
+                           "%s + %s + %s = %s." % (v, _lin_str(1, 1, v), _lin_str(1, 2, v), _lin_str(3, 3, v))],
+                          ex)
         return _exprq("A whole number is %s. Write an expression for the next whole number "
                       "after %s." % (v, v), _lin_str(1, 1, v),
                       ["The next whole number is %s." % _lin_str(1, 1, v)], ex)
@@ -544,6 +569,10 @@ def _(d=1):
         if three:
             expr = "%s + %s + %d" % (_coef(p, "x^2"), _coef(a, "x"), c)
             terms = 3
+        elif d == 2:                     # a subtraction, and an x term written second
+            expr = "%d − %s + %s" % (c, _coef(a, "x"), _coef(p, "y"))
+            terms = 3
+            a = -a
         else:
             expr = "%s + %d" % (_coef(a, "x"), c)
             terms = 2
@@ -561,7 +590,8 @@ def _(d=1):
         return _numq("Identify terms and coefficients in the expression %s. How many "
                      "terms does it have (terms are separated by + or - signs)?"
                      % expr, terms,
-                     ["The terms are separated by + signs, giving %d terms." % terms],
+                     ["The terms are separated by %s signs, giving %d terms."
+                      % ("+ and −" if "−" in expr else "+", terms)],
                      placeholder="number of terms")
 
     opts = [x_and_const, x_subtract, two_var, count_x, const_after,
@@ -1309,6 +1339,20 @@ def _(d=1):
     def missing_in_table():
         a = random.randint(2, _by_d(d, 5, 8, 11))
         b = random.randint(1, 8)
+        if d >= 1:                       # the rule is not given, and the missing term is far along
+            if d == 2:
+                b = random.randint(-6, 8)
+            far = random.randint(*_by_d(d, (0, 0), (10, 20), (25, 60)))
+            ns = [1, 2, 3, 4, far]
+            rows = [[str(n), "" if n == far else str(a * n + b)] for n in ns]
+            return _dtq("The table shows terms of a linear sequence against their positions. "
+                        "Work out the term in position %d." % far,
+                        ["Position (n)", "Term"], rows, a * far + b,
+                        ["The terms go up by %d each time, so the rule starts %dn." % (a, a),
+                         "%d x 1 = %d and the first term is %d, so the nth term is %s."
+                         % (a, a, a + b, _lin_str(a, b, "n")),
+                         "Position %d: %d x %d %s = %d." % (far, a, far, _pm(b), a * far + b)],
+                        missing=(4, 1), caption="Sequence")
         return _seq_table("The terms of a linear sequence are shown against their "
                           "positions. The nth term rule is %s. Find the missing term."
                           % _lin_str(a, b, "n"), a, b,
@@ -2642,14 +2686,24 @@ def _(d=1):
                       % (y2, y1, x2, x1, m)], placeholder="gradient")
 
     def steeper():
+        # read the gradients from the equations; from the middle tier one of them slopes down
         m1 = random.randint(1, 4)
         m2 = m1 + random.randint(1, 3)
         line = pick(["A", "B"])
         gA, gB = (m1, m2) if line == "B" else (m2, m1)
-        return _wordq("Line A has gradient %d and line B has gradient %d. Which line is "
-                      "steeper? Type A or B." % (gA, gB),
-                      "B" if m2 == gB else "A",
-                      ["The steeper line has the larger gradient (%d)." % m2],
+        steep = "B" if m2 == gB else "A"
+        if d >= 1 and random.random() < 0.6:          # a negative gradient: steepness is its size
+            if steep == "A":
+                gA = -gA
+            else:
+                gB = -gB
+        cA, cB = _nz(-6, 6), _nz(-6, 6)
+        return _wordq("Line A is y = %s and line B is y = %s. Which line is steeper? Type A or B."
+                      % (_lin_str(gA, cA, "x"), _lin_str(gB, cB, "x")), steep,
+                      ["The gradients are %d (line A) and %d (line B)." % (gA, gB),
+                       "Steepness depends on the size of the gradient, not its sign: %d is bigger than %d."
+                       % (max(abs(gA), abs(gB)), min(abs(gA), abs(gB))),
+                       "Line %s is steeper." % steep],
                       placeholder="A or B")
 
     def parallel_gradient():

@@ -359,14 +359,17 @@ def _(d=1):
                       solution=["One part is %d and there are %d parts." % (per, den),
                                 "%d × %d = %d." % (per, den, total)])
 
-    if t == 4:                                          # visual model
-        return {"prompt": "Shade %s of this bar. Then use the bar to work out %s of %d in your head."
-                          % (_frac_words(n, den), _frac_words(n, den), total),
-                "component": "fraction_bar", "spec": {"parts": den, "mode": "shade"},
-                "answer": "%d/%d" % (n, den), "answer_type": "frac",
-                "solution": ["Shade %d of the %d equal parts." % (n, den),
-                             "Each part of %d is %d, so %d/%d of %d = %d."
-                             % (total, per, n, den, total, per * n)]}
+    if t == 4:                                          # visual model: the bar shares the amount, the answer is it
+        # (shading the bar was the marked answer before, so the fraction of the amount was never checked)
+        return {"prompt": "The bar model shows %d split into %d equal parts. Use it to work out %s of %d."
+                          % (total, den, _frac_words(n, den), total),
+                "component": "strip_model",
+                "spec": {"mode": "equal_parts", "parts": den, "partLabel": "?", "totalLabel": str(total),
+                         "unknown": "part"},
+                "answer": per * n, "answer_type": "int",
+                "solution": ["%d ÷ %d = %d, so each part is %d." % (total, den, per, per),
+                             "%s of %d is %s: %d × %d = %d." % (_frac_words(n, den), total, _pl(n, "part"), n, per,
+                                                                per * n)]}
 
     # comparison / two-step
     den2 = pick([2, 4, 5])
@@ -425,7 +428,7 @@ def _(d=1):
         want_larger = random.random() < 0.5
         k = max(a, b) if want_larger else min(a, b)
         step = 1.0 / den
-        return {"prompt": "Which fraction is %s, %d/%d or %d/%d? Graph the %s fraction "
+        return {"prompt": "Which fraction is %s, %d/%d or %d/%d? Mark the %s fraction "
                           "on the number line."
                           % ("larger" if want_larger else "smaller", a, den, b, den,
                              "larger" if want_larger else "smaller"),
@@ -517,20 +520,17 @@ def _(d=1):
                       10 - n, "int", unit="tenths",
                       solution=["1 whole = 10/10.", "10 − %d = %s." % (n, _pl(10 - n, "tenth"))])
 
-    if t == 6:                    # NEW: graph decimals and fractions in tenths
-        n = random.randint(1, _by_d(d, 9, 15, 19))
-        as_dec = random.random() < 0.5
-        label = ("the decimal %s" % ("%.1f" % (n / 10.0))) if as_dec \
-                else ("the fraction %d/10" % n)
-        return {"prompt": "Graph %s on the number line marked in tenths "
-                          "(%d/10 = %s)." % (label, n, "%.1f" % (n / 10.0)),
+    if t == 6:                    # tenths past one whole on a line marked in tenths (decimals wait for Year 4)
+        n = random.randint(_by_d(d, 2, 6, 11), _by_d(d, 9, 15, 19))
+        over = n > 10
+        label = ("1 and %d/10" % (n - 10)) if over and d == 2 else ("%d/10" % n)
+        return {"prompt": "This number line goes from 0 to 2 in tenths. Mark %s on it." % label,
                 "component": "number_line",
-                "spec": {"min": 0, "max": 2, "step": 0.1, "major": 0.5},
+                "spec": {"min": 0, "max": 2, "step": 0.1, "major": 1},
                 "answer": round(n / 10.0, 6), "answer_type": "num",
                 "tolerance": 0.05,
-                "solution": ["Each step is one tenth, or 0.1.",
-                             "%s is %s, so count %s from 0."
-                             % (_pl(n, "tenth"), "%.1f" % (n / 10.0), _pl(n, "step"))]}
+                "solution": (["1 whole is 10 tenths, so %s is %d tenths." % (label, n)] if over else []) +
+                            ["Each step on the line is one tenth.", "Count %s from 0." % _pl(n, "step")]}
 
     # visual: shade tenths
     if d == 2:                                          # stretch: shade a count on
@@ -1301,21 +1301,20 @@ def _(d=1):
                       tool, "str", text=True, placeholder="type the tool",
                       solution=["To measure %s you use %s." % (job, _a(tool))])
 
-    if t == 6:                    # NEW: compare size, weight and capacity
-        prop, ask, big, small = pick([
-            ("size", "longer", "bus", "pencil"),
-            ("weight", "heavier", "brick", "feather"),
-            ("capacity", "larger", "bucket", "teaspoon"),
-            ("weight", "heavier", "apple", "paperclip"),
-            ("capacity", "larger", "bath", "mug"),
-            ("size", "taller", "tree", "flower"),
-        ])
-        first, second = ((big, small) if random.random() < 0.5 else (small, big))
-        return _num_q("Compare the %s of these two things. Which is %s — %s or %s? "
-                      "(type one word)" % (prop, ask, first, second),
-                      big, "str", text=True, placeholder="type one word",
-                      solution=["Compare their %s." % prop,
-                                "The %s one is the %s." % (ask, big)])
+    if t == 6:                    # a mixed measure into the smaller unit: 2 kg 350 g = 2350 g
+        # (this was "which is heavier, a brick or a feather?", Year 1 work)
+        big, small, factor = pick(_by_d(d, [("cm", "mm", 10), ("m", "cm", 100)],
+                                        [("m", "cm", 100), ("kg", "g", 1000), ("l", "ml", 1000)],
+                                        [("kg", "g", 1000), ("l", "ml", 1000), ("m", "cm", 100)]))
+        whole = random.randint(2, _by_d(d, 5, 6, 9))
+        part = random.randint(1, factor - 1)
+        if factor == 1000:
+            part = random.randint(1, 19) * 50 if d < 2 else random.randint(11, 999)
+        return _num_q("Write %d %s %d %s in %s." % (whole, big, part, small, {"mm": "millimetres", "cm": "centimetres",
+                                                                            "g": "grams", "ml": "millilitres"}[small]),
+                      whole * factor + part, "int", unit=small,
+                      solution=["1 %s = %d %s, so %d %s = %d %s." % (big, factor, small, whole, big, whole * factor, small),
+                                "%d + %d = %d %s." % (whole * factor, part, whole * factor + part, small)])
 
     # missing number
     kind = pick([("cm", "m", 100), ("mm", "cm", 10), ("g", "kg", 1000), ("ml", "l", 1000)])
@@ -1671,15 +1670,18 @@ def _(d=1):
                 "solution": ["The hour hand goes just past %d." % h,
                              "The minute hand shows %d minutes." % m]}
 
-    if t == 1:                                          # o'clock / half past (words)
-        mm = pick(_by_d(d, [0, 30], [0, 15, 30, 45], [0, 15, 30, 45]))
+    if t == 1:                                          # time in words: o'clock and half past only in the easy tier
+        mm = pick(_by_d(d, [0, 30, 15, 45], [15, 45], [3, 7, 12, 18, 23, 28]))
         phrase = {0: "%d o'clock" % h, 15: "quarter past %d" % h,
                   30: "half past %d" % h,
-                  45: "quarter to %d" % (1 if h == 12 else h + 1)}[mm]
+                  45: "quarter to %d" % (1 if h == 12 else h + 1)}.get(mm, "%d minutes past %d" % (mm, h))
         return {"prompt": "Set the clock to %s." % phrase,
                 "component": "clock", "spec": {"mode": "set"},
                 "answer": _hm(h, mm), "answer_type": "time",
-                "solution": ["%s is %s." % (phrase.capitalize(), _hm(h, mm))]}
+                "solution": ["%s is %s." % (phrase.capitalize(), _hm(h, mm)),
+                             "The minute hand points to %d minutes past; the hour hand is %s." % (
+                                 mm, ("on %d" % h) if mm == 0 else
+                                 ("between %d and %d" % (h, h % 12 + 1)))]}
 
     if t == 2:                                          # minutes past
         mm = pick(_by_d(d, [5, 10], [5, 10, 20, 25], [5, 10, 20, 25]))
@@ -1701,6 +1703,8 @@ def _(d=1):
     event = pick([("registration", 9, 0), ("break time", 10, 30), ("lunch", 12, 15),
                   ("home time", 3, 30), ("swimming", 4, 45), ("bedtime", 8, 0)])
     label, eh, em = event
+    if d:                                               # the same day, but to 5 minutes, then to the minute
+        em = pick([x for x in _clock_minutes(d) if x % 15])
     return {"prompt": "%s is at %s. Set the clock to that time."
                       % (label.capitalize(), _hm(eh, em)),
             "component": "clock", "spec": {"mode": "set"},
@@ -1747,7 +1751,7 @@ def _(d=1):
                       solution=["%d minutes past %d is %s." % (m, h, _hm(h, m))])
 
     if t == 3:                                          # words -> clock (visual)
-        m = pick(_by_d(d, [0, 30], [0, 15, 30, 45], [0, 15, 20, 30, 40, 45]))
+        m = pick(_by_d(d, [0, 30], [15, 30, 45, 20, 40], [20, 40, 35, 50, 10, 55]))
         if m == 0:
             phrase = "%d o'clock" % h
         elif m == 15:
@@ -1778,6 +1782,8 @@ def _(d=1):
     d = _tier(d)
     lo, hi = _by_d(d, (1, 6), (1, 12), (1, 12))
     n = random.randint(lo, hi)
+    if d == 2:                                          # the numerals children mix up, not I or III
+        n = pick([4, 6, 9, 11, 12, 7, 8])
     t = _pick_t([1, 1, 2, 1, 1])
 
     if t == 0:                                          # number -> numeral
@@ -1992,35 +1998,19 @@ def _(d=1):
                       solution=["%s." % fact,
                                 "%d × %d = %d %s." % (v, factor, v * factor, small)])
 
-    if t == 5:                    # NEW: days, months and seasons
-        seasons = ["spring", "summer", "autumn", "winter"]
-        months = {"January": "winter", "February": "winter", "March": "spring",
-                  "April": "spring", "May": "spring", "June": "summer",
-                  "July": "summer", "August": "summer", "September": "autumn",
-                  "October": "autumn", "November": "autumn", "December": "winter"}
-        mode = random.randrange(3)
-        if mode == 0:
-            i = random.randrange(4)
-            return _num_q("The four seasons of the year in order are spring, summer, "
-                          "autumn and winter. Which season comes straight after %s? "
-                          "(type the season)" % seasons[i],
-                          seasons[(i + 1) % 4], "str", text=True,
-                          placeholder="spring / summer / autumn / winter",
-                          solution=["After %s comes %s." % (seasons[i], seasons[(i + 1) % 4])])
-        if mode == 1:
-            mth = pick(list(months.keys()))
-            return _num_q("In the UK, which season is the month of %s in — spring, summer, "
-                          "autumn or winter? (type the season)" % mth,
-                          months[mth], "str", text=True,
-                          placeholder="spring / summer / autumn / winter",
-                          solution=["%s falls in %s." % (mth, months[mth])])
-        season = pick(seasons)
-        cnt = sum(1 for m in months if months[m] == season)
-        return _num_q("There are 12 months in a year and they are shared between the four "
-                      "seasons. How many months are there in %s?" % season,
-                      cnt, "int", unit="months",
-                      solution=["12 months ÷ 4 seasons = 3 months each.",
-                                "%s has %d months." % (season.capitalize(), cnt)])
+    if t == 5:                    # compare two durations in different units (the seasons questions were Year 1)
+        b2, s2, f2, fact2 = (big, small, factor, fact) if big != "years" else ("weeks", "days", 7, "1 week = 7 days")
+        whole = random.randint(2, _by_d(d, 3, 5, 6))
+        other = whole * f2 + pick([-1, 1]) * random.randint(1, f2 // 2 if f2 > 7 else 3)
+        which = pick(["longer", "shorter"])
+        lo, hi = min(whole * f2, other), max(whole * f2, other)
+        ans = hi if which == "longer" else lo
+        return _num_q("Which is %s: %d %s or %d %s? Write the %s time in %s."
+                      % (which, whole, b2, other, s2, which, s2),
+                      ans, "int", unit=s2,
+                      solution=["%s, so %d %s = %d %s." % (fact2, whole, b2, whole * f2, s2),
+                                "%d %s is shorter than %d %s." % (lo, s2, hi, s2),
+                                "The %s time is %d %s." % (which, ans, s2)])
 
     # whole hours on a clock (visual): 1 hour = 60 minutes
     h = random.randint(1, 12)
@@ -2048,6 +2038,10 @@ def _(d=1):
                  [s for s in _SHAPES_2D if s[1] >= 5])
     name, sides = pick(pool)
     t = _pick_t([2, 2, 2, 1, 2, 2, 1, 1, 1, 1, 1])
+
+    many = [x for x in _SHAPES_2D if x[1] >= 5]         # counting a triangle's sides is Year 1 work
+    if t in (0, 1):
+        name, sides = pick(many if d < 2 else [x for x in many if x[1] >= 6])
 
     if t == 0:                                          # count sides (visual)
         return {"prompt": "How many sides does this shape have?",
@@ -2087,19 +2081,20 @@ def _(d=1):
                 "solution": ["The polygon has %d straight sides." % sd,
                              "A polygon with %d sides is %s." % (sd, _a(nm))]}
 
-    if t == 6:                    # NEW: two-dimensional shapes in the real world
-        thing, nm, sd = pick([x for x in [
-            ("a window pane", "rectangle", 4),
-            ("a chess board square", "square", 4),
-            ("a road warning sign", "triangle", 3),
-            ("a stop sign", "octagon", 8),
-            ("a honeycomb cell", "hexagon", 6),
-            ("a football's black patch", "pentagon", 5),
-        ] if (x[1], x[2]) in pool])
-        return _num_q("In the real world, %s is shaped like the two-dimensional shape "
-                      "called %s. How many sides does it have?" % (thing, _a(nm)),
-                      sd, "int", unit="sides",
-                      solution=["%s has %d straight sides." % (_a(nm).capitalize(), sd)])
+    if t == 6:                    # right angles in real-world shapes (counting their sides was Year 1 work)
+        thing, nm, ra, why = pick([
+            ("a window pane", "rectangle", 4, "every corner of a rectangle is a right angle"),
+            ("a sticky note", "square", 4, "every corner of a square is a right angle"),
+            ("a road warning sign", "triangle with 3 equal sides", 0, "each of its corners is smaller than a right angle"),
+            ("a set square", "right-angled triangle", 1, "only one corner is a square corner"),
+            ("a stop sign", "regular octagon", 0, "each of its corners is bigger than a right angle"),
+            ("a honeycomb cell", "regular hexagon", 0, "each of its corners is bigger than a right angle"),
+            ("a football's black patch", "regular pentagon", 0, "each of its corners is bigger than a right angle"),
+        ])
+        return _num_q("In the real world, %s is shaped like %s. How many right angles does it have?"
+                      % (thing, _a(nm)), ra, "int", unit="right angles",
+                      solution=["Compare each corner with a square corner: %s." % why,
+                                "So it has %s." % _pl(ra, "right angle")])
 
     if t == 7:                    # NEW: compare sides and vertices
         (n1, s1), (n2, s2) = random.sample(pool, 2)
@@ -2149,23 +2144,15 @@ def _(d=1):
                                                    if sd == 4 and eq) or "None of them"),
                                 "That is %s." % _pl(overlap, "shape")])
 
-    if d:                         # core/stretch: name a quadrilateral from its properties
-        eq = d == 1
-        nm = "square" if eq else "rectangle"
-        return _num_q("A shape has 4 straight sides and 4 right angles. %s. What is the "
-                      "shape called?" % ("All its sides are the same length" if eq else
-                                         "Two of its sides are longer than the other two"),
-                      nm, "str", text=True, placeholder="shape name",
-                      solution=["4 sides and 4 right angles: a square or a rectangle.",
-                                "%s, so it is a %s." % ("All sides equal" if eq else "Not all sides equal", nm)])
-
-    # right angles (visual, real-life)
-    return {"prompt": "This shape has square corners. How many sides does it have?",
-            "component": "shape",
-            "spec": {"kind": "2d", "name": pick(["square", "rectangle"]), "ask": "sides",
-                     "marks": "right_angle"},
-            "answer": 4, "answer_type": "int",
-            "solution": ["A shape with 4 square (right-angled) corners has 4 sides."]}
+    # name a quadrilateral from its properties ("this shape has square corners: how many sides?" was Year 1)
+    eq = random.random() < 0.5
+    nm = "square" if eq else "rectangle"
+    return _num_q("A shape has 4 straight sides and 4 right angles. %s. What is the "
+                  "shape called?" % ("All its sides are the same length" if eq else
+                                     "Two of its sides are longer than the other two"),
+                  nm, "str", text=True, placeholder="shape name",
+                  solution=["4 sides and 4 right angles: a square or a rectangle.",
+                            "%s, so it is a %s." % ("All sides equal" if eq else "Not all sides equal", nm)])
 
 
 _SOLIDS = [("cube", 6, 12, 8), ("cuboid", 6, 12, 8),
@@ -2723,6 +2710,24 @@ def _(d=1):
                 "component": "bar_chart", "spec": spec,
                 "answer": vals[i], "answer_type": "int",
                 "solution": ["The %s bar reaches %d." % (cats[i], vals[i])]}
+
+    pairs = [(a, b) for a in range(len(cats)) for b in range(len(cats))
+             if vals[b] > vals[a] and vals.count(vals[b]) == 1]
+    if t in (1, 2) and d and pairs:                     # Year 3 reads a scaled chart to compare, not to spot the tallest
+        a, b = pick(pairs)
+        more = t == 1
+        base, ans = (a, b) if more else (b, a)
+        if not more and vals.count(vals[a]) > 1:
+            base, ans = a, b
+            more = True
+        gap = vals[b] - vals[a]
+        return {"prompt": "Use the bar chart. Which colour got %d %s votes than %s? (type the name)"
+                          % (gap, "more" if more else "fewer", cats[base]),
+                "component": "bar_chart", "spec": spec,
+                "answer": cats[ans], "answer_type": "str",
+                "solution": ["%s got %d votes." % (cats[base], vals[base]),
+                             "%d %s %d = %d, and %s got %d." % (vals[base], "+" if more else "−", gap, vals[ans],
+                                                               cats[ans], vals[ans])]}
 
     if t == 1:                                          # most popular (typed name)
         top = cats[vals.index(max(vals))]

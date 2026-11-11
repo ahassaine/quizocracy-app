@@ -5,7 +5,7 @@
 # functions.  Money: wages and overtime, simple income tax, bills, payslips, statements and best buys.
 # Angle reasoning with algebra (parallel lines, polygons).  Systematic listing, counting outcomes and
 # tree diagrams.  Charts for grouped numerical data.
-from .maths_engine import skill
+from .maths_engine import skill, ordinal
 from .y5_common import *  # noqa: F401,F403
 from .y9_gen_a import _g
 from .y9_gen_c import S4, S5
@@ -526,12 +526,24 @@ def _(d=1):
     cats = ["%d–%d" % g for g in groups]
 
     def t_read():
+        # a frequency polygon plots each class at its midpoint
         i = random.randrange(k)
-        return _bar("The bar chart shows grouped %s (each bar includes its upper value). How many are in the class %s?" % (desc, cats[i]), cats, f, f[i],
-                    ["Read the height of the %s bar: %d." % (cats[i], f[i])])
+        mid = Fraction(groups[i][0] + groups[i][1], 2)
+        return _bar("The bar chart shows grouped %s. A frequency polygon is drawn from it. At what value on the horizontal axis "
+                    "is the point for the class %s plotted?" % (desc, cats[i]), cats, f, _ds(mid),
+                    ["A frequency polygon plots each class at its midpoint.",
+                     "(%d + %d) ÷ 2 = %s, at a height of %d." % (groups[i][0], groups[i][1], _ds(mid), f[i])], atype="num")
 
     def t_total():
-        return _bar("The bar chart shows grouped %s. How many values are there altogether?" % desc, cats, f, sum(f), ["%s = %d." % (" + ".join(map(str, f)), sum(f))])
+        # an estimated mean straight from the chart, using midpoints
+        mids = [Fraction(a + b, 2) for a, b in groups]
+        T = sum(mp * x for mp, x in zip(mids, f))
+        m = round(float(T / sum(f)) + 1e-12, 1)
+        q = _bar("The bar chart shows grouped %s. Use the midpoints to estimate the mean, to 1 decimal place." % desc, cats, f, m,
+                 ["Σ(midpoint × f) = %s = %s." % (" + ".join("%s×%d" % (_ds(mp), x) for mp, x in zip(mids, f)), _ds(T)),
+                  "Σf = %d, so the estimated mean is %s ÷ %d ≈ %s." % (sum(f), _ds(T), sum(f), m)], atype="num")
+        q["tolerance"] = 0.051
+        return q
 
     def t_above():
         i = random.randint(1, k - 1)
@@ -540,7 +552,7 @@ def _(d=1):
 
     def t_modal():
         if f.count(max(f)) > 1:
-            return t_total()
+            f[f.index(max(f))] += 1          # one clear modal class
         return _bar("The bar chart shows grouped %s. Type the lower end of the modal class." % desc, cats, f, groups[f.index(max(f))][0],
                     ["The tallest bar is %s." % cats[f.index(max(f))]])
 
@@ -548,26 +560,29 @@ def _(d=1):
         return _bar("The bar chart shows grouped %s. What is the class width?" % desc, cats, f, w, ["%d − %d = %d." % (groups[0][1], groups[0][0], w)])
 
     def t_difference():
-        if d == 0:                                  # easy: the larger bar minus the smaller, so the answer is positive
-            pairs = [(i, j) for i in range(k) for j in range(k) if f[i] > f[j]]
-            if not pairs:
-                return t_read()
-            i, j = pick(pairs)
-            return _bar("The bar chart shows grouped %s. How many more values are in %s than in %s?" % (desc, cats[i], cats[j]),
-                        cats, f, f[i] - f[j], ["%d − %d = %d." % (f[i], f[j], f[i] - f[j])])
-        pairs = [(i, j) for i in range(k) for j in range(k) if f[i] != f[j]]   # two bars that differ: never an answer of 0
-        if not pairs:
-            return t_read()
-        i, j = pick(pairs)
-        return _bar("The bar chart shows grouped %s. How many more values are in %s than in %s? (Use a minus sign if fewer.)" % (desc, cats[i], cats[j]),
-                    cats, f, f[i] - f[j], ["%d − %d = %d." % (f[i], f[j], f[i] - f[j])])
+        # the class that holds the median, read from the bars (an odd total, so there is one middle value)
+        if sum(f) % 2 == 0:
+            f[-1] += 1
+        n = sum(f)
+        pos, cum = (n + 1) // 2, 0
+        for i, x in enumerate(f):
+            cum += x
+            if cum >= pos:
+                break
+        return _bar("The bar chart shows grouped %s. Which class contains the median? Type its lower end." % desc, cats, f,
+                    groups[i][0], ["There are %d values, so the median is the %s value." % (n, ordinal(pos)),
+                                   "Adding the bars from the left, the %s value is in %s." % (ordinal(pos), cats[i])])
 
     def t_percent():
         tot = sum(f)
         i = random.randrange(k)
         pc = Fraction(100 * f[i], tot)
-        if pc.denominator not in (1, 2, 4, 5, 10, 20, 25, 50):
-            return t_read()
+        for _ in range(500):                   # a total that gives a percentage with at most two decimal places
+            if pc.denominator in (1, 2, 4, 5, 10, 20, 25, 50):
+                break
+            f[:] = [random.randint(1, 16) for _ in groups]
+            tot = sum(f)
+            pc = Fraction(100 * f[i], tot)
         return _bar("The bar chart shows grouped %s. What percentage of the values are in %s?" % (desc, cats[i]), cats, f, _ds(pc),
                     ["%d out of %d = %s%%." % (f[i], tot, _ds(pc))], atype="num")
 
@@ -579,7 +594,7 @@ def _(d=1):
                    "int", {}, ["Count values above %d and up to and including %d: %d." % (groups[g][0], groups[g][1], cnt)])
 
     def t_boundary():
-        g = random.randint(1, k - 1)
+        g = random.randint(1, min(2, k - 1))
         v = groups[g][0]
         return _tb("Classes are %s. A value of exactly %d goes in the class that starts at which number?" % (
                    ", ".join("%d < x ≤ %d" % gg for gg in groups[:3]), v), groups[g - 1][0], "int", {},
@@ -590,9 +605,10 @@ def _(d=1):
         ff = [random.randint(1, 10) for _ in vals]
         tot = sum(v * x for v, x in zip(vals, ff))
         m = Fraction(tot, sum(ff))
-        if m.denominator not in (1, 2, 4, 5, 10):
-            return _bar("The bar chart shows how many goals a team scored per match. In how many matches did they score at least 3?",
-                        [str(v) for v in vals], ff, sum(ff[3:]), ["%d + %d + %d = %d." % (ff[3], ff[4], ff[5], sum(ff[3:]))])
+        while m.denominator not in (1, 2, 4, 5, 10):
+            ff = [random.randint(1, 10) for _ in vals]
+            tot = sum(v * x for v, x in zip(vals, ff))
+            m = Fraction(tot, sum(ff))
         return _bar("The bar chart shows how many goals a team scored per match. What is the mean number of goals?", [str(v) for v in vals], ff,
                     _ds(m), ["Total goals %d in %d matches." % (tot, sum(ff)), "%d ÷ %d = %s." % (tot, sum(ff), _ds(m))], atype="num")
 

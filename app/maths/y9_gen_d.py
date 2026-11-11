@@ -419,9 +419,14 @@ def _(d=1):
                    ["It is the angle bisector."], "one word")
 
     def t_goat():
-        r = random.randint(2, 10)
-        return _tb("A goat is tied to a post with a rope %d m long. It can graze inside a circle. What is the greatest distance it can reach "
-                   "from the post, in m?" % r, r, "int", {"unit": "m"}, ["The radius is the rope length."])
+        # the locus (a circle) meets a straight fence: the chord it cuts is found with Pythagoras
+        a, b, r = pick(_by(d, [(3, 4, 5), (6, 8, 10)], [(3, 4, 5), (5, 12, 13), (6, 8, 10), (9, 12, 15)],
+                           [(5, 12, 13), (8, 15, 17), (9, 12, 15), (7, 24, 25)]))
+        return _tb("A goat is tied to a post %d m from a long straight fence, with a rope %d m long. The points it can reach "
+                   "form a circle. How long is the stretch of fence the goat can reach, in m?" % (a, r), 2 * b, "int",
+                   {"unit": "m"}, ["The circle has radius %d m and its centre is %d m from the fence." % (r, a),
+                                   "Half the stretch: √(%d² − %d²) = √%d = %d m." % (r, a, r * r - a * a, b),
+                                   "The whole stretch is 2 × %d = %d m." % (b, 2 * b)])
 
     def t_perp():
         x0, y0 = random.randint(-4, 4), random.randint(1, 6)
@@ -478,7 +483,7 @@ def _(d=1):
     return _pick_t(*_by(d, ([t_locus_point, t_locus_two, t_goat, t_perp, t_y_axis, t_parallel_lines], [t_midpoint]),
                         ([t_locus_point, t_locus_two, t_angle_bisector, t_goat, t_perp, t_y_axis, t_horizontal, t_vertical, t_parallel_lines,
                           t_corner_goat, t_equidistant], [t_midpoint]),
-                        ([t_angle_bisector, t_horizontal, t_vertical, t_corner_goat, t_equidistant], [t_midpoint])))
+                        ([t_angle_bisector, t_horizontal, t_vertical, t_corner_goat, t_equidistant, t_goat], [t_midpoint])))
 
 
 # ================================================================== 9.7 ======

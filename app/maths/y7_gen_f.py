@@ -377,6 +377,8 @@ def _(d=1):
     d = _d(d)
     r = _by(d, 4, 6, 7)                               # how far from the origin the points may go
     x, y = random.randint(-r, r), random.randint(-r, r)
+    while x >= 0 and y >= 0 and d:                    # above the easiest tier, a point with a negative coordinate
+        x, y = random.randint(-r, r), random.randint(-r, r)
 
     def t_plot():
         return {"prompt": "Plot the point (%d,%d)." % (x, y), "component": "coordinate_grid",

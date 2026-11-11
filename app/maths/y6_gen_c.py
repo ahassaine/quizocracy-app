@@ -2823,6 +2823,8 @@ def _(d=1):
 
     if t == 2:                       # measures
         p, amount, ans = _pct_amount(d)
+        while amount < 250:                       # a bag of flour weighs hundreds of grams, not 20 g
+            amount, ans = amount * 10, ans * 10
         return _iq("A bag of flour has a mass of %s grams. What is %d%% of "
                    "that mass, in grams?" % ("{:,}".format(amount), p), ans,
                    unit="g",

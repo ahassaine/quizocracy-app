@@ -1,4 +1,15 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% block title %}Quizocracy · Daily practice for Years 1 to 9{% endblock %}
+{% block meta %}{% from "_meta.html" import meta %}{{ meta('Quizocracy · Daily practice your children will actually do', 'Short daily practice in maths, times tables, spelling, grammar and science for children in Years 1 to 9 in England. You set the targets; a family board shows everyone\'s day. Free during the beta, by invitation for now.', '/') }}
+<style>
+  /* the real screens, from a test family (made-up names): a question with its reason, and My day */
+  .shots { display:flex; gap:16px; align-items:flex-start; justify-content:center; max-width:460px; width:100%; margin:auto; }
+  .shot { margin:0; flex:1 1 0; min-width:0; text-align:center; }
+  .shot img { display:block; width:100%; height:auto; aspect-ratio:540/1170; object-fit:cover; object-position:top;
+    border:6px solid #111827; border-radius:24px; box-shadow:var(--shadow); background:#F7F8FC; }
+  .shot.lower { margin-top:44px; }
+  .shot figcaption { margin-top:8px; }
+  @media (max-width:720px) { .shots { max-width:380px; gap:12px; } .shot img { border-width:4px; border-radius:18px; } .shot.lower { margin-top:28px; } }
+</style>{% endblock %}
 {% block body %}
 {% if request.query_params.get('deleted') %}<div class="ok">Your account and all of its data have been deleted.</div>{% endif %}
 {% if request.query_params.get('left') %}<div class="ok" data-testid="left">You have left the family. Your login is gone; the children and their practice stay with the family.</div>{% endif %}
@@ -7,14 +18,19 @@
     <div class="badge-note rise"><img src="/static/img/family.png" alt="">Built by a parent for his kids</div>
     <h1 class="rise rise-2">Daily practice your children will <span class="grad">actually do</span></h1>
     <p class="lead rise rise-3">Short daily practice in maths, times tables, spelling, grammar and punctuation, science, numbers in words and irregular verbs, matched to your child's school year in England. You set the targets; a family board shows everyone's day.</p>
-    <p class="mut small rise rise-3" data-testid="curriculum-line" style="margin-top:-.4em"><b>Follows the national curriculum in England (Years 1–9).</b> In Scotland, Wales or Northern Ireland, pick the year that matches your child's age (P4 in Scotland is about Year 3).</p>
-    <div class="row rise rise-4"><a class="btn primary big" href="/signup">Start free</a><a class="btn big" href="/login">Sign in</a></div><p class="mut small rise rise-4" data-testid="kid-line">Children: ask your parent to sign in once on this phone or tablet, then you just use your PIN.</p>
+    <p class="mut small rise rise-3" data-testid="curriculum-line" style="margin-top:-.4em"><b>Follows the national curriculum in England (Years 1–9).</b> <span data-testid="left-out">{{ LEFT_OUT }}</span> In Scotland, Wales or Northern Ireland, pick the year that matches your child's age (P4 in Scotland is about Year 3).</p>
+    {% if cfg.INVITE_CODE %}<p class="small rise rise-4" data-testid="invite-only" style="margin-bottom:.4em"><b>The beta is invitation-only right now.</b> Have an invitation code? Sign up with it. No code yet? Join the waiting list, and we'll email you when there is a place.</p>
+    <div class="row rise rise-4"><a class="btn primary big" href="/signup" data-testid="have-code">I have an invitation code</a><a class="btn big" href="#waitlist" data-testid="to-waitlist">Join the waiting list</a></div>
+    <p class="mut small rise rise-4" style="margin:.5em 0 0">Already have an account? <a href="/login">Sign in</a></p>
+    {% else %}<div class="row rise rise-4"><a class="btn primary big" href="/signup">Start free</a><a class="btn big" href="/login">Sign in</a></div>{% endif %}<p class="mut small rise rise-4" data-testid="kid-line">Children: ask your parent to sign in once on this phone or tablet, then you just use your PIN.</p>
   </div>
-  <div class="orbit rise rise-3" aria-hidden="true">
-    <div class="blob"></div>
-    <img class="center" src="/static/img/logo.png" alt="">
-    <img src="/static/img/maths.png" alt=""><img src="/static/img/spelling.png" alt="">
-    <img src="/static/img/tables.png" alt=""><img src="/static/img/verbs.png" alt="">
+  <div class="shots rise rise-3" data-testid="landing-shots">
+    <figure class="shot"><img src="/static/img/shot-question.webp" width="540" height="1239" fetchpriority="high"
+      alt="A Year 3 maths question on a phone: a pictogram of fruit, where each circle stands for 2. The child typed 6 for how many more apples than pears, and it says Correct, with the reason: Apples = 10 and Pears = 4, 10 − 4 = 6.">
+      <figcaption class="mut small">A question, marked at once, with the reason</figcaption></figure>
+    <figure class="shot lower"><img src="/static/img/shot-my-day.webp" width="540" height="1169" loading="lazy"
+      alt="A child's My day page on a phone: Hi Maya, today 14% done, a big Carry on: Maths button, Maths 5 of 8 and Times tables 0 of 20.">
+      <figcaption class="mut small">My day: the plan, and how far they are</figcaption></figure>
   </div>
 </section>
 
@@ -63,6 +79,8 @@
 </div>
 
 <div class="card"><b>Safe by design.</b> <span class="mut">No adverts, no chat, nothing shared with other families. Children sign in with a PIN on your device, and they know you can see their work.</span></div>
-<div class="row" style="justify-content:center;margin:22px 0 6px"><a class="btn primary big" href="/signup">Start free</a></div>
+{% if cfg.INVITE_CODE %}{% with back = '/' %}{% include "_waitlist.html" %}{% endwith %}
+<div class="row" style="justify-content:center;margin:22px 0 6px"><a class="btn primary big" href="/signup">I have an invitation code</a></div>
+{% else %}<div class="row" style="justify-content:center;margin:22px 0 6px"><a class="btn primary big" href="/signup">Start free</a></div>{% endif %}
 <p class="mut small" style="text-align:center">{% if cfg.BETA_FAMILY_PLAN %}Free during the beta: every activity, for up to six children.{% else %}The free plan covers one child with maths, times tables and spelling.{% endif %}</p>
 {% endblock %}

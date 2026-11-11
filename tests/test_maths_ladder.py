@@ -3,12 +3,27 @@ a weak one is never trapped on one skill, and Years 8-9 keep earlier KS3 skills 
 import asyncio
 import collections
 import concurrent.futures
+import itertools
 import os
 import random
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.maths import maths_mastery as mm  # noqa: E402
+from app.maths import maths_engine as me, maths_mastery as mm  # noqa: E402
+
+
+_KINDS = itertools.count()
+
+
+def kind(key, tier):
+    """The kind of a question this skill's generator makes at this tier, as drills/maths passes it on. Made with
+    its own seed, so the simulation's own random choices stay as they were."""
+    state = random.getstate()
+    random.seed(next(_KINDS))
+    try:
+        return me.template_shape(me.call_generator(me.GENERATORS[key], tier or 0), key)
+    finally:
+        random.setstate(state)
 
 
 class _Cursor:
@@ -125,12 +140,12 @@ def test_a_strong_pupil_meets_several_strands_and_skips_ahead(monkeypatch):
                 if reason == "new" and await mm.probe("sim", year, key):
                     tier = 2                               # as drills/maths does: hard questions open it
                 keys.append(key)
-                await mm.record_attempt("sim", key, True, tier=tier)
+                await mm.record_attempt("sim", key, True, tier=tier, shape=kind(key, tier))
             return keys
         keys = _run(monkeypatch, go)
         strands = {k.rsplit(".", 1)[0] for k in keys if k.startswith("Y%d." % year)}
         assert len(strands) >= 4, (year, strands)
-        # placement: 2 hard questions right in a row secure a skill (never one)
+        # placement: 3 hard questions right in a row, of 2 kinds, secure a skill (never one or two)
         assert len(set(keys)) >= 9, (year, len(set(keys)), keys)
 
 

@@ -7,8 +7,8 @@ Mastery score 0-100 per (pupil, skill):
                  so the last stretch demands consistency (as IXL's does).
   * 100 = mastered.
 
-  * right every time FAST_STREAK in a row (or HARD_RIGHT in a row at the hardest tier, a placement probe
-    included) -> secure at once, and checked back on a later day.
+  * right every time FAST_STREAK in a row (or HARD_RIGHT in a row at the hardest tier, of at least HARD_KINDS
+    kinds of question, a placement probe included) -> secure at once, and checked back on a later day.
 
 Adaptive selection walks the pupil's year ladder (Yn.0 -> Yn.9, OUT_OF_YEAR skills left out):
 it works the lowest unfinished level of STRAND_WINDOW strands in turn (BLOCK questions at most before
@@ -38,7 +38,8 @@ FAST_STREAK = 5           # right every time this many in a row: the skill is se
 CHECK_BACK_CHANCE = 0.35  # share of questions that check back a skill secured fast, on a later day
 PROBE_AFTER_FAST = 1      # skills secured fast before new skills open with hard placement questions
 HARD_TIER = 2             # the hardest tier (maths_engine.difficulty_for)
-HARD_RIGHT = 2            # right this many in a row at the hardest tier, with no slip, and the skill is secure
+HARD_RIGHT = 3            # right this many in a row at the hardest tier, with no slip, and the skill is secure ...
+HARD_KINDS = 2            # ... when they are at least this many different kinds of question (template_shape)
 FOCUS_WINDOW = 4          # a school-topic strand: its first unfinished skills take turns ...
 FOCUS_BLOCK = 3           # ... this many questions each (FAST_STREAK while every answer is right)
 
@@ -112,9 +113,10 @@ def _strand_of(key):
     return _STRANDS.get(key)
 
 
-async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
-    """Log the attempt and update mastery. Returns the new mastery doc. tier: how hard the question was (a strong
-    child who gets the hardest tier right HARD_RIGHT times in a row, with no slip, has the skill secure)."""
+async def record_attempt(pupil, skill_key, correct, value=None, tier=None, shape=None):
+    """Log the attempt and update mastery. Returns the new mastery doc. tier: how hard the question was; shape: its
+    kind (maths_engine.template_shape). A strong child who gets the hardest tier right HARD_RIGHT times in a row,
+    on at least HARD_KINDS kinds of question, with no slip, has the skill secure."""
     pupil = (pupil or "").lower()
     if not pupil or not skill_key:
         return None
@@ -134,14 +136,18 @@ async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
     right = int(doc.get("correct_count", 0)) + (1 if correct else 0)
     upd = {}
     hard = int(doc.get("hard", 0)) + 1 if correct and tier is not None and int(tier) >= HARD_TIER else 0
+    # the kinds of question in this run of hard ones right (an unknown kind counts as one kind)
+    kinds = (list(doc.get("hard_kinds") or [])[-(HARD_RIGHT + 1):] + [str(shape or "?")])[-hard:] if hard else []
+    upd["hard_kinds"] = kinds
     if correct:
         streak += 1
         score = min(MASTERED, score + gain(score, streak))
         slips = attempts - right
+        varied = len(set(kinds)) >= HARD_KINDS
         if (slips <= 1 and streak >= FAST_STREAK + 2 * slips) \
-                or (slips == 0 and hard >= HARD_RIGHT) or (slips == 1 and hard >= HARD_RIGHT + 1):
-            # right every time, or HARD_RIGHT in a row at the hardest tier (a placement probe too: one right
-            # answer is not enough): secure now, checked back on a later day
+                or (varied and ((slips == 0 and hard >= HARD_RIGHT) or (slips == 1 and hard >= HARD_RIGHT + 1))):
+            # right every time, or HARD_RIGHT in a row at the hardest tier of HARD_KINDS kinds (a placement probe
+            # too: one or two right answers, or three of one kind, are not enough): secure now, checked back later
             score, upd["fast"] = MASTERED, True
         if doc.get("fast") and int(doc.get("score", 0)) >= MASTERED and _earlier_day(doc.get("last")):
             upd["checked"] = True
@@ -150,7 +156,8 @@ async def record_attempt(pupil, skill_key, correct, value=None, tier=None):
         score = max(0, score - penalty(score))
         upd["fast"] = False
     if doc.get("probing"):
-        # a placement probe goes on at the hardest tier until HARD_RIGHT are right in a row, or one is missed
+        # a placement probe goes on at the hardest tier until the skill is secure (HARD_RIGHT right in a row, of
+        # HARD_KINDS kinds), or one is missed
         done = not correct or score >= MASTERED
         upd.update({"probing": not done, **({"probe": "right" if correct else "wrong"} if done else {})})
     if tier is not None:
@@ -418,7 +425,7 @@ async def eased(pupil, skill_key, tier):
 async def probe(pupil, year, skill_key):
     """Placement for a strong pupil: once PROBE_AFTER_FAST skills of the year were secured fast, and the last
     skill finished was one of them, a new skill opens with questions at the hardest tier. HARD_RIGHT right in a
-    row secure it (checked back another day); one wrong, and the skill is practised as usual. True = probing now."""
+    row, of HARD_KINDS kinds, secure it (checked back another day); one wrong, and the skill is practised as usual. True = probing now."""
     keys = {s["key"] for s in _year_skills(year)}
     mm = {k: d for k, d in (await _mastery_map(pupil)).items() if k in keys}
     if mm.get(skill_key, {}).get("attempts"):

@@ -96,6 +96,14 @@ def _arrayq(prompt, rows, cols, solution):
             "answer": rows * cols, "answer_type": "int", "solution": solution}
 
 
+def _arrayreadq(prompt, rows, cols, answer, solution):
+    """An array drawn (not built) with a typed answer: for the division skills, where the answer is the number in
+    each row or the number of rows, not the total a built array gives."""
+    return {"prompt": prompt, "component": "array",
+            "spec": {"mode": "read", "rows": int(rows), "cols": int(cols)},
+            "answer": int(answer), "answer_type": "int", "solution": solution}
+
+
 def _barq(prompt, cats, vals, answer, solution):
     return {"prompt": prompt, "component": "bar_chart",
             "spec": {"categories": list(cats), "values": [int(v) for v in vals],
@@ -368,7 +376,7 @@ def _(d=1):
             io_add, io_sub, balance_add, zero_or_all]
     if d == 2:
         opts = [bare_sub, on_line, missing, word, two_step, compare,
-                io_sub, io_rule, io_rule, balance_add, balance_sub, zero_or_all]
+                io_sub, io_rule, io_rule, balance_add, balance_sub]      # "18 − 0" is no hard question
     elif d == 1:
         opts += [compare, io_rule, balance_sub]
     return pick(opts)()
@@ -750,13 +758,14 @@ def _(d=1):
                       "%d + %d = %dp." % (p1, p2, p1 + p2)], unit="p")
 
     def chart():
+        # numbers within 100 to subtract, as the skill says (the chart prints a value between gridlines)
         cats = ["Mon", "Tue", "Wed", "Thu"]
-        vals = [random.randint(4, 18) for _ in cats]
+        vals = [random.randint(*{0: (12, 45), 1: (21, 79), 2: (31, 98)}[d]) for _ in cats]
         i, j = random.sample(range(4), 2)
         if vals[i] < vals[j]:
             i, j = j, i
-        if vals[i] == vals[j]:
-            vals[i] += 3
+        if vals[i] - vals[j] < 6:
+            vals[j] = vals[i] - random.randint(6, min(29, vals[i] - 5))
         return _barq("The chart shows books read each day. How many more books "
                      "were read on %s than on %s?" % (cats[i], cats[j]),
                      cats, vals, vals[i] - vals[j],
@@ -765,9 +774,9 @@ def _(d=1):
                       "%d − %d = %d." % (vals[i], vals[j], vals[i] - vals[j])])
 
     def picto():
-        key = pick([2, 5])
+        key = pick([2, 5]) if d == 0 else pick([5, 10])     # totals of 2-digit numbers, not 12 + 8
         cats = ["Red", "Blue", "Green"]
-        vals = [key * random.randint(2, 6) for _ in cats]
+        vals = [key * random.randint(3, min(9, 45 // key)) for _ in cats]     # a total within 100
         return _pictq("The pictogram shows the cars in a car park. How many red "
                       "and blue cars altogether?", cats, vals, key, "car",
                       vals[0] + vals[1],
@@ -1096,7 +1105,8 @@ def _(d=1):
 
     def on_line():
         start = (tot // 10) * 10
-        jump = pick([20, 50, 100])
+        # a 3-digit subtraction to check from the middle tier (920 − 20 is no calculation to check)
+        jump = pick([20, 50, 100]) if d == 0 else 10 * random.randint(11 if d == 1 else 13, max(14, start // 10 - 10))
         return _lineq("Work out %d − %d and mark the answer on the number line. "
                       "Check by adding %d back on." % (start, jump, jump),
                       start - jump, [start],
@@ -1175,12 +1185,13 @@ def _(d=1):
 @skill("Y3.4.a", "Multiplication as an array", S4)
 def _(d=1):
     d = _lvl(d)
+    # Year 3 arrays: the 2, 5 and 10 facts from Year 2 to start, then the 3, 4 and 8 tables (never a 2 × 2)
     if d == 0:
-        r = random.randint(2, 4); c = random.randint(2, 5)
+        r = random.randint(2, 5); c = random.randint(3, 6)
     elif d == 1:
-        r = random.randint(2, 6); c = random.randint(2, 9)
+        r = random.randint(3, 6); c = random.randint(3, 9)
     else:
-        r = random.randint(4, 8); c = random.randint(5, 10)
+        r = random.randint(4, 8); c = random.randint(6, 12)
 
     def build():
         return _arrayq("Make an array to show %d × %d, then type the total number "
@@ -1217,9 +1228,9 @@ def _(d=1):
 
     # --- equal groups: g groups of p, kept small enough for the group model ---
     if d == 0:
-        g, p = random.randint(2, 4), random.randint(2, 5)
+        g, p = random.randint(2, 4), random.randint(3, 5)
     elif d == 1:
-        g, p = random.randint(2, 6), random.randint(2, 8)
+        g, p = random.randint(3, 6), random.randint(3, 8)
     else:
         g, p = random.randint(3, 8), random.randint(4, 10)
     tot = g * p
@@ -1232,9 +1243,9 @@ def _(d=1):
                      "%d × %d = %d counters." % (g, p, tot)])
 
     def repeated_addition_array():
-        # sums to 25, so the repeated addition stays short and readable
-        rr = random.randint(2, 5)
-        cc = random.randint(2, 25 // rr)
+        # short enough to read (at most 6 terms), harder by tier: 3 + 3 + 3, then 8 + 8 + 8 + 8 + 8
+        rr = random.randint(*{0: (2, 4), 1: (3, 5), 2: (4, 6)}[d])
+        cc = random.randint(*{0: (2, 5), 1: (3, 8), 2: (6, 12)}[d])
         chain = " + ".join([str(cc)] * rr)
         return _numq("An array has %d rows with %d counters in each row. The repeated "
                      "addition for this array is %s. What is the total?"
@@ -1415,13 +1426,13 @@ def _(d=1):
                      ["%d ÷ %d = %d boxes." % (total, per, g)], unit="boxes")
 
     def array_model():
+        # the sharing is the question (total ÷ children), the array its picture: one row per child
         rows, cols = g, per
-        return _arrayq("Sweets are shared equally between %d children and each "
-                       "child gets %d. Build an array to show this, then type how "
-                       "many sweets were shared altogether." % (rows, cols),
-                       rows, cols,
-                       ["%d rows of %d." % (rows, cols),
-                        "%d × %d = %d sweets." % (rows, cols, total)])
+        return _arrayreadq("%d sweets are shared equally between %d children. The array shows one row for each "
+                           "child. How many sweets does each child get?" % (total, rows),
+                           rows, cols, cols,
+                           ["%d sweets in %d equal rows." % (total, rows),
+                            "%d ÷ %d = %d sweets each." % (total, rows, cols)])
 
     def bare():
         return _numq("Work out %d ÷ %d." % (total, g), per,
@@ -1482,16 +1493,18 @@ def _(d=1):
                      ["%d × %d = %d, so %d ÷ %d = %d." % (t, k, p, p, t, k)])
 
     def bare_other():
-        return _numq("Work out %d ÷ %d." % (p, k), t,
-                     ["%d × %d = %d, so %d ÷ %d = %d." % (k, t, p, p, k, t)])
+        # dividing by the other factor still uses this table: 56 ÷ 7 is 8 because 7 × 8 = 56
+        return _numq("Work out %d ÷ %d, using the %d times table." % (p, k, t), t,
+                     ["In the %d times table, %d × %d = %d." % (t, k, t, p),
+                      "So %d ÷ %d = %d." % (p, k, t)])
 
     def array_model():
+        # a division to work out (the array its picture), not a total to count
         rows, cols = t, k
-        return _arrayq("Counters are put into %d equal rows with %d in each row. "
-                       "Build the array, then type how many counters there are "
-                       "altogether." % (rows, cols), rows, cols,
-                       ["%d × %d = %d, which is why %d ÷ %d = %d."
-                        % (rows, cols, p, p, t, k)])
+        return _arrayreadq("%d counters are put into %d equal rows, as the array shows. How many counters are in "
+                           "each row?" % (p, rows), rows, cols, cols,
+                           ["%d ÷ %d = %d." % (p, rows, cols),
+                            "Check: %d rows of %d = %d." % (rows, cols, p)])
 
     def missing():
         return _numq("Find the missing number:  ___ ÷ %d = %d" % (t, k), p,
@@ -1716,34 +1729,36 @@ def _(d=1):
 @skill("Y3.5.b", "Divide a 2-digit number by a 1-digit number", S5)
 def _(d=1):
     d = _lvl(d)
+    # Year 3 divides a 2-digit number by a 1-digit one beyond the tables: the easy tier is a table fact
+    # (48 ÷ 4), then a 2-digit answer with no exchange (69 ÷ 3), then one with an exchange of a ten (72 ÷ 3)
     if d == 0:
-        b = random.randint(2, 4); k = random.randint(3, 8)
-    elif d == 1:
-        b = random.randint(3, 8); k = random.randint(4, 12)
+        b = random.randint(2, 5); k = random.randint(3, 12)
     else:
-        b = random.randint(4, 9); k = random.randint(7, 12)
+        while True:
+            b = pick([2, 3, 4, 5]) if d == 1 else pick([3, 4, 5, 6])
+            k = random.randint(11 if d == 1 else 13, 99 // b)
+            if ((b * k) // 10 % b == 0) == (d == 1) and b * k % 10:
+                break
     a = b * k
+    tens = (a // 10) * 10 if d == 1 else (a // 10 // b) * b * 10
+    split = ["Split %d into %d and %d." % (a, tens, a - tens),
+             "%d ÷ %d = %d and %d ÷ %d = %d." % (tens, b, tens // b, a - tens, b, (a - tens) // b),
+             "%d + %d = %d, so %d ÷ %d = %d." % (tens // b, (a - tens) // b, k, a, b, k)]
+    fact = ["%d ÷ %d = %d (because %d × %d = %d)." % (a, b, k, b, k, a)]
+    why = fact if d == 0 else split
 
     def bare():
-        return _numq("Work out %d ÷ %d." % (a, b), k,
-                     ["%d ÷ %d = %d (because %d × %d = %d)." % (a, b, k, b, k, a)])
-
-    def bare_other():
-        return _numq("Work out %d ÷ %d." % (a, k), b,
-                     ["%d ÷ %d = %d (because %d × %d = %d)." % (a, k, b, k, b, a)])
+        return _numq("Work out %d ÷ %d." % (a, b), k, why)
 
     def array_model():
-        rows, cols = b, k
-        return _arrayq("Counters are shared into %d equal rows and each row gets "
-                       "%d. Build the array, then type how many counters were "
-                       "shared altogether." % (rows, cols), rows, cols,
-                       ["%d × %d = %d." % (rows, cols, a),
-                        "That is why %d ÷ %d = %d." % (a, b, k)])
+        # a division to work out with the array as its picture (one row for each share), the easy tier only
+        return _arrayreadq("%d counters are shared into %d equal rows, as the array shows. How many counters are "
+                           "in each row?" % (a, b), b, k, k, fact)
 
     def word():
         return _numq("%d pencils are shared equally between %d pots. How many "
                      "pencils in each pot?" % (a, b), k,
-                     ["%d ÷ %d = %d pencils." % (a, b, k)], unit="pencils")
+                     why[:-1] + ["%d ÷ %d = %d pencils." % (a, b, k)], unit="pencils")
 
     def missing():
         return _numq("Find the missing number:  ___ ÷ %d = %d" % (b, k), a,
@@ -1752,8 +1767,19 @@ def _(d=1):
     def check_inverse():
         return _numq("%d ÷ %d = ___ . Work it out, then check by multiplying."
                      % (a, b), k,
-                     ["%d ÷ %d = %d." % (a, b, k),
-                      "Check: %d × %d = %d ✓." % (k, b, a)])
+                     why + ["Check: %d × %d = %d ✓." % (k, b, a)])
+
+    def chunks():
+        # repeated subtraction in big steps: take away 10 lots of b while you can, then the rest
+        tens_lots = k // 10
+        left = a - tens_lots * 10 * b
+        steps = ", ".join("%d − %d = %d" % (a - i * 10 * b, 10 * b, a - (i + 1) * 10 * b) for i in range(tens_lots))
+        return _numq("Work out %d ÷ %d by taking away 10 lots of %d (%d) at a time: %s. How many %ds are there in "
+                     "%d altogether?" % (a, b, b, 10 * b, steps, b, a), k,
+                     ["That is %d %s of 10, so %d %ds so far." % (tens_lots, "lot" if tens_lots == 1 else "lots",
+                                                                  10 * tens_lots, b),
+                      "%d is %d more %ds (%d × %d = %d)." % (left, left // b, b, left // b, b, left),
+                      "%d + %d = %d, so %d ÷ %d = %d." % (10 * tens_lots, left // b, k, a, b, k)])
 
     def repeated_subtraction():
         chain = "%d − %d = %d" % (a, b, a - b)
@@ -1765,19 +1791,11 @@ def _(d=1):
                       "Repeated subtraction is division: %d ÷ %d = %d."
                       % (a, b, k)], unit="times")
 
-    def repeated_subtraction_left():
-        n = random.randint(1, max(1, k - 1))
-        return _numq("Divide using repeated subtraction. Start at %d and subtract %d "
-                     "%s. What number is left?" % (a, b, "once" if n == 1
-                                                   else "twice" if n == 2
-                                                   else n_words(n) + " times"), a - n * b,
-                     ["%d × %d = %d." % (n, b, n * b),
-                      "%d − %d = %d." % (a, n * b, a - n * b)])
-
+    # repeated subtraction one step at a time and the array stay with the table facts; a 2-digit answer is
+    # worked by partitioning or in chunks of ten lots
     opts = [bare, array_model, word, check_inverse, repeated_subtraction]
-    if d == 2:
-        opts = [bare, bare_other, array_model, missing, check_inverse, word,
-                repeated_subtraction, repeated_subtraction_left]
+    if d >= 1:
+        opts = [bare, chunks, missing, check_inverse, word, chunks]
     return pick(opts)()
 
 
@@ -1873,13 +1891,15 @@ def _(d=1):
                         "%d × %d = %d cakes." % (rows, cols, rows * cols)])
 
     def picto():
-        key = pick([2, 5, 10])
+        # pictures × the key: the multiplication (adding three totals up was an addition question)
+        key = pick([2, 5, 10]) if d == 0 else pick([3, 4, 5, 8])
         cats = ["Class 3A", "Class 3B", "Class 3C"]
-        vals = [key * random.randint(2, 7) for _ in cats]
-        return _pictq("The pictogram shows medals won. How many medals were won "
-                      "altogether?", cats, vals, key, "medal", sum(vals),
-                      ["Each picture means %d medals. 'Altogether' means all the classes together, so add." % key,
-                       "%s = %d." % (" + ".join(str(v) for v in vals), sum(vals))])
+        vals = [key * random.randint(2, 7 if d == 0 else 9) for _ in cats]
+        i = random.randrange(3)
+        return _pictq("The pictogram shows medals won. Each picture means %d medals. How many medals did %s win?"
+                      % (key, cats[i]), cats, vals, key, "medal", vals[i],
+                      ["%s has %d pictures, and each one means %d medals, so multiply." % (cats[i], vals[i] // key, key),
+                       "%d × %d = %d medals." % (vals[i] // key, key, vals[i])])
 
     def two_step():
         extra = random.randint(5, 20)
@@ -1959,12 +1979,12 @@ def _(d=1):
                       "%d ÷ %d = %dp each." % (tot, groups, each)], unit="p")
 
     def array_model():
+        # the division is the question; the array (one row for each team) is its picture
         rows, cols = groups, per
-        return _arrayq("%d teams are made, with %d children in each team. Build an "
-                       "array to show this, then type how many children there are "
-                       "altogether." % (rows, cols), rows, cols,
-                       ["%d × %d = %d children." % (rows, cols, total),
-                        "That is why %d ÷ %d = %d." % (total, per, groups)])
+        return _arrayreadq("%d children are put into %d equal teams. The array shows one row for each team. How "
+                           "many children are in each team?" % (total, rows), rows, cols, cols,
+                           ["'Equal teams' means every team gets the same, so divide.",
+                            "%d ÷ %d = %d children in each team." % (total, rows, cols)])
 
     def chart():
         cats = ["Apples", "Pears", "Plums"]
@@ -2020,7 +2040,7 @@ def _(d=1):
 def _(d=1):
     d = _lvl(d)
     a = pick([2, 5, 10]) if d == 0 else pick([3, 4, 8])
-    b = random.randint(2, 6) if d == 0 else random.randint(2, 12)
+    b = random.randint(*{0: (2, 6), 1: (2, 12), 2: (6, 12)}[d])
     p = a * b
 
     def miss_factor():
@@ -2036,12 +2056,12 @@ def _(d=1):
                      ["%d ÷ %d = %d." % (p, b, a)])
 
     def array_model():
+        # a missing number, as the skill says, with the array as its picture
         rows, cols = a, b
-        return _arrayq("Build an array of %d equal rows with %d counters in each "
-                       "row, then type how many counters there are altogether."
-                       % (rows, cols), rows, cols,
-                       ["%d × %d = %d." % (rows, cols, p),
-                        "So %d ÷ %d = %d as well." % (p, rows, cols)])
+        return _arrayreadq("The array has %d counters in %d equal rows. Complete:  %d × ___ = %d"
+                           % (p, rows, rows, p), rows, cols, cols,
+                           ["%d ÷ %d = %d." % (p, rows, cols),
+                            "So %d × %d = %d." % (rows, cols, p)])
 
     def word():
         who = pick(NAMES)

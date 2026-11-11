@@ -13,6 +13,7 @@
 # share of them through the interactive components.
 import random
 from .maths_engine import skill, pick, NAMES, n_words, money, ordinal
+from .y4_money import pounds_from
 
 S2 = "4.2 Addition & subtraction (4-digit)"
 S3 = "4.3 Multiplication & division facts"
@@ -705,14 +706,19 @@ def _(d=1):
                      unit="p")
 
     def pairs_to_ten():
-        base = [random.randint(2, 9) for _ in range(3)]
-        k = random.choice([10 - base[0], 10 - base[1]])
-        nums = base + [k]
+        # Year 4: pairs that make 100 (pairs that make 10 are Year 1 bonds)
+        a, b = random.randint(11, 89), random.randint(11, 89)
+        while a % 10 == 0 or b % 10 == 0 or a + b == 100:
+            a, b = random.randint(11, 89), random.randint(11, 89)
+        nums = [a, 100 - a, b, 100 - b] if d else [a, 100 - a, b, random.randint(11, 89)]
         random.shuffle(nums)
-        return _numq("Add these four numbers, looking for pairs that make 10:  %s"
+        pairs = [(a, 100 - a)] + ([(b, 100 - b)] if d else [])
+        return _numq("Add these four numbers, looking for pairs that make 100:  %s"
                      % " + ".join(str(v) for v in nums), sum(nums),
-                     ["Pair the numbers that make 10 first, then add the rest.",
-                      "The total is %d." % sum(nums)])
+                     ["Add the %s that make%s 100 first: %s."
+                      % ("pairs" if d else "pair", "" if d else "s",
+                         " and ".join("%d + %d = 100" % pr for pr in pairs)),
+                      "Then add the rest: the total is %d." % sum(nums)])
 
     def missing_addend():
         i = random.randrange(len(vals))
@@ -755,12 +761,19 @@ def _(d=1):
                     missing=[3, 1], caption="Trees planted")
 
     def order_reasoning():
-        n = [random.randint(11, 49) for _ in range(3)]
+        # three 3-digit numbers, two of which make a whole number of hundreds: add those two first
+        a = random.randint(105, 445)
+        while a % 10 == 0:
+            a = random.randint(105, 445)
+        c = (a // 100 + 2) * 100 - a
+        b = random.randint(105, 499)
+        n = [a, b, c]
+        random.shuffle(n)
         return _numq("Add these three numbers in any order:  %s. Adding in a "
                      "different order gives the same total. What is the total?"
-                     % " + ".join(str(v) for v in n), sum(n),
-                     ["%d + %d = %d." % (n[0], n[1], n[0] + n[1]),
-                      "%d + %d = %d." % (n[0] + n[1], n[2], sum(n))])
+                     % " + ".join(str(v) for v in n), a + b + c,
+                     ["Add the pair that makes whole hundreds first: %d + %d = %d." % (a, c, a + c),
+                      "%d + %d = %d." % (a + c, b, a + b + c)])
 
     def add_then_compare():
         other = [random.randint(1005, 3299) for _ in range(3)]
@@ -774,16 +787,14 @@ def _(d=1):
                       "The greater total is %d." % big])
 
     def strip_total():
-        parts = random.randint(3, 5)
-        each = random.randint(105, 899)
-        return _stripq("The strip model shows %d equal parts of %s. What is the total?"
-                       % (parts, _com(each)),
-                       {"mode": "equal_parts", "parts": parts,
-                        "partLabel": _com(each), "totalLabel": "?",
-                        "unknown": "total"}, parts * each,
-                       ["%s = %d." % (" + ".join([_com(each)] * parts), parts * each),
-                        "That is the same as %d × %d = %d."
-                        % (parts, each, parts * each)])
+        hi = 899 if d < 2 else 2999
+        a, b, c = (random.randint(105, hi) for _ in range(3))
+        return _stripq("The strip model shows a whole made of %s and %s + %s. What is the whole? "
+                       "Add all three numbers." % (_com(a), _com(b), _com(c)),
+                       {"mode": "part_whole", "partLabels": [_com(a), "%s + %s" % (_com(b), _com(c))],
+                        "totalLabel": "?", "unknown": "total"}, a + b + c,
+                       ["%s + %s = %d." % (_com(a), _com(b), a + b),
+                        "%d + %s = %d." % (a + b, _com(c), a + b + c)])
 
     opts = [bare, word_three, money_total, pairs_to_ten, chart_total, table_total,
             table_missing_total, strip_total, order_reasoning]
@@ -1210,12 +1221,13 @@ def _(d=1):
 @skill("Y4.3.a", "Understand multiplication: equal groups, arrays, number lines", S3)
 def _(d=1):
     d = _lvl(d)
+    # Year 4 facts: the 3, 4 and 8 times tables first, then 6, 7 and 9, then 11 and 12 (2 x 2 is Year 1 work)
     if d == 0:
-        g, p = random.randint(2, 5), random.randint(2, 5)
+        g, p = random.randint(3, 6), pick([3, 4, 6, 8])
     elif d == 1:
-        g, p = random.randint(2, 8), random.randint(2, 9)
+        g, p = random.randint(4, 8), pick([6, 7, 8, 9])
     else:
-        g, p = random.randint(4, 8), random.randint(5, 10)
+        g, p = random.randint(6, 9), pick([6, 7, 9, 11, 12])
     tot = g * p
     r, c = _fit(g, p) or (g, p)
 
@@ -1306,12 +1318,13 @@ def _(d=1):
 @skill("Y4.3.b", "Multiplication facts to 12 × 12", S3)
 def _(d=1):
     d = _lvl(d)
+    # the tables Year 4 adds to Years 2-3 (6, 7, 9, 11, 12), with 3, 4 and 8 to start
     if d == 0:
-        t = pick([2, 3, 4, 5, 10]); k = random.randint(3, 10)
+        t = pick([3, 4, 6, 8]); k = random.randint(3, 10)
     elif d == 1:
-        t = random.randint(2, 12); k = random.randint(2, 12)
+        t = pick([6, 7, 9, 11, 12]); k = random.randint(3, 12)
     else:
-        t = random.randint(6, 12); k = random.randint(6, 12)
+        t = pick([6, 7, 8, 9, 11, 12]); k = random.randint(6, 12)
     p = t * k
 
     def bare():
@@ -1345,8 +1358,7 @@ def _(d=1):
                      ["%d × %d = %d apples." % (k, t, p)], unit="apples")
 
     def money_word():
-        each = random.randint(2, 12)
-        n = random.randint(3, 12)
+        each, n = t, k
         return _numq("Pencils cost %s each. How much do %d pencils cost, in pence?"
                      % (money(each), n), each * n,
                      ["%d × %d = %dp." % (each, n, each * n)], unit="p")
@@ -1376,7 +1388,7 @@ def _(d=1):
                       "%d × 2 = %d." % (p, p * 2)])
 
     def dt_table():
-        base = random.randint(2, 9)
+        base = t
         rows = [[str(i), str(i * base)] for i in sorted(random.sample(range(2, 13), 4))]
         m = random.randrange(4)
         val = int(rows[m][1])
@@ -1420,12 +1432,13 @@ def _(d=1):
 @skill("Y4.3.c", "Division facts to 12 × 12", S3)
 def _(d=1):
     d = _lvl(d)
+    # the tables Year 4 adds to Years 2-3 (6, 7, 9, 11, 12), with 3, 4 and 8 to start
     if d == 0:
-        t = pick([2, 3, 4, 5, 10]); k = random.randint(3, 10)
+        t = pick([3, 4, 6, 8]); k = random.randint(3, 10)
     elif d == 1:
-        t = random.randint(2, 12); k = random.randint(2, 12)
+        t = pick([6, 7, 9, 11, 12]); k = random.randint(3, 12)
     else:
-        t = random.randint(6, 12); k = random.randint(6, 12)
+        t = pick([6, 7, 8, 9, 11, 12]); k = random.randint(6, 12)
     p = t * k
 
     def bare():
@@ -1455,13 +1468,12 @@ def _(d=1):
                      "there?" % (p, k), t,
                      ["%d ÷ %d = %d teams." % (p, k, t)], unit="teams")
 
-    def array_model():
-        rr, cc = _fit(t, k) or (t, k)
-        return _arrayq("Counters are shared into %d equal rows with %d counters in "
-                       "each row. Build the array, then type how many counters were "
-                       "shared altogether." % (rr, cc), rr, cc,
-                       ["%d × %d = %d." % (rr, cc, p),
-                        "That is why %d ÷ %d = %d." % (p, rr, cc)])
+    def share_groups():
+        gg, pp = min(t, 8), min(k, 10)
+        return _egq("%d counters are shared equally between %d groups, as the picture shows. How "
+                    "many counters are in each group?" % (gg * pp, gg), gg, pp, pp,
+                    ["%d × %d = %d." % (gg, pp, gg * pp),
+                     "So %d ÷ %d = %d counters in each group." % (gg * pp, gg, pp)])
 
     def groups_read():
         gg, pp = min(t, 8), min(k, 10)
@@ -1485,14 +1497,13 @@ def _(d=1):
                     rule="÷ %d" % t)
 
     def money_word():
-        each = random.randint(2, 12)
-        n = random.randint(3, 12)
+        each, n = k, t
         return _numq("%s is shared equally between %d children. How much does each "
                      "child get, in pence?" % (money(each * n), n), each,
                      ["%d ÷ %d = %dp each." % (each * n, n, each)], unit="p")
 
     def dt_divide():
-        base = random.randint(2, 9)
+        base = t
         rows = [[str(i * base), str(i)] for i in sorted(random.sample(range(2, 13), 4))]
         m = random.randrange(4)
         val = int(rows[m][1])
@@ -1519,11 +1530,11 @@ def _(d=1):
                       "%s ÷ %d = %s." % (_pv(q, nm), f, _pv(s, nm)),
                       "%d ÷ %d = %d." % (q * m, f, s * m)])
 
-    opts = [bare, bare_other, share_word, group_word, array_model, groups_read,
+    opts = [bare, bare_other, share_word, group_word, share_groups, groups_read,
             inverse_check, io_divide, dt_divide, money_word, div_pattern]
     if d == 2:
         opts = [bare, bare_other, missing_dividend, missing_divisor, share_word,
-                group_word, io_divide, dt_divide, inverse_check, array_model,
+                group_word, io_divide, dt_divide, inverse_check, share_groups,
                 div_pattern]
     return pick(opts)()
 
@@ -1531,14 +1542,15 @@ def _(d=1):
 @skill("Y4.3.d", "Multiplication and division fact families", S3)
 def _(d=1):
     d = _lvl(d)
+    # Year 4 tables: 3, 4, 6 and 8 to start, then 6, 7, 9, 11 and 12
     if d == 0:
-        a = pick([2, 3, 4, 5, 10]); b = random.randint(2, 9)
+        a = pick([3, 4, 6, 8]); b = random.randint(3, 9)
     elif d == 1:
-        a = random.randint(2, 12); b = random.randint(2, 12)
+        a = pick([6, 7, 9, 11, 12]); b = random.randint(3, 12)
     else:
-        a = random.randint(6, 12); b = random.randint(6, 12)
+        a = pick([6, 7, 8, 9, 11, 12]); b = random.randint(6, 12)
     while a == b:
-        b = random.randint(2, 12)
+        b = random.randint(3, 12)
     p = a * b
 
     def mul_to_div():
@@ -1676,12 +1688,13 @@ def _(d=1):
 @skill("Y4.3.e", "Multiples and factor pairs", S3)
 def _(d=1):
     d = _lvl(d)
+    # multiples of the Year 4 tables (3, 4, 6, 8 to start; then 6, 7, 9, 11, 12, and 25 and 100)
     if d == 0:
-        base = pick([2, 3, 4, 5, 10])
+        base = pick([3, 4, 6, 8])
     elif d == 1:
-        base = random.randint(2, 12)
+        base = pick([6, 7, 9, 11, 12, 25])
     else:
-        base = random.randint(6, 12)
+        base = pick([6, 7, 8, 9, 11, 12, 25])
 
     def nth_multiple():
         n = random.randint(3, 12)
@@ -1807,11 +1820,14 @@ def _(d=1):
     def word_multiple():
         who = pick(NAMES)
         n = random.randint(4, 12)
-        return _numq("%s buys %d packs of pens with %d pens in each pack. How many "
-                     "pens does %s buy altogether?" % (who, n, base, who), base * n,
-                     ["%d × %d = %d pens." % (n, base, n * base),
-                      "It is a multiple of %d because it is %d lots of %d."
-                      % (base, n, base)], unit="pens")
+        good = base * n
+        a, b = random.sample([good, good + random.randint(1, base - 1)], 2)
+        return _numq("Pens are sold only in full packs of %d. %s buys some packs. Could %s have "
+                     "%d pens or %d pens? Type the number that is possible." % (base, who, who, a, b),
+                     good,
+                     ["Full packs of %d always make a multiple of %d." % (base, base),
+                      "%d = %d × %d, so %d pens is possible; %d is not a multiple of %d."
+                      % (good, n, base, good, a + b - good, base)], unit="pens")
 
     def io_multiples():
         rows = [[i, i * base] for i in sorted(random.sample(range(2, 13), 4))]
@@ -1843,7 +1859,7 @@ def _(d=1):
                     missing=[m, 1], caption="Factor pairs of %d" % n)
 
     def choose_multiples():
-        bb = pick([2, 3, 4, 5, 10]) if d == 0 else random.randint(2, 10)
+        bb = pick([3, 4, 6, 8]) if d == 0 else pick([6, 7, 8, 9, 11, 12])
         good = set()
         while len(good) < 3:
             good.add(bb * random.randint(2, 12))
@@ -2236,10 +2252,10 @@ def _(d=1):
                       "%d × %d = %d × %d = %d." % (b, a, a, b, a * b)])
 
     def comm_array():
-        a = random.randint(2, 6)
-        b = random.randint(3, 10)
+        a = random.randint(3, 8)              # Year 4 facts, not 3 rows of 2
+        b = random.randint(6, 10)
         while b == a:                       # commutativity is vacuous for a square array
-            b = random.randint(3, 10)
+            b = random.randint(6, 10)
         rr, cc = _fit(b, a) or (b, a)
         return _arrayq("Build an array with %d rows of %d and type the total. It "
                        "shows that %d × %d gives the same product as %d × %d."
@@ -2358,9 +2374,9 @@ def _(d=1):
                        % (rows * 10, rows * (cols - 10), rows * cols)])
 
     def groups_commutative():
-        g = random.randint(2, 8); pp = random.randint(2, 10)
+        g = random.randint(3, 8); pp = random.randint(6, 10)
         while pp == g:
-            pp = random.randint(2, 10)
+            pp = random.randint(6, 10)
         return _egq("These %d equal groups of %d show %d × %d. What is %d × %d?"
                     % (g, pp, g, pp, pp, g), g, pp, g * pp,
                     ["The order of the factors does not change the product.",
@@ -2510,3 +2526,7 @@ def _(d=1):
                 word_shelves, word_teams, money_word, with_ten, dt_three,
                 dt_teams, io_two_steps, io_two_steps]
     return pick(opts)()
+
+
+# money answers of £1 or more are asked in pounds and pence, not as "1,008p" (y4_money)
+pounds_from(100, "Y4.2.b", "Y4.2.c", "Y4.2.d", "Y4.2.f", "Y4.2.g", "Y4.3.b", "Y4.3.c", "Y4.3.i")

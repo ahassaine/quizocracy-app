@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from test_maths_ladder import _run  # noqa: E402
+from test_maths_ladder import _run, kind  # noqa: E402
 from app.maths import maths_engine, maths_mastery as mm  # noqa: E402
 from app.drills import maths as drill  # noqa: E402
 
@@ -19,7 +19,7 @@ async def _serve(year, ok=lambda key, tier: True):
     tier = await mm.start_tier("sim", year, key, await mm.skill_score("sim", key))
     if reason == "new" and await mm.probe("sim", year, key):
         tier = 2
-    await mm.record_attempt("sim", key, ok(key, tier), tier=tier)
+    await mm.record_attempt("sim", key, ok(key, tier), tier=tier, shape=kind(key, tier))
     return key, tier, reason
 
 
@@ -29,13 +29,13 @@ def _focus(monkeypatch, strands):
     monkeypatch.setattr(mm, "_focus_strand", f)
 
 
-def test_strong_year8_reaches_two_step_and_brackets_within_15(monkeypatch):
+def test_strong_year8_reaches_two_step_and_brackets_within_20(monkeypatch):
     _focus(monkeypatch, ["8.7 Equations, inequalities & linear graphs"])
     for seed in range(12):
         random.seed(seed)
 
         async def go():
-            return [await _serve(8) for _ in range(15)]
+            return [await _serve(8) for _ in range(20)]     # 15 before secure needed 3 hard right, of 2 kinds
         served = _run(monkeypatch, go)
         keys = [k for k, _, _ in served]
         assert "Y8.7.c" in keys, (seed, keys)                        # equations with brackets
@@ -43,16 +43,18 @@ def test_strong_year8_reaches_two_step_and_brackets_within_15(monkeypatch):
         assert keys.count("Y8.7.a") <= 5, (seed, keys)               # not nine "plot a point" in a row
 
 
-def test_hard_tier_by_the_third_question_and_secure_in_four(monkeypatch):
+def test_hard_tier_by_the_third_question_and_secure_in_five(monkeypatch):
     async def go():
-        tiers = []
-        for _ in range(4):
+        tiers, scores = [], []
+        for i in range(5):
             t = await mm.start_tier("sim", 8, "Y8.0.a", await mm.skill_score("sim", "Y8.0.a"))
             tiers.append(t)
-            m = await mm.record_attempt("sim", "Y8.0.a", True, tier=t)
-        return tiers, m
-    tiers, m = _run(monkeypatch, go)
-    assert tiers == [1, 1, 2, 2], tiers
+            m = await mm.record_attempt("sim", "Y8.0.a", True, tier=t, shape="kind%d" % (i % 2))
+            scores.append(m["score"])
+        return tiers, scores, m
+    tiers, scores, m = _run(monkeypatch, go)
+    assert tiers == [1, 1, 2, 2, 2], tiers
+    assert scores[3] < mm.MASTERED, scores                  # 2 hard right are not enough any more
     assert m["score"] == mm.MASTERED and m.get("fast"), m
 
 
@@ -85,10 +87,10 @@ def test_strong_child_tests_out_with_one_hard_question(monkeypatch):
     random.seed(3)
 
     async def go():
-        return [await _serve(8) for _ in range(30)]
+        return [await _serve(8) for _ in range(40)]
     served = _run(monkeypatch, go)
     probes = [k for k, t, r in served if r == "new" and t == 2]
-    assert len(probes) >= 10, served                     # skills opened by a hard question (secured by 2 in a row)
+    assert len(probes) >= 10, served                     # skills opened by a hard question (secured by 3 in a row)
     assert len({k for k, _, _ in served}) >= 15
 
 

@@ -5,6 +5,8 @@
 # decimals), scaling and simple rates, mixed operations.  Fractions: equivalence (incl. tenths and
 # hundredths), comparing related denominators, mixed numbers and improper fractions, adding and
 # subtracting related denominators, multiplying fractions and mixed numbers by whole numbers.
+import re
+
 from .maths_engine import skill
 from .y5_common import *  # noqa: F401,F403
 
@@ -12,11 +14,73 @@ S4 = "5.4 Multiplication & division"
 S5 = "5.5 Fractions"
 
 
+_TAIL_FRAC = re.compile(r"(?<![\d/])(?:(\d+) )?(\d+)/(\d+)(\s*[a-z]*)\.$")
+
+
+def _as_fraction(x):
+    """The value of an answer: 3, '2/5', '1 1/3', Fraction(7, 4); None for anything else."""
+    if isinstance(x, (int, Fraction)) and not isinstance(x, bool):
+        return Fraction(x)
+    if isinstance(x, float):                                  # a number-line answer: 1.3333333333333333 is 4/3
+        return Fraction(x).limit_denominator(1000)
+    m = re.fullmatch(r"\s*(?:(\d+) )?(\d+)/(\d+)\s*", str(x))
+    if m and int(m.group(3)):
+        return int(m.group(1) or 0) + Fraction(int(m.group(2)), int(m.group(3)))
+    m = re.fullmatch(r"\s*(\d+)\s*", str(x))
+    return Fraction(int(m.group(1))) if m else None
+
+
+def _tidy(q):
+    """A why that ends on the answer written unsimplified ("... = 4/10.") goes on to the simplest form
+    ("... = 4/10 = 2/5."), so a child always sees the fraction finished. Structure only: the last line's last
+    fraction, when it has the answer's value."""
+    # "1/3 = 1/3." says nothing: a conversion line with the same fraction on both sides goes
+    sol = [x for x in q.get("solution") or []
+           if not re.fullmatch(r"\s*(\d+/\d+) = \1\.\s*", str(x))] or list(q.get("solution") or [])
+    q["solution"] = sol
+    want = _as_fraction(q.get("answer"))
+    if not sol or want is None:
+        return q
+    m = _TAIL_FRAC.search(str(sol[-1]))
+    if not m or not int(m.group(3)):
+        return q
+    n, dn = int(m.group(2)), int(m.group(3))
+    v = int(m.group(1) or 0) + Fraction(n, dn)
+    if v != want or Fraction(n, dn).denominator == dn:          # another value, or already in lowest terms
+        return q
+    unit = m.group(4)
+    simple = _mixed(v) if " " in str(q.get("answer")).strip() else _fs(v)
+    if re.search(r"(?<![\d/])%s(?![\d/])" % re.escape(simple), str(sol[-1])):
+        return q                                                  # "1/4 = 2/8." already names it
+    if v == 1 and unit.endswith("s") and len(unit) > 3:
+        unit = unit[:-1]                                           # "6/6 = 1 litre", not "1 litres"
+    sol[-1] = str(sol[-1])[:m.start()] + m.group(0)[:-1 - len(unit)] + " = " + simple + unit + "."
+    q["solution"] = sol
+    return q
+
+
+def _lowest_tops(den):
+    """The numerators that make a proper fraction in its simplest form: 8 -> [1, 3, 5, 7]."""
+    return [k for k in range(1, den) if Fraction(k, den).denominator == den] or [1]
+
+
+def _price(p):
+    """Pence as an adult writes a price: '45p', and from 100p in pounds, '£1.65'."""
+    return "%dp" % p if p < 100 else "£%d.%02d" % divmod(p, 100)
+
+
+def _eq_simplest(f, num, den):
+    """'6/8 = 3/4' when num/den is not in its simplest form, else '3/4': a why always ends on the simplest form."""
+    shown = "%d/%d" % (num, den)
+    return shown if Fraction(num, den).denominator == den else "%s = %s" % (shown, _mixed(Fraction(f)))
+
+
 # ================================================================== 5.4 ======
 @skill("Y5.4.a", "Multiply mentally using known facts", S4)
 def _(d=1):
     d = _d(d)
     a, b = random.randint(_by(d, 2, 2, 3), _by(d, 5, 9, 9)), random.randint(_by(d, 2, 2, 3), _by(d, 6, 12, 12))
+    b0 = b
 
     def t_tens():
         k = pick([10, 100, 1000][: _by(d, 2, 3, 3)])
@@ -56,6 +120,7 @@ def _(d=1):
                    ["Multiply in any order: %d." % (x * y * z)])
 
     def t_fact_family():
+        b = min(b0, 9)                                    # a times-table fact, never "8 × 10 = 80"
         p = a * b
         f = _by(d, 10, 30, pick([40, 60, 70, 80]))
         g = 10 if d == 2 else 1                           # stretch: both numbers scaled
@@ -117,9 +182,13 @@ def _(d=1):
                    ["%s × %d = %s." % (_c(n), m, _c(n * m))])
 
     def t_money():
-        p = random.randint(105, 999)
-        return _tb("One ticket costs %dp. How much do %d tickets cost, in pence?" % (p, m), p * m, "int",
-                   {"unit": "p"}, ["%d × %d = %d." % (p, m, p * m)])
+        # whole pounds, as an adult would write the price (never "826p")
+        p = n if n >= 1000 else random.randint(105, 999)
+        what = "used car" if p >= 1000 else "sofa"
+        return _tb("A %s costs £%s. A business buys %d of them. How much do they cost altogether, in pounds?"
+                   % (what, _c(p), m), p * m, "int", {"unit": "£"},
+                   ["Multiply each digit by %d from the ones, carrying as you go." % m,
+                    "£%s × %d = £%s." % (_c(p), m, _c(p * m))])
 
     def t_partial():
         th, rest = (n // 1000) * 1000, n % 1000
@@ -278,7 +347,7 @@ def _(d=1):
                    ["%s ÷ %d = %s." % (rows[r][0], b, rows[r][1])], rule="÷ %d" % b)
 
     def t_halve_three():
-        n = random.randint(*_by(d, (2, 12), (3, 40), (41, 125))) * 8
+        n = random.randint(*_by(d, (2, 12), (13, 60), (61, 125))) * 8
         return _tb("Work out %d ÷ 8 by halving three times." % n, n // 8, "int", {},
                    ["%d → %d → %d → %d." % (n, n // 2, n // 4, n // 8)])
 
@@ -290,7 +359,7 @@ def _(d=1):
 def _(d=1):
     d = _d(d)
     m = random.randint(_by(d, 2, 3, 6), _by(d, 5, 9, 9))
-    q = random.randint(_by(d, 21, 101, 201), min(_by(d, 199, 999, 1666), (10000 - m) // m))
+    q = random.randint(_by(d, 51, 101, 201), min(_by(d, 199, 999, 1666), (10000 - m) // m))   # 3 digits at least
     r = 0 if d == 0 or random.random() < 0.5 else random.randint(1, m - 1)
     n = q * m + r
 
@@ -391,7 +460,8 @@ def _(d=1):
                    "mixed number (like 2 1/4)." % (pz, k), _mixed(Fraction(pz, k)), "frac",
                    {"text": True, "placeholder": "e.g. 2 1/4"},
                    ["%d ÷ %d = %d remainder %d." % (pz, k, pz // k, pz % k),
-                    "The %d left over %s shared too: %d/%d each." % (pz % k, "is" if pz % k == 1 else "are", pz % k, k),
+                    "The %d left over %s shared too: %s each." % (pz % k, "is" if pz % k == 1 else "are",
+                                                                 _eq_simplest(Fraction(pz % k, k), pz % k, k)),
                     "So each person gets %s." % _mixed(Fraction(pz, k))])
 
     def t_weeks():
@@ -404,8 +474,8 @@ def _(d=1):
                    "box?" % (m, n), m - r, "int", {"unit": "cakes"},
                    ["%d ÷ %d = %d remainder %d." % (n, m, q, r), "%d − %d = %d more." % (m, r, m - r)])
 
-    return _pick_t([t_round_up, t_round_down, t_left, t_money, t_shelves, t_which, t_tents, t_ribbon,
-                    t_share_fraction, t_weeks, t_more_needed])
+    return _tidy(_pick_t([t_round_up, t_round_down, t_left, t_money, t_shelves, t_which, t_tents, t_ribbon,
+                          t_share_fraction, t_weeks, t_more_needed]))
 
 
 @skill("Y5.4.g", "Multiply and divide whole numbers by 10, 100 and 1000", S4)
@@ -572,7 +642,7 @@ def _(d=1):
 
     def t_nonunit():
         den = pick(_by(d, [3, 4], [3, 4, 5, 8], [5, 8, 10, 12]))
-        num = random.randint(2, den - 1)
+        num = pick([k for k in range(2, den) if Fraction(k, den).denominator == den])   # 3/4, never 2/4
         x = den * random.randint(*_by(d, (2, 10), (5, 25), (10, 40)))
         return _tb("A ribbon is %d cm long. %s uses %d/%d of it. How many cm is that?"
                    % (x, _who(), num, den), x // den * num, "int", {"unit": "cm"},
@@ -669,11 +739,16 @@ def _(d=1):
             n, p = random.randint(3, 12), random.randint(15, 95)
         if d == 2:                                  # stretch: find one, then scale to another count
             m = random.choice([x for x in range(2, 13) if x != n])
-            return _tb("%d apples cost %dp altogether. How much do %d apples cost, in pence?" % (n, n * p, m),
-                       p * m, "int", {"unit": "p"},
-                       ["One apple: %d ÷ %d = %dp." % (n * p, n, p), "%d × %d = %d." % (p, m, p * m)])
-        return _tb("%d apples cost %dp altogether. How much does one apple cost, in pence?" % (n, n * p),
-                   p, "int", {"unit": "p"}, ["%d ÷ %d = %d." % (n * p, n, p)])
+            unit = "pounds" if p * m >= 100 else "pence"
+            return _tb("%d apples cost %s altogether. How much do %d apples cost, in %s?" % (n, _price(n * p), m, unit),
+                       round(p * m / 100, 2) if unit == "pounds" else p * m, "num" if unit == "pounds" else "int",
+                       {"unit": "£" if unit == "pounds" else "p"},
+                       [("%s = %dp. " % (_price(n * p), n * p) if n * p >= 100 else "") +
+                        "One apple: %d ÷ %d = %dp." % (n * p, n, p),
+                        "%d × %d = %dp" % (p, m, p * m) + (" = %s." % _price(p * m) if p * m >= 100 else ".")])
+        return _tb("%d apples cost %s altogether. How much does one apple cost, in pence?" % (n, _price(n * p)),
+                   p, "int", {"unit": "p"}, ["%s = %dp." % (_price(n * p), n * p) if n * p >= 100 else
+                                             "Share %dp equally between %d." % (n * p, n), "%d ÷ %d = %d." % (n * p, n, p)])
 
     def t_per_hour():
         rate = random.randint(*_by(d, (5, 10), (5, 15), (9, 15)))
@@ -688,8 +763,8 @@ def _(d=1):
                    % (sp, h), sp * h, "int", {"unit": "km"}, ["%d × %d = %d." % (sp, h, sp * h)])
 
     def t_per_minute():
-        r = random.randint(*_by(d, (2, 5), (3, 12), (8, 15)))
-        m = random.randint(*_by(d, (2, 10), (4, 15), (12, 25)))
+        r = random.randint(*_by(d, (3, 8), (6, 14), (8, 15)))
+        m = random.randint(*_by(d, (4, 12), (6, 15), (12, 25)))
         return _tb("A tap fills a bath at %d litres per minute. How many litres after %d minutes?"
                    % (r, m), r * m, "int", {"unit": "litres"}, ["%d × %d = %d." % (r, m, r * m)])
 
@@ -711,12 +786,13 @@ def _(d=1):
             eb = ea + pick([-1, 1]) * random.randint(*_by(d, (8, 15), 0, (1, 3)))
             a_p, b_p = a_n * ea, b_n * eb
         cheaper = "A" if a_p / a_n < b_p / b_n else "B"
-        return _wq("Pack A: %d yoghurts for %dp. Pack B: %d yoghurts for %dp. Which pack is cheaper per "
-                   "yoghurt? (A or B)" % (a_n, a_p, b_n, b_p), cheaper,
-                   ["A: %dp each. B: %dp each." % (a_p // a_n, b_p // b_n)], "A or B")
+        return _wq("Pack A: %d yoghurts for %s. Pack B: %d yoghurts for %s. Which pack is cheaper per "
+                   "yoghurt? (A or B)" % (a_n, _price(a_p), b_n, _price(b_p)), cheaper,
+                   ["A: %dp ÷ %d = %dp each. B: %dp ÷ %d = %dp each." % (a_p, a_n, a_p // a_n, b_p, b_n, b_p // b_n)],
+                   "A or B")
 
     def t_table():
-        r = random.randint(*_by(d, (2, 5), (4, 12), (6, 15)))
+        r = random.randint(*_by(d, (3, 9), (6, 14), (12, 25)))
         rows = [[h, h * r] for h in _by(d, (1, 2, 3, 4, 5), (1, 2, 3, 5, 8), (1, 3, 5, 9, 12))]
         k = random.randint(1, 4)
         return _io("A machine makes %d toys an hour. The table shows hours and toys. What goes in the "
@@ -907,7 +983,7 @@ def _(d=1):
 # ================================================================== 5.5 ======
 def _frac_pair(d):
     den = pick(_by(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], [6, 8, 9, 10, 12]))
-    num = random.randint(1, den - 1)
+    num = pick(_lowest_tops(den))                         # the fraction to start from is in its simplest form
     return num, den
 
 
@@ -1026,9 +1102,9 @@ def _(d=1):
                    ["%d/%d = %d/%d eaten." % (num, den, num * k, target_den),
                     "%d − %d = %d left." % (target_den, num * k, target_den - num * k)])
 
-    return _pick_t([t_numerator, t_denominator, t_simplify, t_tenths, t_hundredths, t_odd_one, t_is_equiv, t_pizza,
-                    t_same_amount, t_class, t_scale_top],
-                   [t_area, t_hundred_grid, t_chain, t_bar, t_line])
+    return _tidy(_pick_t([t_numerator, t_denominator, t_simplify, t_tenths, t_hundredths, t_odd_one, t_is_equiv, t_pizza,
+                          t_same_amount, t_class, t_scale_top],
+                         [t_area, t_hundred_grid, t_chain, t_bar, t_line]))
 
 
 @skill("Y5.5.b", "Compare and order fractions with related denominators", S5)
@@ -1105,8 +1181,9 @@ def _(d=1):
                    n1 if fr[0] > fr[1] else n2, ["With denominator %d: compare the numerators." % common], "name")
 
     def t_biggest_top():
-        dn = base * 2
-        f = Fraction(random.randint(1, base - 1), base)
+        b_ = pick([3, 4, 5])
+        dn = b_ * random.randint(*_by(d, (2, 2), (2, 3), (3, 5)))
+        f = Fraction(pick([k for k in range(1, b_) if Fraction(k, b_).denominator == b_]), b_)
         top = int(f * dn)
         ans = top - 1
         if ans < 1:
@@ -1134,8 +1211,8 @@ def _(d=1):
                    ["Team", "Fraction drunk"], rows, win, ["With denominator %d, the largest numerator wins." % common],
                    atype="str")
 
-    return _pick_t([t_larger, t_symbol, t_order, t_largest, t_half, t_smallest, t_who, t_biggest_top, t_between],
-                   [t_line, t_table])
+    return _tidy(_pick_t([t_larger, t_symbol, t_order, t_largest, t_half, t_smallest, t_who, t_biggest_top, t_between],
+                         [t_line, t_table]))
 
 
 @skill("Y5.5.c", "Mixed numbers and improper fractions", S5)
@@ -1195,9 +1272,11 @@ def _(d=1):
         other = Fraction(imp, den) + pick([Fraction(1, den), -Fraction(1, den), Fraction(1, 1)])
         if other <= 0 or other.denominator == 1:
             other = Fraction(imp + 1, den)
-        return _fq("Which is larger, %d/%d or %s? Type the larger one." % (imp, den, _mixed(other)),
-                   max(Fraction(imp, den), other), ["%d/%d = %s." % (imp, den, _mixed(Fraction(imp, den)))],
-                   "e.g. 7/4")
+        q = _fq("Which is larger, %d/%d or %s? Type the larger one." % (imp, den, _mixed(other)),
+                max(Fraction(imp, den), other), ["%d/%d = %s." % (imp, den, _mixed(Fraction(imp, den)))],
+                "e.g. 7/4")
+        q["answer"] = "%d/%d" % (imp, den) if Fraction(imp, den) > other else _mixed(other)   # as it is written above
+        return q
 
     def t_table():
         ws = random.sample(range(1, 6), 3)
@@ -1216,8 +1295,8 @@ def _(d=1):
                    "altogether?" % (w + 1, den, _pl(w, "whole bar"), _pl(r, "part")), imp, "int", {},
                    ["%d × %d + %d = %d, so %d/%d." % (w, den, r, imp, imp, den)])
 
-    return _pick_t([t_to_improper, t_to_mixed, t_wholes, t_is_improper, t_sum_over, t_numerator, t_pieces,
-                    t_compare, t_bars], [t_line, t_table])
+    return _tidy(_pick_t([t_to_improper, t_to_mixed, t_wholes, t_is_improper, t_sum_over, t_numerator, t_pieces,
+                          t_compare, t_bars], [t_line, t_table]))
 
 
 @skill("Y5.5.d", "Add fractions with the same or related denominators", S5)
@@ -1226,8 +1305,9 @@ def _(d=1):
     base = pick([2, 3, 4, 5])
     m = pick(_by(d, [1], [2, 3], [2, 3, 4]))
     big = base * m
-    a = random.randint(1, base - 1) if base > 1 else 1
-    b = random.randint(1, big - 1)
+    # both fractions written in their simplest form (1/5 + 3/10, never 1/5 + 2/10)
+    a = pick(_lowest_tops(base))
+    b = pick(_lowest_tops(big))
     fa, fb = Fraction(a, base), Fraction(b, big)
     s = fa + fb
 
@@ -1245,8 +1325,8 @@ def _(d=1):
                     "= %s." % _mixed(s)], "e.g. 1 1/4")
 
     def t_same():
-        dn = pick([5, 7, 8, 9, 10, 12])
-        x, y = random.randint(1, dn - 1), random.randint(1, dn - 1)
+        dn = pick(_by(d, [5, 7, 8], [7, 8, 9, 10, 12], [9, 11, 12, 15, 20]))
+        x, y = pick(_lowest_tops(dn)), pick(_lowest_tops(dn))
         return _fq("Work out %d/%d + %d/%d." % (x, dn, y, dn), Fraction(x + y, dn),
                    ["Add the numerators: %d/%d." % (x + y, dn)])
 
@@ -1322,7 +1402,7 @@ def _(d=1):
         for i in range(3):
             bs = pick(_by(d, [2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]))
             mm = pick(_by(d, [2], [2, 3], [2, 3, 4]))
-            x, y = random.randint(1, bs - 1), random.randint(1, bs * mm - 1)
+            x, y = pick(_lowest_tops(bs)), pick(_lowest_tops(bs * mm))
             tot = Fraction(x, bs) + Fraction(y, bs * mm)
             rows.append(["%d/%d" % (x, bs), "%d/%d" % (y, bs * mm), _fs(tot)])
             if i == k:
@@ -1339,9 +1419,9 @@ def _(d=1):
                    % (a, base, b, big), s, ["%d/%d = %d/%d." % (a, base, a * m, big),
                                             "%d/%d + %d/%d = %d/%d." % (a * m, big, b, big, a * m + b, big)])
 
-    return _pick_t([t_plain, t_mixed_answer, t_same, t_word, t_missing, t_three, t_more_than_one, t_top, t_paint,
-                    t_pairs_one, t_recipe],
-                   [t_bar, t_line, t_table])
+    return _tidy(_pick_t([t_plain, t_mixed_answer, t_same, t_word, t_missing, t_three, t_more_than_one, t_top, t_paint,
+                          t_pairs_one, t_recipe],
+                         [t_bar, t_line, t_table]))
 
 
 @skill("Y5.5.e", "Subtract fractions with the same or related denominators", S5)
@@ -1350,9 +1430,9 @@ def _(d=1):
     base = pick([2, 3, 4, 5])
     m = pick(_by(d, [1, 2], [2, 3], [2, 3, 4]))
     big = base * m
-    a = random.randint(1, base - 1)
+    a = pick(_lowest_tops(base))
     fa = Fraction(a, base)
-    b = random.randint(1, a * m - 1) if a * m > 1 else None
+    b = pick([x for x in _lowest_tops(big) if x < a * m] or [None])
 
     def t_plain():
         if b is None:
@@ -1416,9 +1496,12 @@ def _(d=1):
     def t_tank():
         if b is None:
             return t_from_one()
-        return _fq("A fish tank is %d/%d full. Some water leaks out and now it is %d/%d full. What fraction of the tank "
-                   "leaked out?" % (a, base, a * m - b, big), Fraction(b, big),
-                   ["%d/%d = %d/%d." % (a, base, a * m, big), "%d/%d − %d/%d = %d/%d." % (a * m, big, a * m - b, big, b, big)])
+        now = Fraction(a * m - b, big)                    # shown in its simplest form: 1/2 full, not 3/6 full
+        conv = ["%d/%d = %d/%d" % (a, base, a * m, big)] + (["%s = %d/%d" % (_fs(now), a * m - b, big)]
+                                                            if now.denominator != big else [])
+        return _fq("A fish tank is %d/%d full. Some water leaks out and now it is %s full. What fraction of the tank "
+                   "leaked out?" % (a, base, _fs(now)), Fraction(b, big),
+                   [" and ".join(conv) + ".", "%d/%d − %d/%d = %d/%d." % (a * m, big, a * m - b, big, b, big)])
 
     def t_top():
         if b is None:
@@ -1436,8 +1519,8 @@ def _(d=1):
                 "answer": "%d/%d" % (x - y, big), "answer_type": "frac",
                 "solution": ["%d − %d = %s." % (x, y, _pl(x - y, "part"))]}
 
-    return _pick_t([t_plain, t_from_one, t_from_mixed, t_word, t_how_much_more, t_missing, t_left_more, t_tank, t_top],
-                   [t_line, t_bar])
+    return _tidy(_pick_t([t_plain, t_from_one, t_from_mixed, t_word, t_how_much_more, t_missing, t_left_more, t_tank, t_top],
+                         [t_line, t_bar]))
 
 
 @skill("Y5.5.f", "Add and subtract mixed numbers", S5)
@@ -1445,7 +1528,7 @@ def _(d=1):
     d = _d(d)
     den = pick(_by(d, [2, 4, 5], [3, 4, 6, 8], [6, 8, 10, 12]))
     w1, w2 = random.randint(1, 5), random.randint(1, 4)
-    a, b = random.randint(1, den - 1), random.randint(1, den - 1)
+    a, b = pick(_lowest_tops(den)), pick(_lowest_tops(den))       # 1 1/6 + 3 5/6, never 1 4/6 + 3 2/6
     A, B = w1 + Fraction(a, den), w2 + Fraction(b, den)
 
     def t_add():
@@ -1496,8 +1579,10 @@ def _(d=1):
                    ["%d − %d = %d." % (w, w1, w - w1), "%d − %s = %s." % (w - w1, _fs(A - w1), _mixed(w - A))], "e.g. 2 1/3")
 
     def t_missing():
-        return _fq("%s + ___ = %s. What is the missing number? (fraction or mixed number)" % (_mixed(A), _mixed(A + B)), B,
-                   ["%s − %s = %s." % (_mixed(A + B), _mixed(A), _mixed(B))], "e.g. 1 1/4")
+        q = _fq("%s + ___ = %s. What is the missing number? (fraction or mixed number)" % (_mixed(A), _mixed(A + B)), B,
+                ["%s − %s = %s." % (_mixed(A + B), _mixed(A), _mixed(B))], "e.g. 1 1/4")
+        q["answer"] = _mixed(B)                           # shown as the question writes numbers: 3 2/5, not 17/5
+        return q
 
     def t_compare():
         return _wq("Is %s + %s more than 5, less than 5 or equal to 5? (type more, less or equal)" % (_mixed(A), _mixed(B)),
@@ -1520,17 +1605,17 @@ def _(d=1):
         return _tb("Work out %s + %s. How many WHOLE ones are in the answer?" % (_mixed(A), _mixed(B)), int(A + B), "int",
                    {}, ["%s + %s = %s." % (_mixed(A), _mixed(B), _mixed(A + B))])
 
-    return _pick_t([t_add, t_sub, t_whole_plus, t_word, t_related, t_whole_minus, t_missing, t_compare, t_hours,
-                    t_wholes],
-                   [t_line, t_table])
+    return _tidy(_pick_t([t_add, t_sub, t_whole_plus, t_word, t_related, t_whole_minus, t_missing, t_compare, t_hours,
+                          t_wholes],
+                         [t_line, t_table]))
 
 
 @skill("Y5.5.g", "Multiply proper fractions by whole numbers", S5)
 def _(d=1):
     d = _d(d)
     den = pick(_by(d, [3, 4, 5], [4, 5, 6, 8], [6, 8, 9, 10, 12]))
-    num = random.randint(1, den - 1)
-    k = random.randint(2, _by(d, 4, 6, 9))
+    num = pick(_lowest_tops(den))                         # 3/4 × 2, never 2/4 × 2
+    k = random.randint(_by(d, 2, 3, 4), _by(d, 4, 6, 9))
     p = Fraction(num * k, den)
 
     def t_plain():
@@ -1593,8 +1678,8 @@ def _(d=1):
                    "of %d.)" % (num, den, den), ["× by", "Answer"], rows, num * ks[i],
                    ["%d × %d = %d, so %d/%d." % (num, ks[i], num * ks[i], num * ks[i], den)], missing=[i, 1])
 
-    return _pick_t([t_plain, t_mixed_answer, t_repeated, t_numerator, t_word, t_more_than_one, t_ribbon, t_how_many],
-                   [t_area, t_jumps, t_table])
+    return _tidy(_pick_t([t_plain, t_mixed_answer, t_repeated, t_numerator, t_word, t_more_than_one, t_ribbon, t_how_many],
+                         [t_area, t_jumps, t_table]))
 
 
 @skill("Y5.5.h", "Multiply mixed numbers by whole numbers", S5)
@@ -1602,7 +1687,7 @@ def _(d=1):
     d = _d(d)
     den = pick(_by(d, [2, 4], [3, 4, 5], [4, 5, 6, 8]))
     w = random.randint(1, _by(d, 2, 3, 5))
-    r = random.randint(1, den - 1)
+    r = pick(_lowest_tops(den))          # the fraction part as the prompt shows it (1 1/2, never 1 2/4)
     k = random.randint(2, _by(d, 3, 5, 6))
     M = w + Fraction(r, den)
 
@@ -1663,15 +1748,15 @@ def _(d=1):
         return _nld("Make %d jumps of %s from 0. Mark where you land." % (k, _mixed(M)), M * k, 0, 10, Fraction(1, den), 1,
                     ["%d × %s = %s." % (k, _mixed(M), _mixed(M * k))])
 
-    return _pick_t([t_plain, t_improper, t_word, t_whole_part, t_lengths, t_repeated, t_missing, t_compare],
-                   [t_table, t_jumps])
+    return _tidy(_pick_t([t_plain, t_improper, t_word, t_whole_part, t_lengths, t_repeated, t_missing, t_compare],
+                         [t_table, t_jumps]))
 
 
 @skill("Y5.5.i", "Fractions of amounts and fraction problems", S5)
 def _(d=1):
     d = _d(d)
     den = pick(_by(d, [2, 3, 4, 5], [3, 4, 5, 6, 8], [6, 7, 8, 9, 12]))
-    num = random.randint(1, den - 1)
+    num = pick(_lowest_tops(den))                         # 3/4 of 24, never 2/4 of 24
     x = den * random.randint(_by(d, 3, 5, 10), _by(d, 12, 30, 60))
 
     def t_of():
@@ -1697,7 +1782,7 @@ def _(d=1):
         kind, unit, whole = pick([("1 hour", "minutes", 60), ("1 metre", "cm", 100), ("1 kg", "g", 1000),
                                   ("1 litre", "ml", 1000)])
         dn = pick([k for k in (2, 3, 4, 5, 10) if whole % k == 0])
-        nm = random.randint(1, dn - 1)
+        nm = pick(_lowest_tops(dn))
         return _tb("How many %s are in %d/%d of %s?" % (unit, nm, dn, kind), whole // dn * nm, "int",
                    {"unit": unit}, ["%s = %d %s." % (kind, whole, unit),
                                     "%d ÷ %d × %d = %d." % (whole, dn, nm, whole // dn * nm)])
@@ -1732,7 +1817,7 @@ def _(d=1):
                     "chocolate cakes were made on %s?" % (num, den, cats[k], cats[k]), cats, vals, vals[k] // den * num,
                     ["%d ÷ %d × %d = %d." % (vals[k], den, num, vals[k] // den * num)])
 
-    return _pick_t([t_of, t_money, t_inverse, t_remaining, t_measure, t_compare, t_spent], [t_strip, t_bar])
+    return _tidy(_pick_t([t_of, t_money, t_inverse, t_remaining, t_measure, t_compare, t_spent], [t_strip, t_bar]))
 
 
 @skill("Y5.5.j", "Fractions greater than 1 on a number line", S5)
@@ -1775,18 +1860,29 @@ def _(d=1):
                    % (k, den), Fraction(k, den), ["%d steps of 1/%d = %d/%d." % (k, den, k, den)], "e.g. 7/4")
 
     def t_halfway():
-        a_ = w
-        b_ = w + 1
-        return _nld("Mark the point exactly halfway between %d and %d." % (a_, b_), Fraction(2 * w + 1, 2), 0, 4,
-                    Fraction(1, 4), 1, ["Halfway is %d 1/2." % w])
+        if d == 0:
+            return _nld("Mark the point exactly halfway between %d and %d." % (w, w + 1), Fraction(2 * w + 1, 2), 0, 4,
+                        Fraction(1, 4), 1, ["Halfway is %d 1/2." % w])
+        # halfway between two numbers bigger than 1, in quarters (core) or eighths (stretch)
+        st = Fraction(1, 4) if d == 1 else Fraction(1, 8)
+        lo_ = 1 + 2 * st * random.randint(0, int(1 / st) - 1)
+        hi_ = lo_ + 2 * st * random.randint(2, int(1 / st))
+        mid = (lo_ + hi_) / 2
+        return _nld("Mark the point exactly halfway between %s and %s." % (_mixed(lo_), _mixed(hi_)), mid, 0, 5,
+                    st, 1, ["The gap is %s − %s = %s." % (_mixed(hi_), _mixed(lo_), _mixed(hi_ - lo_)),
+                            "Half the gap is %s, and %s + %s = %s." % (_mixed((hi_ - lo_) / 2), _mixed(lo_),
+                                                                      _mixed((hi_ - lo_) / 2), _mixed(mid))])
 
     def t_further():
         other = Fraction(w * den + r + pick([-2, -1, 1, 2]), den)
         if other <= 0 or other == M:
             other = M + 1
-        return _fq("Which is further from 0 on a number line, %s or %s? Type it." % (_mixed(M), _fs(other)),
-                   max(M, other), ["%s = %s, so %s is further from 0." % (_fs(max(M, other)), _mixed(max(M, other)),
-                                                                          _mixed(max(M, other)))], "e.g. 2 1/4")
+        q = _fq("Which is further from 0 on a number line, %s or %s? Type it." % (_mixed(M), _fs(other)),
+                max(M, other), ["%s = %s, so %s is further from 0." % (_fs(other), _mixed(other), _mixed(max(M, other)))
+                                if other.denominator > 1 else "%s is further from 0." % _mixed(max(M, other))],
+                "e.g. 2 1/4")
+        q["answer"] = _mixed(M) if M > other else _fs(other)     # as it is written in the question
+        return q
 
     def t_jump():
         k = random.choice([v for v in range(2, den + 3) if v % den])
@@ -1807,7 +1903,7 @@ def _(d=1):
 
     def t_to_next():
         return _fq("How far is it from %s to the next whole number on a number line? (a fraction)" % _mixed(M),
-                   Fraction(den - r, den), ["%s + %d/%d = %d." % (_mixed(M), den - r, den, w + 1)], "e.g. 1/4")
+                   Fraction(den - r, den), ["%s + %s = %d." % (_mixed(M), _fs(Fraction(den - r, den)), w + 1)], "e.g. 1/4")
 
     def t_order():
         a_ = Fraction(w * den + r, den)
@@ -1818,8 +1914,10 @@ def _(d=1):
         order = sorted(zip(vals, shown))
         k = random.randint(0, 2)
         ask = ["is nearest to 0", "lies between the other two", "is furthest from 0"][k]
-        return _fq("These numbers are marked on a number line: %s. Which one %s? (type it)" % (", ".join(shown), ask),
-                   order[k][0], ["In order: %s." % ", ".join(s_ for _, s_ in order)], "e.g. 2 1/4")
+        q = _fq("These numbers are marked on a number line: %s. Which one %s? (type it)" % (", ".join(shown), ask),
+                order[k][0], ["In order: %s." % ", ".join(s_ for _, s_ in order)], "e.g. 2 1/4")
+        q["answer"] = order[k][1]                         # as it is written in the question
+        return q
 
     def t_back():
         k = random.choice([v for v in range(1, den + 2) if v % den])
@@ -1827,5 +1925,5 @@ def _(d=1):
         return _nld("Start at %s and count back %d/%d. Mark where you land." % (_mixed(M), k, den), end, 0, 4,
                     Fraction(1, den), 1, ["%s − %d/%d = %s." % (_mixed(M), k, den, _mixed(end))])
 
-    return _pick_t([t_read, t_between, t_steps, t_improper_read, t_further, t_nearer, t_to_next, t_order],
-                   [t_place_mixed, t_place_improper, t_halfway, t_jump, t_back])
+    return _tidy(_pick_t([t_read, t_between, t_steps, t_improper_read, t_further, t_nearer, t_to_next, t_order],
+                         [t_place_mixed, t_place_improper, t_halfway, t_jump, t_back]))

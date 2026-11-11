@@ -86,10 +86,24 @@ def _complement(d=1):
                    "How many have neither?" % (tot, k, m, both), tot - (k + m - both), "int", {},
                    ["Pet or sibling: %d + %d − %d = %d." % (k, m, both, k + m - both),
                     "%d − %d = %d." % (tot, k + m - both, tot - (k + m - both))])
-    tot = random.randint(_by(d, 10, 20, 20), _by(d, 20, 35, 35))
-    k = random.randint(_by(d, 2, 5, 5), tot - 3)
-    return _tb("In a class of %d pupils, %d have a pet. How many do NOT have a pet?" % (tot, k), tot - k, "int", {},
-               ["%d − %d = %d." % (tot, k, tot - k)])
+    # the complement in set notation: ξ, a set A and A′ (not a one-step take-away, which is Year 1 work)
+    hi = random.randint(_by(d, 12, 20, 20), _by(d, 20, 40, 40))
+    m = random.randint(2, _by(d, 5, 7, 7))
+    inside = hi // m
+    if d == 0:
+        return _tb("ξ = {whole numbers from 1 to %d} and A = {multiples of %d}. How many numbers are in A′ (the numbers "
+                   "in ξ that are NOT in A)?" % (hi, m), hi - inside, "int", {},
+                   ["A has %d numbers: %s." % (inside, ", ".join(str(m * i) for i in range(1, inside + 1))),
+                    "A′ is everything else in ξ: %d − %d = %d." % (hi, inside, hi - inside)])
+    sq = [n * n for n in range(1, 7) if n * n <= hi]
+    both = [x for x in sq if x % m == 0]
+    neither = hi - (inside + len(sq) - len(both))
+    return _tb("ξ = {whole numbers from 1 to %d}, A = {multiples of %d} and B = {square numbers}. How many numbers are in "
+               "(A ∪ B)′, the numbers in neither set?" % (hi, m), neither, "int", {},
+               ["A has %d numbers and B has %d (%s); %d %s in both." % (inside, len(sq), ", ".join(map(str, sq)), len(both),
+                                                                        "is" if len(both) == 1 else "are"),
+                "A ∪ B has %d + %d − %d = %d numbers." % (inside, len(sq), len(both), inside + len(sq) - len(both)),
+                "(A ∪ B)′: %d − %d = %d." % (hi, inside + len(sq) - len(both), neither)])
 
 
 @skill("Y7.9.b", "The probability scale and simple probability", S9)
@@ -410,17 +424,28 @@ def _(d=1):
     d = _d(d)
     cats = ["Walk", "Bus", "Car", "Cycle"]
     lo, hi = _by(d, (1, 12), (3, 30), (10, 60))
+    _GO = {"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}
 
     def t_bar_total():
-        v = [random.randint(lo, hi) for _ in cats]
-        return _bar("The bar chart shows how pupils travel to school. How many pupils are there altogether?", cats, v, sum(v),
-                    ["%s = %d." % (" + ".join(map(str, v)), sum(v))])
+        # a percentage of the whole: add the bars, then compare one with the total
+        tot = pick(_by(d, [20, 25, 50], [20, 25, 40, 50], [40, 50, 80, 200]))
+        while True:
+            cuts = sorted(random.sample(range(1, tot), 3))
+            v = [b - a for a, b in zip([0] + cuts, cuts + [tot])]
+            k = random.randrange(4)
+            if min(v) >= 1 and (100 * v[k]) % tot == 0:
+                break
+        pct = 100 * v[k] // tot
+        return _bar("The bar chart shows how pupils travel to school. What percentage of the pupils %s? Give the number only."
+                    % _GO[cats[k]], cats, v, pct,
+                    ["Altogether: %s = %d pupils." % (" + ".join(map(str, v)), tot),
+                     "%d out of %d = %d ÷ %d × 100 = %d%%." % (v[k], tot, v[k], tot, pct)])
 
     def t_bar_fraction():
         v = [random.randint(_by(d, 1, 2, 5), _by(d, 6, 20, 40)) for _ in cats]
         k = random.randrange(4)
         return _bar("The bar chart shows how pupils travel to school. What fraction of the pupils %s? Simplest form."
-                    % {"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[k]], cats, v,
+                    % _GO[cats[k]], cats, v,
                     _fs(Fraction(v[k], sum(v))), ["%d out of %d." % (v[k], sum(v))], atype="frac")
 
     def t_pie():
@@ -435,25 +460,32 @@ def _(d=1):
                 "solution": ["%d/360 of %d = %d." % (a, tot, tot * a // 360)]}
 
     def t_line():
+        # the mean of the values a line graph shows
         months = ["Jan", "Feb", "Mar", "Apr", "May"]
         v = [random.randint(_by(d, 10, 10, 20), _by(d, 40, 60, 99)) for _ in months]
-        i, j = random.sample(range(5), 2)
-        return _lg("The graph shows books sold each month. What is the difference between %s and %s?" % (months[i], months[j]),
-                   list(zip(months, v)), abs(v[i] - v[j]), ["%d and %d." % (v[i], v[j])], "Books", "Month")
+        v[-1] += (-sum(v)) % 5
+        return _lg("The graph shows books sold each month. What is the mean number of books sold per month?",
+                   list(zip(months, v)), sum(v) // 5,
+                   ["Read every point: %s = %d." % (" + ".join(map(str, v)), sum(v)),
+                    "Mean = %d ÷ 5 = %d." % (sum(v), sum(v) // 5)], "Books", "Month")
 
     def t_misleading():
         return _wq("A bar chart's vertical axis starts at 90 instead of 0. Does this make small differences look bigger or "
                    "smaller? (type bigger or smaller)", "bigger", ["Cutting the axis exaggerates differences."], "bigger / smaller")
 
     def t_bar_more():
-        v = random.sample(range(lo, hi + 1), 4)
+        # compare two bars as a ratio in its simplest form
+        g = random.randint(2, _by(d, 3, 5, 8))
+        a, b = random.sample(range(1, _by(d, 5, 6, 9)), 2)
+        while _gcd(a, b) != 1:
+            a, b = random.sample(range(1, _by(d, 5, 6, 9)), 2)
         i, j = random.sample(range(4), 2)
-        if v[i] < v[j]:
-            i, j = j, i
-        return _bar("The bar chart shows how pupils travel to school. How many more pupils %s than %s?"
-                    % ({"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[i]],
-                       {"Walk": "walk", "Bus": "come by bus", "Car": "come by car", "Cycle": "cycle"}[cats[j]]),
-                    cats, v, v[i] - v[j], ["%d − %d = %d." % (v[i], v[j], v[i] - v[j])])
+        v = [random.randint(lo, hi) for _ in cats]
+        v[i], v[j] = a * g, b * g
+        return _bar("The bar chart shows how pupils travel to school. Write the ratio of pupils who %s to pupils who %s in "
+                    "its simplest form (like 2:3)." % (_GO[cats[i]], _GO[cats[j]]), cats, v, "%d:%d" % (a, b),
+                    ["%s: %d. %s: %d." % (cats[i], v[i], cats[j], v[j]),
+                     "Divide both by %d: %d : %d = %d : %d." % (g, v[i], v[j], a, b)], atype="str")
 
     def t_bar_mode():
         v = random.sample(range(lo, hi + 1), 4)
@@ -465,17 +497,26 @@ def _(d=1):
         vals = [key * random.randint(1, 8) + (key // 2 if random.random() < _by(d, 0, 0.3, 0.6) else 0) for _ in range(4)]
         names = ["Mon", "Tue", "Wed", "Thu"]
         k = random.randrange(4)
-        return {"prompt": "The pictogram shows cakes sold each day. Each symbol stands for %d cakes. How many were sold on %s?"
-                          % (key, names[k]), "component": "pictogram",
+        f = Fraction(vals[k], sum(vals))
+        return {"prompt": "The pictogram shows cakes sold each day. Each symbol stands for %d cakes. What fraction of all the "
+                          "cakes were sold on %s? Simplest form." % (key, names[k]), "component": "pictogram",
                 "spec": {"categories": names, "values": vals, "key": key, "symbol": "circle", "unit": "cakes"},
-                "answer": vals[k], "answer_type": "int", "solution": ["Count the symbols and multiply by %d: %d." % (key, vals[k])]}
+                "answer": _fs(f), "answer_type": "frac",
+                "solution": ["Each day: %s cakes, %d altogether." % (", ".join(map(str, vals)), sum(vals)),
+                             "%s: %d out of %d = %s." % (names[k], vals[k], sum(vals), _fs(f))]}
 
     def t_line_max():
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-        v = random.sample(range(_by(d, 10, 10, 20), _by(d, 40, 60, 99)), 6)
-        return _lg("The graph shows books sold each month. In which month were the most books sold?", list(zip(months, v)),
-                   months[v.index(max(v))], ["The highest point is %s (%d)." % (months[v.index(max(v))], max(v))], "Books", "Month",
-                   atype="str")
+        while True:
+            v = random.sample(range(_by(d, 10, 10, 20), _by(d, 40, 60, 99)), 6)
+            ch = [v[i + 1] - v[i] for i in range(5)]
+            if max(ch) > 0 and ch.count(max(ch)) == 1:
+                break
+        i = ch.index(max(ch))
+        return _lg("The graph shows books sold each month. In which month did sales go up the most from the month before?",
+                   list(zip(months, v)), months[i + 1],
+                   ["The steepest rise is from %s (%d) to %s (%d): up %d." % (months[i], v[i], months[i + 1], v[i + 1], ch[i]),
+                    "So the answer is %s." % months[i + 1]], "Books", "Month", atype="str")
 
     def t_pie_angle():
         a = pick(_by(d, [90, 120, 180, 60], [45, 60, 72, 90, 120, 135, 150], [40, 45, 72, 135, 150, 210]))
@@ -491,11 +532,16 @@ def _(d=1):
         months = ["Jan", "Feb", "Mar", "Apr", "May"]
         v = [random.randint(_by(d, 10, 10, 20), _by(d, 40, 60, 99)) for _ in months]
         i = random.randrange(4)
-        if v[i + 1] == v[i]:
-            v[i + 1] += 3
-        word = "increase" if v[i + 1] > v[i] else "decrease"
-        return _lg("The graph shows books sold each month. By how many did sales %s from %s to %s?" % (word, months[i], months[i + 1]),
-                   list(zip(months, v)), abs(v[i + 1] - v[i]), ["%d to %d." % (v[i], v[i + 1])], "Books", "Month")
+        # a percentage change between two points: a start of 20, 40 or 50 and a change of 10%, 20%, 25% or 50%
+        v[i] = pick([20, 40, 50] if d < 2 else [40, 50, 80])
+        p = pick([10, 20, 25, 50] if v[i] % 20 == 0 else [10, 20, 50])
+        up = random.random() < 0.6
+        v[i + 1] = v[i] + (1 if up else -1) * v[i] * p // 100
+        word = "increase" if up else "decrease"
+        return _lg("The graph shows books sold each month. What was the percentage %s in sales from %s to %s? Give the "
+                   "number only." % (word, months[i], months[i + 1]), list(zip(months, v)), p,
+                   ["%s: %d. %s: %d. The change is %d." % (months[i], v[i], months[i + 1], v[i + 1], abs(v[i + 1] - v[i])),
+                    "%d ÷ %d × 100 = %d%%." % (abs(v[i + 1] - v[i]), v[i], p)], "Books", "Month")
 
     return _pick_t([t_misleading], [t_bar_total, t_bar_fraction, t_pie, t_line, t_bar_more, t_bar_mode, t_pictogram, t_line_max,
                                     t_pie_angle, t_line_rise])

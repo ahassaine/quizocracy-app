@@ -428,26 +428,37 @@ def _(d=1):
     d = _d(d)
     L, W = random.randint(3, _by(d, 10, 15, 25)), random.randint(2, _by(d, 8, 12, 20))
 
+    # Year 7 works with a scale on the grid: a square is 2, 3 or 5 cm wide, so counting is only the first step
+    s = pick(_by(d, [2, 3], [2, 3, 5], [3, 5]))
+
     def t_read_area():
         cells = _rectilinear(d)
-        return _area("Each square is 1 cm². What is the area of the shape, in cm²?", {"mode": "read_area", "cells": cells,
-                                                                                        "placeholder": "cm²"},
-                     len(cells), ["Count the squares: %d." % len(cells)])
+        return _area("Each square on the grid is %d cm by %d cm. What is the area of the shape, in cm²?" % (s, s),
+                     {"mode": "read_area", "cells": cells, "placeholder": "cm²"}, len(cells) * s * s,
+                     ["There are %d squares, and each one is %d × %d = %d cm²." % (len(cells), s, s, s * s),
+                      "%d × %d = %d cm²." % (len(cells), s * s, len(cells) * s * s)])
 
     def t_read_perimeter():
         cells = _rectilinear(d)
         p = _cells_perimeter(cells)
-        return _area("Each square has sides of 1 cm. What is the perimeter of the shape, in cm?",
-                     {"mode": "read_perimeter", "cells": cells, "placeholder": "cm"}, p,
-                     ["Walk round the outside edge counting each side: %d cm." % p])
+        return _area("Each square on the grid has sides of %d cm. What is the perimeter of the shape, in cm?" % s,
+                     {"mode": "read_perimeter", "cells": cells, "placeholder": "cm"}, p * s,
+                     ["Walk round the outside edge: it is %d square sides long." % p,
+                      "Each side is %d cm, so the perimeter is %d × %d = %d cm." % (s, p, s, p * s)])
 
     def t_rect_area():
-        return _tb("A rectangle is %d cm long and %d cm wide. What is its area, in cm²?" % (L, W), L * W, "int", {"unit": "cm²"},
-                   ["%d × %d = %d." % (L, W, L * W)])
+        # two steps: the width from the perimeter, then the area
+        return _tb("A rectangle has a perimeter of %d cm and a length of %d cm. What is its area, in cm²?" % (2 * (L + W), L),
+                   L * W, "int", {"unit": "cm²"},
+                   ["Length + width is half the perimeter: %d ÷ 2 = %d, so the width is %d − %d = %d cm."
+                    % (2 * (L + W), L + W, L + W, L, W), "Area = %d × %d = %d cm²." % (L, W, L * W)])
 
     def t_rect_perim():
-        return _tb("A rectangle is %d m long and %d m wide. What is its perimeter, in m?" % (L, W), 2 * (L + W), "int", {"unit": "m"},
-                   ["2 × (%d + %d) = %d." % (L, W, 2 * (L + W))])
+        # two steps: the width from the area, then the perimeter
+        return _tb("A rectangle has an area of %d m² and a length of %d m. What is its perimeter, in m?" % (L * W, L),
+                   2 * (L + W), "int", {"unit": "m"},
+                   ["Width = area ÷ length = %d ÷ %d = %d m." % (L * W, L, W),
+                    "Perimeter = 2 × (%d + %d) = %d m." % (L, W, 2 * (L + W))])
 
     def t_l_area():
         big_l, big_w = L + 4, W + 3
@@ -478,11 +489,6 @@ def _(d=1):
         return _tb("A square has perimeter %d cm. What is its area, in cm²?" % (4 * s), s * s, "int", {"unit": "cm²"},
                    ["Side = %d ÷ 4 = %d." % (4 * s, s), "Area = %d × %d = %d." % (s, s, s * s)])
 
-    def t_build():
-        A = random.randint(6, 20)
-        return _area("Shade a shape with an area of %d squares." % A, {"mode": "build_area", "rows": 5, "cols": 6}, A,
-                     ["Any %d squares make an area of %d square units." % (A, A)])
-
     def t_frame():
         ow, oh = random.randint(8, 20), random.randint(6, 15)
         b = random.randint(1, 2)
@@ -506,13 +512,13 @@ def _(d=1):
                    ["Length + width = %d; the closer to a square, the bigger: %d × %d = %d." % (half, half // 2, half - half // 2, best)])
 
     return _pick_t([t_rect_area, t_rect_perim, t_l_area, t_l_perim, t_missing_side, t_largest_perim, t_square_from_perim, t_frame,
-                    t_units, t_same_perim], [t_read_area, t_read_perimeter, t_build])
+                    t_units, t_same_perim], [t_read_area, t_read_perimeter])
 
 
 @skill("Y7.5.i", "Volume of cuboids", S5)
 def _(d=1):
     d = _d(d)
-    l, w, h = [random.randint(2, _by(d, 6, 10, 15)) for _ in range(3)]
+    l, w, h = [random.randint(_by(d, 2, 3, 5), _by(d, 6, 10, 15)) for _ in range(3)]
 
     def t_volume():
         return _tb("A cuboid is %d cm long, %d cm wide and %d cm high. What is its volume, in cm³?" % (l, w, h), l * w * h, "int",
@@ -560,8 +566,12 @@ def _(d=1):
                    ["%d × %d × %d = %d." % (l, l, l, l ** 3)])
 
     def t_layers():
-        return _tb("The bottom layer of a cuboid made of cubes has %d cubes. There are %d layers. How many cubes altogether?"
-                   % (l * w, h), l * w * h, "int", {"unit": "cubes"}, ["%d × %d = %d." % (l * w, h, l * w * h)])
+        # mixed units: every length in cm before multiplying
+        m, cw, ch = random.randint(1, _by(d, 2, 3, 4)), random.randint(2, 9) * 10, random.randint(1, 6) * 10
+        v = m * 100 * cw * ch
+        return _tb("A box is %d m long, %d cm wide and %d cm high. What is its volume, in cm³?" % (m, cw, ch), v, "int",
+                   {"unit": "cm³"}, ["Put every length in cm first: %d m = %d cm." % (m, m * 100),
+                                     "%d × %d × %d = %s cm³." % (m * 100, cw, ch, _c(v))])
 
     def t_shape():
         return {"prompt": "This cuboid is %d cm long, %d cm wide and %d cm high. What is its volume, in cm³?" % (l, w, h),

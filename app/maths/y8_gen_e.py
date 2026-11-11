@@ -616,27 +616,83 @@ def _(d=1):
                                 "otherwise it is irregular.",
                                 "This polygon is %s." % ans])
 
-    if t == 0:                                        # visual: name the polygon
-        nm, sd = pick([("triangle", 3), ("pentagon", 5), ("hexagon", 6),
-                       ("octagon", 8)] if d else [("triangle", 3), ("pentagon", 5)])
-        return {"prompt": "This regular polygon is drawn. What is its name? (type one word)",
-                "component": "shape", "spec": {"kind": "2d", "name": nm, "ask": "name"},
-                "answer": nm, "answer_type": "str",
-                "solution": ["Count the straight sides: there are %d." % sd,
-                             "A polygon with %d sides is %s." % (sd, _a(nm))]}
+    if t == 0:                                        # a triangle on a grid: classify it from its sides
+        while True:
+            kind = pick(["isosceles", "scalene", "right-angled"])
+            x0, y0 = random.randint(0, 2), random.randint(0, 2)
+            if kind == "right-angled":
+                a, b = random.sample(range(2, 6), 2)
+                pts = [[x0, y0], [x0 + a, y0], [x0, y0 + b]]
+            elif kind == "isosceles":
+                half, h = random.randint(1, 3), random.randint(2, 6)
+                pts = [[x0, y0], [x0 + 2 * half, y0], [x0 + half, y0 + h]]
+            else:
+                pts = [[x0, y0], [x0 + random.randint(3, 6), y0],
+                       [x0 + random.randint(-1, 5), y0 + random.randint(2, 6)]]
+            sq = sorted((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2
+                        for p, q in ((pts[0], pts[1]), (pts[1], pts[2]), (pts[2], pts[0])))
+            right = sq[0] + sq[1] == sq[2]
+            iso = len(set(sq)) < 3
+            if sq[0] and not (iso and right) and max(c for p in pts for c in p) <= 8 \
+                    and kind == ("right-angled" if right else "isosceles" if iso else "scalene"):
+                break
+        why = {"isosceles": "Two of the sides are the same length (they are mirror images either side of "
+                            "the line through the top corner), so the triangle is isosceles.",
+               "scalene": "All three sides are different lengths and none of the angles is a right "
+                          "angle, so the triangle is scalene.",
+               "right-angled": "One side runs along a grid line across and another runs straight up from "
+                               "the same corner, so they meet at 90°: the triangle is right-angled."}[kind]
+        return {"prompt": "What type of triangle is drawn on the grid? Type isosceles, scalene "
+                          "or right-angled.",
+                "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 8, "ymin": 0, "ymax": 8, "polygon": pts, "typed": True,
+                         "placeholder": "isosceles / scalene / right-angled"},
+                "answer": kind, "answer_type": "str",
+                "solution": [why]}
 
-    if t == 1:                                        # visual: count sides/vertices
-        nm, sd = pick(_by_d(d, [("triangle", 3), ("square", 4), ("pentagon", 5)],
-                            [("triangle", 3), ("square", 4), ("pentagon", 5),
-                             ("hexagon", 6), ("octagon", 8)],
-                            [("pentagon", 5), ("hexagon", 6), ("octagon", 8)]))
-        ask = pick(["sides", "vertices"])
-        return {"prompt": "How many %s does this shape have?"
-                          % ("sides" if ask == "sides" else "vertices (corners)"),
-                "component": "shape", "spec": {"kind": "2d", "name": nm, "ask": ask},
-                "answer": sd, "answer_type": "int",
-                "solution": ["A polygon has as many vertices as sides.",
-                             "This one has %d." % sd]}
+    if t == 1:                                        # a quadrilateral on a grid: name it from its properties
+        nm = pick(_by_d(d, ["square", "rectangle", "kite", "trapezium"],
+                        ["rectangle", "rhombus", "parallelogram", "kite", "trapezium"],
+                        ["rhombus", "parallelogram", "kite", "trapezium"]))
+        x0, y0 = random.randint(0, 1), random.randint(0, 1)
+        if nm == "square":
+            sd = random.randint(2, 5)
+            pts = [[x0, y0], [x0 + sd, y0], [x0 + sd, y0 + sd], [x0, y0 + sd]]
+            why = "All four sides are %d squares long and every angle is a right angle." % sd
+        elif nm == "rectangle":
+            w, h = random.sample(range(2, 7), 2)
+            pts = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]
+            why = "Every angle is a right angle, but the sides are %d and %d squares: not all equal." % (w, h)
+        elif nm == "rhombus":
+            w, h = random.sample(range(1, 4), 2)
+            pts = [[x0, y0 + h], [x0 + w, y0], [x0 + 2 * w, y0 + h], [x0 + w, y0 + 2 * h]]
+            why = ("Each side goes %d across and %d up or down, so all four sides are equal; the angles "
+                   "are not right angles." % (w, h))
+        elif nm == "parallelogram":
+            a, c, h = random.randint(3, 5), random.randint(1, 2), random.randint(2, 4)
+            pts = [[x0, y0], [x0 + a, y0], [x0 + a + c, y0 + h], [x0 + c, y0 + h]]
+            why = ("The top and bottom are both %d squares and parallel; the slanted sides are parallel "
+                   "too, but no angle is a right angle." % a)
+        elif nm == "kite":
+            w, h1 = random.randint(1, 3), random.randint(1, 2)
+            h2 = h1 + random.randint(2, 4)
+            pts = [[x0 + w, y0], [x0 + 2 * w, y0 + h1], [x0 + w, y0 + h1 + h2], [x0, y0 + h1]]
+            why = ("The two short sides at the bottom are equal and the two long sides at the top are "
+                   "equal: two pairs of equal sides next to each other.")
+        else:
+            a = random.randint(4, 6)
+            c1, c2 = random.randint(0, 1), random.randint(1, 2)     # the top stays at least 1 square
+            h = random.randint(2, 4)
+            pts = [[x0, y0], [x0 + a, y0], [x0 + a - c2, y0 + h], [x0 + c1, y0 + h]]
+            top = a - c1 - c2
+            why = "Only the top and bottom are parallel (the top is %d square%s, the bottom %d)." % (
+                top, "" if top == 1 else "s", a)
+        return {"prompt": "What type of quadrilateral is drawn on the grid? (type one word)",
+                "component": "coordinate_grid",
+                "spec": {"xmin": 0, "xmax": 8, "ymin": 0, "ymax": 8, "polygon": pts, "typed": True,
+                         "placeholder": "square / rectangle / rhombus / parallelogram / trapezium / kite"},
+                "answer": nm, "answer_type": "str",
+                "solution": [why, "So it is %s." % _a(nm)]}
 
     if t == 2:                                        # classify triangle by sides
         nm, desc = pick(_TRIS8 if d else _TRIS8[:3])
@@ -1017,6 +1073,15 @@ def _(d=1):
     t = _pick_t([3, 3, 2, 2, 2, 1, 1, 1, 1])
     rr = random.randint(_by_d(d, 2, 3, 4), _by_d(d, 7, 10, 15))
 
+    if t == 0 and d:                                  # a square whose corners sit on the circle
+        dg = 2 * rr
+        return _num_q("A square is drawn inside a circle so that all four of its corners lie on the "
+                      "circle. The diagonal of the square is %d cm long. What is the radius of the circle, "
+                      "in cm?" % dg, rr, "int", unit="cm",
+                      solution=["The diagonal joins two points on the circle and passes through the "
+                                "centre, so it is a diameter.",
+                                "Radius = %d ÷ 2 = %d cm." % (dg, rr)])
+
     if t == 0:                                        # radius -> diameter (visual)
         return {"prompt": "The circle has a radius of %d cm. What is its diameter, in cm?"
                           % rr,
@@ -1025,6 +1090,16 @@ def _(d=1):
                 "answer": 2 * rr, "answer_type": "int",
                 "solution": ["The diameter is twice the radius.",
                              "2 × %d = %d cm." % (rr, 2 * rr)]}
+
+    if t == 1 and d:                                  # circles in a row: a length made of diameters
+        k = random.randint(2, _by_d(d, 3, 3, 5))
+        L = 2 * rr * k
+        return _num_q("%d equal circles fit exactly in a row inside a box %d cm long, each touching "
+                      "the next and the ends of the box. What is the radius of each circle, in cm?"
+                      % (k, L), rr, "int", unit="cm",
+                      solution=["The length of the box is %d diameters." % k,
+                                "One diameter = %d ÷ %d = %d cm, so the radius is %d ÷ 2 = %d cm."
+                                % (L, k, 2 * rr, 2 * rr, rr)])
 
     if t == 1:                                        # diameter -> radius (visual)
         dia = 2 * rr
@@ -1068,6 +1143,15 @@ def _(d=1):
                                   "tangent / circumference",
                       solution=["Recall the parts of a circle.",
                                 "This is called the %s." % ans])
+
+    if t == 4 and d:                                  # two radii and a chord make an isosceles triangle
+        chord = random.randint(2, 2 * rr - 1)
+        P = 2 * rr + chord
+        return _num_q("A circle has centre O and radius %d cm. A and B are two points on the circle. "
+                      "The triangle OAB has a perimeter of %d cm. How long is the chord AB, in cm?"
+                      % (rr, P), chord, "int", unit="cm",
+                      solution=["OA and OB are both radii, so each is %d cm." % rr,
+                                "AB = %d − %d − %d = %d cm." % (P, rr, rr, chord)])
 
     if t == 4:                                        # halves and doubles reasoning
         ask = pick(["r_from_d", "d_from_r"])
@@ -1213,15 +1297,31 @@ def _(d=1):
                 "solution": ["Each piece of the net becomes one face.",
                              "%s has %s." % (_a(nm).capitalize(), _pl(faces, "face"))]}
 
-    if t == 2:                                        # name a drawn solid (visual)
-        nm = pick(_by_d(d, ["cube", "cuboid"],
-                        ["cube", "cuboid", "triangular prism", "square-based pyramid"],
-                        ["triangular prism", "square-based pyramid"]))
-        return {"prompt": "What is the name of this 3-D solid? (type the name)",
+    if t == 2:                                        # a drawn solid: its plan or front elevation
+        nm, view, ans, why = pick(_by_d(d, [
+            ("cube", "plan view (the view from directly above)", "square",
+             "From above you see only the top face, a square."),
+            ("cuboid", "front elevation (the view from the front)", "rectangle",
+             "From the front you see only the front face, a rectangle."),
+        ], [
+            ("cube", "plan view (the view from directly above)", "square",
+             "From above you see only the top face, a square."),
+            ("square-based pyramid", "plan view (the view from directly above)", "square",
+             "From above you see the square base, with the four sloping faces meeting at its middle."),
+            ("square-based pyramid", "front elevation (the view from the front)", "triangle",
+             "From the front the sloping faces rise to the top point: the outline is a triangle."),
+        ], [
+            ("square-based pyramid", "front elevation (the view from the front)", "triangle",
+             "From the front the sloping faces rise to the top point: the outline is a triangle."),
+            ("square-based pyramid", "plan view (the view from directly above)", "square",
+             "From above you see the square base, with the four sloping faces meeting at its middle."),
+            ("cuboid", "front elevation (the view from the front)", "rectangle",
+             "From the front you see only the front face, a rectangle."),
+        ]))
+        return {"prompt": "Look at this %s. What 2-D shape is its %s? (type the name)" % (nm, view),
                 "component": "shape", "spec": {"kind": "3d", "name": nm, "ask": "name"},
-                "answer": nm, "answer_type": "str",
-                "solution": ["Look at the faces and how they meet.",
-                             "This solid is %s." % _a(nm)]}
+                "answer": ans, "answer_type": "str",
+                "solution": [why, "The %s is %s." % (view.split(" (")[0], _a(ans))]}
 
     if t == 3:                                        # plan view
         views = [
@@ -1262,7 +1362,8 @@ def _(d=1):
                                 "The view is %s." % _a(ans)])
 
     if t == 4:                                        # count faces/edges/vertices
-        nm, f, e, v = pick(_by_d(d, _SOLIDS8[:2], _SOLIDS8[:4], _SOLIDS8_HARD[2:]))
+        # not the cube: counting its faces is Year 2 work
+        nm, f, e, v = pick(_by_d(d, _SOLIDS8[2:4], _SOLIDS8[2:4] + _SOLIDS8_HARD[2:4], _SOLIDS8_HARD[2:]))
         prop, val = pick([("faces", f), ("edges", e), ("vertices", v)])
         return _num_q("How many %s does %s have?" % (prop, _a(nm)), val, "int",
                       solution=["Count the %s of %s carefully." % (prop, _a(nm)),
@@ -1569,8 +1670,8 @@ def _(d=1):
     if t == 4:                                        # area scales by k^2
         A = random.randint(3, _by_d(d, 8, 12, 25))
         return _num_q("A shape has area %d cm². It is enlarged by scale factor %d. "
-                      "The area is multiplied by the scale factor SQUARED. "
-                      "What is the new area, in cm²?" % (A, k),
+                      "%sWhat is the new area, in cm²?"
+                      % (A, k, "The area is multiplied by the scale factor SQUARED. " if d == 0 else ""),
                       A * k * k, "int", unit="cm²",
                       solution=["Area scale factor = %d² = %d." % (k, k * k),
                                 "%d × %d = %d cm²." % (A, k * k, A * k * k)])
@@ -1649,10 +1750,12 @@ def _(d=1):
         b = random.randint(a + 1, a + _by_d(d, 4, 6, 9))
         A = k * a
         B = k * b
+        # the scale factor is for the child to find: named only on the easiest tier
         return _num_q("Two triangles are similar. In the small triangle a side of %d cm "
-                      "matches a side of %d cm in the large triangle (scale factor %d). "
+                      "matches a side of %d cm in the large triangle%s. "
                       "Another side of the small triangle is %d cm. How long is the "
-                      "matching side in the large triangle, in cm?" % (a, A, k, b),
+                      "matching side in the large triangle, in cm?"
+                      % (a, A, " (scale factor %d)" % k if d == 0 else "", b),
                       B, "int", unit="cm",
                       solution=["The scale factor is %d ÷ %d = %d." % (A, a, k),
                                 "%d × %d = %d cm." % (b, k, B)])
@@ -2795,11 +2898,15 @@ def _(d=1):
     t = _pick_t([3, 3, 2, 2, 2, 2, 1, 1])
     rr = random.randint(_by_d(d, 2, 3, 4), _by_d(d, 7, 10, 14))
 
+    def hint(f):
+        """The formula in brackets, on the easiest tier only: recalling it is part of the skill."""
+        return " (%s)" % f if d == 0 else ""
+
     if t == 0:                                        # circumference from diameter (3.14)
         dia = 2 * rr
         c = round(3.14 * dia, 2)
         return {"prompt": "Take π as 3.14. A circle has diameter %d cm. What is its "
-                          "circumference, in cm? (C = π × d)" % dia,
+                          "circumference, in cm?%s" % (dia, hint("C = π × d")),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "circumference", "label": "d = %d cm" % dia},
                 "answer": c, "answer_type": "num", "tolerance": 0.05,
@@ -2809,28 +2916,45 @@ def _(d=1):
     if t == 1:                                        # area from radius (3.14)
         a = round(3.14 * rr * rr, 2)
         return {"prompt": "Take π as 3.14. A circle has radius %d cm. What is its area, "
-                          "in cm²? (A = π × r²)" % rr,
+                          "in cm²?%s" % (rr, hint("A = π × r²")),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
                 "answer": a, "answer_type": "num", "tolerance": 0.05,
                 "solution": ["A = π × r² = 3.14 × %d²." % rr,
                              "= 3.14 × %d = %s cm²." % (rr * rr, _f(a))]}
 
+    if t == 2 and d == 2:                             # in terms of π, from the radius
+        return {"prompt": "Leave your answer in terms of π. This circle has radius %d cm, so its "
+                          "circumference is kπ cm. What is the value of k?" % rr,
+                "component": "circle",
+                "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
+                "answer": 2 * rr, "answer_type": "int",
+                "solution": ["C = 2πr = 2 × π × %d = %dπ." % (rr, 2 * rr), "So k = %d." % (2 * rr)]}
+
     if t == 2:                                        # circumference in terms of pi (coeff)
         dia = 2 * rr
         return {"prompt": "Leave your answer in terms of π. This circle has diameter %d "
-                          "cm, so its circumference is kπ cm where C = πd. What is the "
-                          "value of k?" % dia,
+                          "cm, so its circumference is kπ cm%s. What is the "
+                          "value of k?" % (dia, " where C = πd" if d == 0 else ""),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "circumference", "label": "d = %d cm" % dia},
                 "answer": dia, "answer_type": "int",
                 "solution": ["C = π × d = π × %d = %dπ." % (dia, dia),
                              "So k = %d." % dia]}
 
+    if t == 3 and d == 2:                             # in terms of π, from the diameter
+        return {"prompt": "Leave your answer in terms of π. This circle has diameter %d cm, so its "
+                          "area is kπ cm². What is the value of k?" % (2 * rr),
+                "component": "circle",
+                "spec": {"radius": rr, "show": "diameter", "label": "d = %d cm" % (2 * rr)},
+                "answer": rr * rr, "answer_type": "int",
+                "solution": ["The radius is %d ÷ 2 = %d cm." % (2 * rr, rr),
+                             "A = πr² = π × %d² = %dπ, so k = %d." % (rr, rr * rr, rr * rr)]}
+
     if t == 3:                                        # area in terms of pi (coeff)
         return {"prompt": "Leave your answer in terms of π. This circle has radius %d cm, "
-                          "so its area is kπ cm² where A = πr². What is the value of k?"
-                          % rr,
+                          "so its area is kπ cm²%s. What is the value of k?"
+                          % (rr, " where A = πr²" if d == 0 else ""),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
                 "answer": rr * rr, "answer_type": "int",
@@ -2840,7 +2964,7 @@ def _(d=1):
     if t == 4:                                        # circumference from radius (3.14)
         c = round(2 * 3.14 * rr, 2)
         return {"prompt": "Take π as 3.14. This circle has radius %d cm. What is its "
-                          "circumference, in cm? (C = 2 × π × r)" % rr,
+                          "circumference, in cm?%s" % (rr, hint("C = 2 × π × r")),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
                 "answer": c, "answer_type": "num", "tolerance": 0.05,
@@ -2850,7 +2974,7 @@ def _(d=1):
     if t == 5:                                        # semicircle area
         a = round(3.14 * rr * rr / 2.0, 2)
         return {"prompt": "Take π as 3.14. A semicircle (half circle) has radius %d cm. "
-                          "What is its area, in cm²? (area = ½ × π × r²)" % rr,
+                          "What is its area, in cm²?%s" % (rr, hint("area = ½ × π × r²")),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
                 "answer": a, "answer_type": "num", "tolerance": 0.05,
@@ -2862,7 +2986,7 @@ def _(d=1):
         dia = 2 * rr
         c = round(3.14 * dia, 2)
         return {"prompt": "Take π as 3.14. This circle has a circumference of about %s "
-                          "cm. Work out its diameter, in cm. (d = C ÷ π)" % _f(c),
+                          "cm. Work out its diameter, in cm.%s" % (_f(c), hint("d = C ÷ π")),
                 "component": "circle",
                 "spec": {"radius": rr, "show": "circumference",
                          "label": "C = %s cm" % _f(c)},
@@ -2872,8 +2996,8 @@ def _(d=1):
 
     # quarter circle area in terms of pi coefficient
     return {"prompt": "Leave your answer in terms of π. A quarter circle has radius %d "
-                      "cm. Its area is kπ cm² where the area is ¼ × π × r². What is k? "
-                      "(give a fraction or decimal)" % rr,
+                      "cm. Its area is kπ cm²%s. What is k? "
+                      "(give a fraction or decimal)" % (rr, " where the area is ¼ × π × r²" if d == 0 else ""),
             "component": "circle",
             "spec": {"radius": rr, "show": "radius", "label": "r = %d cm" % rr},
             "answer": str(Fraction(rr * rr, 4)), "answer_type": "frac",
@@ -3314,6 +3438,24 @@ def _(d=1):
                       solution=["Each square stands for %d." % scale,
                                 "%d ÷ %d = %s." % (count, scale, _pl(sq[gi], "square"))])
 
+    if t == 0 and d:                                  # one bar as a fraction of the whole
+        step = 2 if hi > 50 else 1
+        tot = pick(_by_d(d, [40], [40, 50, 60, 80], [100, 120, 150, 200]))
+        for _try in range(200):                       # bars that add up to a round total
+            cuts = sorted(random.sample(range(1, tot // step), n - 1))
+            vals = [step * (b_ - a_) for a_, b_ in zip([0] + cuts, cuts + [tot // step])]
+            if len(set(vals)) == n and min(vals) >= 3:
+                break
+        fr = Fraction(vals[i], tot)
+        return {"prompt": "%s. Use the bar chart. What fraction of the total is %s? Give your answer "
+                          "as a fraction in its simplest form." % (title, cats[i]),
+                "component": "bar_chart", "spec": {"categories": cats, "values": vals, "mode": "read"},
+                "answer": "%d/%d" % (fr.numerator, fr.denominator), "answer_type": "frac",
+                "solution": ["The total is %s = %d." % (" + ".join(str(v) for v in vals), tot),
+                             "%s is %d out of %d: %d/%d%s." % (cats[i], vals[i], tot, vals[i], tot,
+                                                              "" if fr.denominator == tot
+                                                              else " = %d/%d" % (fr.numerator, fr.denominator))]}
+
     if t == 0:                                        # read one bar
         spec = {"categories": cats, "values": vals, "mode": "read"}
         return {"prompt": "%s. Use the bar chart. How many %s are shown for %s?"
@@ -3342,6 +3484,19 @@ def _(d=1):
                 "answer": sum(vals), "answer_type": "int",
                 "solution": ["%s = %d." % (" + ".join(str(v) for v in vals), sum(vals))]}
 
+    if t == 3 and d:                                  # the mean height of the bars
+        step = 2 if hi > 50 else 1
+        for m in range(0, 2 * n + 1):
+            if (sum(vals) + step * m) % n == 0:
+                vals[-1] += step * m
+                break
+        mean = sum(vals) // n
+        return {"prompt": "%s. Use the bar chart. What is the mean number of %s per bar?" % (title, unit),
+                "component": "bar_chart", "spec": {"categories": cats, "values": vals, "mode": "read"},
+                "answer": mean, "answer_type": "int",
+                "solution": ["Total: %s = %d." % (" + ".join(str(v) for v in vals), sum(vals)),
+                             "Mean = %d ÷ %d = %d." % (sum(vals), n, mean)]}
+
     if t == 3:                                        # tallest / shortest (typed)
         spec = {"categories": cats, "values": vals, "mode": "read"}
         want_top = random.random() < 0.5
@@ -3369,6 +3524,17 @@ def _(d=1):
                 "answer": vals[k], "answer_type": "int",
                 "solution": ["The other rows add up to %d." % (total - vals[k]),
                              "%d − %d = %d." % (total, total - vals[k], vals[k])]}
+
+    if t == 5 and d:                                  # pictogram: the total of every row
+        key = pick([2, 5, 10, 20])
+        pv = [key * random.randint(1, 6) for _ in range(n)]
+        spec = {"categories": cats, "values": pv, "key": key, "symbol": "●"}
+        return {"prompt": "%s. Use the pictogram, where each symbol stands for %d %s. How many %s are "
+                          "shown altogether?" % (title, key, unit, unit),
+                "component": "pictogram", "spec": spec,
+                "answer": sum(pv), "answer_type": "int",
+                "solution": ["There are %d symbols altogether." % (sum(pv) // key),
+                             "%d × %d = %d %s." % (sum(pv) // key, key, sum(pv), unit)]}
 
     if t == 5:                                        # pictogram read
         key = pick([2, 5, 10])
@@ -3741,17 +3907,18 @@ def _(d=1):
     while sum(vals) % n:
         vals = [random.randint(2, 12) for _ in range(n)]
     old_mean = sum(vals) // n
-    extra = random.randint(2, 15)
+    # the extra number is never the mean itself (adding the mean leaves the mean as it was)
+    extra = pick([x for x in range(2, 40) if (sum(vals) + x) % (n + 1) == 0 and x != old_mean])
     new_total = sum(vals) + extra
-    while new_total % (n + 1):
-        extra = random.randint(2, 15)
-        new_total = sum(vals) + extra
-    return _num_q("The mean of %d numbers is %d, so their total is %d. One more number, "
+    told = ", so their total is %d" % sum(vals) if d == 0 else ""
+    return _num_q("The mean of %d numbers is %d%s. One more number, "
                   "%d, is added. What is the mean of all %d numbers now?"
-                  % (n, old_mean, sum(vals), extra, n + 1),
+                  % (n, old_mean, told, extra, n + 1),
                   new_total // (n + 1), "int",
-                  solution=["New total = %d + %d = %d." % (sum(vals), extra, new_total),
-                            "%d ÷ %d = %d." % (new_total, n + 1, new_total // (n + 1))])
+                  solution=(["The total of the %d numbers is %d × %d = %d." % (n, n, old_mean, sum(vals))]
+                            if d else [])
+                  + ["New total = %d + %d = %d." % (sum(vals), extra, new_total),
+                     "%d ÷ %d = %d." % (new_total, n + 1, new_total // (n + 1))])
 
 
 @skill("Y8.9.l", "Outliers, populations, samples and bias", S9)

@@ -33,6 +33,7 @@
   {% elif ctx.full %}<a class="btn primary" href="/children/new">Add a child</a>{% endif %}
   {% if board %}<form method="post" action="/handover" style="display:inline"><button class="btn" type="submit">Hand over to a child</button></form>{% endif %}
 </div>
+{% include "_feedback_card.html" %}
 <style>#installTip[hidden], #installTip [hidden] { display:none !important; }</style>
 <div class="card small" id="installTip" hidden data-testid="install-tip" style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 16px">
   <img src="/static/img/icon-192.png" alt="" style="width:36px;height:36px;border-radius:9px">

@@ -1,6 +1,7 @@
-{% extends "base.html" %}{% block title %}Sign up · Quizocracy{% endblock %}
+{% extends "base.html" %}{% block title %}Sign up · Quizocracy{% endblock %}{% block meta %}{% from "_meta.html" import meta %}{{ meta('Sign up · Quizocracy', 'Create a parent account for Quizocracy: daily maths, times tables, spelling, grammar and science practice for Years 1 to 9. Invitation only for now, with a waiting list.', '/signup') }}{% endblock %}
 {% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Create a parent account</h1>
+{% if need_invite %}<p class="small" data-testid="invite-only" style="text-align:center;margin-top:-.3em"><b>The beta is invitation-only right now.</b> You need the code from your invitation email. No code yet? <a href="#waitlist">Join the waiting list</a>.</p>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" action="/signup" class="card">
   <div class="field"><label for="email">Your email</label><input id="email" name="email" type="email" required autocomplete="email" value="{{ email or '' }}"></div>
@@ -15,4 +16,5 @@
   <button class="btn primary big" type="submit">Create account</button>
 </form>
 <p class="mut">Already have an account? <a href="/login">Sign in</a></p>
+{% with back = '/signup' %}{% include "_waitlist.html" %}{% endwith %}
 </div>{% endblock %}

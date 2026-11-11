@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Privacy · Quizocracy{% endblock %}
+{% extends "base.html" %}{% block title %}Privacy · Quizocracy{% endblock %}{% block meta %}{% from "_meta.html" import meta %}{{ meta('Privacy · Quizocracy', 'What Quizocracy keeps about a family and why: no adverts, no tracking scripts, no selling or sharing data.', '/privacy') }}{% endblock %}
 {% block body %}
 <h1>Privacy notice</h1>
 <p class="mut small">Beta draft — to be reviewed before paid launch.</p>
@@ -7,12 +7,15 @@
 <ul><li><b>Grown-ups:</b> for the parent who signs up, and any other parent or carer they invite: email address and a scrambled (hashed) password.</li>
 <li><b>Children:</b> a first name or nickname, school year and a 4-digit PIN. The PIN is kept so that the family's grown-ups can see it again in Settings; it is never shown to anyone else, and it is left out of the data download. No surname, date of birth, photo, school or location.</li>
 <li><b>Practice:</b> each answer, whether it was right, and how long it took, so we can choose the next question and show you progress. If a child taps "Something wrong with this question?", we keep that question, their answer and the screen size so we can fix it.</li>
-<li><b>Email:</b> the messages we send you (sign-up codes, invitations and the weekly summary, which you can turn off in Settings or from the email itself).</li></ul>
+<li><b>Your feedback:</b> on a parent's Home, twice in the first weeks, we ask "How is it going?". If you answer, we keep the face you picked and any words you wrote, and our small team reads them; children never see this question.</li>
+<li><b>Email:</b> the messages we send you (sign-up codes, invitations and the weekly summary, which you can turn off in Settings or from the email itself).</li>
+<li id="waitlist" data-testid="privacy-waitlist"><b>The waiting list:</b> if you join it, we keep only your email address and the date you joined, so we can invite you when there is a place. We send nothing else. We delete it when you sign up, or as soon as you ask us.</li></ul>
 <h2>What we do not do</h2>
 <p>No adverts, no tracking scripts, no selling or sharing data, no chat between users, and no AI processing of your child's work. Children's data is visible only to their own family.</p>
+<p data-testid="privacy-no-outside">Our pages load nothing from other websites: even the fonts come from our own server, so no other company sees your visit.</p>
 <h2>Why we may use it</h2><p>To provide the service you signed up for (our contract with you, the parent). Children cannot create accounts; a parent adds them.</p>
 <h2>Your child should know</h2><p>We show children that their parent can see their answers and progress.</p>
-<h2>How long</h2><p>Until you delete a child or your account. Deletion is immediate and covers all practice data. You can download everything we hold from Settings.</p>
+<h2>How long</h2><p>Until you delete a child or your account. Deletion is immediate and covers all practice data. Copies in our nightly backups are removed as the backups expire: within 14 days on the main server and 60 days on the backup copy. We restore a backup only to recover from a fault, and then delete again every family and child deleted since. You can download everything we hold from Settings.</p>
 <h2>Where</h2><p>On servers in the European Union (Hetzner, Germany). Email is sent from our own server.</p>
-<h2>Your rights</h2><p>You can access, correct, download or delete your family's data at any time in Settings, or by writing to us. You can complain to the Information Commission (ico.org.uk).</p>
+<h2>Your rights</h2><p>You can access, correct, download or delete your family's data at any time in Settings, or by writing to us. You can complain to the Information Commissioner's Office (ico.org.uk).</p>
 {% endblock %}

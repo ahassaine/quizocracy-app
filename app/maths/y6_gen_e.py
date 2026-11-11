@@ -186,52 +186,48 @@ def _(d=1):
                          [2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
                          [1, 1, 1, 3, 3, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3]))
 
-    if t == 11:                                       # sort polygons into a Venn diagram
+    # shapes whose properties do not depend on how they are drawn: (sides, right angle, all sides equal,
+    # two pairs of parallel sides)
+    props = {"square": (4, True, True, True), "rectangle": (4, True, False, True),
+             "rhombus": (4, False, True, True), "kite": (4, False, False, False),
+             "parallelogram": (4, False, False, True), "equilateral triangle": (3, False, True, False),
+             "right-angled triangle": (3, True, False, False), "regular pentagon": (5, False, True, False),
+             "regular hexagon": (6, False, True, True), "regular octagon": (8, False, True, True)}
+    tests = {"have 4 sides": lambda p: p[0] == 4, "have a right angle": lambda p: p[1],
+             "have all sides equal": lambda p: p[2], "have an odd number of sides": lambda p: p[0] % 2 == 1,
+             "have two pairs of parallel sides": lambda p: p[3], "have more than 4 sides": lambda p: p[0] > 4}
+    if t == 11:                                       # where one shape goes in a Venn diagram
         left, right = pick([("have 4 sides", "have a right angle"),
-                            ("have more than 4 sides", "have a line of symmetry"),
-                            ("have an odd number of sides", "have equal sides"),
-                            ("are quadrilaterals", "have two pairs of parallel sides")])
-        a = random.randint(2, _by_d(d, 6, 9, 12))      # left circle only
-        b = random.randint(1, _by_d(d, 5, 8, 10))      # overlap
-        c = random.randint(2, _by_d(d, 6, 9, 12))      # right circle only
-        e = random.randint(0, _by_d(d, 3, 5, 8))       # outside both circles
-        want = pick(["left", "right"])
-        ans = a + b if want == "left" else c + b
-        lab = left if want == "left" else right
-        return _num_q("A set of polygons is sorted into a Venn diagram with two circles: "
-                      "one circle for polygons that %s and one circle for polygons that "
-                      "%s. The “%s” circle alone holds %s, the overlap of the two circles "
-                      "holds %s, the “%s” circle alone holds %s and %s outside both "
-                      "circles. How many polygons are in the “%s” circle altogether?"
-                      % (left, right, left, _pl(a, "polygon"), _pl(b, "polygon"), right,
-                         _pl(c, "polygon"),
-                         "%s lie" % _pl(e, "polygon") if e != 1 else "1 polygon lies",
-                         lab),
-                      ans, "int", unit="polygons",
-                      solution=["The whole circle is the part on its own plus the overlap.",
-                                "%d + %d = %d polygons."
-                                % (a if want == "left" else c, b, ans)])
+                            ("have all sides equal", "have a right angle"),
+                            ("have an odd number of sides", "have all sides equal"),
+                            ("have more than 4 sides", "have two pairs of parallel sides")])
+        shape = pick(sorted(props))
+        inl, inr = tests[left](props[shape]), tests[right](props[shape])
+        ans = "C" if inl and inr else "A" if inl else "B" if inr else "D"
+        art = "an" if shape[0] in "aeiou" else "a"
+        where = {"A": "in the “%s” circle only" % left, "B": "in the “%s” circle only" % right,
+                 "C": "in the overlap", "D": "outside both circles"}
+        return _num_q("Polygons are sorted into a Venn diagram with one circle for shapes that %s and one "
+                      "circle for shapes that %s. Where does %s %s go?   A: %s   B: %s   C: %s   D: %s   "
+                      "Type the letter." % (left, right, art, shape, where["A"], where["B"], where["C"], where["D"]),
+                      ans, "str", text=True, placeholder="A, B, C or D",
+                      solution=["%s %s %s %s." % (art.capitalize(), shape, "does" if inl else "does not", left),
+                                "It %s %s." % ("does" if inr else "does not", right),
+                                "So it goes %s: %s." % (where[ans], ans)])
 
-    if t == 12:                                       # Venn diagram total
+    if t == 12:                                       # how many of a list belong in the overlap
         left, right = pick([("have 4 sides", "have a right angle"),
-                            ("have more than 4 sides", "have a line of symmetry"),
-                            ("are regular", "have fewer than 6 sides")])
-        a = random.randint(2, _by_d(d, 6, 9, 12))
-        b = random.randint(1, _by_d(d, 5, 8, 10))
-        c = random.randint(2, _by_d(d, 6, 9, 12))
-        e = random.randint(1, _by_d(d, 3, 5, 8))
-        return _num_q("Polygons are sorted into a Venn diagram with a circle for polygons "
-                      "that %s and a circle for polygons that %s. The first circle alone "
-                      "holds %s, the overlap holds %s, the second circle alone holds %s "
-                      "and %s outside both circles. How many polygons were sorted "
-                      "altogether?" % (left, right, _pl(a, "polygon"), _pl(b, "polygon"),
-                                       _pl(c, "polygon"),
-                                       "%s lie" % _pl(e, "polygon") if e != 1
-                                       else "1 polygon lies"),
-                      a + b + c + e, "int", unit="polygons",
-                      solution=["Add every region of the Venn diagram.",
-                                "%d + %d + %d + %d = %d polygons."
-                                % (a, b, c, e, a + b + c + e)])
+                            ("have all sides equal", "have two pairs of parallel sides"),
+                            ("have more than 4 sides", "have two pairs of parallel sides")])
+        shapes = random.sample(sorted(props), _by_d(d, 4, 5, 6))
+        both = [x for x in shapes if tests[left](props[x]) and tests[right](props[x])]
+        return _num_q("A Venn diagram has one circle for shapes that %s and one circle for shapes that %s. "
+                      "These shapes are sorted into it: %s. How many of them go in the overlap of the two "
+                      "circles?" % (left, right, ", ".join(shapes)),
+                      len(both), "int", unit="shapes",
+                      solution=["The overlap holds the shapes that %s AND %s." % (left, right),
+                                ("That is %s, so %d." % (", ".join(both), len(both))) if both else
+                                "None of these shapes does both, so 0."])
 
     if t == 13:                                       # congruent or similar
         top = _by_d(d, 5, 6, 9)
@@ -513,15 +509,15 @@ def _(d=1):
         if abs(ax) > r:
             ax = x - side * k
         return {"prompt": "The segment AB is vertical. Plot a point C at the same height "
-                          "as A (the same y-coordinate) and %d units %s of A, so that AC "
+                          "as A (the same y-coordinate) and %d unit%s %s of A, so that AC "
                           "is perpendicular to AB."
-                          % (k, "right" if ax > x else "left"),
+                          % (k, "" if k == 1 else "s", "right" if ax > x else "left"),
                 "component": "coordinate_grid", "spec": spec,
                 "answer": _coord(ax, y), "answer_type": "coord",
                 "solution": ["AB is vertical, so a perpendicular segment must be "
                              "horizontal.",
-                             "Keep y = %d and move %d units to reach %s."
-                             % (y, k, _coord(ax, y))]}
+                             "Keep y = %d and move %d unit%s to reach %s."
+                             % (y, k, "" if k == 1 else "s", _coord(ax, y))]}
 
     if t == 6:                                        # horizontal / vertical from coords
         x = _nz(-r, r)
@@ -1092,20 +1088,22 @@ def _(d=1):
                       solution=["The two angles together make a full turn of 360°.",
                                 "360 − %d = %d°." % (deg, 360 - deg)])
 
-    if t == 5:                                        # smallest / largest
-        angs = random.sample(_by_d(d, [15, 40, 65, 92, 118, 140, 175],
-                                   [15, 40, 65, 88, 92, 118, 140, 175, 205, 250, 300],
-                                   [88, 92, 118, 129, 175, 179, 181, 205, 250, 299, 301]),
-                             _by_d(d, 3, 4, 5))
-        want_big = random.random() < 0.5
-        return _num_q("Four angles measure %s. Write the size of the %s angle."
-                      % (", ".join("%d°" % a for a in angs),
-                         "LARGEST" if want_big else "SMALLEST"),
-                      max(angs) if want_big else min(angs), "int", unit="degrees",
-                      solution=["Put the sizes in order: %s."
-                                % ", ".join("%d" % a for a in sorted(angs)),
-                                "The %s is %d°." % ("largest" if want_big else "smallest",
-                                                    max(angs) if want_big else min(angs))])
+    if t == 5:                                        # the one angle of a kind in a list
+        kind = pick(_by_d(d, ["obtuse", "acute"], ["obtuse", "reflex", "acute"], ["reflex", "obtuse"]))
+        test = {"acute": lambda a: a < 90, "obtuse": lambda a: 90 < a < 180, "reflex": lambda a: 180 < a < 360}
+        pool = _by_d(d, [15, 40, 65, 92, 118, 140, 175, 200, 250],
+                     [15, 40, 65, 88, 92, 118, 140, 175, 181, 205, 250, 300],
+                     [88, 89, 91, 92, 118, 129, 175, 179, 181, 205, 250, 299, 301])
+        one = pick([a for a in pool if test[kind](a)])
+        rest = random.sample([a for a in pool if not test[kind](a) and a not in (90, 180)], _by_d(d, 2, 3, 4))
+        angs = rest + [one]
+        random.shuffle(angs)
+        return _num_q("%s angles measure %s. Only one of them is %s. Write its size."
+                      % (["Three", "Four", "Five"][len(angs) - 3], ", ".join("%d°" % a for a in angs), kind),
+                      one, "int", unit="degrees",
+                      solution=["An acute angle is less than 90°, an obtuse angle is between 90° and 180°, and a "
+                                "reflex angle is between 180° and 360°.",
+                                "The %s angle is %d°." % (kind, one)])
 
     if t == 6:                                        # how many acute in a list
         angs = random.sample(_by_d(d, [12, 28, 45, 63, 104, 132, 168],
@@ -1131,14 +1129,17 @@ def _(d=1):
                 "solution": ["A quarter turn is 90° and a full turn is 360°.",
                              "This turn is %d°." % deg]}
 
-    if t == 8:                                        # difference between two angles
-        a, b = random.sample(_by_d(d, [20, 30, 40, 50, 60, 70, 80, 90, 120, 150],
-                                   [25, 40, 55, 70, 85, 95, 110, 130, 150, 165, 200, 250],
-                                   [27, 48, 63, 86, 97, 114, 138, 159, 207, 263, 318]), 2)
-        return _num_q("One angle measures %d° and another measures %d°. How many degrees "
-                      "BIGGER is the larger angle?" % (a, b),
-                      abs(a - b), "int", unit="degrees",
-                      solution=["%d − %d = %d°." % (max(a, b), min(a, b), abs(a - b))])
+    if t == 8:                                        # how far an angle is from a right angle, a straight line, a turn
+        goal, name = pick(_by_d(d, [(90, "a right angle")], [(90, "a right angle"), (180, "a straight angle")],
+                                [(180, "a straight angle"), (360, "a full turn")]))
+        a = random.randint(_by_d(d, 10, 15, 20), goal - 5)
+        kind = "acute" if a < 90 else "obtuse" if 90 < a < 180 else "reflex" if a > 180 else \
+            "right" if a == 90 else "straight"
+        return _num_q("An angle measures %d°. How many more degrees would it need to make %s?" % (a, name),
+                      goal - a, "int", unit="degrees",
+                      solution=["%s is %d°." % (name[0].upper() + name[1:], goal),
+                                "%d° is %s %s angle, so it is less than that: %d − %d = %d°."
+                                % (a, "an" if kind[0] in "aeiou" else "a", kind, goal, a, goal - a)])
 
     # clock hands angle
     mins = pick(_by_d(d, [5, 10, 15, 30, 45], [5, 10, 15, 20, 25, 30, 40, 45, 50],
@@ -2623,14 +2624,15 @@ def _(d=1):
     if t == 1:                                        # visual: build an area
         rows = _by_d(d, 5, 6, 8)
         cols = _by_d(d, 6, 8, 10)
-        target = random.randint(4, rows * cols - 2)
-        return {"prompt": "Each square is 1 cm². Shade squares to make a shape with an "
-                          "area of %d cm². How many squares must you shade?" % target,
+        w, h = random.randint(2, cols), random.randint(2, rows)
+        target = w * h
+        return {"prompt": "Each square is 1 cm². Shade a rectangle %d squares long and %d squares wide. "
+                          "What is its area, in cm²?" % (w, h),
                 "component": "area_grid",
                 "spec": {"mode": "build_area", "rows": rows, "cols": cols},
                 "answer": target, "answer_type": "int",
                 "solution": ["Each shaded square is 1 cm² of area.",
-                             "Shade exactly %d squares." % target]}
+                             "Area = length × width: %d × %d = %d cm²." % (w, h, target)]}
 
     if t == 2:                                        # bare rectangle area
         w = random.randint(lo, hi)
@@ -3392,28 +3394,25 @@ def _(d=1):
                       solution=["Think about the size of the thing being measured.",
                                 "The appropriate metric unit is %s." % ans])
 
-    if t == 13:                                       # more reasonable temperature
-        temps = [
-            ("a cup of hot tea", 70, 7),
-            ("a snowy winter morning", -3, 30),
-            ("the water in a swimming pool", 27, 72),
-            ("the inside of a fridge", 4, 40),
-            ("water that is boiling", 100, 10),
-            ("a warm summer day in the UK", 25, 65),
-            ("the inside of a freezer", -18, 18),
-            ("a comfortable classroom", 20, 45),
-            ("a cold winter night in Scotland", -5, 15),
-            ("a hot bath", 40, 80),
-        ]
-        thing, good, bad = pick(_by_d(d, temps[:2] + temps[4:5] + temps[5:6], temps[:8],
-                                      temps[1:4] + temps[6:]))
-        first = random.random() < 0.5
-        a, b = (good, bad) if first else (bad, good)
-        return _num_q("Choose the more reasonable temperature for %s: %d °C or %d °C? "
-                      "Write the number of degrees Celsius." % (thing, a, b),
-                      good, "num", unit="°C", tolerance=0.001,
-                      solution=["Compare each temperature with everyday experience.",
-                                "The more reasonable temperature is %d °C." % good])
+    if t == 13:                                       # convert three amounts to one unit, then compare
+        big, small, word = pick([("l", "ml", "millilitres"), ("kg", "g", "grams"), ("km", "m", "metres")])
+        base = random.randint(*_by_d(d, (1, 3), (1, 6), (2, 9))) * 1000
+        vals = random.sample(range(base - 900, base + 900, _by_d(d, 100, 50, 25)), 3)
+        _cm = lambda v: "{:,}".format(v) if v >= 10000 else str(v)     # noqa: E731 as the questions write it
+        shown = []
+        for k, v in enumerate(vals):
+            if k == 0 or (k == 2 and random.random() < 0.5):
+                shown.append("%s %s" % (_cm(v), small))
+            else:
+                shown.append("%s %s" % (("%.3f" % (v / 1000)).rstrip("0").rstrip("."), big))
+        what = {"l": "Three jugs hold", "kg": "Three parcels weigh", "km": "Three walks are"}[big]
+        return _num_q("%s %s. How many %s more is the largest than the smallest?"
+                      % (what, ", ".join(shown[:2]) + " and " + shown[2], word),
+                      max(vals) - min(vals), "int", unit=small,
+                      solution=["1 %s = 1,000 %s, so the amounts are %s %s." % (big, small,
+                                ", ".join(_cm(v) for v in vals), small),
+                                "%s − %s = %s %s." % (_cm(max(vals)), _cm(min(vals)), _cm(max(vals) - min(vals)),
+                                                      small)])
 
     if t == 14:                                       # multi-step metric conversions
         which = pick(["length", "mass", "capacity"])
@@ -4434,12 +4433,16 @@ def _(d=1):
                              "%d − %d = %d." % (max(pair1, pair2), min(pair1, pair2),
                                                 abs(pair1 - pair2))]}
 
-    if t == 0:                                        # read one bar
-        return {"prompt": "%s. Use the bar chart. How many %s are shown for %s?"
+    if t == 0:                                        # read a bar, then compare it with the tallest
+        top = vals.index(max(vals))
+        if i == top:
+            i = j if j != top else (top + 1) % n
+        return {"prompt": "%s. Use the bar chart. How many more %s would %s need to match the tallest bar?"
                           % (title, unit, cats[i]),
                 "component": "bar_chart", "spec": spec,
-                "answer": vals[i], "answer_type": "int",
-                "solution": ["The %s bar reaches %d." % (cats[i], vals[i])]}
+                "answer": vals[top] - vals[i], "answer_type": "int",
+                "solution": ["The tallest bar is %s with %d; %s has %d." % (cats[top], vals[top], cats[i], vals[i]),
+                             "%d − %d = %d." % (vals[top], vals[i], vals[top] - vals[i])]}
 
     if t == 1:                                        # difference between two bars
         return {"prompt": "%s. Use the bar chart. What is the difference between %s and "
@@ -4459,16 +4462,18 @@ def _(d=1):
                 "answer": sum(vals), "answer_type": "int",
                 "solution": ["%s = %d." % (" + ".join(str(v) for v in vals), sum(vals))]}
 
-    if t == 3:                                        # tallest / shortest (typed)
+    if t == 3:                                        # order the bars, then add the two shortest or tallest
         want_top = random.random() < 0.5
-        which = cats[vals.index(max(vals) if want_top else min(vals))]
-        return {"prompt": "%s. Use the bar chart. Which bar is the %s? (type the label)"
-                          % (title, "TALLEST" if want_top else "SHORTEST"),
+        order = sorted(range(n), key=lambda x: vals[x], reverse=want_top)
+        a_, b_ = order[0], order[1]
+        return {"prompt": "%s. Use the bar chart. What is the total of the two %s bars?"
+                          % (title, "tallest" if want_top else "shortest"),
                 "component": "bar_chart", "spec": spec,
-                "answer": which, "answer_type": "str",
-                "solution": ["The %s bar is %s with %d."
-                             % ("tallest" if want_top else "shortest", which,
-                                max(vals) if want_top else min(vals))]}
+                "answer": vals[a_] + vals[b_], "answer_type": "int",
+                "solution": ["In order, the bars are %s." % ", ".join(str(vals[x]) for x in order),
+                             "The two %s are %s (%d) and %s (%d): %d + %d = %d."
+                             % ("tallest" if want_top else "shortest", cats[a_], vals[a_], cats[b_], vals[b_],
+                                vals[a_], vals[b_], vals[a_] + vals[b_])]}
 
     if t == 4:                                        # frequency table with a gap
         total = sum(vals)
@@ -4522,15 +4527,15 @@ def _(d=1):
                       solution=["Each square is worth %d." % scale,
                                 "%d ÷ %d = %d squares." % (v * scale, scale, v)])
 
-    if t == 7:                                        # more than average
-        mean = sum(vals) // n
-        cnt = sum(1 for v in vals if v > mean)
-        return {"prompt": "%s. Use the bar chart. How many bars are TALLER than %d?"
-                          % (title, mean),
+    if t == 7:                                        # tallest and shortest: the spread
+        hi_, lo_ = vals.index(max(vals)), vals.index(min(vals))
+        return {"prompt": "%s. Use the bar chart. How much bigger is the tallest bar than the shortest bar?"
+                          % title,
                 "component": "bar_chart", "spec": spec,
-                "answer": cnt, "answer_type": "int",
-                "solution": ["The values are %s." % ", ".join(str(v) for v in vals),
-                             "%d of them are more than %d." % (cnt, mean)]}
+                "answer": vals[hi_] - vals[lo_], "answer_type": "int",
+                "solution": ["The tallest bar is %s with %d and the shortest is %s with %d."
+                             % (cats[hi_], vals[hi_], cats[lo_], vals[lo_]),
+                             "%d − %d = %d." % (vals[hi_], vals[lo_], vals[hi_] - vals[lo_])]}
 
     if t == 8:                                        # two-step from the chart
         others = [x for x in range(n) if x not in (i, j)]
@@ -4632,17 +4637,17 @@ def _(d=1):
                              % (total, unit, one, unit),
                              "%d ÷ %d = %d %s." % (ang, unit, parts[i], who)]}
 
-    if t == 2:                                        # largest / smallest sector
+    if t == 2:                                        # largest / smallest sector, then its angle
         want_big = random.random() < 0.5
-        which = cats[parts.index(max(parts) if want_big else min(parts))]
-        return {"prompt": "This pie chart shows %s. Which sector is the %s? "
-                          "(type the label)"
+        k = parts.index(max(parts) if want_big else min(parts))
+        return {"prompt": "This pie chart shows %s. How many degrees is the angle of the %s sector?"
                           % (shows, "LARGEST" if want_big else "SMALLEST"),
                 "component": "pie_chart", "spec": {"slices": slices},
-                "answer": which, "answer_type": "str",
+                "answer": parts[k] * unit, "answer_type": "int",
                 "solution": ["The %s sector is %s, with %d %s."
-                             % ("largest" if want_big else "smallest", which,
-                                max(parts) if want_big else min(parts), who)]}
+                             % ("largest" if want_big else "smallest", cats[k], parts[k], who),
+                             "360 ÷ %d = %d° for each %s, and %d × %d = %d°."
+                             % (total, unit, one, parts[k], unit, parts[k] * unit)]}
 
     if t == 3:                                        # fraction of the pie (visual)
         fr = Fraction(parts[i], total)

@@ -67,7 +67,9 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
     email = email.strip().lower()
     err = None
     if config.INVITE_CODE and _code(invite) != _code(config.INVITE_CODE):
-        err = "That invitation code is not right. Check it against your invitation (small or capital letters both work)."
+        err = ("That invitation code is not right. Check it against your invitation (small or capital letters both work)."
+               if invite.strip() else "Sign-up needs the invitation code from your invitation email.")
+        err += " No code? Join the waiting list below."
     elif not EMAIL_RE.match(email):
         err = "Enter a valid email address."
     elif len(password) < 8:
@@ -86,6 +88,7 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
            "role": "owner", "created": _now(), "verified_at": None, "report_emails": True}
     await db.families.insert_one(fam)
     await db.accounts.insert_one(acc)
+    await db.waitlist.delete_one({"_id": email})   # on the waiting list before: not kept once the family is in
     await hit(f"mail:verify:{email}")              # the first code counts towards the resend limit
     await _send_code(acc)
     resp = RedirectResponse("/verify", 303)

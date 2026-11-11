@@ -1385,12 +1385,15 @@ def _(d=1):
         items = random.randint(*[(2, 3), (3, 5), (4, 6)][d])
         prices = [random.randint(*[(110, 490), (180, 690), (180, 1890)][d]) for _ in range(items)]
         est = sum(_r1sf(p) for p in prices)
-        show = ", ".join("£%s" % _fmt(Decimal(p) / 100) for p in prices)
-        return _tb("A shopper buys items priced %s (in pence: %s). Estimate the total "
-                   "in PENCE by rounding each price to 1 significant figure."
-                   % (show, ", ".join(str(p) for p in prices)), est, "int", {},
-                   ["Rounded pence: %s." % " + ".join(str(_r1sf(p)) for p in prices),
-                    "Estimate = %dp." % est])
+        show = ", ".join("£%.2f" % (p / 100) for p in prices)
+        # every price is at least £1.10, so each rounds to whole pounds
+        return _tb("A shopper buys items priced %s. Estimate the total cost by rounding "
+                   "each price to 1 significant figure. Give your answer in pounds."
+                   % show, est // 100, "int", {"unit": "£"},
+                   ["Each price to 1 significant figure: %s."
+                    % ", ".join("£%.2f ≈ £%d" % (p / 100, _r1sf(p) // 100) for p in prices),
+                    "Estimate: %s = £%d." % (" + ".join("£%d" % (_r1sf(p) // 100) for p in prices),
+                                             est // 100)])
 
     def t_which_est():
         a = random.randint(*[(18, 62), (180, 620), (1800, 6200)][d])

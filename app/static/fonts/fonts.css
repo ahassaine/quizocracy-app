@@ -1,0 +1,10 @@
+/* Inter and Plus Jakarta Sans, served from our own server (no request to Google or any other site). Latin subset,
+   only the weights the pages use; files from the @fontsource npm packages 5.1.0, SIL Open Font Licence (OFL-*.txt).
+   A character outside the subset falls back to the system font. */
+@font-face { font-family:"Inter"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/inter-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family:"Inter"; font-style:normal; font-weight:500; font-display:swap; src:url(/static/fonts/inter-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family:"Inter"; font-style:normal; font-weight:600; font-display:swap; src:url(/static/fonts/inter-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family:"Inter"; font-style:normal; font-weight:700; font-display:swap; src:url(/static/fonts/inter-latin-700-normal.woff2) format("woff2"); }
+@font-face { font-family:"Plus Jakarta Sans"; font-style:normal; font-weight:600; font-display:swap; src:url(/static/fonts/plus-jakarta-sans-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family:"Plus Jakarta Sans"; font-style:normal; font-weight:700; font-display:swap; src:url(/static/fonts/plus-jakarta-sans-latin-700-normal.woff2) format("woff2"); }
+@font-face { font-family:"Plus Jakarta Sans"; font-style:normal; font-weight:800; font-display:swap; src:url(/static/fonts/plus-jakarta-sans-latin-800-normal.woff2) format("woff2"); }

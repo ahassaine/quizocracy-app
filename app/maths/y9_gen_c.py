@@ -129,10 +129,16 @@ def _(d=1):
                    "num", {"unit": "hours"}, ["Distance %d km." % (s * t), "%d ÷ %d = %s h." % (s * t, s2, _ds(Fraction(s * t, s2)))])
 
     def t_direct():
-        n, cost = random.randint(*_by(d, (2, 5), (2, 8), (3, 12))), random.randint(*_by(d, (2, 20), (30, 250), (120, 600)))
-        n2 = random.randint(*_by(d, (3, 10), (3, 15), (8, 25)))
-        return _tb("%d metres of cable cost £%d. How much do %d metres cost, in pounds?" % (n, n * cost, n2),
-                   n2 * cost, "int", {"unit": "£"}, ["1 m = £%d." % cost, "%d × %d = %d." % (n2, cost, n2 * cost)])
+        # a real price per metre (pence), so the totals look like shop prices, not "£1245 for 5 m of cable"
+        n, pence = random.randint(*_by(d, (2, 5), (3, 8), (3, 12))), pick(_by(d, [150, 200, 250, 300, 400],
+                                                                              [120, 135, 160, 175, 240, 285],
+                                                                              [115, 145, 165, 235, 345, 395]))
+        n2 = random.choice([v for v in range(*_by(d, (3, 11), (3, 16), (8, 26))) if v != n])
+        tot1, tot2 = Decimal(n * pence) / 100, Decimal(n2 * pence) / 100
+        return _tb("%d metres of cable cost £%s. How much do %d metres cost, in pounds?" % (n, "%.2f" % tot1, n2),
+                   _ds(tot2), "num", {"unit": "£"},
+                   ["1 m costs £%s ÷ %d = £%s." % ("%.2f" % tot1, n, "%.2f" % (Decimal(pence) / 100)),
+                    "%d m cost %d × £%s = £%s." % (n2, n2, "%.2f" % (Decimal(pence) / 100), "%.2f" % tot2)])
 
     def t_which():
         q, a = pick([("The number of people painting a fence and the time it takes", "inverse"),

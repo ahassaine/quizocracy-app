@@ -443,6 +443,9 @@ def test_export_and_delete_account(page):
     for c in ("accounts", "pupils", "sessions", "attempts", "tables_facts", "items"):
         assert DB[c].count_documents({"family_id": fid}) == 0, c
     assert DB.families.count_documents({"_id": fid}) == 0
+    # ids only are kept, so a restored backup can delete them again
+    assert DB.deletions.count_documents({"kind": "family", "ref": fid}) == 1
+    assert DB.deletions.count_documents({"kind": "pupil", "ref": pid}) == 1
     left = list(DB.outbox.find({"to": email}))                     # only the goodbye notice (the mail log keeps 30 days)
     assert len(left) == 1 and "was deleted" in left[0]["subject"], [m["subject"] for m in left]
     page.goto("/login"); page.fill("#email", email); page.fill("#password", PASSWORD); page.click("button[type=submit]")

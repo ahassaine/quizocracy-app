@@ -191,18 +191,27 @@ def _(d=1):
                    % tuple(_mixed(v) for v in s), _mixed(sum(s)), ["%s." % _mixed(sum(s))], "e.g. 9 1/2")
 
     def t_line():
-        lo = random.randint(1, 4)
-        f = pick([Fraction(1, 4), Fraction(1, 2), Fraction(3, 4), Fraction(1, 5), Fraction(3, 5)])
-        v = lo + f
-        step = Fraction(1, f.denominator)
-        return _nld("Place %s on the number line." % _mixed(v), float(v), lo - 1, lo + 2, float(step), 1,
-                    ["%s is %s of the way from %d to %d." % (_mixed(v), _fs(f), lo, lo + 1)])
+        # add, then place the total: the line is in steps of 1/den
+        den = pick([2, 4, 5] if d < 2 else [4, 5, 8])
+        x = random.randint(1, 3) + Fraction(random.randint(1, den - 1), den)
+        y = random.randint(0, 2) + Fraction(random.randint(1, den - 1), den)
+        v = x + y
+        lo = int(v)
+        return _nld("Work out %s + %s and mark the answer on the number line." % (_mixed(x), _mixed(y)), float(v), lo - 1,
+                    lo + 2, 1 / den, 1, ["%s + %s = %s." % (_mixed(x), _mixed(y), _mixed(v)),
+                                         "Each small step is 1/%d, so count on from %d." % (den, lo)])
 
     def t_bigger():
-        if A == B:
+        # an estimate check: is the total more or less than a whole number near it?
+        tot = A + B
+        if tot.denominator == 1:
             return t_add()
-        return _wq("Which is bigger: %s or %s? (type it as written)" % (_mixed(A), _mixed(B)), _mixed(max(A, B)),
-                   ["Compare the whole numbers first, then the fractions."], "e.g. 2 1/3")
+        w = int(tot) + (1 if random.random() < 0.5 else 0)
+        more = tot > w
+        return _wq("Is %s + %s more or less than %d? (type more or less)" % (_mixed(A), _mixed(B), w),
+                   "more" if more else "less",
+                   ["Add the whole numbers, then the fractions: %s + %s = %s." % (_mixed(A), _mixed(B), _mixed(tot)),
+                    "%s is %s than %d." % (_mixed(tot), "more" if more else "less", w)], "more / less")
 
     def t_ribbon():
         L = random.randint(5, 9)
@@ -901,7 +910,8 @@ def _(d=1):
         q, ans = pick([("How many pairs of parallel sides does a rectangle have?", 2),
                        ("How many pairs of parallel sides does a parallelogram have?", 2),
                        ("How many pairs of parallel sides does a regular hexagon have?", 3),
-                       ("How many right angles does a rectangle have?", 4),
+                       ("How many pairs of perpendicular sides does a rectangle have?", 4),
+                       ("How many pairs of perpendicular sides does a square have?", 4),
                        ("How many pairs of parallel sides does a kite have?", 0),
                        ("How many pairs of perpendicular sides does a right-angled triangle have?", 1)])
         return _tb(q, ans, "int", {}, ["Picture the shape and check each pair of sides."])

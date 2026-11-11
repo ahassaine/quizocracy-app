@@ -79,6 +79,38 @@ def _pounds(n):
     return "£%d" % int(n)
 
 
+def _pct_tier(d):
+    """The percentages a tier asks for: 10%, 25% and 50% are Year 6 work, so the harder tiers move on."""
+    return _by_d(d, [10, 20, 25, 50], [5, 15, 30, 40, 60, 75], [12, 35, 45, 65, 32, 4])
+
+
+def _mult_for(pct, lo, hi):
+    """A whole number that pct% of is also whole: a multiple of 100 ÷ HCF(pct, 100)."""
+    return 100 // _hcf(pct, 100) * random.randint(lo, hi)
+
+
+def _pct_why(pct, base, money_=False):
+    """How pct% of base is worked out, in one line: "10% of £40 is £4, so 30% is 3 × £4 = £12"."""
+    def f(x):
+        x = Decimal(x)
+        if not money_:
+            return _dstr(x)
+        return "£" + (_dstr(x) if x == x.to_integral_value() else "%.2f" % x)
+    if pct % 10 == 0:
+        ten = Decimal(base) / 10
+        return "10%% of %s is %s, so %d%% is %d × %s = %s." % (f(base), f(ten), pct, pct // 10, f(ten),
+                                                           f(ten * pct // 10))
+    one = Decimal(base) / 100
+    return "1%% of %s is %s ÷ 100 = %s, so %d%% is %d × %s = %s." % (f(base), f(base), f(one), pct, pct, f(one),
+                                                                   f(one * pct))
+
+
+def _cost(p):
+    """A price answer as an adult writes it: (value, unit, answer type, words) — pence under £1, pounds from £1."""
+    p = int(p)
+    return (p, "p", "int", "pence") if p < 100 else (round(p / 100.0, 2), "£", "num", "pounds")
+
+
 def _dstr(x):
     """Format a Decimal/number as plain decimal text (no scientific, no float junk)."""
     d = x if isinstance(x, Decimal) else Decimal(str(x))
@@ -588,41 +620,34 @@ def _(d=1):
                      ["Each part is %d ÷ %d = %d." % (a * k, a, k),
                       "%d parts × %d = %d items." % (a + b, k, (a + b) * k)])
 
-    def reasonable_answer():
-        # multi-step word problem; identify the answer of the right magnitude
-        people = random.randint(12, 40)
-        each = random.randint(3, 9)
-        extra = random.randint(15, 60)
-        exact = people * each + extra
-        scene = pick([
-            "people each pay £%d for a ticket, and the group also pays £%d "
-            "to hire a coach" % (each, extra),
-            "members each pay £%d for a shirt, and the club also pays £%d "
-            "for a trophy" % (each, extra),
-            "guests each pay £%d for a meal, and the host also pays £%d "
-            "for a cake" % (each, extra)])
-        vals = [exact, exact // 10, exact * 10]
-        order = random.sample(range(3), 3)
-        shown = [vals[i] for i in order]
-        ans = ["A", "B", "C"][order.index(0)]
+    def more_girls():
+        # two groups, each with its own ratio and total: which has more of one kind?
+        for _try in range(60):
+            (a1, b1), (a2, b2) = random.sample([(1, 2), (2, 3), (3, 4), (3, 5), (2, 5), (4, 5), (5, 7)], 2)
+            t1 = (a1 + b1) * random.randint(3, _by_d(d, 6, 9, 12))
+            t2 = (a2 + b2) * random.randint(3, _by_d(d, 6, 9, 12))
+            g1, g2 = t1 // (a1 + b1) * b1, t2 // (a2 + b2) * b2
+            if g1 != g2:
+                break
+        ans = "A" if g1 > g2 else "B"
         return _wordq(
-            "Multi-step word problem: a group of %d %s. Which of these is the "
-            "most reasonable answer for the total cost?  A: £%d   B: £%d   "
-            "C: £%d.  Type the letter of the reasonable answer."
-            % (people, scene, shown[0], shown[1], shown[2]), ans,
-            ["Estimate: about %d × £%d = £%d, plus £%d, giving about £%d."
-             % (people, each, people * each, extra, exact),
-             "The reasonable total is around £%d, so the answer is %s."
-             % (exact, ans)], placeholder="A, B or C")
+            "Class A has %d pupils, with boys to girls in the ratio %d : %d. Class B has %d pupils, "
+            "with boys to girls in the ratio %d : %d. Which class has more girls? Type A or B."
+            % (t1, a1, b1, t2, a2, b2), ans,
+            ["Class A: %d ÷ %d = %d pupils in each part, so %d × %d = %d girls."
+             % (t1, a1 + b1, t1 // (a1 + b1), b1, t1 // (a1 + b1), g1),
+             "Class B: %d ÷ %d = %d pupils in each part, so %d × %d = %d girls."
+             % (t2, a2 + b2, t2 // (a2 + b2), b2, t2 // (a2 + b2), g2),
+             "Class %s has more girls." % ans], placeholder="A or B")
 
     opts = [which_stronger, same_ratio, word_scale, compare_prices,
-            table_compare, best_value_word, scale_both, reasonable_answer]
+            table_compare, best_value_word, scale_both, more_girls]
     if d == 0:
         opts = [same_ratio, word_scale, compare_prices, best_value_word,
-                scale_both, table_compare, reasonable_answer]
+                scale_both, table_compare, more_girls]
     elif d == 2:
         opts = [which_stronger, combine_ratios, compare_prices, best_value_word,
-                table_compare, word_scale, scale_both, reasonable_answer]
+                table_compare, word_scale, scale_both, more_girls]
     opts = opts + [table_compare]
     return pick(opts)()
 
@@ -638,28 +663,36 @@ def _(d=1):
                   random.randint(6, 12))
         each = _by_d(d, random.randint(5, 40), random.randint(12, 95),
                      random.randint(35, 180))
+        v, u, at, w = _cost(each)
         return _numq("%d %s cost %s altogether. How much does one %s cost, in "
-                     "pence?" % (n, plur, money(n * each), sing), each,
-                     ["%d ÷ %d = %dp for one %s." % (n * each, n, each, sing)],
-                     unit="p")
+                     "%s?" % (n, plur, money(n * each), sing, w), v,
+                     ["%d ÷ %d = %dp for one %s%s." % (n * each, n, each, sing,
+                                                       ", which is " + money(each) if each >= 100 else "")],
+                     unit=u, answer_type=at)
 
     def scale_up():
         n = random.randint(2, 6)
         m = n + random.randint(1, _by_d(d, 3, 6, 9))
         each = _by_d(d, random.randint(5, 30), random.randint(8, 60),
                      random.randint(15, 120))
+        v, u, at, w = _cost(m * each)
         return _numq("%d %s cost %s. At the same rate, how much do %d %s cost, in "
-                     "pence?" % (n, plur, money(n * each), m, plur), m * each,
+                     "%s?" % (n, plur, money(n * each), m, plur, w), v,
                      ["One %s costs %d ÷ %d = %dp." % (sing, n * each, n, each),
-                      "%d × %d = %dp." % (m, each, m * each)], unit="p")
+                      "%d × %dp = %dp%s." % (m, each, m * each,
+                                            " = " + money(m * each) if m * each >= 100 else "")],
+                     unit=u, answer_type=at)
 
     def per_unit_quantity():
-        per = random.randint(3, 12)
-        boxes = random.randint(4, 12)
-        return _numq("A machine packs %d %s into every box. How many %s are in "
-                     "%d boxes?" % (per, plur, plur, boxes), per * boxes,
-                     ["%d × %d = %d %s." % (per, boxes, per * boxes, plur)],
-                     unit=plur)
+        # a unit rate that is not a whole number: 48 litres in 5 minutes is 9.6 litres per minute
+        mins = pick(_by_d(d, [2, 4, 5], [4, 5, 8], [8, 16, 20, 25]))
+        rate = Decimal(random.randint(*_by_d(d, (21, 95), (41, 195), (105, 495)))) / (10 if d < 2 else 100)
+        litres = rate * mins
+        return _numq("A tap fills a tank with %s litres of water in %d minutes, at a steady rate. "
+                     "What is the rate in litres per minute?" % (_dstr(litres), mins), _dstr(rate),
+                     ["Rate = litres ÷ minutes = %s ÷ %d." % (_dstr(litres), mins),
+                      "= %s litres per minute." % _dstr(rate)],
+                     unit="litres per minute", answer_type="num")
 
     def rate_per_minute():
         per_min = random.randint(6, 30)
@@ -674,11 +707,19 @@ def _(d=1):
                      unit="pages")
 
     def how_many_for():
-        each = random.randint(4, 25)
-        n = random.randint(3, 9)
-        return _numq("One %s costs %dp. How many %s can be bought with exactly "
-                     "%s?" % (sing, each, plur, money(each * n)), n,
-                     ["%d ÷ %d = %d %s." % (each * n, each, n, plur)], unit=plur)
+        # compare two rates: kilometres per litre
+        for _try in range(40):
+            l1, l2 = random.sample(range(_by_d(d, 4, 20, 25), _by_d(d, 12, 45, 60)), 2)
+            r1, r2 = random.sample(range(_by_d(d, 8, 9, 11), _by_d(d, 16, 19, 21)), 2)
+            if r1 != r2:
+                break
+        best = max(r1, r2)
+        return _numq("Car A travels %d km on %d litres of fuel. Car B travels %d km on %d litres. "
+                     "How many km per litre does the more economical car travel?"
+                     % (r1 * l1, l1, r2 * l2, l2), best,
+                     ["Car A: %d ÷ %d = %d km per litre." % (r1 * l1, l1, r1),
+                      "Car B: %d ÷ %d = %d km per litre." % (r2 * l2, l2, r2),
+                      "The more economical car travels %d km per litre." % best], unit="km per litre")
 
     def recipe_rate():
         people = pick([2, 3, 4, 5, 6])
@@ -697,12 +738,14 @@ def _(d=1):
         i = random.randrange(4)
         rows = [[str(c), "" if j == i else money(c * each)]
                 for j, c in enumerate(counts)]
+        v, u, at, w = _cost(counts[i] * each)
         return _dtq("This price list charges the same for every %s. What is the "
-                    "missing price, in pence?" % sing,
-                    ["Number of %s" % plur, "Price"], rows, counts[i] * each,
+                    "missing price, in %s?" % (sing, w),
+                    ["Number of %s" % plur, "Price"], rows, v,
                     ["One %s costs %dp." % (sing, each),
-                     "%d × %d = %dp." % (counts[i], each, counts[i] * each)],
-                    missing=(i, 1), caption="Price list")
+                     "%d × %dp = %dp%s." % (counts[i], each, counts[i] * each,
+                                           " = " + money(counts[i] * each) if counts[i] * each >= 100 else "")],
+                    missing=(i, 1), caption="Price list", **({"answer_type": at} if at != "int" else {}))
 
     def rate_table():
         per = random.randint(4, 25)
@@ -735,12 +778,14 @@ def _(d=1):
                        "Bottle %s is cheaper per litre." % who], placeholder="A or B")
 
     def exchange():
-        rate = pick([5, 6, 8, 10, 12])
-        pounds = random.randint(3, 15)
-        return _numq("At a fair, £1 buys %d tokens. How many tokens does %s buy?"
-                     % (rate, _pounds(pounds)), rate * pounds,
-                     ["%d × %d = %d tokens." % (rate, pounds, rate * pounds)],
-                     unit="tokens")
+        rate = Decimal(pick(["1.15", "1.2", "1.25", "1.3"]))
+        pounds = 20 * random.randint(1, 10)
+        euros = rate * pounds
+        return _numq("The exchange rate is £1 = €%s. How many euros do you get for %s?"
+                     % (_dstr(rate), _pounds(pounds)), _dstr(euros),
+                     ["Each pound is worth €%s." % _dstr(rate),
+                      "%d × %s = €%s." % (pounds, _dstr(rate), _dstr(euros))],
+                     unit="€", answer_type="num")
 
     opts = [unit_price, scale_up, per_unit_quantity, rate_per_minute,
             price_table, rate_table, how_many_for, recipe_rate]
@@ -833,13 +878,26 @@ def _(d=1):
                       "Total = %d km." % (s1 * h1 + s2 * h2)], unit="km")
 
     def average_speed_two_leg():
-        s = random.randint(20, 40)
-        h_tot = random.randint(3, 6)
-        dist = s * h_tot
-        return _numq("A journey of %d km takes %d hours in total. What is the "
-                     "average speed for the whole journey, in km/h?"
-                     % (dist, h_tot), s,
-                     ["%d ÷ %d = %d km/h." % (dist, h_tot, s)], unit="km/h")
+        # two legs with a stop: average speed = total distance ÷ total time (not the mean of the speeds)
+        for _try in range(60):
+            s1, h1 = random.randint(40, 90), random.randint(1, 3)
+            s2, h2 = random.randint(20, 70), random.randint(1, 3)
+            stop = random.randint(0, 1) if d == 2 else 0
+            tot_h = h1 + h2 + stop
+            dist = s1 * h1 + s2 * h2
+            if dist % tot_h == 0:
+                break
+        else:
+            s1, h1, s2, h2, stop, tot_h = 60, 2, 30, 2, 0, 4
+            dist = 180
+        rest = " and then stops for 1 hour" if stop else ""
+        return _numq("A coach travels for %d hour%s at %d km/h, then for %d hour%s at %d km/h%s. "
+                     "What is its average speed for the whole journey, in km/h?"
+                     % (h1, "" if h1 == 1 else "s", s1, h2, "" if h2 == 1 else "s", s2, rest),
+                     dist // tot_h,
+                     ["Distance: %d × %d + %d × %d = %d km." % (s1, h1, s2, h2, dist),
+                      "Time: %d hours%s." % (tot_h, " (the stop counts)" if stop else ""),
+                      "Average speed = %d ÷ %d = %d km/h." % (dist, tot_h, dist // tot_h)], unit="km/h")
 
     def table_speed():
         s = _by_d(d, random.randint(2, 6) * 10, random.randint(20, 60), random.randint(45, 95))
@@ -894,9 +952,9 @@ def _(d=1):
         n1 = random.randint(2, 6)
         each = random.randint(2, 9)
         n2 = n1 * random.randint(2, _by_d(d, 3, 5, 8))
-        return _numq("%d identical books weigh %d g. How much do %d of the same "
-                     "books weigh, in grams?" % (n1, n1 * each, n2), n2 * each,
-                     ["One book weighs %d ÷ %d = %d g." % (n1 * each, n1, each),
+        return _numq("%d identical marbles weigh %d g. How much do %d of the same "
+                     "marbles weigh, in grams?" % (n1, n1 * each, n2), n2 * each,
+                     ["One marble weighs %d ÷ %d = %d g." % (n1 * each, n1, each),
                       "%d × %d = %d g." % (n2, each, n2 * each)], unit="g")
 
     def inverse_proportion():
@@ -1255,13 +1313,18 @@ def _(d=1):
                          placeholder="a number")
 
     def cost_rate():
-        base = random.randint(2, 8)
-        per = random.randint(2, 7)
-        return _numq("A plumber charges a £%d call-out fee plus £%d per hour. The "
-                     "total cost rises at a constant rate. By how many pounds "
-                     "does the cost rise for each extra hour?" % (base, per), per,
-                     ["The hourly rate is £%d, so each extra hour adds £%d."
-                      % (per, per)], unit="£")
+        # the rate is found from two totals, not read from the prompt
+        base = random.randint(*_by_d(d, (20, 40), (25, 60), (30, 80)))
+        per = random.randint(*_by_d(d, (15, 30), (18, 45), (22, 65)))
+        h1 = random.randint(1, 3)
+        h2 = h1 + random.randint(1, _by_d(d, 2, 3, 4))
+        c1, c2 = base + per * h1, base + per * h2
+        return _numq("A plumber charges a fixed call-out fee plus the same amount for each hour. "
+                     "A %d-hour job costs £%d and a %d-hour job costs £%d. By how many pounds does "
+                     "the cost rise for each extra hour?" % (h1, c1, h2, c2), per,
+                     ["The extra %d hour%s cost £%d − £%d = £%d."
+                      % (h2 - h1, "" if h2 - h1 == 1 else "s", c2, c1, c2 - c1),
+                      "£%d ÷ %d = £%d for each extra hour." % (c2 - c1, h2 - h1, per)], unit="£")
 
     opts = [rate_from_table, next_value, rate_word, rate_from_two_points,
             gradient_scatter, cost_rate]
@@ -1555,6 +1618,8 @@ def _(d=1):
 @skill("Y8.5.b", "Percentage of a quantity", S5)
 def _(d=1):
     d = _t(d)
+    # the percentages each tier asks for: 10% and 25% are Year 6 work, so the harder tiers move on
+    pcts = _by_d(d, [10, 20, 25, 50], [5, 15, 30, 40, 60, 75], [12, 35, 45, 65, 32, 4])
 
     def pct_of_number():
         pct = pick(_NICE_PCT)
@@ -1569,7 +1634,7 @@ def _(d=1):
                       % (pct, base, base, pct, ans)])
 
     def pct_of_money():
-        pct = pick([5, 10, 15, 20, 25, 40, 50, 75])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         pounds = step * random.randint(2, _by_d(d, 8, 15, 30))
@@ -1577,8 +1642,7 @@ def _(d=1):
         ans_p = pence * pct // 100
         return _numq("Work out %d%% of %s. Give your answer in pounds."
                      % (pct, _pounds(pounds)), ans_p // 100,
-                     ["%d%% of %s = %s." % (pct, _pounds(pounds),
-                                            _pounds(ans_p // 100))], unit="£")
+                     [_pct_why(pct, pounds, True)], unit="£")
 
     def find_10_percent():
         base = random.randint(3, 40) * 10
@@ -1587,7 +1651,7 @@ def _(d=1):
                       % (base, base // 10)])
 
     def word_discount_amount():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         price = step * random.randint(2, 15)
@@ -1595,11 +1659,10 @@ def _(d=1):
         return _numq("A coat costs %s. In a sale there is %d%% off. How much money "
                      "is taken off the price, in pounds?"
                      % (_pounds(price), pct), saving,
-                     ["%d%% of %s = %s off." % (pct, _pounds(price),
-                                                _pounds(saving))], unit="£")
+                     [_pct_why(pct, price, True), "So %s is taken off." % _pounds(saving)], unit="£")
 
     def pct_of_group():
-        pct = pick([10, 20, 25, 50, 40])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         total = step * random.randint(2, 12)
@@ -1609,10 +1672,10 @@ def _(d=1):
                          ("teachers", "part-time"), ("pupils", "in the chess club")])
         return _numq("A school has %d %s. %d%% of them are %s. How many %s are "
                      "%s?" % (total, one, pct, two, one, two), ans,
-                     ["%d%% of %d = %d." % (pct, total, ans)], unit=one)
+                     [_pct_why(pct, total)], unit=one)
 
     def bar_pct():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         vals = [step * random.randint(2, 9) for _ in range(4)]
@@ -1660,7 +1723,7 @@ def _(d=1):
 
     def grid_model():
         # solve a percent problem using a 100-square grid model
-        pct = pick([10, 20, 25, 40, 50, 5, 30, 60, 75, 80])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         base = step * random.randint(2, _by_d(d, 8, 15, 25))
@@ -1678,7 +1741,7 @@ def _(d=1):
 
     def pct_of_money_amount():
         # percents of numbers and money amounts
-        pct = pick([5, 10, 15, 20, 25, 40, 50, 75])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         pounds = step * random.randint(2, _by_d(d, 8, 15, 30))
@@ -1692,7 +1755,7 @@ def _(d=1):
 
     def pct_word_number():
         # percents of numbers: word problem
-        pct = pick([10, 20, 25, 50, 40, 5, 15, 75])
+        pct = pick(pcts)
         g = _hcf(pct, 100)
         step = 100 // g
         n = step * random.randint(2, _by_d(d, 10, 20, 40))
@@ -1706,9 +1769,9 @@ def _(d=1):
         return _numq("Percent word problem: there are %d %s and %d%% of the %s "
                      "%s. How many %s %s?"
                      % (n, noun, pct, noun, desc, noun, desc), ans,
-                     ["%d%% of %d = %d." % (pct, n, ans)], unit=noun)
+                     [_pct_why(pct, n)], unit=noun)
 
-    opts = [pct_of_number, pct_of_money, find_10_percent, word_discount_amount,
+    opts = [pct_of_number, pct_of_money, word_discount_amount,
             pct_of_group, bar_pct, non_multiple_of_ten, grid_model,
             pct_of_money_amount, pct_word_number]
     if d == 0:
@@ -1924,8 +1987,8 @@ def _(d=1):
                       % (_pounds(new), 100 + pct, _pounds(orig))], unit="£")
 
     def after_decrease():
-        pct = pick([10, 20, 25, 50])
-        orig = random.randint(1, 13) * 20
+        pct = pick(_pct_tier(d))
+        orig = _mult_for(pct, 2, 12)
         new = orig - orig * pct // 100
         return _numq("After a %d%% decrease, a price is %s. What was the original "
                      "price, in pounds?" % (pct, _pounds(new)), orig,
@@ -1945,8 +2008,8 @@ def _(d=1):
                       % (_pounds(new), 100 - pct, _pounds(orig))], unit="£")
 
     def find_original_amount():
-        pct = pick([10, 20, 25, 50])
-        orig = random.randint(1, 10) * 20
+        pct = pick(_pct_tier(d))
+        orig = _mult_for(pct, 2, 10)
         part = orig * pct // 100
         return _numq("%d%% of a number is %d. What is the number?" % (pct, part),
                      orig,
@@ -2050,8 +2113,8 @@ def _(d=1):
                       "%d ÷ %d × 100 = %d%%." % (rise, base, pct)], unit="%")
 
     def pct_decrease_change():
-        base = random.randint(1, 10) * 20
-        pct = pick([10, 20, 25, 50, 40])
+        pct = pick(_pct_tier(d))
+        base = _mult_for(pct, 2, 10)
         fall = base * pct // 100
         newv = base - fall
         return _numq("A price falls from %s to %s. What is the percentage "
@@ -2061,8 +2124,7 @@ def _(d=1):
 
     def compare_two():
         # which is bigger: p1% of A vs p2% of B
-        p1 = pick([10, 20, 25, 50])
-        p2 = pick([10, 20, 25, 50])
+        p1, p2 = random.sample(_pct_tier(d), 2)
         g1 = _hcf(p1, 100)
         g2 = _hcf(p2, 100)
         a = (100 // g1) * random.randint(2, 10)
@@ -2080,7 +2142,7 @@ def _(d=1):
                        "%s is larger." % ans], placeholder="A or B")
 
     def solve_pct_equation():
-        pct = pick([10, 20, 25, 50, 40])
+        pct = pick(_pct_tier(d))
         g = _hcf(pct, 100)
         x = (100 // g) * random.randint(2, 12)
         val = x * pct // 100
@@ -2156,7 +2218,7 @@ def _(d=1):
                                          _pounds(inc))], unit="£")
 
     def apply_discount():
-        pct = pick([10, 15, 20, 25, 30, 50])
+        pct = pick(_pct_tier(d))
         g = _hcf(pct, 100)
         price = (100 // g) * random.randint(2, 15)
         ans = price - price * pct // 100
@@ -2242,45 +2304,45 @@ def _(d=1):
                     missing=(i, 1), caption="Sale: %d%% off" % pct)
 
     def money_four_ops():
-        # add, subtract, multiply and divide money amounts: word problem
-        A = random.randint(2, 9)
-        q = random.randint(2, 6)
-        B = random.randint(2, 8)
-        total = q * A + B
-        k = pick([2, 3, 4, 5])
-        change = k * random.randint(1, 6)
-        pay = total + change
-        ans = change // k
+        # a group discount on the total, then the cost shared equally: ×, %, −, ÷
+        for _try in range(200):
+            pct = pick(_pct_tier(d))
+            q = random.randint(3, 8)
+            A = random.randint(*_by_d(d, (4, 12), (6, 18), (8, 25)))
+            k = pick([2, 3, 4, 5, 6])
+            total = q * A
+            paid = total * (100 - pct)
+            if paid % 100 == 0 and (paid // 100) % k == 0:
+                break
+        else:
+            pct, q, A, k, total = 25, 4, 6, 3, 24
+        paid = total * (100 - pct) // 100
+        ans = paid // k
         return _numq(
-            "Money word problem (add, subtract, multiply and divide): a group "
-            "orders %d boxes at %s each and adds a %s delivery charge. They pay "
-            "with %s and share the change equally between %d friends. How much "
-            "change does each friend get, in pounds?"
-            % (q, _pounds(A), _pounds(B), _pounds(pay), k), ans,
-            ["Multiply: %d × %s = %s." % (q, _pounds(A), _pounds(q * A)),
-             "Add delivery: %s + %s = %s."
-             % (_pounds(q * A), _pounds(B), _pounds(total)),
-             "Subtract for change: %s − %s = %s."
-             % (_pounds(pay), _pounds(total), _pounds(change)),
-             "Divide: %s ÷ %d = %s each."
-             % (_pounds(change), k, _pounds(ans))], unit="£")
+            "A group buys %d tickets at %s each. They get %d%% off the total, then share the cost "
+            "equally between %d friends. How much does each friend pay, in pounds?"
+            % (q, _pounds(A), pct, k), ans,
+            ["Total: %d × %s = %s." % (q, _pounds(A), _pounds(total)),
+             "%d%% off: %d%% of %s is %s, so they pay %s." % (pct, pct, _pounds(total),
+                                                            _pounds(total - paid), _pounds(paid)),
+             "Shared: %s ÷ %d = %s each." % (_pounds(paid), k, _pounds(ans))], unit="£")
 
     def money_add_subtract():
-        # money amounts word problem, integer pence throughout
-        a = random.randint(120, 480)
-        b = random.randint(80, 350)
-        q = random.randint(2, 4)
-        spent = a + b * q
-        pay_pounds = spent // 100 + random.randint(1, 4)
-        pay = pay_pounds * 100
-        change = pay - spent
+        # a discount, then the change from a note
+        pct = pick(_pct_tier(d))
+        price = _mult_for(pct, *_by_d(d, (1, 4), (1, 6), (1, 4)))
+        while price > 95:
+            price = _mult_for(pct, 1, 3)
+        paid = price - price * pct // 100
+        note = pick([n for n in (10, 20, 50, 100) if n > paid])
+        change = note - paid
         return _numq(
-            "Money word problem: one item costs %s and each of %d other items "
-            "costs %s. The money amounts are added, then paid for with %s. How "
-            "much change is given? Give your answer in pence."
-            % (money(a), q, money(b), _pounds(pay_pounds)), change,
-            ["Total cost: %s + %d × %s = %dp." % (money(a), q, money(b), spent),
-             "Change: %dp − %dp = %dp." % (pay, spent, change)], unit="p")
+            "A game costs %s. In a sale it has %d%% off. %s pays with a %s note. How much change "
+            "is given, in pounds?" % (_pounds(price), pct, pick(NAMES), _pounds(note)), change,
+            ["%d%% of %s = %s, so the sale price is %s − %s = %s."
+             % (pct, _pounds(price), _pounds(price * pct // 100), _pounds(price),
+                _pounds(price * pct // 100), _pounds(paid)),
+             "Change: %s − %s = %s." % (_pounds(note), _pounds(paid), _pounds(change))], unit="£")
 
     opts = [add_vat, apply_discount, mark_up, discount_saving, vat_amount_only,
             table_prices, money_four_ops, money_add_subtract]
@@ -2377,12 +2439,14 @@ def _(d=1):
         i = random.randrange(4)
         rows = [[str(c), "" if j == i else money(c * each)]
                 for j, c in enumerate(counts)]
+        v, u, at, w = _cost(counts[i] * each)
         return _dtq("This price list charges the same for every %s. What is the "
-                    "missing price, in pence?" % sing,
-                    ["Number of %s" % plur, "Price"], rows, counts[i] * each,
-                    ["One %s costs %dp, so %d cost %dp."
-                     % (sing, each, counts[i], counts[i] * each)],
-                    missing=(i, 1), caption="Price list")
+                    "missing price, in %s?" % (sing, w),
+                    ["Number of %s" % plur, "Price"], rows, v,
+                    ["One %s costs %dp, so %d cost %dp%s."
+                     % (sing, each, counts[i], counts[i] * each,
+                        " = " + money(counts[i] * each) if counts[i] * each >= 100 else "")],
+                    missing=(i, 1), caption="Price list", answer_type=at)
 
     opts = [unit_price, best_buy_letter, best_buy_table, cost_per_100g,
             price_list_missing]
@@ -2478,7 +2542,7 @@ def _(d=1):
                       % (_pounds(after1), rate, _pounds(after2))], unit="£")
 
     def interest_table():
-        rate = pick([5, 10, 20])
+        rate = pick(_by_d(d, [5, 10, 20], [2, 4, 5, 8], [3, 4, 6, 7, 9]))
         g = _hcf(rate, 100)
         principal = (100 // g) * random.randint(5, 20)
         rows = []
@@ -2528,7 +2592,7 @@ def _(d=1):
                       "Team = %d%% of %d = %d." % (pct2, after1, ans)])
 
     def deposit_remaining():
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_pct_tier(d))
         g = _hcf(pct, 100)
         total = (100 // g) * random.randint(4, 20)
         deposit = total * pct // 100
@@ -2606,8 +2670,8 @@ def _(d=1):
                       % (pct2, _pounds(left), _pounds(second))], unit="£")
 
     def profit_pct():
-        cost = random.randint(1, 10) * 20
-        pct = pick([10, 20, 25, 50])
+        pct = pick(_pct_tier(d))
+        cost = _mult_for(pct, 2, 10)
         profit = cost * pct // 100
         sell = cost + profit
         return _numq("A trader buys an item for %s and sells it for %s. What is "

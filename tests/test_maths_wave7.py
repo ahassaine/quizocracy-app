@@ -1,4 +1,5 @@
-"""Wave 7, maths and grammar content: a placement probe needs 2 hard questions right in a row (never one), and the
+"""Wave 7, maths and grammar content: a placement probe needs 3 hard questions right in a row, of 2 kinds (pre-launch
+review; it was 2), and the
 page says so; one kind of question at most twice per skill in a sitting, with the tickets bar chart worded several
 ways; decimal whys line up the points (0.9 = 0.90) and the classic slip gets its own line; after slips the maths
 drops one tier at most, with one line saying so, and Year 8's easiest decimals are still Year 8 ones; no array to
@@ -23,31 +24,49 @@ from app.maths import maths_engine as me, maths_mastery as mm  # noqa: E402
 
 
 # ------------------------------------------------------------------ placement ----
-def test_a_placement_probe_needs_two_hard_right_in_a_row(monkeypatch):
+def test_a_placement_probe_needs_three_hard_right_in_a_row_of_two_kinds(monkeypatch):
     async def go(answers):
         await mm.db.maths_mastery.update_one({"_id": "sim:Y6.2.a"}, {"$set": {"pupil": "sim", "skill": "Y6.2.a",
                                                                                "probing": True}}, upsert=True)
         out = []
-        for ok in answers:
+        for ok, shape in answers:
             t = await mm.start_tier("sim", 6, "Y6.2.a", await mm.skill_score("sim", "Y6.2.a"))
-            m = await mm.record_attempt("sim", "Y6.2.a", ok, tier=t)
+            m = await mm.record_attempt("sim", "Y6.2.a", ok, tier=t, shape=shape)
             out.append((t, m["score"] >= mm.MASTERED, m.get("probing")))
         return out
-    one = _run(monkeypatch, lambda: go([True]))
-    assert one == [(2, False, True)], one                         # one right answer is never "secure"
-    two = _run(monkeypatch, lambda: go([True, True]))
-    assert two[1] == (2, True, False), two                         # the second hard one right: secure
-    slip = _run(monkeypatch, lambda: go([True, False, True]))
+    two = _run(monkeypatch, lambda: go([(True, "a"), (True, "b")]))
+    assert two == [(2, False, True), (2, False, True)], two      # one or two right answers are never "secure"
+    three = _run(monkeypatch, lambda: go([(True, "a"), (True, "b"), (True, "a")]))
+    assert three[2] == (2, True, False), three                   # the third hard one right, 2 kinds: secure
+    same = _run(monkeypatch, lambda: go([(True, "a"), (True, "a"), (True, "a")]))
+    assert same[2] == (2, False, True), same                     # 3 of one kind: not yet, the probe goes on
+    same = _run(monkeypatch, lambda: go([(True, "a"), (True, "a"), (True, "a"), (True, "b")]))
+    assert same[3][1], same                                      # ... a fourth of another kind secures it
+    slip = _run(monkeypatch, lambda: go([(True, "a"), (False, "b"), (True, "c")]))
     assert slip[1][1:] == (False, False) and not slip[2][1], slip  # a miss ends the probe: the usual road
+
+
+def test_after_one_slip_four_hard_right_of_two_kinds(monkeypatch):
+    async def go(answers):
+        out = []
+        for ok, shape in answers:
+            m = await mm.record_attempt("sim", "Y6.2.b", ok, tier=2, shape=shape)
+            out.append(m["score"] >= mm.MASTERED)
+        return out
+    got = _run(monkeypatch, lambda: go([(False, "a"), (True, "a"), (True, "b"), (True, "a"), (True, "b")]))
+    assert got == [False, False, False, False, True], got
 
 
 def test_the_page_says_the_real_rule():
     page = open(os.path.join(os.path.dirname(__file__), "..", "app", "templates", "child_detail.html")).read()
     rule = re.search(r'testid="mastery-rule"\) %}(.*?){% endcall %}', page, re.S).group(1)
-    for words in ("5 right in a row", "7 after one wrong answer", "2 of the hardest right in a row",
-                  "one right answer is never enough", "re-checked on a later day"):
+    for words in ("5 right in a row", "7 after one wrong answer", "3 of the hardest right in a row",
+                  "of at least 2 different kinds of question", "4 after one wrong answer",
+                  "one or two right answers are never enough", "re-checked on a later day"):
         assert words in rule, words
-    assert mm.FAST_STREAK == 5 and mm.HARD_RIGHT == 2
+    assert mm.FAST_STREAK == 5 and mm.HARD_RIGHT == 3 and mm.HARD_KINDS == 2
+    helps = open(os.path.join(os.path.dirname(__file__), "..", "app", "templates", "help.html")).read()
+    assert "3 of the hardest questions right in a row, of at least 2 different kinds" in helps
 
 
 # ------------------------------------------------------------------ easier after slips ----

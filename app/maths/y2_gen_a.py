@@ -303,10 +303,22 @@ def _(d=1):
                    "< or >")
 
     def t_equal():
-        x, y = random.randint(10, _by(d, 30, 50, 60)), random.randint(_by(d, 1, 10, 10), _by(d, 9, 40, 39))
-        right = random.random() < 0.5
-        return _wq("Is this true?  %d + %d = %d  (yes or no)" % (x, y, x + y if right else x + y + 1),
-                   "yes" if right else "no", ["%d + %d = %d." % (x, y, x + y)], "yes / no")
+        # = means "the same value as": a number and its tens and ones, the wrong one with the digits swapped
+        # (stretch: two ways of splitting it, one of them with a ten moved into the ones)
+        t, o = random.randint(2, 9), random.randint(1, 9)
+        while o == t:
+            o = random.randint(1, 9)
+        n, right = 10 * t + o, random.random() < 0.5
+        if d == 2:
+            other = "%d + %d" % (10 * (t - 1), 10 + o) if right else "%d + %d" % (10 * (t - 1), o)
+            return _wq("Is this true?  %d + %d = %s  (yes or no)" % (10 * t, o, other), "yes" if right else "no",
+                       ["%d + %d = %d." % (10 * t, o, n),
+                        "%s = %d, %s." % (other, 10 * (t - 1) + (10 + o if right else o),
+                                          "so both sides are the same" if right else "so the sides are not the same")], "yes / no")
+        parts = "%d + %d" % (10 * t, o) if right else "%d + %d" % (10 * o, t)
+        return _wq("Is this true?  %d = %s  (yes or no)" % (n, parts), "yes" if right else "no",
+                   ["%d is %d tens and %s: %d + %d." % (n, t, _pn(o, "one"), 10 * t, o)] +
+                   ([] if right else ["%s = %d, so the two sides are not the same." % (parts, 10 * o + t)]), "yes / no")
 
     def t_order():
         vals = _vals(d, 1, _by(d, 50, 100, 100), 4)
@@ -386,19 +398,24 @@ def _(d=1):
     def t_to_word():
         return _wq("Write %d in words." % n, n_words(n), ["%d = %s." % (n, n_words(n))], "words")
 
-    def t_odd_even():
-        k = random.randint(_by(d, 1, 1, 21), _by(d, 20, 99, 99))
-        return _wq("Is %d odd or even?" % k, "even" if k % 2 == 0 else "odd", ["Look at the ones digit: %d." % (k % 10)], "odd / even")
+    def t_parts_word():
+        t, o = divmod(n, 10)
+        if n == 100 or o == 0:
+            return t_to_word()
+        return _wq("Write the number that has %s and %s in words." % (_pn(t, "ten"), _pn(o, "one")), n_words(n),
+                   ["%s and %s make %d." % (_pn(t, "ten"), _pn(o, "one"), n), "%d = %s." % (n, n_words(n))], "words")
 
     def t_estimate():
+        # the number is given in words: reading it is the skill, the line shows it
         n2 = 10 * random.randint(1, 9) if d == 0 else random.randint(10, 90)
-        q = _nl("Estimate where %d goes on a line from 0 to 100, and mark it." % n2, n2, 1, 10, ["About %d." % n2], lo=0, hi=100)
+        q = _nl("Find where %s goes on a line from 0 to 100, and mark it." % n_words(n2), n2, 1, 10,
+                ["%s = %d." % (n_words(n2), n2), "About %d." % n2], lo=0, hi=100)
         q["tolerance"] = 3          # an estimate: a mark within 3 of the number counts
         return q
 
     if d == 2:     # stretch: more writing in words
-        return _pick_t([t_to_num, t_to_word, t_to_word, t_odd_even], [t_estimate])
-    return _pick_t([t_to_num, t_to_word, t_odd_even], [t_estimate])
+        return _pick_t([t_to_num, t_to_word, t_to_word, t_parts_word], [t_estimate])
+    return _pick_t([t_to_num, t_to_word, t_parts_word], [t_estimate])
 
 
 # ================================================================== 2.1 ======
@@ -982,8 +999,8 @@ def _(d=1):
                    ["%s = %d." % (" + ".join([str(t)] * k), k * t)])
 
     def t_two_step():
-        g = random.randint(1, t)
-        return _tb("There are %d boxes with %d pens in each. %s are taken out. How many pens are left?" % (k, t, _pn(g, "pen")),
+        g = random.randint(2, max(2, t))
+        return _tb("There are %d boxes with %d pens in each. %d pens are taken out. How many pens are left?" % (k, t, g),
                    k * t - g, "int", {}, ["%d × %d = %d; %d − %d = %d." % (k, t, k * t, k * t, g, k * t - g)])
 
     plain = [t_bags, t_share, t_coins, t_teams, t_fingers, t_price, t_how_many_bought, t_repeated]
@@ -1185,16 +1202,18 @@ def _(d=1):
                 "tolerance": _by(d, 5, 5, 2), "solution": ["The water is level with the %d ml line." % v]}
 
     def t_thermo():
-        t = random.randint(_by(d, 0, 0, 12), _by(d, 10, 30, 35))
-        if d == 2:                                      # hard: a bigger change, warmer or colder
-            k = random.randint(6, 12)
-            if random.random() < 0.5:
-                return _tb("A thermometer shows %d °C. It gets %d degrees colder. What does it show now, in °C?" % (t, k), t - k, "int",
-                           {"unit": "°C"}, ["%d − %d = %d." % (t, k, t - k)])
-            return _tb("A thermometer shows %d °C. It gets %d degrees warmer. What does it show now, in °C?" % (t, k), t + k, "int",
-                       {"unit": "°C"}, ["%d + %d = %d." % (t, k, t + k)])
-        return _tb("A thermometer shows %d °C. It gets 5 degrees warmer. What does it show now, in °C?" % t, t + 5, "int",
-                   {"unit": "°C"}, ["%d + 5 = %d." % (t, t + 5)])
+        # reading a thermometer between its numbered lines: numbered in 10s, with marks in 2s or 5s
+        # (hard: counting back down from the line above)
+        step = _by(d, 2, pick([2, 5]), 2)
+        line = 10 * random.randint(1, 3)
+        k = random.randint(1, 10 // step - 1)
+        up = d == 0 or (d == 1 and random.random() < 0.5)
+        t = line + k * step if up else line - k * step
+        return _tb("A thermometer is numbered in 10s, with a mark every %d degrees. The red line is %s %s the %d °C line. "
+                   "What temperature does it show, in °C?" % (step, _pn(k, "mark"), "above" if up else "below", line),
+                   t, "int", {"unit": "°C"},
+                   ["Each mark is %d degrees, so %s %d degrees." % (step, "1 mark is" if k == 1 else "%d marks are" % k, k * step),
+                    "%d %s %d = %d °C." % (line, "+" if up else "−", k * step, t)])
 
     def t_temp():
         if d == 2:                                      # hard: three readings, warmest or coldest
@@ -1238,18 +1257,25 @@ def _(d=1):
                 "solution": ["It ends at %d cm." % cm]}
 
     def t_colder():
-        a, b = random.sample(range(_by(d, 10, 0, 0), _by(d, 20, 30, 36)), 2)     # easy: both in the teens
-        return _tb("It was %d °C in the morning and %d °C at night. How many degrees colder was the colder time?" % (max(a, b), min(a, b)),
-                   abs(a - b), "int", {"unit": "°C"}, ["%d − %d = %d." % (max(a, b), min(a, b), abs(a - b))])
+        # a scale in words, numbered in 10s: the marks between the numbers are not 1s
+        unit = pick(["kg", "cm", "g"])
+        step = _by(d, 2, pick([2, 5]), pick([2, 5]))
+        label = 10 * random.randint(0 if d == 0 else 1, _by(d, 3, 8, 8))
+        k = random.randint(1, 10 // step - 1)
+        v = label + k * step
+        name = "The tape measure" if unit == "cm" else "The scale"
+        return _tb("%s is numbered in 10s, with a mark every %d %s. The pointer is %s past %d %s. What does it show, in %s?"
+                   % (name, step, unit, _pn(k, "mark"), label, unit, unit), v, "int", {"unit": unit},
+                   ["Each mark is %d %s, so %s %d %s." % (step, unit, "1 mark is" if k == 1 else "%d marks are" % k, k * step, unit),
+                    "%d + %d = %d %s." % (label, k * step, v, unit)])
 
     def t_litres():
-        v = random.randint(2, _by(d, 5, 9, 9))
-        if d == 2:                                      # hard: 5 or 10 buckets
-            k = pick([5, 10])
-            return _tb("A bucket holds %d litres. How much do %d buckets hold, in litres?" % (v, k), k * v, "int", {"unit": "litres"},
-                       ["%d × %d = %d." % (k, v, k * v)])
-        return _tb("A bucket holds %d litres. How much do 2 buckets hold, in litres?" % v, 2 * v, "int", {"unit": "litres"},
-                   ["%d + %d = %d." % (v, v, 2 * v)])
+        # a big jug marked in litres (hard: half-litre marks are not shown, so the level is between lines in 2s)
+        top, step = _by(d, (5, 1), (10, 1), (20, 2))
+        v = random.randint(1, top // step - 1) * step
+        return {"prompt": "The jug is marked in litres. How many litres of water are in it?", "component": "ruler",
+                "spec": {"mode": "capacity", "value": v, "max": top, "unit": "litres"}, "answer": v, "answer_type": "num",
+                "tolerance": _by(d, 0.5, 0.5, 1), "solution": ["The water is level with the %d litre line." % v]}
 
     def t_jug_more():
         top = _by(d, 50, 100, 100)                     # easy: a 50 ml jug; hard: 5 ml steps
@@ -1258,7 +1284,7 @@ def _(d=1):
                 "spec": {"mode": "capacity", "value": v, "max": top, "unit": "ml"}, "answer": top - v, "answer_type": "num",
                 "tolerance": 0, "solution": ["The jug shows %d ml; %d − %d = %d." % (v, top, v, top - v)]}
 
-    return _pick_t([t_unit, t_temp, t_thermo, t_estimate, t_colder, t_litres], [t_ruler, t_scale, t_jug, t_grams, t_long_ruler, t_jug_more])
+    return _pick_t([t_unit, t_temp, t_thermo, t_estimate, t_colder], [t_ruler, t_scale, t_jug, t_grams, t_long_ruler, t_jug_more, t_litres])
 
 
 @skill("Y2.4.b", "Compare and order lengths, mass and capacity", S4)
@@ -1448,8 +1474,8 @@ def _fewest(p):
 def _(d=1):
     d = _d(d)
     h = random.randint(1, 12)
-    if d == 0:     # o'clock, quarter past, half past, quarter to
-        m = pick([0, 15, 30, 45])
+    if d == 0:     # quarter past and quarter to (o'clock and half past are Year 1), now and then half past
+        m = pick([15, 45, 15, 45, 30])
     elif d == 2:   # five-minute times that are not on a quarter
         m = 5 * pick([1, 2, 4, 5, 7, 8, 10, 11])
     else:
@@ -1460,7 +1486,7 @@ def _(d=1):
                 "answer": "%d:%02d" % (h, m), "answer_type": "time", "solution": ["The long hand points to %d." % (m // 5 or 12)]}
 
     def t_quarter():
-        kind = pick(["quarter past", "quarter to", "half past"])
+        kind = pick(["quarter past", "quarter to"])           # half past is Year 1
         mm = {"quarter past": 15, "half past": 30, "quarter to": 45}[kind]
         hh = h if kind != "quarter to" else (h - 2) % 12 + 1
         return {"prompt": "Set the clock to %s %d." % (kind, h), "component": "clock", "spec": {"mode": "set"},
@@ -1476,8 +1502,9 @@ def _(d=1):
                 "solution": ["%d minutes %s %d is %d:%02d." % (mm, "past" if past else "to", h, hh, mins)]}
 
     def t_long_hand():
-        return _tb("The long hand points to %d. How many minutes past the hour is that?" % (m // 5 or 12), m if m else 0, "int", {},
-                   ["Each number is 5 minutes: %d × 5 = %d." % (m // 5, m)] if m else
+        mm = 5 * pick([7, 8, 10, 11]) if d == 2 else m       # hard: the far side of the clock, 35 to 55 minutes
+        return _tb("The long hand points to %d. How many minutes past the hour is that?" % (mm // 5 or 12), mm, "int", {},
+                   ["Each number is 5 minutes: %d × 5 = %d." % (mm // 5, mm)] if mm else
                    ["When the long hand points to 12 it is o'clock: 0 minutes past."])
 
     def t_type_time():
@@ -1491,12 +1518,12 @@ def _(d=1):
                    {"text": True, "placeholder": "e.g. 4:20"}, ["%d minutes past %d is %d:%02d." % (mm, hh, hh, mm)])
 
     def t_quarter_hand():
-        kind, num = pick([("quarter past %d", 3), ("half past %d", 6), ("quarter to %d", 9), ("%d o'clock", 12)])
+        kind, num = pick([("quarter past %d", 3), ("quarter to %d", 9), ("25 minutes past %d", 5), ("20 minutes to %d", 8)])
         kind = kind % random.randint(1, 12)
         return _tb("At %s, which number does the long hand point to?" % kind, num, "int", {}, ["%s: the long hand points to %d." % (kind[0].upper() + kind[1:], num)])
 
     def t_minutes_to():
-        n = random.randint(7, 11)
+        n = pick([7, 8]) if d == 2 else pick([9, 10, 11])      # hard: further from the hour
         return _tb("The long hand points to %d. How many minutes is it until the next o'clock?" % n, 60 - 5 * n, "int", {},
                    ["%d × 5 = %d minutes past; 60 − %d = %d." % (n, 5 * n, 5 * n, 60 - 5 * n)])
 

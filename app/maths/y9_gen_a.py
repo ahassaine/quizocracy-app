@@ -372,9 +372,15 @@ def _(d=1):
         return _tb("Work out the cube root of %d." % k ** 3, k, "int", {}, ["%d³ = %d." % (k, k ** 3)])
 
     def t_higher():
-        b, n = pick(_by(d, [(2, 4), (2, 5), (10, 3), (3, 3)], [(2, 5), (2, 6), (3, 4), (2, 10), (5, 3), (4, 4)],
-                        [(3, 5), (2, 8), (5, 4), (6, 3), (2, 10), (4, 5)]))
-        return _tb("Work out %d^%d." % (b, n), b ** n, "int", {}, ["= %d." % b ** n])
+        # a root of a power: halve (or third) the index, rather than a bare power
+        b, n, r = pick(_by(d, [(2, 4, 2), (3, 4, 2), (10, 6, 2), (2, 6, 3)],
+                           [(2, 10, 2), (3, 6, 2), (5, 4, 2), (2, 9, 3), (10, 9, 3)],
+                           [(2, 12, 2), (3, 8, 2), (2, 12, 3), (3, 9, 3), (7, 4, 2), (5, 6, 3)]))
+        root = "√(%d^%d)" % (b, n) if r == 2 else "the cube root of %d^%d" % (b, n)
+        return _tb("Work out %s. Give a whole number." % root, b ** (n // r), "int", {},
+                   ["A %s divides the index by %d: %d ÷ %d = %d, so it is %d^%d." % (
+                       "square root" if r == 2 else "cube root", r, n, r, n // r, b, n // r),
+                    "%d^%d = %s." % (b, n // r, _c(b ** (n // r)))])
 
     def t_root_power():
         b, n = pick(_by(d, [(2, 4), (10, 3), (2, 5)], [(2, 4), (3, 4), (2, 5), (10, 3)], [(3, 5), (5, 4), (2, 6), (4, 5), (3, 4)]))
@@ -731,8 +737,15 @@ def _(d=1):
                    ["Common denominator %d." % (a * b // _g(a, b))], "e.g. 5x/6")
 
     def t_cancel():
+        # cancel numbers AND powers of x: 12x²/4x = 3x
         k, p = random.randint(2, _by(d, 3, 6, 9)), random.randint(2, _by(d, 5, 9, 12))
-        return _wq("Simplify %dx/%d (like 3x)." % (k * p, k), "%dx" % p, ["%d ÷ %d = %d." % (k * p, k, p)], "e.g. 3x")
+        top, bot = _by(d, (2, 1), pick([(2, 1), (3, 1)]), pick([(3, 1), (4, 2), (5, 2)]))
+        xp = lambda n: "x" if n == 1 else "x^%d" % n          # noqa: E731
+        ans = "%d%s" % (p, xp(top - bot))
+        return _wq("Simplify %d%s/%d%s (like 3x^2)." % (k * p, xp(top), k, xp(bot)), ans,
+                   ["Divide the numbers: %d ÷ %d = %d." % (k * p, k, p),
+                    "Subtract the powers of x: %s ÷ %s = %s." % (xp(top), xp(bot), xp(top - bot)), "So it is %s." % ans],
+                   "e.g. 3x^2")
 
     def t_sub_k():
         a, b = sorted(random.sample(_by(d, [2, 3, 4], [2, 3, 4, 5, 6, 8], [3, 4, 5, 6, 8, 9, 10, 12]), 2))

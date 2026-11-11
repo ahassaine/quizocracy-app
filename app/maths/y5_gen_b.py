@@ -597,10 +597,20 @@ def _(d=1):
                    "true / false")
 
     def t_meaning():
-        a, b = random.randint(20, 90), random.randint(20, 90)
-        return _tb("%s writes %d + %d = ___ + %d. The '=' means both sides have the same value. "
-                   "What number goes in the gap?" % (_who(), a, b, b), a, "int", {},
-                   ["Both sides add %d, so the gap must be %d." % (b, a)])
+        if d == 0:
+            a, b = random.randint(120, 900), random.randint(20, 90)
+            return _tb("%s writes %s + %d = ___ + %d. The '=' means both sides have the same value. "
+                       "What number goes in the gap?" % (_who(), _c(a), b, b), a, "int", {},
+                       ["Both sides add %d, so the gap must be %s." % (b, _c(a))])
+        # reason without working out the totals: the right side adds k more, so the gap is k less
+        a = random.randint(1200, 9800) if d == 1 else random.randint(12000, 98000)
+        b = random.randint(150, 900) if d == 1 else random.randint(1500, 9000)
+        k = random.randint(2, 9) * (1 if d == 1 else 10)
+        return _tb("%s writes %s + %s = ___ + %s. The '=' means both sides have the same value. "
+                   "What number goes in the gap? (You do not need to work out either side.)"
+                   % (_who(), _c(a), _c(b), _c(b + k)), a - k, "int", {},
+                   ["%s is %d more than %s, so the gap must be %d less than %s." % (_c(b + k), k, _c(b), k, _c(a)),
+                    "%s − %d = %s." % (_c(a), k, _c(a - k))])
 
     def t_mixed():
         a, b = random.randint(2, 9) * u, random.randint(2, 9)
@@ -666,7 +676,7 @@ def _(d=1):
                    "int", {}, ["%d ÷ %d = %d exactly." % (good, m, good // m)])
 
     def t_is():
-        n = random.randint(20, 150)
+        n = random.randint(*_by(d, (20, 150), (50, 250), (120, 500)))
         return _wq("Is %d a multiple of %d? (yes or no)" % (n, m), "yes" if n % m == 0 else "no",
                    ["%d ÷ %d = %d remainder %d." % (n, m, n // m, n % m)], "yes / no")
 
@@ -696,13 +706,17 @@ def _(d=1):
                 ["%d ÷ %d leaves remainder %d." % (n + a, b, (n + a) % b)], "yes / no")
 
     def t_table():
-        rows = [[i, m * i] for i in range(1, 6)]
+        i0 = _by(d, 1, random.randint(4, 8), random.randint(9, 15))
+        rows = [[i, m * i] for i in range(i0, i0 + 5)]
         k = random.randint(1, 4)
         return _io("The table shows multiples of %d. What goes in the empty cell?" % m, rows, k,
                    rows[k][1], ["%d × %d = %d." % (rows[k][0], m, rows[k][1])], rule="× %d" % m)
 
     def t_first_common():
-        a, b = random.sample([2, 3, 4, 5, 6, 8, 9, 10], 2)
+        while True:                     # never one a multiple of the other ("2 and 8" is just 8)
+            a, b = random.sample(_by(d, [2, 3, 4, 5, 10], [4, 6, 8, 9, 10, 12], [6, 8, 9, 12, 15, 14]), 2)
+            if max(a, b) % min(a, b):
+                break
         lcm = a * b // _gcd(a, b)
         return _tb("What is the smallest number that is a multiple of both %d and %d?" % (a, b), lcm, "int", {},
                    ["Multiples of %d: %s." % (max(a, b), ", ".join(str(max(a, b) * i) for i in range(1, lcm // max(a, b) + 1))),
@@ -751,8 +765,8 @@ def _(d=1):
                    ["Add %d each time: %d + %d = %d." % (m, seq[k - 1], m, seq[k])])
 
     def t_bus():
-        mins = pick([5, 10, 12, 15, 20])
-        t = mins * random.randint(2, 11)
+        mins = pick(_by(d, [5, 10, 20], [12, 15, 20, 25], [15, 18, 25, 35, 45]))
+        t = mins * random.randint(*_by(d, (2, 11), (5, 14), (8, 20)))
         off = t + pick([0, 0, random.randint(1, mins - 1)])
         return _wq("A bus leaves the depot every %d minutes, starting at 9:00. Does a bus leave exactly %d minutes after "
                    "9:00? (yes or no)" % (mins, off), "yes" if off % mins == 0 else "no",
@@ -797,7 +811,7 @@ def _(d=1):
                    ["%d ÷ %d = %d." % (n, a, b)])
 
     def t_is_factor():
-        k = random.randint(2, 15)
+        k = random.randint(2, 15) if d == 0 else pick([3, 4, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 18])
         return _wq("Is %d a factor of %d? (yes or no)" % (k, n), "yes" if n % k == 0 else "no",
                    ["%d ÷ %d = %d remainder %d." % (n, k, n // k, n % k)], "yes / no")
 
@@ -807,13 +821,17 @@ def _(d=1):
                    ["%s." % ", ".join("%d × %d" % p for p in _pairs(n))])
 
     def t_array():
-        a, b = pick([p for p in _pairs(n) if p[0] > 1])
-        return {"prompt": "Build an array with %d rows of %d. How many counters is that? The rows and "
-                          "columns are a factor pair of the total." % (a, b),
-                "component": "array", "spec": {"mode": "build", "maxRows": 12, "maxCols": 12,
-                                               "targetRows": a, "targetCols": b},
-                "answer": n, "answer_type": "int", "solution": ["%d × %d = %d." % (a, b, n)]} \
-            if a <= 12 and b <= 12 else t_partner()
+        # the array shows one factor pair; the question asks for another one of the same number
+        pairs = [p for p in _pairs(n) if p[0] > 1 and p[1] <= 12]
+        if len(pairs) < 2:
+            return t_partner()
+        (a, b), (c, e) = random.sample(pairs, 2)
+        return {"prompt": "The array shows %d counters in %d rows of %d. The same counters are put into %d "
+                          "equal rows instead. How many counters are in each row?" % (n, a, b, c),
+                "component": "array", "spec": {"mode": "read", "rows": a, "cols": b},
+                "answer": e, "answer_type": "int",
+                "solution": ["%d × %d = %d, so %d and %d are a factor pair of %d." % (a, b, n, a, b, n),
+                             "%d ÷ %d = %d, so %d × %d is another factor pair." % (n, c, e, c, e)]}
 
     def t_table():
         ps = _pairs(n)
@@ -847,9 +865,12 @@ def _(d=1):
                    ["%d × %d = %d and %d + %d = %d." % (a, b, n, a, b, a + b)]) if a != b else t_partner()
 
     def t_who_am_i():
-        k = pick([6, 8, 10, 12, 14, 15, 16, 18, 20, 21, 28])
-        return _tb("My factors are %s. What number am I?" % ", ".join(map(str, _factors(k))), k, "int", {},
-                   ["The largest factor of a number is the number itself: %d." % k])
+        # every factor but the number itself: the smallest factor above 1 pairs with the largest one shown
+        k = pick(_by(d, [10, 14, 15, 21, 22, 26], [18, 20, 28, 32, 44, 45, 50], [48, 54, 60, 63, 75, 80, 98]))
+        fs = [f for f in _factors(k) if f < k]
+        return _tb("Apart from myself, my factors are %s. What number am I?" % ", ".join(map(str, fs)), k, "int", {},
+                   ["Factors come in pairs: the smallest factor above 1, %d, pairs with the largest one shown, %d."
+                    % (fs[1], fs[-1]), "%d × %d = %d." % (fs[1], fs[-1], k)])
 
     def t_set():
         return _tb("Type all the factors of %d, in any order, separated by commas." % n, ", ".join(map(str, _factors(n))),
@@ -887,7 +908,7 @@ def _(d=1):
                    ["They are %s." % ", ".join(map(str, common))])
 
     def t_is():
-        k = random.randint(2, 12)
+        k = random.randint(2, 12) if d == 0 else pick([3, 4, 6, 7, 8, 9, 12])
         ok = a % k == 0 and b % k == 0
         return _wq("Is %d a common factor of %d and %d? (yes or no)" % (k, a, b), "yes" if ok else "no",
                    ["%d %s into %d and %s into %d." % (k, "goes" if a % k == 0 else "does not go", a,
@@ -1011,8 +1032,24 @@ def _(d=1):
                    ["Check %s." % ", ".join(str(x) for x in range(p + 1, nxt + 1))])
 
     def t_even():
-        return _tb("Which is the only even prime number?", 2, "int", {},
-                   ["Every other even number has 2 as a factor."])
+        if d == 0:
+            return _tb("Which is the only even prime number?", 2, "int", {},
+                       ["Every other even number has 2 as a factor."])
+        # a prime riddle: the only prime in a decade whose digits make a given sum
+        while True:
+            lo = random.randint(_by(d, 1, 2, 5), 9) * 10
+            ps = [q for q in PRIMES if lo < q < lo + 10]
+            if not ps:
+                continue
+            q = pick(ps)
+            ds = q // 10 + q % 10
+            if [x for x in range(lo + 1, lo + 10) if x // 10 + x % 10 == ds and x in PRIMES] == [q]:
+                break
+        return _tb("I am a prime number between %d and %d. My digits add up to %d. What number am I?"
+                   % (lo, lo + 10, ds), q, "int", {},
+                   ["The numbers between %d and %d whose digits add up to %d: %s."
+                    % (lo, lo + 10, ds, ", ".join(str(x) for x in range(lo + 1, lo + 10) if x // 10 + x % 10 == ds)),
+                    "Only %d is prime." % q])
 
     def t_smallest_factor():
         n = random.choice([x for x in range(_by(d, 9, 15, 45), _by(d, 50, 100, 100))
@@ -1027,13 +1064,13 @@ def _(d=1):
                    ["Check downwards from %d: %d is prime." % (n - 1, p)])
 
     def t_two_primes():
-        if d == 2:                                        # three primes, a wider range
-            ts = random.sample([x for x in PRIMES if x < 60], 3)
-            return _tb("%d, %d and %d are all prime. What is their sum?" % tuple(ts), sum(ts), "int", {},
-                       ["%d + %d + %d = %d." % (ts[0], ts[1], ts[2], sum(ts))])
-        p, q = random.sample([x for x in PRIMES if x < _by(d, 20, 40, 40)], 2)
-        return _tb("%d and %d are both prime. What is their sum?" % (p, q), p + q, "int", {},
-                   ["%d + %d = %d." % (p, q, p + q)])
+        # a number made by multiplying two different primes: find them
+        top, low = _by(d, 40, 70, 100), _by(d, 2, 2, 3)
+        prods = [(p, q) for p in PRIMES for q in PRIMES if low <= p < q and p * q < top and p * q > 10]
+        p, q = pick(prods)
+        return _tb("%d is made by multiplying two different prime numbers. What is the LARGER of the two?" % (p * q),
+                   q, "int", {}, ["Try the primes in order: %d ÷ %d = %d." % (p * q, p, q),
+                                  "%d and %d are both prime, so %d = %d × %d." % (p, q, p * q, p, q)])
 
     def t_set():
         nums = random.sample(range(2, _by(d, 30, 60, 100)), 7)
@@ -1074,7 +1111,7 @@ def _(d=1):
     pf = _pf(n)
 
     def t_composite():
-        k = random.randint(4, 60)
+        k = random.randint(*_by(d, (4, 40), (20, 80), (40, 100)))
         return _wq("Is %d prime or composite? (type prime or composite)" % k,
                    "prime" if k in PRIMES else "composite",
                    ["A composite number has more than two factors."], "prime / composite")
@@ -1100,19 +1137,32 @@ def _(d=1):
                    ["%d = %s." % (n, " × ".join(map(str, pf)))])
 
     def t_vocab():
-        return _wq("A whole number greater than 1 with more than two factors is called what? "
-                   "(one word)", "composite", ["Prime: exactly two factors. Composite: more than two."],
-                   "one word")
+        if d == 0:
+            return _wq("A whole number greater than 1 with more than two factors is called what? "
+                       "(one word)", "composite", ["Prime: exactly two factors. Composite: more than two."],
+                       "one word")
+        # an odd composite that looks prime, among primes
+        c = pick(_by(d, [21, 27, 33, 35, 39, 49], [51, 57, 63, 69, 77, 87], [51, 57, 77, 87, 91, 93]))
+        ps = random.sample([q for q in PRIMES if 20 < q < 100], 3)
+        opts = ps + [c]
+        random.shuffle(opts)
+        return _tb("Which of these numbers is composite?  %s" % ", ".join(map(str, opts)), c, "int", {},
+                   ["%d = %s, so it has more than two factors." % (c, " × ".join(map(str, _pf(c)))),
+                    "The others are prime."])
 
     def t_how_many():
         return _tb("%d written as a product of prime numbers is %s. How many prime numbers are multiplied together (count "
                    "repeats)?" % (n, " × ".join(map(str, pf))), len(pf), "int", {}, ["Count them: %d." % len(pf)])
 
     def t_next_composite():
-        k = pick([p for p in PRIMES if 10 < p < 90])
-        nxt = k + 1
-        return _tb("What is the first composite number after %d?" % k, nxt, "int", {},
-                   ["%d is even, so it is composite." % nxt])
+        # the even numbers are easy; the first ODD composite needs each odd number checked
+        k = pick([p for p in PRIMES if _by(d, 10, 20, 40) < p < 90])
+        nxt = next(x for x in range(k + 2, 100, 2) if x not in PRIMES)
+        return _tb("What is the first ODD composite number after %d?" % k, nxt, "int", {},
+                   ["Check the odd numbers after %d: %s." % (k, "; ".join(
+                       "%d is prime" % x for x in range(k + 2, nxt, 2))) if nxt > k + 2 else
+                    "The first odd number after %d is %d." % (k, nxt),
+                    "%d = %s, so it is composite." % (nxt, " × ".join(map(str, _pf(nxt))))])
 
     def t_is_pf():
         q = pick([2, 3, 5, 7, 11])
@@ -1232,7 +1282,7 @@ def _ordinal(n):
 @skill("Y5.3.g", "Cube numbers and the ³ notation", S3)
 def _(d=1):
     d = _d(d)
-    k = random.randint(2, _by(d, 5, 6, 10))
+    k = random.randint(_by(d, 2, 3, 5), _by(d, 5, 6, 10))
 
     def t_eval():
         return _tb("Work out %d³." % k, k ** 3, "int", {},
@@ -1310,10 +1360,13 @@ def _(d=1):
     d = _d(d)
 
     def t_rows():
-        n = pick(_by(d, [12, 20, 24, 30], [24, 36, 48, 60, 72], [84, 96, 108, 120, 144]))
-        k = pick([p for p in _pairs(n) if 2 < p[0]])
-        return _tb("%d chairs are set out in equal rows of %d. How many rows are there?" % (n, k[0]),
-                   k[1], "int", {"unit": "rows"}, ["%d ÷ %d = %d." % (n, k[0], k[1])])
+        # every way to set the chairs out is a factor of n: the number of rows
+        n = pick(_by(d, [12, 18, 20, 30], [24, 36, 40, 48, 60], [72, 84, 96, 100, 120]))
+        rows = [f for f in _factors(n) if 1 < f < n]
+        return _tb("%d chairs are set out in equal rows, with at least 2 rows and at least 2 chairs in each row. "
+                   "How many different numbers of rows are possible?" % n, len(rows), "int", {},
+                   ["The number of rows must be a factor of %d, but not 1 or %d." % (n, n),
+                    "%s: that is %d ways." % (", ".join(map(str, rows)), len(rows))])
 
     def t_buses():
         a, b = random.sample(_by(d, [2, 3, 4, 5], [4, 5, 6, 8, 10, 12], [6, 8, 9, 10, 12, 15]), 2)

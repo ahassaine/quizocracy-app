@@ -413,9 +413,16 @@ def _(d=1):
                    ["%s is '%s'." % (_c(ns[r]), _w4(ns[r]))], missing=[r, 1], atype="str")
 
     def t_blocks():
-        m = random.randint(101, 999)
-        return _bt("Build the number '%s' using the place-value blocks." % _w4(m), m,
-                   ["'%s' is %d." % (_w4(m), m), "%d = %s." % (m, _thto(m))])
+        # a 4-digit number read from words; the blocks show its hundreds, tens and ones (they stop at 999)
+        th = random.randint(1, 9)
+        m = random.randint(101, 999) if d else random.randint(111, 999)
+        while d == 2 and m % 10 and m // 10 % 10:          # the hard tier has a zero to notice
+            m = random.randint(101, 999)
+        num = th * 1000 + m
+        return _bt("Here is a number in words: '%s'. Its thousands are already on the table. Build "
+                   "the hundreds, tens and ones with the place-value blocks." % _w4(num), m,
+                   ["'%s' is %s." % (_w4(num), _c(num)),
+                    "Without the %d thousand%s that leaves %d = %s." % (th, "" if th == 1 else "s", m, _thto(m))])
 
     return _pick_t([t_words_to_num, t_num_to_words, t_cheque, t_from_parts, t_zeros,
                     t_compare_words, t_population, t_shifted_words],
@@ -502,8 +509,11 @@ def _(d=1):
             m += random.randint(1, 9) if m % 100 == 0 else 0
         else:
             m = random.randint(101, 999)
-        return _bt("Build the number '%s' with the place-value blocks." % _w4(m), m,
-                   ["'%s' is %d." % (_w4(m), m)])
+        th = random.randint(1, 9)
+        num = th * 1000 + m
+        return _bt("The number '%s' is made with place-value blocks. The thousands are already "
+                   "made. Build the part that is left." % _w4(num), m,
+                   ["'%s' is %s = %s + %d." % (_w4(num), _c(num), _c(th * 1000), m)])
 
     def t_blocks_part():
         n = _thousands(d)
@@ -775,10 +785,16 @@ def _(d=1):
                    missing=[0, col])
 
     def t_build_expr():
-        m = random.randint(111, 999)
-        expr = " + ".join(str(x) for x in
-                          [(m // 100) * 100, ((m // 10) % 10) * 10, m % 10] if x)
-        return _bt("Build the number that is %s." % expr, m, ["%s = %d." % (expr, m)])
+        # a flexible partition (6 hundreds and 15 tens), not the standard one: build what it makes
+        h, t, o = random.randint(1, 7), random.randint(1, 9), random.randint(0, 9)
+        tens = (t + 10) * 10
+        ones = o + 10 if d == 2 else o
+        m = h * 100 + tens + ones
+        expr = " + ".join(str(x) for x in [h * 100, tens, ones] if x)
+        return _bt("Build the number that is %s. Exchange 10 tens for a hundred%s if you need to."
+                   % (expr, " and 10 ones for a ten" if d == 2 else ""), m,
+                   ["%d tens is 1 hundred and %d ten%s." % (tens // 10, t, "" if t == 1 else "s"),
+                    "%s = %d." % (expr, m)])
 
     return _pick_t([t_missing_part, t_recombine, t_expanded, t_two_part, t_flexible_th,
                     t_flexible_h, t_regroup, t_word, t_how_many_left],
@@ -933,18 +949,17 @@ def _(d=1):
                    ["%s %s %s = %s." % (_c(base), "+" if up else "−", _c(a), _c(ans))])
 
     def t_build():
-        base = random.randint(150, 850)
-        a = pick([10, 100])
-        up = random.random() < 0.5
-        if d == 0:                           # no boundary to cross
-            base = random.randint(2, 8) * 100 + random.randint(1, 8) * 10 + random.randint(0, 9)
-        elif d == 2:                         # crosses a hundred
-            a = 10
-            base = random.randint(1, 8) * 100 + (random.randint(90, 99) if up
-                                                 else random.randint(0, 9))
-        ans = base + a if up else base - a
-        return _bt("Build the number that is %d %s than %d." % (a, "more" if up else "less", base),
-                   ans, ["%d %s %d = %d." % (base, "+" if up else "−", a, ans)])
+        # from a 4-digit number to a 3-digit one (the blocks stop at 999): 1,000 less, or across the thousand
+        up = False
+        if d == 0:                           # 1,000 less than a number in the 1,000s
+            a, base = 1000, random.randint(1101, 1989)
+        elif d == 1:                         # 100 less, across the thousand
+            a, base = 100, 1000 + random.randint(0, 99)
+        else:                                # 10 less, across the thousand
+            a, base = 10, 1000 + random.randint(0, 9)
+        ans = base - a
+        return _bt("Build the number that is %s %s than %s." % (_c(a), "more" if up else "less", _c(base)),
+                   ans, ["%s %s %s = %d." % (_c(base), "+" if up else "−", _c(a), ans)])
 
     def t_io():
         a = pick([10, 100]) if d == 0 else pick([10, 100, 1000])
@@ -1131,12 +1146,12 @@ def _(d=1):
                     "There are %d." % cnt])
 
     def t_line():
-        n = random.randint(20, 60)
+        n = random.randint(101, 989) if d == 0 else random.randint(1001, 9989)   # Year 4 numbers
         if n % 2 == 0:
             n += 1
         ans = n + 1
-        return _nl("Place the first EVEN number after %d on the number line." % n, ans, 2, 10,
-                   ["%d is odd, so the next even number is %d." % (n, ans)])
+        return _nl("Place the first EVEN number after %s on the number line." % _c(n), ans, 2, 10,
+                   ["%s ends in %d, so it is odd; the next even number is %s." % (_c(n), n % 10, _c(ans))])
 
     def t_build():
         want = pick(["even", "odd"])
@@ -1171,10 +1186,16 @@ def _(d=1):
                    ["%d is written %s." % (n, _rom(n))], "e.g. XIV")
 
     def t_clock():
-        n = random.randint(1, 12)
-        return _tb("A clock face is numbered with Roman numerals. Which number does %s stand for?"
-                   % _rom(n), n, "int", {},
-                   ["%s = %d." % (_rom(n), n)])
+        n = random.randint(1, 11)
+        if d == 0:
+            return _tb("A clock face is numbered with Roman numerals. Which number does %s stand for?"
+                       % _rom(n), n, "int", {},
+                       ["%s = %d." % (_rom(n), n)])
+        # read the numeral, then the minutes it stands for
+        return _tb("A clock face is numbered with Roman numerals. The minute hand points to %s. How many "
+                   "minutes past the hour is it?" % _rom(n), 5 * n, "int", {"unit": "minutes"},
+                   ["%s = %d." % (_rom(n), n),
+                    "Each number on the clock is 5 minutes, so %d × 5 = %d minutes past." % (n, 5 * n)])
 
     def t_chapter():
         who = pick(NAMES)
@@ -1867,16 +1888,19 @@ def _(d=1):
                     "%s is greater than %s." % (_c(max(a, b)), _c(min(a, b)))])
 
     def t_build():
-        a, b = random.sample(range(101, 999), 2)
-        if d == 0:                           # different hundreds digits
-            h1, h2 = random.sample(range(1, 10), 2)
-            a, b = h1 * 100 + random.randint(0, 99), h2 * 100 + random.randint(0, 99)
-        elif d == 2:                         # same hundreds digit: compare the tens and ones
-            h = random.randint(1, 9) * 100
-            a, b = [h + x for x in random.sample(range(0, 100), 2)]
-        return _bt("Build the SMALLER of these two numbers: %d and %d." % (a, b), min(a, b),
-                   ["%d is greater than %d." % (max(a, b), min(a, b)),
-                    "The smaller number is %d." % min(a, b)])
+        # the smallest of four, two of them 4-digit (the blocks stop at 999): the 3-digit pair differ
+        # in the hundreds (easiest), the tens, or have the same digits in another order (hardest)
+        h, t, o = random.sample(range(1, 10), 3)
+        a = h * 100 + t * 10 + o
+        b = {0: ((h % 9) + 1) * 100 + t * 10 + o, 1: h * 100 + ((t % 9) + 1) * 10 + o,
+             2: h * 100 + o * 10 + t}[d]
+        big = random.sample(range(1001, 9999), 2)
+        nums = [a, b] + big
+        random.shuffle(nums)
+        return _bt("Build the SMALLEST of these numbers: %s." % ", ".join(_c(x) for x in nums), min(a, b),
+                   ["%s and %s have 4 digits, so they are bigger than the 3-digit numbers."
+                    % (_c(big[0]), _c(big[1])),
+                    "%d is smaller than %d." % (min(a, b), max(a, b))])
 
     return _pick_t([t_symbol, t_symbol_sum, t_greater, t_word, t_words_compare, t_extreme,
                     t_nth, t_between],
@@ -2407,7 +2431,7 @@ def _(d=1):
         # stretch: often just past the previous full coach, the "one more coach" trap
         n = per * buses - random.randint(1, {0: 9, 1: 20, 2: per - 1}[d])
         return _tb("A school has %s pupils. Each coach carries %d pupils. Estimate how many "
-                   "coaches are needed by rounding %s up to the nearest %d."
+                   "coaches are needed by rounding %s up to the next multiple of %d."
                    % (_c(n), per, _c(n), per), buses, "int", {"unit": "coaches"},
                    ["%s rounds up to %s." % (_c(n), _c(per * buses)),
                     "%s ÷ %d = %d coaches." % (_c(per * buses), per, buses)])
@@ -2518,7 +2542,8 @@ def _(d=1):
 @skill("Y4.1.f", "Number sequences and rules", S1)
 def _(d=1):
     d = _d(d)
-    steps = {0: [2, 3, 5, 10], 1: [6, 7, 9, 25, 50], 2: [6, 7, 9, 25, 100, 1000]}[d]
+    # Year 4 counts in 6s, 7s, 9s, 25s and 1000s; the easiest tier recaps Year 3 (4s, 8s, 50s, 100s), never 2s
+    steps = {0: [4, 8, 50, 100], 1: [6, 7, 9, 25, 50], 2: [6, 7, 9, 25, 100, 1000]}[d]
     step = pick(steps)
     start = random.randint(2, 4 if step >= 1000 else 9) * step + \
         (0 if d == 0 else pick([0, 0, random.randint(1, 9)]))
@@ -2535,7 +2560,7 @@ def _(d=1):
     def t_next_two():
         ts = [start + i * step for i in range(4)]
         if ts[-1] + 2 * step > 999:
-            ts = [i * pick([2, 3, 5]) + 4 for i in range(4)]
+            ts = [i * pick([4, 6, 8]) + 4 for i in range(4)]
             st = ts[1] - ts[0]
         else:
             st = step
@@ -2578,14 +2603,16 @@ def _(d=1):
                     "The step is %s." % _c(step)])
 
     def t_rule_direction():
+        # work the rule backwards: the number before the first one shown
         back = random.random() < 0.5
-        ts = [terms[3] - i * step for i in range(4)] if back else terms[:4]
-        ans = "down" if back else "up"
-        return _wq("Look at this sequence:  %s. Does it go up or down? (type 'up' or 'down')"
-                   % _lst(ts), ans,
+        ts = [terms[4] - i * step for i in range(4)] if back else terms[1:5]
+        ans = ts[0] + step if back else ts[0] - step
+        return _tb("Look at this sequence:  %s. Work backwards: which number comes just before %s?"
+                   % (_lst(ts), _c(ts[0])), ans, "int", {},
                    ["Each number is %s %s than the one before."
                     % (_c(step), "less" if back else "more"),
-                    "The sequence goes %s." % ans], "up / down")
+                    "So the number before %s is %s %s %s = %s."
+                    % (_c(ts[0]), _c(ts[0]), "+" if back else "−", _c(step), _c(ans))])
 
     def t_nth():
         k = random.randint(5, 12)
@@ -2919,23 +2946,17 @@ def _(d=1):
                     "%d ÷ %d = %d, so %s is %d." % (small * (k + 1), k + 1, small, who2, small)])
 
     def t_missing_digit():
-        th = random.randint(1, 9)
-        h = random.randint(0, 9)
-        t = random.randint(0, 9)
-        o = random.randint(0, 9)
-        n = th * 1000 + h * 100 + t * 10 + o
-        target = random.randint(1, 9) * 1000 + random.randint(0, 9) * 100
-        if d == 0:                           # 3-digit, up to the next hundred
-            n = h * 100 + t * 10 + 100 * (h == 0)
-            target = (n // 100 + 1) * 100
-        elif d == 2:                         # the target has tens too: no tidy complement
-            target += random.randint(1, 9) * 10
-        diff = target - n
-        if diff <= 0:
-            return t_rounding_puzzle()
-        return _tb("What must be added to %s to make %s?" % (_c(n), _c(target)),
-                   diff, "int", {},
-                   ["%s − %s = %s." % (_c(target), _c(n), _c(diff))])
+        # a number pyramid: each brick is the sum of the two bricks under it, one bottom brick hidden
+        lo, hi = {0: (2, 20), 1: (11, 60), 2: (45, 300)}[d]
+        a, x, c = (random.randint(lo, hi) for _ in range(3))
+        top = a + 2 * x + c
+        return _tb("In a number pyramid each brick is the sum of the two bricks under it. The bottom "
+                   "row is %s, ___, %s and the top brick is %s. What is the missing number?"
+                   % (_c(a), _c(c), _c(top)), x, "int", {},
+                   ["The middle bricks are %s + ___ and ___ + %s, so the top is %s + %s + two lots of "
+                    "the missing number." % (_c(a), _c(c), _c(a), _c(c)),
+                    "%s − %s − %s = %s, and half of %s is %s." % (_c(top), _c(a), _c(c), _c(2 * x),
+                                                                   _c(2 * x), _c(x))])
 
     def t_line():
         small = random.randint(*{0: (2, 10), 1: (5, 30), 2: (20, 60)}[d])

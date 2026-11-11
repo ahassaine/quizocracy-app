@@ -369,13 +369,21 @@ def _(d=1):
 
     def t_mode():
         if f.count(max(f)) > 1:
-            return t_total()
+            f[f.index(max(f))] += 1          # one clear mode
+            rows[:] = [[v, x] for v, x in zip(vals, f)]
         return _dt("The table shows %s. What is the mode?" % desc, hdr, rows, vals[f.index(max(f))],
                    ["The highest frequency is %d, for the value %d." % (max(f), vals[f.index(max(f))])])
 
     def t_total():
-        return _dt("The table shows %s. How many %s are there altogether?" % (desc, people), hdr, rows, n,
-                   ["%s = %d." % (" + ".join(map(str, f)), n)])
+        # the mean when Σfx is given: the pupil still has to find n from the table
+        m = Fraction(tot, n)
+        exact = m.denominator in (1, 2, 4, 5, 10, 20, 25, 50)
+        ans = _ds(m) if exact else round(float(m) + 1e-12, 1)
+        return _dt("The table shows %s. Altogether there are %d %s. What is the mean number of %s per %s%s?"
+                   % (desc, tot, noun, noun, {"pupils": "pupil", "matches": "match"}.get(people, people),
+                      "" if exact else ", to 1 decimal place"), hdr, rows, ans,
+                   ["The number of %s is the total frequency: %s = %d." % (people, " + ".join(map(str, f)), n),
+                    "Mean = %d ÷ %d = %s." % (tot, n, ans)], atype="num")
 
     def t_median():
         data = sorted(v for v, x in zip(vals, f) for _ in range(x))
@@ -393,14 +401,19 @@ def _(d=1):
                    ["Multiply each value by its frequency and add: %s = %d." % (" + ".join("%d×%d" % (v, x) for v, x in zip(vals, f)), tot)])
 
     def t_more_than():
-        k = random.randint(0, 3)
-        return _dt("The table shows %s. How many of the %s had more than %d?" % (desc, people, k), hdr, rows, sum(f[k + 1:]),
-                   ["Add the frequencies for %s: %d." % (", ".join(str(v) for v in vals[k + 1:]), sum(f[k + 1:]))])
+        # the mean of part of the table: only those with more than 0
+        n1 = n - f[0]
+        m = Fraction(tot, n1)
+        exact = m.denominator in (1, 2, 4, 5, 10, 20, 25, 50)
+        ans = _ds(m) if exact else round(float(m) + 1e-12, 1)
+        return _dt("The table shows %s. Leave out the %s with 0. What is the mean of the rest%s?"
+                   % (desc, people, "" if exact else ", to 1 decimal place"), hdr, rows, ans,
+                   ["The 0 row adds nothing to the total, %d, but it does add %d to the count." % (tot, f[0]),
+                    "Without it: %d %s. Mean = %d ÷ %d = %s." % (n1, people, tot, n1, ans)], atype="num")
 
     def t_bar():
         if f.count(max(f)) > 1:
-            return _bar("The bar chart shows %s. How many %s are there altogether?" % (desc, people), [str(v) for v in vals], f, n,
-                        ["Add the bar heights: %d." % n])
+            f[f.index(max(f))] += 1          # one clear mode
         return _bar("The bar chart shows %s. What is the mode?" % desc, [str(v) for v in vals], f, vals[f.index(max(f))],
                     ["The tallest bar is at %d." % vals[f.index(max(f))]])
 
@@ -447,13 +460,23 @@ def _(d=1):
 
     def t_modal():
         if f.count(max(f)) > 1:
-            return t_total()
+            f[f.index(max(f))] += 1          # one clear modal class
+            rows[:] = [["%d < %s ≤ %d" % (g[0], v, g[1]), x] for g, x in zip(groups, f)]
         g = groups[f.index(max(f))]
         return _dt("The table shows %s. Which is the modal class? Type its lower end." % desc, hdr, rows,
                    g[0], ["The modal class is %d < %s ≤ %d." % (g[0], v, g[1])])
 
     def t_total():
-        return _dt("The table shows %s. How many values are in the table?" % desc, hdr, rows, sum(f), ["%s = %d." % (" + ".join(map(str, f)), sum(f))])
+        # the last step of an estimated mean: Σ(midpoint × f) is given, the count comes from the table
+        mids = [Fraction(a + b, 2) for a, b in groups]
+        T = sum(mp * x for mp, x in zip(mids, f))
+        m = T / sum(f)
+        q = _dt("The table shows %s. Using midpoints, Σ(midpoint × frequency) = %s. Estimate the mean, to 1 decimal place."
+                % (desc, _ds(T)), hdr, rows, round(float(m) + 1e-12, 1),
+                ["Σf = %s = %d values." % (" + ".join(map(str, f)), sum(f)),
+                 "Estimated mean = %s ÷ %d ≈ %s." % (_ds(T), sum(f), round(float(m) + 1e-12, 1))], atype="num")
+        q["tolerance"] = 0.051
+        return q
 
     def t_midpoint():
         k = random.randrange(len(groups))
@@ -490,9 +513,26 @@ def _(d=1):
                    ["The original values are lost when data is grouped."], "one word")
 
     def t_more_than():
-        k = random.randint(1, 3)
-        return _dt("The table shows %s. How many values are more than %d?" % (desc, groups[k][0]), hdr, rows, sum(f[k:]),
-                   ["Add the classes above %d: %d." % (groups[k][0], sum(f[k:]))])
+        if d < 2:
+            # the midpoint of the modal class: the value an estimated mean uses for every value in it
+            if f.count(max(f)) > 1:
+                f[f.index(max(f))] += 1
+                rows[:] = [["%d < %s ≤ %d" % (g[0], v, g[1]), x] for g, x in zip(groups, f)]
+            g = groups[f.index(max(f))]
+            return _dt("The table shows %s. What is the midpoint of the modal class?" % desc, hdr, rows, _ds(Fraction(g[0] + g[1], 2)),
+                       ["The modal class is %d < %s ≤ %d (frequency %d)." % (g[0], v, g[1], max(f)),
+                        "Its midpoint is (%d + %d) ÷ 2 = %s." % (g[0], g[1], _ds(Fraction(g[0] + g[1], 2)))], atype="num")
+        # the estimated mean of the values above one boundary only
+        k = random.randint(1, len(groups) - 2)
+        mids = [Fraction(a + b, 2) for a, b in groups][k:]
+        m = sum(mp * x for mp, x in zip(mids, f[k:])) / sum(f[k:])
+        q = _dt("The table shows %s. Estimate the mean of the values that are more than %d, to 1 decimal place."
+                % (desc, groups[k][0]), hdr, rows, round(float(m) + 1e-12, 1),
+                ["Use only the classes above %d: %s values." % (groups[k][0], sum(f[k:])),
+                 "(%s) ÷ %d ≈ %s." % (" + ".join("%s×%d" % (_ds(mp), x) for mp, x in zip(mids, f[k:])), sum(f[k:]),
+                                    round(float(m) + 1e-12, 1))], atype="num")
+        q["tolerance"] = 0.051
+        return q
 
     def t_range_max():
         return _dt("The table shows %s. What is the greatest possible range of the data?" % desc, hdr, rows, groups[-1][1] - groups[0][0],
@@ -508,7 +548,7 @@ def _(d=1):
     def t_bar():
         cats = ["%d–%d" % g for g in groups]
         if f.count(max(f)) > 1:
-            return _bar("The bar chart shows grouped %s. How many values are there altogether?" % desc, cats, f, sum(f), ["Add the bars: %d." % sum(f)])
+            f[f.index(max(f))] += 1          # one clear modal class
         return _bar("The bar chart shows grouped %s. Type the lower end of the modal class." % desc, cats, f, groups[f.index(max(f))][0],
                     ["The tallest bar is %s." % cats[f.index(max(f))]])
 
@@ -674,10 +714,18 @@ def _(d=1):
 
     def t_bar_compare():
         cats = ["Football", "Swimming", "Tennis", "Netball"]
-        vals = random.sample(range(3, 25), 4)
+        # test a claim against the chart: "twice as many", "half as many", "three times as many"
+        vals = random.sample(range(3, 13), 4)
         i, j = random.sample(range(4), 2)
-        return _bar("The bar chart shows the sports pupils chose. How many more chose %s than %s? (Use a minus sign if fewer.)"
-                    % (cats[i].lower(), cats[j].lower()), cats, vals, vals[i] - vals[j], ["%d − %d = %d." % (vals[i], vals[j], vals[i] - vals[j])])
+        k, word = pick([(2, "twice as many"), (3, "three times as many")])
+        true = random.random() < 0.5
+        vals[i] = k * vals[j] + (0 if true else pick([-2, -1, 1, 2]))
+        who = pick(NAMES)
+        return _bar("The bar chart shows the sports pupils chose. %s says: \u201c%s pupils chose %s as chose %s.\u201d Is %s "
+                    "right? (yes or no)" % (who, word[0].upper() + word[1:], cats[i].lower(), cats[j].lower(), who), cats, vals,
+                    "yes" if true else "no",
+                    ["%s: %d. %s: %d." % (cats[i], vals[i], cats[j], vals[j]),
+                     "%d × %d = %d, %s %d." % (k, vals[j], k * vals[j], "which is" if true else "not", vals[i])], atype="str")
 
     def t_pie_fraction():
         a1 = pick([90, 180, 120] if d == 0 else [90, 120, 60, 180, 45])
@@ -692,9 +740,15 @@ def _(d=1):
         for _ in years[1:]:
             v.append(v[-1] + random.randint(-8, 12))
         i = random.randint(1, 5)
-        return _lg("The line graph shows a club's members each year. By how much did membership change from %s to %s? (Use a minus sign for a fall.)"
-                   % (years[i - 1], years[i]), list(zip(years, v)), v[i] - v[i - 1], ["%d − %d = %d." % (v[i], v[i - 1], v[i] - v[i - 1])],
-                   "Members", "Year")
+        # a headline checked against the graph: the size of the change as a percentage
+        v[i - 1] = pick([20, 25, 40, 50])
+        p = pick([4, 5, 10, 20] if v[i - 1] in (25, 50) else [5, 10, 15, 20, 25])
+        v[i] = v[i - 1] + v[i - 1] * p // 100
+        return _lg("The line graph shows a club's members each year. A poster says membership \u201cshot up\u201d from %s to %s. "
+                   "What was the percentage increase? Give the number only." % (years[i - 1], years[i]), list(zip(years, v)), p,
+                   ["%s: %d. %s: %d. The rise is %d." % (years[i - 1], v[i - 1], years[i], v[i], v[i] - v[i - 1]),
+                    "%d ÷ %d × 100 = %d%%. A steep-looking line can still be a small percentage." % (
+                        v[i] - v[i - 1], v[i - 1], p)], "Members", "Year")
 
     # Easy: choose a chart, read a bar or a simple pie sector.  Stretch: criticise misleading charts, build and read pie angles.
     return _pick_t(*_by(d, ([t_choose], [t_scatter, t_bar_compare, t_pie_fraction]),

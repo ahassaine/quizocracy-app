@@ -11,6 +11,7 @@ db = client[config.DB_NAME]
 FAMILY_COLLECTIONS = (
     "accounts", "pupils", "sessions", "attempts", "maths_lab_q", "maths_attempts", "maths_mastery",
     "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items", "reports", "family_log",
+    "feedback",
 )
 
 
@@ -46,3 +47,7 @@ async def ensure_indexes():
     await db.family_log.create_index([("family_id", ASCENDING), ("ts", DESCENDING)])        # Home's "Family activity"
     await db.family_log.create_index([("ts", ASCENDING)], expireAfterSeconds=90 * 86400)
     await db.outbox.create_index([("created", ASCENDING)], expireAfterSeconds=30 * 86400)   # the mail log is kept 30 days
+    await db.feedback.create_index([("account_id", ASCENDING)])          # "How is it going?" cards (app/funnel.py)
+    # Ids (only) of deleted families and children, kept as long as the oldest backup copy, so a restore can delete
+    # them again (scripts/reapply_deletions.py).
+    await db.deletions.create_index([("at", ASCENDING)], expireAfterSeconds=61 * 86400)
