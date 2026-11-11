@@ -58,8 +58,11 @@ def test_every_chart_and_table_label_answer_marks_itself_and_its_copied_form():
             kw = {"prompt": q["prompt"], "unit": (q.get("spec") or {}).get("unit"), "labels": labels}
             assert me.check_answer(*args, q["answer"], **kw), (s["key"], q["answer"])
             assert me.check_answer(*args, str(q["answer"]).upper(), **kw), (s["key"], q["answer"])
-            full = [n for n in labels["names"] if n.lower().endswith(" " + str(q["answer"]).lower())]
-            if full:                                     # "Class 3A" on the chart, 3A the answer
+            a = " " + str(q["answer"]).lower()
+            # "Class 3A" on the chart, 3A the answer: a name in words, then the answer. Not a maths expression that
+            # happens to end the same way ("3^4 × 3^5" when the empty cell is 3^5): that one is rightly marked wrong.
+            full = [n for n in labels["names"] if n.lower().endswith(a) and re.fullmatch(r"[a-z][a-z '’-]*", n.lower()[:-len(a)])]
+            if full:
                 assert me.check_answer(*args, full[0].lower(), **kw), (s["key"], full[0])
     assert seen > 100
 

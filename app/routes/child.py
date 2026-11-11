@@ -157,6 +157,10 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
             fx["known"] = known
         near = fx["waiting"] if fx and not focus and not known and activity in NEAR else None
         kw = {"near": near} if near else {"known": True} if known and activity in KNOWN_FLAG else {}
+        if near and activity == "tables":
+            # filler never asks another open mistake either (after the check only its facts are in this round;
+            # an older one would be "put right" without its gap)
+            kw["avoid"] = (fx["open"] or {}).get(activity, [])
         q = await DRILLS[activity].next_question(ctx.child, focus=focus or known, **kw)
         if not q:
             return JSONResponse({"ok": False, "error": "no_question"}, status_code=500)
@@ -188,6 +192,8 @@ async def _known(ctx: Ctx, activity: str, fx: dict) -> str | None:
     now = datetime.datetime.utcnow()
     book = await progress.mistake_book(pupil, progress.day_list(KNOWN_DAYS))
     shaky = {e["item"] if activity != "maths" else e["detail"] for e in book if e["activity"] == activity and not e["fixed"]}
+    # and every mistake still open in this subject, however old (the book above looks back KNOWN_DAYS only)
+    shaky |= {progress.same_item(activity, k) if activity != "maths" else k for k in (fx.get("open") or {}).get(activity, [])}
     # not one asked in this round or in the last few minutes (a maths skill may come again: its question is new)
     after = min(fx.get("since") or now, now - datetime.timedelta(seconds=items.RECALL_SECONDS))
     recent = set() if activity == "maths" else {progress.same_item(activity, r["detail"]) async for r in db.attempts.find(

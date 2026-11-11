@@ -58,10 +58,12 @@ async def _near_run(pupil: dict, near: list) -> int:
     return run
 
 
-async def next_question(pupil: dict, focus: str | None = None, near: list | None = None) -> dict:
+async def next_question(pupil: dict, focus: str | None = None, near: list | None = None,
+                        avoid: list | None = None) -> dict:
     """focus: a fact such as "7x8" to ask again (a mistake being put right). near: facts waiting to be put right;
     the question then comes from their tables (7 x 8 waits: the 7 and 8 times tables), not one of them, for
-    NEAR_RUN questions; then from the other tables until they come back."""
+    NEAR_RUN questions; then from the other tables until they come back. avoid: other facts not to ask (open
+    mistakes waiting for their own turn)."""
     year = pupil.get("year", 4)
     tabs, top = tables_for_year(year), young_top(year)
     facts = {d["_id"]: d async for d in db.tables_facts.find({"pupil_id": pupil["_id"]})}
@@ -71,7 +73,7 @@ async def next_question(pupil: dict, focus: str | None = None, near: list | None
     else:
         shown = await items.just_shown(pupil, "tables")      # a missed fact comes back later, not straight away
         last = await items.last_answered(pupil, "tables")    # and no fact twice in a row
-        shown |= set(near or []) | {((last or {}).get("meta") or {}).get("fact")}
+        shown |= set(near or []) | set(avoid or []) | {((last or {}).get("meta") or {}).get("fact")}
         shown |= {"x".join(f.split("x")[::-1]) for f in shown if f}       # 8 x 7 is the same fact as 7 x 8
         pool = [(a, b) for a in tabs for b in range(1, top + 1) if f"{a}x{b}" not in shown]
         close = [(a, b) for a, b in pool if any(_near(f, a, b) for f in near or [])]

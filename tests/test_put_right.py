@@ -334,3 +334,51 @@ def test_the_parent_sees_the_weakest_tables(page):
     unlock_parent(page)
     page.goto(f"/children/{pid}")
     assert "Weakest: the 7× and 8× tables" in page.inner_text("[data-testid=tables-weakest]")
+
+
+def test_gap_filler_never_asks_another_open_mistake(monkeypatch):
+    """After the check, the facts it missed wait for their gap and the gap is filled from their tables; an older
+    open mistake from those tables (9 x 1 here) must not be that filler: it would be "put right" without its gap."""
+    import asyncio, concurrent.futures
+    from app.drills import tables as T
+
+    class _Cur:
+        def __init__(self, rows=()): self.rows = list(rows)
+        def sort(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def __aiter__(self):
+            async def gen():
+                for r in self.rows:
+                    yield r
+            return gen()
+
+    class _Coll:
+        def find(self, *a, **k): return _Cur()
+
+    class _DB:
+        tables_facts = _Coll()
+        items = _Coll()
+
+    async def none(*a, **k): return None
+    async def empty(*a, **k): return set()
+    seen = []
+    async def issue(pupil, act, answer, meta): seen.append(meta["fact"]); return "t"
+    monkeypatch.setattr(T, "db", _DB())
+    monkeypatch.setattr(T.items, "just_shown", empty)
+    monkeypatch.setattr(T.items, "last_answered", none)
+    monkeypatch.setattr(T.items, "issue", issue)
+    pupil = {"_id": "p", "family_id": "f", "year": 4}
+
+    async def run(**kw):
+        seen.clear()
+        for _ in range(400):
+            await T.next_question(pupil, near=["9x7"], **kw)
+        return set(seen)
+
+    def go(coro):
+        with concurrent.futures.ThreadPoolExecutor(1) as ex:
+            return ex.submit(asyncio.run, coro).result()
+
+    assert {"9x1", "1x9"} & go(run())                       # without avoid, 9 x 1 is a fair filler of the 9s
+    got = go(run(avoid=["1x9"]))
+    assert not {"9x1", "1x9"} & got and got, got           # an open mistake (either way round) is never filler

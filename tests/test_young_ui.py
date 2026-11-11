@@ -5,11 +5,16 @@ import json
 
 from conftest import BASE, add_child, enter_child, signup, wait_question
 
-# speechSynthesis stand-in: records what is said, and (like Chrome and Safari) refuses until the page has had a tap
+# speechSynthesis stand-in: records what is said, and (like Chrome and Safari) refuses until the page has had a tap.
+# "Had a tap" is a real (trusted) tap or key seen on this page, not navigator.userActivation: headless Chrome now and
+# then reports a page it opened as already activated, with no input at all, and the test then hears speech that a
+# real first visit would not allow.
 STUB = """
-window.__said = [];
+window.__said = []; window.__tapped = false;
+['pointerdown', 'mousedown', 'click', 'keydown', 'touchend'].forEach(t => window.addEventListener(t, e => {
+  if (e.isTrusted) window.__tapped = true; }, true));
 (function () { const s = window.speechSynthesis; if (!s) return;
-  s.speak = function (u) { const ok = navigator.userActivation ? navigator.userActivation.hasBeenActive : true;
+  s.speak = function (u) { const ok = window.__tapped;
     setTimeout(() => { if (!ok) { u.onerror && u.onerror({ error: 'not-allowed' }); return; }
       if (u.text.trim()) window.__said.push(u.text); u.onstart && u.onstart({}); setTimeout(() => u.onend && u.onend({}), 20); }, 5); };
   s.cancel = function () {}; })();
