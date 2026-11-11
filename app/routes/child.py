@@ -368,7 +368,8 @@ async def _fix_end(ctx: Ctx, fx: dict) -> dict:
     return {"fix_total": 0, "fix_msg": "", "fix_done": done, "fix_title": "", "fix_next": None, "fix_comeback": n}
 
 
-def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0, known: bool = False) -> str:
+def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0, known: bool = False,
+               young: bool = False) -> str:
     """"Your 3 mistakes come back in about 2 minutes. Until then: some you already know." (total: the count
     on screen, when it is more than these: "3 of your 7 mistakes come back…"; known: the filler is something the
     child got right before, _known)"""
@@ -383,6 +384,10 @@ def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0, kn
     if known:
         fill = "some you already know"
     it = "it" if n == 1 else "them"
+    if young:                       # Years 1-3: short words, and the reason in a few of them
+        mine = "Your mistake" if n == 1 else f"Your {n} mistakes"
+        soon = f"in {mins} minute{'s' if mins > 1 else ''}" if secs >= 45 else "very soon"
+        return f"{mine} come{'s' if n == 1 else ''} back {soon}. First, a few more questions."
     return f"{what} {when}, so you remember {it} rather than copy {it}. Until then: {fill}."
 
 
@@ -424,7 +429,8 @@ async def _fix_flow(ctx: Ctx, activity: str, fx: dict, fixing: bool, via=None) -
     elif fx["check"] and not fx["waiting"] and fx["todo"]:
         out["fix_msg"] = f"A fact you missed in the check · {total} to put right"
     elif fx["waiting"]:
-        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"], total, bool(fx.get("known")))
+        out["fix_msg"] = _wait_text(len(fx["waiting"]), fx["wait"], activity, fx["check"], total, bool(fx.get("known")),
+                                    young=int(ctx.child.get("year") or 4) <= 3 and not fx["check"])
     else:
         out["fix_msg"] = f"Your other mistakes come back a little later · {total} waiting" if total else ""
     return out

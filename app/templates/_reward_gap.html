@@ -1,5 +1,12 @@
 {# "Ava and Max have no reward. Use the family reward?": gap = routes/parent.py reward_gap(), back = a child's id or "". #}
-{% if gap and ctx.full %}<div class="card small" data-testid="reward-gap" style="border:2px solid var(--sun);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">
+{% if gap and gap.choose and ctx.full %}<div class="card small" data-testid="reward-choose" style="border:2px solid var(--sun)">
+  <b>Choose a reward for a finished day.</b> When {{ gap.without }} {{ 'finishes' if gap.n == 1 else 'finish' }} the day's plan, the board shows the treat they have earned. Any treat works: screen time, a story, picking dinner.
+  <form method="post" action="/settings/family-reward" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0">
+    <input type="hidden" name="reward_threshold" value="100"><input type="hidden" name="back" value="{{ back or '' }}">
+    <input name="reward_text" maxlength="120" required placeholder="30 minutes of screen time" aria-label="The reward" style="flex:1 1 200px;min-width:0" data-testid="reward-choose-text">
+    <button class="btn primary" type="submit" data-testid="reward-choose-save">Save the reward</button></form>
+  <div class="mut" style="margin-top:6px">Every child earns it. You can give a child a reward of their own, or change it, in Settings.</div>
+</div>{% elif gap and ctx.full %}<div class="card small" data-testid="reward-gap" style="border:2px solid var(--sun);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">
   <div style="flex:1 1 240px"><b>{{ gap.without }} {{ 'has' if gap.n == 1 else 'have' }} no reward.</b> Use the family reward? Then every child without a reward of their own earns the same one, so nobody is left out.</div>
   <form method="post" action="/settings/family-reward" style="margin:0"><input type="hidden" name="reward_text" value="{{ gap.reward.text }}"><input type="hidden" name="reward_threshold" value="{{ gap.reward.threshold or 100 }}"><input type="hidden" name="back" value="{{ back or '' }}">
     <button class="btn primary" type="submit" data-testid="reward-gap-use">Use “{{ gap.reward.text }}” for {{ gap.without }} too</button></form>

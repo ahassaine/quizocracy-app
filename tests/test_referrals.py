@@ -33,12 +33,13 @@ def test_invite_a_family(browser, page):
     assert page.locator("[data-testid=founding]").is_visible()
     link = page.locator("[data-testid=invite-link]").inner_text().strip()
     code = DB.families.find_one({"_id": fa})["ref"]
-    assert link.endswith(f"/join/{code}") and len(code) == 6
+    assert link.endswith(f"/join/{code}") and len(code) == 6 and "://" not in link    # shown short; Share sends it whole
     assert "No family has joined" in page.locator("[data-testid=invite-count]").inner_text()
 
     # another family joins with the link: no beta code needed, and it is remembered
     other = browser.new_context(base_url=BASE).new_page()
-    assert other.goto("/join/ZZZZ99").url.endswith("/signup")              # an unknown code: plain sign-up
+    other.goto("/join/ZZZZ99")                                              # an unknown code: sign-up, and said so
+    assert other.url.endswith("/signup?bad_ref=1") and other.locator("[data-testid=bad-ref]").is_visible()
     path = link.split("quizocracy.com")[-1] if "quizocracy.com" in link else link[link.index("/join/"):]
     b = _signup_with_link(other, path, "Joining family")
     fb = DB.families.find_one({"_id": _fam(b)})

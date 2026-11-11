@@ -205,7 +205,7 @@ def _(d=1):
 
     def t_money():
         c = pick([2, 5, 10])
-        return _tb("%s has %s. How much money is that, in pence?" % (_kid(), _pn(k, "%dp coin" % c)), c * k, "int", {"unit": "p"},
+        return _tb("%s has %s %dp coin%s. How much money is that, in pence?" % (_kid(), _cnt(k), c, "" if k == 1 else "s"), c * k, "int", {"unit": "p"},
                    ["Count in %ss: %d." % (c, c * k)])
 
     if d == 0:     # counting on from small multiples; no counting back past the start of the tables
@@ -271,7 +271,7 @@ def _(d=1):
 
     def t_coins():
         t, o = random.randint(1, _by(d, 5, 9, 9)), random.randint(1, _by(d, 5, 9, 9))
-        return _tb("%s has %s and %s. How many pence is that?" % (_kid(), _pn(t, "10p coin"), _pn(o, "1p coin")), 10 * t + o, "int",
+        return _tb("%s has %s 10p coin%s and %s 1p coin%s. How many pence is that?" % (_kid(), _cnt(t), "" if t == 1 else "s", _cnt(o), "" if o == 1 else "s"), 10 * t + o, "int",
                    {"unit": "p"}, ["%s: %dp." % (_tn(t, o), 10 * t + o)])
 
     def t_digit_place():
@@ -957,7 +957,7 @@ def _(d=1):
                    [_share_why(k * t, t)])
 
     def t_coins():
-        return _tb("How much are %d %dp coins worth, in pence?" % (k, t), k * t, "int", {"unit": "p"}, ["%d × %d = %d." % (k, t, k * t)])
+        return _tb("How much are %s %dp coins worth, in pence?" % (_cnt(k), t), k * t, "int", {"unit": "p"}, ["%d × %d = %d." % (k, t, k * t)])
 
     def t_teams():
         return _tb("%d children make teams of %d. How many teams?" % (k * t, t), k, "int", {}, [_groups_why(k * t, t, "team")])
@@ -1443,7 +1443,7 @@ def _(d=1):
     def t_notes():
         a, b = random.sample([5, 10, 20], 2)
         n = random.randint(_by(d, 1, 1, 2), _by(d, 1, 3, 4))     # hard: more notes of one kind
-        return _tb("%s has %s and a £%d note. How many pounds is that?" % (_kid(), "a £%d note" % a if n == 1 else _pn(n, "£%d note" % a), b),
+        return _tb("%s has %s and a £%d note. How many pounds is that?" % (_kid(), "a £%d note" % a if n == 1 else "%s £%d notes" % (_cnt(n), a), b),
                    n * a + b, "int",
                    {"unit": "£"}, ["%d × £%d + £%d = £%d." % (n, a, b, n * a + b)])
 
@@ -1951,3 +1951,11 @@ def _(d=1):
     if d == 2:     # stretch: totals and comparisons that need two steps
         return _pick_t([], [t_total, t_more, t_table, t_together, t_together])
     return _pick_t([], [t_read, t_total, t_more, t_table, t_least])
+
+
+def _cnt(k):
+    """A count before a coin ("four 5p coins", not "4 5p coins", which reads as 45p)."""
+    return _COUNT_WORDS[k] if 0 <= k < len(_COUNT_WORDS) else str(k)
+
+
+_COUNT_WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"]

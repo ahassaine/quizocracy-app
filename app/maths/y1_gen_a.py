@@ -201,7 +201,7 @@ def _(d=1):
 
     def t_coins():
         c = pick([2, 5, 10])
-        return _tb("%s has %d %dp coins. How many pence is that? Count in %ss." % (_kid(), k, c, c), k * c, "int", {"unit": "p"},
+        return _tb("%s has %s %dp coins. How many pence is that? Count in %ss." % (_kid(), _cnt(k), c, c), k * c, "int", {"unit": "p"},
                    ["Count in %ds: %s. That makes %d." % (c, ", ".join(str(c * i) for i in range(1, k + 1)), c * k)])
 
     def t_sticks():
@@ -1408,3 +1408,11 @@ def _(d=1):
                        [t_halves, t_face, t_position, t_half_turn, t_three_q, t_two_halves, t_line_up, t_more_position, t_clock_turn],
                        [t_halves, t_face, t_three_q, t_two_halves, t_turn_sum, t_turn_sum, t_clock_turn]),
                    [t_turn_pic, t_grid])
+
+
+def _cnt(k):
+    """A count before a coin ("four 5p coins", not "4 5p coins", which reads as 45p)."""
+    return _COUNT_WORDS[k] if 0 <= k < len(_COUNT_WORDS) else str(k)
+
+
+_COUNT_WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"]

@@ -229,7 +229,10 @@ def device_text(ua: str) -> str:
 async def family_page(request: Request) -> Ctx:
     ctx = await load(request)
     if not ctx:
-        raise Redirect("/login")
+        # a child opening "Who's learning?" or My day on a device not signed in: the sign-in page says so to them,
+        # and brings the family back to "Who's learning?" once a grown-up has signed in
+        kid = request.url.path == "/learn" or request.url.path == "/me" or request.url.path.startswith("/me/")
+        raise Redirect("/login?kid=1" if kid else "/login")
     if not ctx.account.get("verified_at"):
         raise Redirect("/verify")
     return ctx

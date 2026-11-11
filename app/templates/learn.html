@@ -21,7 +21,7 @@
       <details style="text-align:left"{% if unlock_error and pin_for == p._id %} open{% endif %}><summary class="small" style="cursor:pointer;padding:6px 0">Grown-up? Unlock {{ p.name }} now</summary>
         {% if unlock_error and pin_for == p._id %}<div class="err" role="alert">{{ unlock_error }}</div>{% endif %}
         <form method="post" action="/children/{{ p._id }}/pin-unlock" novalidate>
-          <div class="field"><label for="upw-{{ p._id }}" class="small">Your password (any grown-up on this family)</label>
+          <div class="field"><label for="upw-{{ p._id }}" class="small">Your password (any grown-up in this family)</label>
           <input id="upw-{{ p._id }}" name="password" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false"></div>
           {# new-password: browsers must not offer the saved parent password on the device handed to a child #}
           <button class="btn" type="submit">Unlock {{ p.name }}</button> <a class="small" href="/forgot">Forgot password?</a>

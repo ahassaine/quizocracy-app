@@ -148,8 +148,9 @@ def test_help_gives_a_short_answer_first_and_search_finds_the_new_answers(page):
         assert first.is_visible() and len(first.inner_text()) < 200, (s.get_attribute("id"), first.inner_text())
         more = s.locator("details.help-more")
         assert more.count() == 0 or more.get_attribute("open") is None, s.get_attribute("id")
-    assert page.inner_text("#cost .help-short") == ("It is free during the beta. Before any paid plan starts, we will "
-                                                     "email you, and you can keep or delete your account.")
+    assert page.inner_text("#cost .help-short") == ("Free during the beta, then 12 more months free for a family that "
+                                                     "joins now (a founding family). We will email you before any paid "
+                                                     "plan starts.")                       # the founding offer, as on the landing page
     for words, section in [("price", "cost"), ("pay", "cost"), ("streak", "streak"), ("modal", "modal"),
                            ("wrong word", "wrong-word"), ("frend", "wrong-word"), ("SATs papers", "sats-papers"),
                            ("weak", "needs-help"), ("progress", "needs-help")]:

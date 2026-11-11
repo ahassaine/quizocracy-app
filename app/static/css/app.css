@@ -71,6 +71,7 @@ a.card:hover, .card.lift:hover { transform:translateY(-3px); box-shadow:var(--sh
 .btn:hover { transform:translateY(-1px); box-shadow:var(--shadow); }
 .btn:active { transform:translateY(1px) scale(.98); }
 .btn.primary { background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:#fff; border:0; box-shadow:0 6px 16px -8px rgba(79,70,229,.6); }
+:root[data-theme="dark"] a.btn.primary { color:#fff; }          /* a link styled as the main button: white text, as in light mode (the dark link colour is 3:1 on violet) */
 .btn.primary:hover { box-shadow:0 10px 24px -8px rgba(79,70,229,.7); }
 .btn.danger { background:#FFE8EC; color:#B3123A; border-color:#FFC9D3; }
 :root[data-theme="dark"] .btn.danger { background:#3A1020; color:#FFB3C3; border-color:#5C1A31; }

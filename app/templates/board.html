@@ -2,6 +2,7 @@
 {% block body %}
 {# a child in the family with a calm screen: the shared board is calm too (no bars filling, nothing moving) #}
 {% if board|selectattr('pupil.calm')|list %}<script>document.documentElement.classList.add('a11y-calm')</script>{% endif %}
+{% if left %}<div class="card small" role="status" data-testid="board-signed-out"><b>You're signed out, {{ left }},</b> so nobody else carries on in your account. To carry on, tap <a href="/learn">Who's learning?</a> and your PIN.</div>{% endif %}
 <div class="act-head rise"><img src="/static/img/family.png" alt=""><div><h1 style="margin:0">Today's board</h1><div class="mut">{{ today_label or today }}</div></div></div>
 {% for b in board %}{% set p = b.pupil %}
 <div class="card rise rise-{{ [loop.index, 5]|min }}" data-testid="board-{{ p.name }}">

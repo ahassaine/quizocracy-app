@@ -2,6 +2,7 @@
 {% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Check your email</h1>
 <p>We sent a 6-digit code to <b>{{ email }}</b>.</p>
+<p class="mut small" data-testid="verify-help">It usually arrives within a minute. Not there? Look in your spam or junk folder, or send a new code below. Wrong email address? <a href="/signup">Start again</a> with the right one.</p>
 {% if request.query_params.get('sent') %}<div class="ok">A new code is on its way.</div>{% endif %}
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" action="/verify" class="card">

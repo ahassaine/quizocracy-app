@@ -527,7 +527,9 @@ def list_for_year(year: int) -> list:
     if year <= 1:
         return YEAR1_ORDER
     if year == 2:
-        return LISTS["Y1"] + LISTS["Y2"]
+        # the Year 2 words first (new words come in list order), the Year 1 common exception words after, as revision:
+        # a Year 2 child's first week is not all "the", "of" and "said"
+        return LISTS["Y2"] + [w for w in LISTS["Y1"] if w not in LISTS["Y2"]]
     if year in (3, 4):
         return Y34_ORDER
     if year in (5, 6):
@@ -1125,6 +1127,15 @@ async def check(pupil: dict, token: str, value: str, ms: int | None, idk: bool =
         value = ""
     typed = " ".join(str(value or "").split()).lower()
     correct = not idk and (typed == word.lower() or typed in VARIANTS.get(word, ()))
+    raw = " ".join(str(value or "").split())
+    if correct and word != word.lower() and raw != word and raw.lower() == word.lower() and typed not in VARIANTS.get(word, ()):
+        # the letters are right but not the capitals ("i" for I, "monday"): a capital is part of spelling these. The
+        # first time it is a hint and another go (not a mistake); a second time, a miss like any other
+        if not it.get("retried"):
+            await db.items.update_one({"_id": it["_id"]}, {"$set": {"done": False, "retried": True}})
+            msg = f"Nearly! {word} needs a capital letter. Try again."
+            return {"correct": False, "retry": True, "expected": word, "hint": msg, "spoken": msg, "capital": True}
+        correct = False
     if not correct and not idk and other_word(typed, word):
         # another real word, spelt right ("supervise" for "accompany" with the sound off): not a spelling mistake,
         # and not counted in the day's % (progress.day_stats leaves "other" out). It is kept, so the parent sees it

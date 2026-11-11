@@ -39,7 +39,7 @@
   <p style="margin:0 0 6px"><b>Invite a family you know</b></p>
   <p class="small" style="margin:0 0 10px">Send them your family's link. It lets them join the beta without a code. When one of their children is still practising in their second week (days 8 to 14 after they sign up), both families get one more free month after launch.</p>
   <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
-    <code data-testid="invite-link" style="overflow-wrap:anywhere;flex:1 1 220px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">{{ invite.link }}</code>
+    <code data-testid="invite-link" style="overflow-wrap:break-word;flex:1 1 220px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">{{ invite.link.split('://')[-1] }}</code>
     <button class="btn" type="button" id="inviteShare" data-link="{{ invite.link }}">Share the link</button></div>
   <p class="mut small" style="margin:10px 0 0" data-testid="invite-count">{% if invite.joined %}{{ invite.joined }} {{ 'family has' if invite.joined == 1 else 'families have' }} joined with your link; {{ invite.stayed }} kept going into their second week.{% else %}No family has joined with your link yet.{% endif %}{% if invite.bonus %} You've earned {{ invite.bonus }} extra free month{{ 's' if invite.bonus > 1 }}.{% endif %} We only show you how many, never who.</p>
 </div>

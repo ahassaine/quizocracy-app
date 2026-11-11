@@ -129,7 +129,7 @@
     <tr data-act="{{ k }}"><td><label class="check" style="font-weight:400"><input type="checkbox" name="on_{{ k }}" value="1" {% if cur.on %}checked{% endif %} {% if k not in plan.activities %}disabled{% endif %} data-testid="on-{{ k }}"> <img src="{{ a.img }}" alt="" style="width:30px;vertical-align:middle"> {{ a.title }}</label>
       <div class="mut small">{% if not a.free and not (cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family') %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
       <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day{% if k == 'tables' %}
-        <label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_tables" value="1" {% if cur.check %}checked{% endif %} data-testid="check-tables"> + a Year 4 check</label><span class="mut small" style="display:block">Years 3 to 6: 25 quick questions</span>
+        <span id="checkOpts" style="display:block"><label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_tables" value="1" {% if cur.check %}checked{% endif %} data-testid="check-tables"> + a Year 4 check</label><span class="mut small" style="display:block">Years 3 to 6: 25 quick questions</span><span class="small" id="checkY4" style="display:none;font-weight:600" data-testid="check-y4-hint">Year 4: the real check is in June. Ticking this adds about 4 minutes a day.</span></span>
         <label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_slow" value="1" {% if cur.slow %}checked{% endif %} data-testid="check-slow"> Extra time to start with (9 seconds)</label><span class="mut small" style="display:block">For a nervous child: practice only, the real check gives 6 seconds. Works straight away.</span>{% endif %}</td></tr>
   {% endfor %}
   </table>
@@ -145,6 +145,8 @@
       // a Year 4 check (Years 3 to 6) is about 4 minutes on its own, whatever the target
       const ck = document.querySelector('[data-testid=check-tables]'), tb = document.querySelector('[data-testid=on-tables]');
       const check = ck && ck.checked && tb && tb.checked && !tb.disabled && y >= 3 && y <= 6 ? J.check_secs : 0;
+      const co = document.getElementById('checkOpts'); if (co) co.style.display = y >= 3 && y <= 6 ? 'block' : 'none';   // only for Years 3-6
+      const c4 = document.getElementById('checkY4'); if (c4) c4.style.display = y === 4 ? 'block' : 'none';
       const m = Math.max(s ? 1 : 0, Math.round((s * J.pace[y] + check) / 60));
       document.getElementById('planMin').textContent = m;
       // Years 1-4: the cap (twice the target in answers, activities.has_cap) bounds a hard day, about 1.5 times the

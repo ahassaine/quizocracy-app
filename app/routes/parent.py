@@ -151,12 +151,16 @@ def names_text(names: list) -> str:
 def reward_gap(family: dict, pupils: list) -> dict | None:
     """One child has a reward of their own and a brother or sister has none at all (no own reward, no family
     reward): {"without": "Ava and Max", "n", "reward": the first own reward} for "Ava and Max have no reward. Use
-    the family reward?" (a one-tap family reward for the others). None otherwise, or without the rewards plan."""
-    if len(pupils) < 2 or not plan_of(family)["rewards"] or (family.get("reward") or {}).get("text"):
+    the family reward?" (a one-tap family reward for the others). No reward at all yet: {"choose": True, ...}, for
+    "Choose a reward for a finished day". None otherwise, or without the rewards plan."""
+    if not pupils or not plan_of(family)["rewards"] or (family.get("reward") or {}).get("text"):
         return None
     own = [p for p in pupils if (p.get("reward") or {}).get("text")]
     none = [p["name"] for p in pupils if not (p.get("reward") or {}).get("text")]
-    if not own or not none:
+    if not own:
+        # no reward anywhere yet: the finished day earns nothing, so offer to choose one (a new family's first days)
+        return {"choose": True, "without": names_text(none), "n": len(none)}
+    if not none:
         return None
     return {"without": names_text(none), "n": len(none), "reward": own[0]["reward"]}
 
@@ -1143,7 +1147,9 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
         # today's plan changed: the child's My day says so in one line ("Dad added Science today")
         now = _plan_changes(p, upd["activities"], today)
         if now:
-            upd["plan_note"] = {"day": today, "text": f"{who} changed today's plan: {now[0].rsplit(', from today', 1)[0]}."}
+            # the child reads this: a grown-up's name if they gave one, never their email address
+            kid_who = (ctx.account.get("name") or "").strip() or "A grown-up"
+            upd["plan_note"] = {"day": today, "text": f"{kid_who} changed today's plan: {now[0].rsplit(', from today', 1)[0]}."}
     if done:
         upd["edits"] = (p.get("edits") or [])[-4:] + [{"at": datetime.datetime.utcnow(), "by": ctx.account["_id"],
                                                        "who": who, "groups": done}]
@@ -1474,8 +1480,10 @@ async def delete_account(request: Request, ctx: Ctx = Depends(full_page), passwo
     if ctx.role != "owner":
         return RedirectResponse("/settings#delete", 303)
     if confirm.strip().upper() != "DELETE" or not verify_secret(password, ctx.account["pw"]):
+        err = ("Type the word DELETE in the first box to confirm." if confirm.strip().upper() != "DELETE" else
+               "That password is not right. Nothing was deleted.")
         return page(request, "settings.html", ctx, plan=plan_of(ctx.family), status_code=400,
-                    delete_error="Type DELETE and your password to delete the account.", **await settings_view(ctx))
+                    delete_error=err, **await settings_view(ctx))
     fid = ctx.family["_id"]
     adults = [a async for a in db.accounts.find({"family_id": fid, "verified_at": {"$ne": None}})]
     kids = [p["name"] async for p in db.pupils.find({"family_id": fid}, {"name": 1})]
@@ -1595,7 +1603,7 @@ async def pin_unlock(request: Request, pid: str, ctx: Ctx = Depends(family_page)
             err = f"Too many wrong passwords. Try again in {UNLOCK_MINUTES} minutes."
         elif not (adult := await family_adult(ctx, password)):
             await hit(key)
-            err = "That password is not right. Use your own password (any grown-up on this family)."
+            err = "That password is not right. Use your own password (any grown-up in this family)."
         if err:
             return await picker_page(request, ctx, pin_for=p["_id"], unlock_error=err, status_code=400)
         # the child is locked out because the PIN was forgotten: the grown-up who just typed a password may see it
@@ -1614,10 +1622,14 @@ async def board(request: Request, ctx: Ctx = Depends(family_page)):
         # the Board is the family's, neutral: opening it signs the child out (as Switch does), so a brother or
         # sister who picks the tablet up next needs their own PIN, never carries on in this child's account
         await db.sessions.update_one({"_id": ctx.session["_id"]}, {"$set": {"child_id": None, "locked": True}})
+        left = ctx.child.get("name", "") if ctx.child else ""
         ctx.child, ctx.locked = None, True
+    else:
+        left = ""
     pupils = await _pupils(ctx)
     return page(request, "board.html", ctx, board=await progress.board(ctx.family, pupils), today=progress.today(),
-                today_label=_nice_day(progress.today()), streaks=await progress.streaks(ctx.family, pupils))
+                today_label=_nice_day(progress.today()), streaks=await progress.streaks(ctx.family, pupils),
+                left=left)
 
 
 def _nice_day(day: str) -> str:

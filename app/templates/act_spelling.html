@@ -1,13 +1,14 @@
 {% extends "base.html" %}{% block title %}Spelling · Quizocracy{% endblock %}
 {% block body %}{% include "_drill_head.html" %}
 <div class="stage rise rise-3" id="stage">
+  <div style="font-weight:700;font-size:1.15rem;margin-bottom:8px" data-testid="spell-instruction">Listen, then type the word you hear.</div>
   <div class="row"><button class="btn big" id="play" type="button" data-speaks>Listen again</button><span class="mut" id="letters"></span></div>
   <div class="mut" id="cue" style="margin-top:10px;font-size:1.1rem"></div>
   <audio id="audio" preload="auto"></audio>
   <div style="margin-top:14px"><input class="answer" id="answer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word"></div>
   {% include "_drill_buttons.html" %}
 </div>{% endblock %}
-{% block scripts %}<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=30"></script><script>
+{% block scripts %}<script src="/static/js/speak.js?v=4"></script><script src="/static/js/drill.js?v=32"></script><script>
 const audio = document.getElementById('audio');
 let say = '';          // a school word with no recorded clip: the browser's own voice says it
 function voice(text, rate) { return new Promise(res => { const s = window.speechSynthesis; if (!s || !window.SpeechSynthesisUtterance) return res();
@@ -39,6 +40,9 @@ Drill({ activity: 'spelling', idk: true,
     else { audio.src = q.audio; audio.load(); playing = q.ease ? new Promise(r => setTimeout(r, 0)).then(first).then(playWord) : playWord(); }
     document.getElementById('cue').textContent = q.cue ? 'Hint: ' + q.cue : '';
     document.getElementById('letters').textContent = q.letters + (q.letters === 1 ? ' letter' : ' letters');
+    // one sound button, not two: where the 🔊 button is (speak.js: it plays the word, then its hint), "Listen
+    // again" (the word alone) goes; it stays for a browser without speech
+    setTimeout(() => { if (document.getElementById('speak')) document.getElementById('play').hidden = true; }, 0);   // after speak.js mounts it
     const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   // 🔊: the word, then its hint sentence ("I walk ___ school." tells "to" from "two"); Years 1-2 hear the hint after the word by themselves
   speech(q) { return { parts: q.cue ? ['Hint: ' + q.cue] : [], lead: playWord, after: playing }; },

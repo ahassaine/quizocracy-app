@@ -148,6 +148,12 @@
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); api.submit(); }
       });
+      if (blankCell) {                     // where to type is not the dashed cell itself: say so, next to the box
+        const lab = document.createElement('div');
+        lab.textContent = 'Type what goes in the empty box:';
+        lab.style.cssText = 'font-size:.9rem;font-weight:600;color:#8b949e;margin-bottom:6px';
+        inputWrap.appendChild(lab);
+      }
       inputWrap.appendChild(input);
       wrap.appendChild(inputWrap);
 
@@ -156,6 +162,26 @@
       if (scroller.scrollWidth - scroller.clientWidth > 2) {
         table.querySelectorAll('th').forEach((th) => { th.style.padding = '6px 5px'; th.style.letterSpacing = '0'; th.style.fontSize = '.75rem'; });
         table.querySelectorAll('td').forEach((td) => { td.style.padding = '7px 6px'; });
+      }
+      // Still too wide, and every heading a place value (a place-value chart): the short forms children learn
+      // (HTh, TTh, Th, H, T, O) with a key under the table, rather than a chart that has to be swiped
+      const PV = {'ten millions': 'TM', 'millions': 'M', 'hundred thousands': 'HTh', 'ten thousands': 'TTh',
+                  'thousands': 'Th', 'hundreds': 'H', 'tens': 'T', 'ones': 'O', 'tenths': 't', 'hundredths': 'h',
+                  'thousandths': 'th'};
+      const ths = Array.from(table.querySelectorAll('th'));
+      if (scroller.scrollWidth - scroller.clientWidth > 2 && ths.length && ths.every((th) => PV[th.textContent.trim().toLowerCase()])) {
+        const key = [];
+        ths.forEach((th) => {
+          const full = th.textContent.trim(), short = PV[full.toLowerCase()];
+          th.textContent = short; th.title = full; th.setAttribute('aria-label', full);
+          th.style.textTransform = 'none'; th.style.fontSize = '.95rem';
+          key.push(short + ' ' + full.toLowerCase());
+        });
+        const k = document.createElement('div');
+        k.setAttribute('data-testid', 'pv-key');
+        k.textContent = key.join(' · ');
+        k.style.cssText = 'margin-top:6px;font-size:.8rem;color:#8b949e;line-height:1.4';
+        scroller.after(k);
       }
       edges();
 

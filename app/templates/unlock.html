@@ -2,10 +2,10 @@
 {% block body %}<div style="max-width:480px;margin:10px auto" class="rise"><div style="text-align:center"><img src="/static/img/logo.png" alt="" style="width:64px"></div>
 <h1 style="text-align:center">Parent area</h1>
 {% if ctx.session.timed_out and not ctx.child %}<div class="ok" role="status">The parent area locked itself after 5 minutes without use, so a child cannot change anything.</div>{% endif %}
-<p class="mut">Enter your password (any grown-up on this family) to {% if ctx.child %}leave {{ ctx.child.name }}'s practice{% else %}open the parent area on this device{% endif %}.</p>
+<p class="mut">Enter your password (any grown-up in this family) to {% if ctx.child %}leave {{ ctx.child.name }}'s practice{% else %}open the parent area on this device{% endif %}.</p>
 {% if error %}<div class="err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" action="/parent-unlock" class="card">
-  <div class="field"><label for="password">Your password (any grown-up on this family)</label><input id="password" name="password" type="password" required autocomplete="new-password" autocapitalize="off" spellcheck="false"></div>
+  <div class="field"><label for="password">Your password (any grown-up in this family)</label><input id="password" name="password" type="password" required autocomplete="new-password" autocapitalize="off" spellcheck="false"></div>
   {# new-password: browsers must not offer the saved parent password here, on the device handed to a child #}
   <button class="btn primary" type="submit">Open parent area</button> <a class="btn" href="{{ '/me' if ctx.child else '/learn' }}">Back</a>
 </form>

@@ -315,7 +315,7 @@ def _(d=1):
                     "%s + %s = %s." % (_c(s), _c(k * st), _c(ans))], lo=lo, hi=hi)
 
     def t_blocks():
-        st = step if step <= 25 else 100
+        st = step if step <= 25 else pick([6, 7, 9, 25])      # the blocks go to 999: a step of the skill, never 100
         k = random.randint(2, 4)
         s = random.randint(1, max(1, (900 - k * st) // st)) * st
         ans = s + k * st
@@ -761,8 +761,10 @@ def _(d=1):
         cc = random.randint(1, 9)
         val = a * 1000 + b * 100 + cc * 10
         return _tb("%s has %d bundle%s of notes worth £1,000 each, %d bundle%s worth £100 each "
-                   "and %d £10 note%s. How much money does %s have altogether?"
-                   % (who, a, "" if a == 1 else "s", b, "" if b == 1 else "s", cc, "" if cc == 1 else "s", who),
+                   "and %s £10 note%s. How much money does %s have altogether?"
+                   % (who, a, "" if a == 1 else "s", b, "" if b == 1 else "s",
+                      ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][cc],   # not "6 £10"
+                      "" if cc == 1 else "s", who),
                    val, "int", {"unit": "£"},
                    ["%s + %s + %d = %s." % (_c(a * 1000), _c(b * 100), cc * 10, _c(val))])
 

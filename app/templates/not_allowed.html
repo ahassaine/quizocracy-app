@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}Ask a parent · Quizocracy{% endblock %}
 {% block body %}<div style="max-width:480px;margin:10px auto" class="rise">
 <h1>Ask a parent</h1>
-<div class="card" data-testid="not-allowed"><p style="margin-top:0">You are on this family as a carer. Only a parent can change the children, the account or its data{% if owner %}: ask {{ owner }}{% endif %}.</p>
+<div class="card" data-testid="not-allowed"><p style="margin-top:0">You are in this family as a carer. Only a parent can change the children, the account or its data{% if owner %}: ask {{ owner }}{% endif %}.</p>
 <p class="mut small">As a carer you can hand the device to a child, unlock a child who is locked out, and see how everyone is doing.</p>
 <div class="row"><a class="btn primary" href="/home">Back to Home</a></div></div>
 </div>{% endblock %}

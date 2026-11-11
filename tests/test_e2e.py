@@ -29,7 +29,8 @@ def test_public_pages_and_guards(page):
     page.goto("/home")
     assert page.url.endswith("/login")
     page.goto("/me")
-    assert page.url.endswith("/login")
+    assert page.url.endswith("/login?kid=1")             # a child's page: the sign-in says so to the child
+    assert "isn't set up yet" in page.inner_text("[data-testid=kid-setup]")
     assert requests.post(BASE + "/api/tables/next").status_code == 401
     # cross-site form posts are refused
     r = requests.post(BASE + "/login", data={"email": "a@example.test", "password": "x"},
@@ -64,7 +65,8 @@ def test_signup_verify_login_logout(page):
     page.click("button[type=submit]")
     page.wait_for_url("**/home")
     page.click("text=Sign out")
-    page.wait_for_url(BASE + "/")
+    page.wait_for_url(BASE + "/?signed_out=1")
+    assert "You're signed out" in page.inner_text("[data-testid=signed-out]")
     page.goto("/home")
     assert page.url.endswith("/login")
 

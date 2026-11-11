@@ -142,7 +142,7 @@ def test_history_keeps_each_days_plan_and_parent_sees_how_the_day_went(page):
     today_card = page.inner_text("[data-testid=today]")
     assert "4 answers" in today_card and "right first time" in today_card, today_card
     assert "1 wrong answer looks rushed" in today_card, today_card
-    assert "1 right answer was typed within a minute" in today_card, today_card
+    assert "1 right answer came straight after" in today_card and "not counted as right first time" in today_card, today_card
     page.goto("/home")
     assert "rushed" in page.inner_text("[data-testid='kid-Zak'] [data-testid=day-stats]")
     # the mistake was put right: it moves to "put right since"

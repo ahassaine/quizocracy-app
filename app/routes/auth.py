@@ -59,14 +59,18 @@ async def _send_code(account: dict) -> None:
 @router.get("/signup")
 async def signup_form(request: Request):
     ref = referrals._norm(request.query_params.get("ref", ""))[:12]
-    return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), invite=ref, ref=ref)
+    if ref and not await referrals.family_by_ref(ref):
+        return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), bad_ref=True)
+    return page(request, "signup.html", need_invite=bool(config.INVITE_CODE), invite=ref, ref=ref,
+                bad_ref=bool(request.query_params.get("bad_ref")))
 
 
-@router.get("/join/{code}")
+@router.api_route("/join/{code}", methods=["GET", "HEAD"])
 async def join(code: str):
-    """A family's invitation link (app/referrals.py): the sign-up form with that family's code filled in."""
+    """A family's invitation link (app/referrals.py): the sign-up form with that family's code filled in; a link
+    that does not work (mistyped, or the family has gone) says so there. HEAD too: some link previews ask that."""
     f = await referrals.family_by_ref(code)
-    return RedirectResponse(f"/signup?ref={f['ref']}" if f else "/signup", 303)
+    return RedirectResponse(f"/signup?ref={f['ref']}" if f else "/signup?bad_ref=1", 303)
 
 
 @router.post("/signup")
@@ -165,20 +169,20 @@ async def login_form(request: Request):
 
 
 @router.post("/login")
-async def login(request: Request, email: str = Form(...), password: str = Form(...)):
+async def login(request: Request, email: str = Form(...), password: str = Form(...), kid: str = Form("")):
     email = email.strip().lower()
     since = _now() - datetime.timedelta(minutes=15)
     if await db.login_failures.count_documents({"email": email, "ts": {"$gt": since}}) >= MAX_FAILS:
-        return page(request, "login.html", email=email, status_code=429,
+        return page(request, "login.html", email=email, kid=kid, status_code=429,
                     error="Too many attempts. Wait 15 minutes, or reset your password.")
     acc = await db.accounts.find_one({"email": email})
     if not acc or not verify_secret(password, acc["pw"]):
         await db.login_failures.insert_one({"email": email, "ts": _now()})
         # which one is wrong is not said (that would tell a stranger which emails have an account); the email typed
         # is shown big, as a typo in it is the common mistake
-        return page(request, "login.html", email=email, error="Email or password is not right.", check_email=True,
+        return page(request, "login.html", email=email, kid=kid, error="Email or password is not right.", check_email=True,
                     status_code=400)
-    resp = RedirectResponse("/home" if acc.get("verified_at") else "/verify", 303)
+    resp = RedirectResponse(("/learn" if kid else "/home") if acc.get("verified_at") else "/verify", 303)
     await create_session(resp, acc)
     if await note_device(request, resp, acc) and acc.get("verified_at"):
         what = device_text(request.headers.get("user-agent", ""))
@@ -197,7 +201,7 @@ async def logout(request: Request):
     ctx = await load(request)
     if ctx and ctx.locked:
         return RedirectResponse("/parent-unlock", 303)     # a child cannot sign the parent out
-    resp = RedirectResponse("/", 303)
+    resp = RedirectResponse("/?signed_out=1", 303)
     await end_session(request, resp)
     return resp
 

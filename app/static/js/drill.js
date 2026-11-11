@@ -262,6 +262,7 @@
       busy = false;
       if (switched(q)) return;
       answered = false; lastVal = null; reportReset();
+      { const a = $('answer'); if (a && a.dataset.lockedAfter) { a.readOnly = false; delete a.dataset.lockedAfter; } }
       $('feedback').className = 'feedback'; $('feedback').textContent = '';
       $('check').style.display = ''; $('check').disabled = false; $('next').style.display = 'none';
       if ($('idk')) { $('idk').style.display = opts.idk && !opts.api ? '' : 'none'; $('idk').disabled = false; }
@@ -336,6 +337,8 @@
         return;
       }
       answered = true; const day = setDay(res.day);
+      // marked: the typed answer stays as it was ("6", not "66" after one more tap); the next question frees it
+      { const a = $('answer'); if (a && !a.readOnly) { a.readOnly = true; a.dataset.lockedAfter = '1'; } }
       if (fixing && $('fixMsg')) {     // the count drops the moment a mistake is practised, right or not
         fixing = false; fixLeft = Math.max(0, fixLeft - 1);
         // right again in the same sitting: practised, and it comes back in a later one to count as put right;
@@ -344,7 +347,7 @@
       }
       $('check').disabled = true; $('next').style.display = '';
       if ($('idk')) $('idk').style.display = 'none';
-      finishButtons(!!day.now);
+      finishButtons(!!day.now && !FIX_CHECK);  // after the Year 4 check, its missed facts have their own end: Next stays the main button
       const fb = $('feedback');
       if (res.idk) {                       // calm and neutral: no "Not quite", no shake, no "slow down"
         fb.className = 'feedback warn';
@@ -444,7 +447,7 @@
     const box = document.createElement('div'); box.className = 'opts choices'; box.setAttribute('data-testid', 'choices');
     list.forEach((w, i) => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
-      b.textContent = w === w.toLowerCase() && w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1) : w;   // not "Ml", "X"
+      b.textContent = w === w.toLowerCase() && (w.length > 2 || w === 'no') ? w.charAt(0).toUpperCase() + w.slice(1) : w;   // not "Ml", "X"
       b.dataset.value = w; b.setAttribute('data-testid', 'choice-' + i);
       b.addEventListener('click', () => { if (b.disabled) return;
         input.value = w; input.dispatchEvent(new Event('input', { bubbles: true }));

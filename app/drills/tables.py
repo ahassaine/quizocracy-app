@@ -85,7 +85,9 @@ async def next_question(pupil: dict, focus: str | None = None, near: list | None
     # Years 1-2 meet a fact as division only once they know it as a times fact (YOUNG_KNOWN right in a row): a
     # beginner starts with 2 × 5 and 10 × 3, never 120 ÷ 10
     known = int((facts.get(f"{pupil['_id']}:{a}x{b}") or {}).get("streak", 0)) >= YOUNG_KNOWN
-    divide = year >= 2 and (year > 2 or known) and random.random() < 0.3
+    # a fact asked on purpose (a mistake to look at or put right, focus) is asked as the times fact the child
+    # missed, "12 x 6", not as "72 ÷ 12": they should recognise it
+    divide = not m and year >= 2 and (year > 2 or known) and random.random() < 0.3
     if divide:
         prompt, answer = f"{a * b} ÷ {a} =", b
     else:

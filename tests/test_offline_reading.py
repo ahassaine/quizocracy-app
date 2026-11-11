@@ -254,7 +254,7 @@ def test_child_lines_on_landing_and_sign_in_and_a_signed_out_device(browser):
     acc = DB.accounts.find_one({"email": email})
     DB.sessions.delete_many({"account_id": acc["_id"]})       # what a password reset does on every device
     pg.goto("/me")
-    pg.wait_for_url("**/login")
+    pg.wait_for_url("**/login?kid=1")
     assert "This device was signed out." in pg.inner_text("[data-testid=kid-signed-out]")
     assert "Ask a grown-up to sign in again" in pg.inner_text("[data-testid=kid-signed-out]")
     assert pg.is_visible("#email")                             # the grown-up's form is still there
@@ -262,7 +262,8 @@ def test_child_lines_on_landing_and_sign_in_and_a_signed_out_device(browser):
     pg.fill("#email", email)
     pg.fill("#password", PASSWORD)
     pg.click("button[type=submit]")
-    pg.wait_for_url("**/home")
+    pg.wait_for_url("**/learn")                                # signed in from a child's page: back to "Who's learning?"
+    pg.goto("/home")
     pg.click("form[action='/logout'] button")
     pg.goto("/login")
     assert pg.locator("[data-testid=kid-signed-out]").count() == 0
@@ -272,7 +273,7 @@ def test_child_lines_on_landing_and_sign_in_and_a_signed_out_device(browser):
 def test_unlock_boxes_ask_for_any_grown_ups_password(browser):
     pg, (pid,), _ = _family(browser, 4)
     pg.goto("/parent-unlock")
-    assert pg.inner_text("label[for=password]") == "Your password (any grown-up on this family)"
+    assert pg.inner_text("label[for=password]") == "Your password (any grown-up in this family)"
     for _ in range(8):                                           # lock the PIN with wrong guesses
         pg.goto("/learn")
         f = pg.get_by_test_id("pin-Yusuf")
@@ -283,5 +284,5 @@ def test_unlock_boxes_ask_for_any_grown_ups_password(browser):
     pg.goto("/learn")
     pg.click("summary:has-text('Unlock Yusuf now')")
     lbl = pg.inner_text(f"label[for=upw-{pid}]")
-    assert lbl == "Your password (any grown-up on this family)" and "Parent password" not in pg.content()
+    assert lbl == "Your password (any grown-up in this family)" and "Parent password" not in pg.content()
     pg.context.close()

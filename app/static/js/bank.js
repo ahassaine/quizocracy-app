@@ -109,7 +109,7 @@ function BankDrill(activity) {
         // the sentence to change is already in the box: say so, or a child types the answer after it
         const lab = document.createElement('label'); lab.htmlFor = 'answer'; lab.className = 'mut small';
         lab.setAttribute('data-testid', 'write-tip'); lab.style.display = 'block'; lab.style.marginBottom = '6px';
-        lab.textContent = 'The sentence is in the box. Change it there, then press Check.';
+        lab.textContent = 'The words are in the box. Change them there, then press Check.';
         const t = document.createElement('textarea'); t.id = 'answer'; t.className = 'write'; t.rows = 2;
         t.value = q.s; t.setAttribute('spellcheck', 'false'); t.setAttribute('autocapitalize', 'off');
         area.appendChild(lab); area.appendChild(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);

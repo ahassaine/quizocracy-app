@@ -315,7 +315,7 @@
 <section class="card help-q" id="adults" data-keys="second parent partner husband wife mum dad mother father grandparent grandma grandad grandpa granny nan nanny childminder babysitter carer role invite remove grown-up co-parent"><h2>A second parent or a carer<a class="anchor" href="#adults" aria-label="Link to this answer">#</a></h2>
   <p class="help-short" data-testid="help-short">Invite a partner or a grandparent in Settings. Each grown-up gets their own login.</p>
   <details class="help-more"><summary>More</summary>
-  <p>In <a href="/settings#adults">Settings</a>, under <b>Grown-ups on this family</b>, type their email, choose <b>Parent</b> or <b>Carer</b> and press <b>Send invitation</b>. They get an email with a link that works for 7 days, and they choose their own password. The parents get an email when someone joins.</p>
+  <p>In <a href="/settings#adults">Settings</a>, under <b>Grown-ups in this family</b>, type their email, choose <b>Parent</b> or <b>Carer</b> and press <b>Send invitation</b>. They get an email with a link that works for 7 days, and they choose their own password. The parents get an email when someone joins.</p>
   <ul>
     <li><b>Parent</b> (for a partner): can do everything you can. Add and change children and their plans, invite and remove grown-ups, change the account. Deleting a child needs that parent's password, and the other parents get an email about it.</li>
     <li><b>Carer</b> (for a grandparent or a childminder): can hand the device to a child, unlock a locked child, see Home, the board and each child's progress, see the children's PINs in their own Settings, type in the school's spelling list and mark a day off. A carer can't change plans, targets or rewards, delete a child, or change the account or its data.</li>
@@ -455,7 +455,13 @@
 </section>
 
 <section class="card help-q" id="cost" data-keys="price prices cost costs pay paying paid money subscription charge fee card free"><h2>Will it cost money?<a class="anchor" href="#cost" aria-label="Link to this answer">#</a></h2>
-  <p class="help-short" data-testid="help-short">It is free during the beta. Before any paid plan starts, we will email you, and you can keep or delete your account.</p>
+  <p class="help-short" data-testid="help-short">Free during the beta{% if cfg.FOUNDING %}, then 12 more months free for a family that joins now (a founding family){% endif %}. We will email you before any paid plan starts.</p>
+  {% if cfg.FOUNDING %}<details class="help-more"><summary>More</summary>
+  <ul>
+    <li><b>Inviting a family:</b> Home shows your family's own invitation link. When a family signs up with it and one of its children is still practising in that family's second week (days 8 to 14 after it signs up), both families get one more free month, after the 12.</li>
+    <li>Before any paid plan starts, we will email you, and you can keep or delete your account.</li>
+    <li>The beta has room for up to 6 children in a family. The full terms are in the <a href="/terms#founding">terms of use</a>.</li>
+  </ul></details>{% endif %}
 </section>
 
 <section class="card help-q" id="privacy" data-keys="data privacy delete download gdpr safe"><h2>Data and privacy<a class="anchor" href="#privacy" aria-label="Link to this answer">#</a></h2>

@@ -212,3 +212,22 @@ def test_simplest_form_questions_store_the_simplest_answer():
                         and me.simplest(str(q["answer"])):
                     bad.append("%s %r %s" % (s["key"], q["answer"], q["prompt"][:80]))
     assert not bad, bad[:10]
+
+
+def test_right_value_in_the_wrong_form_is_nearly_and_drops_the_slip_lines(monkeypatch):
+    """QA, Nov 2026: 0.01 for "Work out 10^-2 as a fraction" read "Not quite", with a line about 1/20, a slip
+    the child never made. The right value in the wrong form is "Nearly" with one free retry; after it, the
+    form comes first and the lines on likely slips ("Not 1/20: ...") are left out."""
+    q = {"prompt": "Work out 10^-2 as a fraction.", "answer": "1/100", "answer_type": "frac",
+         "solution": ["A negative power means 1 over the positive power: 10^-2 = 1/10^2.",
+                      "10^2 = 10 × 10 = 100, so 10^-2 = 1/100.",
+                      "Not 1/20: the power 2 means two 10s multiplied together (10 × 10), not 10 × 2."],
+         "no": {"1/20": "You worked out 10 × 2 = 20."}}
+    _, (first, second) = _serve_and_check(monkeypatch, q, ["0.01", "1/100"])
+    assert first["retry"] and not first["correct"] and first["hint"] == "Nearly: right value — now write it as a fraction."
+    assert second["correct"] is True
+    _, (first, second) = _serve_and_check(monkeypatch, q, ["0.01", "0.01"])
+    assert second["correct"] is False and second["solution"][0] == "Right value — now write it as a fraction."
+    assert not any(ln.startswith("Not ") for ln in second["solution"]), second["solution"]
+    _, (res,) = _serve_and_check(monkeypatch, q, ["1/20"])                        # a real slip: no retry, its why
+    assert not res.get("retry") and res["solution"][0] == "You worked out 10 × 2 = 20."

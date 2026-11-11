@@ -1073,11 +1073,13 @@ async def check(token, value, pupil):
             return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"),
                     "hint": "Nearly: in England we write a decimal point, %s" % point.strip()}
         solution.insert(0, "In England we write a decimal point: %s, not %s." % (point.strip(), str(value).strip()))
-    elif not correct and _SIMPLEST.search(prompt) and form_hint(*args, value, prompt) == SIMPLIFY_HINT \
-            and not doc.get("retried"):
-        # the right value where the question asks for the simplest form: "Nearly", with one free retry
+    elif not correct and form_hint(*args, value, prompt) and not doc.get("retried"):
+        # the right value in the wrong form (not simplified, a decimal where a fraction is asked, ...): "Nearly",
+        # with one free retry, never a plain "Not quite"
+        h = form_hint(*args, value, prompt)
         await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
-        return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"), "hint": NEARLY_SIMPLIFY}
+        return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"),
+                "hint": NEARLY_SIMPLIFY if h == SIMPLIFY_HINT else "Nearly: " + h[0].lower() + h[1:]}
     elif not correct:
         slipped = slipped_words(doc["answer_type"], doc["answer"], value, prompt)
         if slipped and not doc.get("retried"):
@@ -1089,8 +1091,9 @@ async def check(token, value, pupil):
             right = "Your number was right. " if slip_hint(doc["answer"], slipped) != typos.RETRY else ""
             solution.insert(0, right + typos.corrections(slipped))
         hint = form_hint(doc["answer_type"], doc["answer"], value, prompt)
-        if hint:                                 # the right value in the wrong form: say so first
-            solution.insert(0, hint)
+        if hint:                                 # the right value in the wrong form: say so first, and leave out
+            # the lines on likely slips ("Not 1/20: the power 2 means ..."): the value was not a slip
+            solution = [hint] + [ln for ln in solution if not re.match(r"Not \S", ln)]
         why_not = {_no_key(k): v for k, v in (doc.get("no") or [])}.get(_no_key(value))
         if why_not and not hint:                 # a likely slip (2^-3 typed as 1/6): why that answer is wrong
             solution.insert(0, why_not)

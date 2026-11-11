@@ -6,7 +6,10 @@
 {# qz_kid (base.html): a child has used this device; qz_s still sent: its sign-in was ended elsewhere (a password reset) #}
 {% if request.cookies.get('qz_kid') and request.cookies.get('qz_s') and not error %}<div class="card" role="status" data-testid="kid-signed-out" style="text-align:center"><b class="display" style="font-size:1.2rem">This device was signed out.</b><br>Ask a grown-up to sign in again. Then you can use your PIN.</div>
 <h2 style="font-size:1.1rem;margin:14px 0 0">Grown-ups: sign in here</h2>{% endif %}
-<form method="post" action="/login" class="card">
+{% set for_kid = request.query_params.get('kid') or kid %}
+{% if for_kid and not (request.cookies.get('qz_kid') and request.cookies.get('qz_s')) %}<div class="card" role="status" data-testid="kid-setup" style="text-align:center"><b class="display" style="font-size:1.2rem">This phone or tablet isn't set up yet.</b><br>A grown-up signs in once here. Then you pick your name and use your PIN.</div>
+<h2 style="font-size:1.1rem;margin:14px 0 0">Grown-ups: sign in here</h2>{% endif %}
+<form method="post" action="/login" class="card">{% if for_kid %}<input type="hidden" name="kid" value="1">{% endif %}
   <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="email" value="{{ email or '' }}"></div>
   <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password"></div>
   <button class="btn primary big" type="submit">Sign in</button>

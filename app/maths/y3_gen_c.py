@@ -129,11 +129,11 @@ def _coin_name(p):
 
 
 def _coin_list(items):
-    """[(count, value), ...] -> '3 20p coins and 1 £1 coin'."""
+    """[(count, value), ...] -> 'three 20p coins and one £1 coin'."""
     bits = []
     for c, v in items:
         nm = _coin_name(v)
-        bits.append("%d %s" % (c, nm if c == 1 else nm + "s"))
+        bits.append("%s %s" % (_cnt(c), nm if c == 1 else nm + "s"))      # "three 20p coins", never "3 20p coins"
     if len(bits) == 1:
         return bits[0]
     return ", ".join(bits[:-1]) + " and " + bits[-1]
@@ -3318,3 +3318,11 @@ def _(d=1):
             "answer": v * copies, "answer_type": "int",
             "solution": ["One strip measures %d cm." % v,
                          "%d × %d = %d cm." % (copies, v, v * copies)]}
+
+
+def _cnt(k):
+    """A count before a coin ("four 5p coins", not "4 5p coins", which reads as 45p)."""
+    return _COUNT_WORDS[k] if 0 <= k < len(_COUNT_WORDS) else str(k)
+
+
+_COUNT_WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"]
