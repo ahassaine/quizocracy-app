@@ -259,7 +259,7 @@ def test_years_1_2_cap_ends_a_hard_activity_and_the_estimate_is_honest(browser):
     assert "That’s plenty for today: 6 tries" in pg.inner_text("#dayMsg")
     assert pg.inner_text("#dayDone") == "0"
     pg.goto("/me")
-    assert "done" in pg.inner_text("[data-testid=tile-tables]")
+    assert "finished for today" in pg.inner_text("[data-testid=tile-tables]")      # capped: done, with the real count
     # the form: Years 1-4 see the cap; a Year 4 check adds its minutes; from Year 5 only spelling has the cap
     unlock_parent(pg)
     pg.goto(f"/children/{pid}/edit")

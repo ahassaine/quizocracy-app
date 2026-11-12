@@ -1146,7 +1146,9 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
     if "plan_log" in upd and upd["plan_log"][-1]["from"] == today:
         # today's plan changed: the child's My day says so in one line ("Dad added Science today")
         now = _plan_changes(p, upd["activities"], today)
-        if now:
+        # only for a child who has already started today: one who has not met today's plan has nothing that changed
+        started = await db.attempts.find_one({"pupil_id": p["_id"], "day": today}, {"_id": 1})
+        if now and started:
             # the child reads this: a grown-up's name if they gave one, never their email address
             kid_who = (ctx.account.get("name") or "").strip() or "A grown-up"
             upd["plan_note"] = {"day": today, "text": f"{kid_who} changed today's plan: {now[0].rsplit(', from today', 1)[0]}."}

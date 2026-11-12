@@ -21,7 +21,7 @@
 {% for it in status['items'] %}
   <a class="card tile rise rise-{{ [loop.index + 1, 5]|min }}{% if it.complete %} complete{% endif %}" href="/me/{{ it.key }}" data-testid="tile-{{ it.key }}">
     <img class="ico" src="{{ it.img }}" alt=""><div class="ttl">{{ it.title }}</div>
-    <div class="mut small">{{ it.done }} of {{ it.target }}{% if it.check %} + the check{% if it.check.done %} ✓{% endif %}{% endif %}{% if it.complete %} · done{% endif %}{% if fix.get(it.key) %} · {% if it.complete or all_done %}<span data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to practise</span>{% else %}<span class="tofix" data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to fix</span>{% endif %}{% endif %}</div>
+    <div class="mut small">{% if it.capped %}{{ it.correct }} right · finished for today, good effort{% else %}{{ it.done }} of {{ it.target }}{% endif %}{% if it.check %} + the check{% if it.check.done %} ✓{% endif %}{% endif %}{% if it.complete and not it.capped %} · done{% endif %}{% if fix.get(it.key) %} · {% if it.complete or all_done %}<span data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to practise</span>{% else %}<span class="tofix" data-testid="fix-{{ it.key }}">{{ fix[it.key] }} to fix</span>{% endif %}{% endif %}</div>
     <div class="bar{% if it.complete %} done{% endif %}" style="margin-top:10px"><i data-w="{{ it.pct }}"></i></div>
   </a>
 {% else %}<div class="card">Nothing set for today. Ask a parent.</div>{% endfor %}
