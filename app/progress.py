@@ -277,10 +277,12 @@ async def counts(pupil_ids: list, days: list) -> dict:
     out: dict = {}
     pipe = [{"$match": {"pupil_id": {"$in": pupil_ids}, "day": {"$in": days}}},
             {"$group": {"_id": {"p": "$pupil_id", "d": "$day", "a": "$activity"},
-                        "answered": {"$sum": 1}, "correct": {"$sum": {"$cond": ["$correct", 1, 0]}}}}]
+                        "answered": {"$sum": 1}, "correct": {"$sum": {"$cond": ["$correct", 1, 0]}},
+                        "idk": {"$sum": {"$cond": [{"$eq": ["$idk", True]}, 1, 0]}}}}]
     async for r in db.attempts.aggregate(pipe):
         k = r["_id"]
-        out.setdefault(k["p"], {}).setdefault(k["d"], {})[k["a"]] = {"correct": r["correct"], "answered": r["answered"]}
+        out.setdefault(k["p"], {}).setdefault(k["d"], {})[k["a"]] = {"correct": r["correct"], "answered": r["answered"],
+                                                                      "tried": r["answered"] - r["idk"]}
     return out
 
 
@@ -301,8 +303,9 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
         # Years 1-4 (and spelling in every year): the activity also ends after YOUNG_CAP times its target in answers,
         # so a child who finds it hard is not given the longest day of all (capped: done for today, though not every
         # answer was right; activities.has_cap)
+        # Only real tries count towards it: "I don't know" ten times must not finish the day and earn its reward
         capped = (has_cap(pupil, a["key"]) and not rest and done < a["target"]
-                  and c["answered"] >= YOUNG_CAP * a["target"])
+                  and c.get("tried", c["answered"]) >= YOUNG_CAP * a["target"])
         if capped:
             done = a["target"]
         step_done, step_target = done, a["target"]

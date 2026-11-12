@@ -68,3 +68,20 @@ def test_place_value_chart_fits_a_phone(browser):
     assert "HTh hundred thousands" in pg.inner_text("[data-testid=pv-key]")
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390
     ctx.close()
+
+
+def test_i_dont_know_never_finishes_the_day(page):
+    """Years 1-4 end an activity after twice its target in answers (a child who finds it hard is not kept all day),
+    but only real tries count: ten "I don't know"s must not finish the day and earn the reward (QA round 2)."""
+    pid, s = _kid(page, 1, acts=("grammar",), target=5)
+    for _ in range(10):
+        q = _next(s, "grammar")
+        r = s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": "", "idk": True}).json()
+        assert r.get("idk") or r.get("correct") is False, r
+    day = _next(s, "grammar")["day"]
+    assert day["day_pct"] < 100, day                       # not done: nothing was tried
+    for _ in range(10):                                    # ten real tries, all wrong: the cap ends it kindly
+        q = _next(s, "grammar")
+        s.post(BASE + "/api/grammar/check", json={"token": q["token"], "value": "zzz not it"}).json()
+    page.goto("/me")
+    assert "All done" in page.inner_text("main") or _next(s, "grammar")["day"]["day_pct"] >= 100

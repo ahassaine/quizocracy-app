@@ -6,7 +6,13 @@ QZ_TEST_INVITE                 the server's invitation code
 """
 import os
 import re
+import time
 import uuid
+
+# The app counts days in London time (QZ_TZ). Tests that say "today" must agree with it, or they fail for an hour
+# every night on a machine elsewhere (23:00-24:00 London is already tomorrow in Paris).
+os.environ["TZ"] = os.getenv("QZ_TZ", "Europe/London")
+time.tzset()
 
 import pytest
 from playwright.sync_api import sync_playwright

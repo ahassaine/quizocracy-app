@@ -42,7 +42,7 @@ Drill({ activity: 'spelling', idk: true,
     document.getElementById('letters').textContent = q.letters + (q.letters === 1 ? ' letter' : ' letters');
     // one sound button, not two: where the 🔊 button is (speak.js: it plays the word, then its hint), "Listen
     // again" (the word alone) goes; it stays for a browser without speech
-    setTimeout(() => { if (document.getElementById('speak')) document.getElementById('play').hidden = true; }, 0);   // after speak.js mounts it
+    setTimeout(() => { if (document.getElementById('speak')) document.getElementById('play').style.display = 'none'; }, 0);   // .btn sets display: hidden alone is not enough   // after speak.js mounts it
     const a = document.getElementById('answer'); a.value = ''; a.focus(); },
   // 🔊: the word, then its hint sentence ("I walk ___ school." tells "to" from "two"); Years 1-2 hear the hint after the word by themselves
   speech(q) { return { parts: q.cue ? ['Hint: ' + q.cue] : [], lead: playWord, after: playing }; },
