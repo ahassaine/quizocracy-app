@@ -70,6 +70,11 @@
     const my = ++run, list = chunks(parts);
     synth.cancel();
     if (!list.length) { setOn(false); return; }
+    // some browsers never fire onstart (Chrome on Linux): speech that is under way counts as started all the same,
+    // so the question is not read a second time at the first tap, and "Tap to hear" goes. Declared before
+    // synth.speak: Safari can fire onstart inside speak() itself.
+    let once = false;
+    function started() { if (once || my !== run) return; once = true; setOn(true); if (onstart) onstart(); }
     list.forEach((t, i) => {
       const u = new SpeechSynthesisUtterance(t);
       u.lang = (voice && voice.lang) || 'en-GB';
@@ -79,10 +84,6 @@
       if (i === list.length - 1) u.onend = u.onerror = () => { if (my === run) setOn(false); };
       synth.speak(u);
     });
-    // some browsers never fire onstart (Chrome on Linux): speech that is under way counts as started all the same,
-    // so the question is not read a second time at the first tap, and "Tap to hear" goes
-    let once = false;
-    function started() { if (once || my !== run) return; once = true; setOn(true); if (onstart) onstart(); }
     setTimeout(() => { if (synth.speaking) started(); }, 300);
   }
   function setOn(on) { if (btn) btn.classList.toggle('on', on); }
@@ -146,7 +147,9 @@
       const c = cur;
       // the question's own sound playing by itself (a spelling word's clip): true once it has played
       if (w.after) Promise.resolve(w.after).then(played => { if (played === true) {
-        c.leadHeard = true; if (!c.parts.length) { c.heard = true; unlocked = true; settle(); } } });
+        c.leadHeard = true; if (!c.parts.length) { c.heard = true; unlocked = true; settle(); } }
+        // the browser stopped the word playing by itself (iPhone/iPad until a first tap): every year is shown "Tap to hear"
+        else if (cur === c && !unlocked && btn) btn.classList.add('first'); });
       if (!young || !cur.parts.length) return;
       if (!unlocked && btn) btn.classList.add('first');
       Promise.resolve(w.after).then(() => {
