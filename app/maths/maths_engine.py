@@ -518,6 +518,21 @@ def slip_hint(expected, pairs):
     return typos.RETRY
 
 
+_ARRAY_ANS = re.compile(r"\s*(\d+) rows of (\d+) = (\d+)\s*")
+
+
+def turned_array(expected, value):
+    """An array built the other way round with the right total ("2 rows of 4 = 8" when 4 rows of 2 were asked):
+    what to say, else "". Rows go across, so it is not the array asked for, but it is no plain "Not quite"."""
+    e, v = _ARRAY_ANS.fullmatch(str(expected)), _ARRAY_ANS.fullmatch(str(value or ""))
+    if not (e and v):
+        return ""
+    (r, c, n), (vr, vc, vn) = map(int, e.groups()), map(int, v.groups())
+    if r == c or (vr, vc) != (c, r) or vn != n:
+        return ""
+    return "You made %d rows of %d. Rows go across: make %d rows of %d." % (vr, vc, r, c)
+
+
 def form_hint(answer_type, expected, value, prompt=""):
     """For a refused fraction of the right value: what to change ("Right value — now simplify it.")."""
     if answer_type != "frac":
@@ -1080,6 +1095,13 @@ async def check(token, value, pupil):
         await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
         return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"),
                 "hint": NEARLY_SIMPLIFY if h == SIMPLIFY_HINT else "Nearly: " + h[0].lower() + h[1:]}
+    elif not correct and turned_array(doc["answer"], value):
+        # the right total in an array turned round: "Nearly", one free retry; after it, say which way rows go
+        turned = turned_array(doc["answer"], value)
+        if not doc.get("retried"):
+            await db.maths_lab_q.update_one({"_id": doc["_id"]}, {"$set": {"done": False, "retried": True}})
+            return {"ok": True, "correct": False, "retry": True, "skill": doc.get("skill"), "hint": "Nearly! " + turned}
+        solution.insert(0, "Your total was right. " + turned)
     elif not correct:
         slipped = slipped_words(doc["answer_type"], doc["answer"], value, prompt)
         if slipped and not doc.get("retried"):

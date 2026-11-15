@@ -179,3 +179,27 @@ def test_the_first_look_is_the_missed_fact_and_the_wait_mixes_tables(page):
         near.append(bool({doc["meta"]["a"], doc["meta"]["b"]} & tabs))
         _check(s, "tables", f["token"], str(doc["answer"]))
     assert near[:NEAR_RUN] == [True] * NEAR_RUN and not any(near[NEAR_RUN:]), (missed, near)
+
+
+# ------------------------------------------------------------------ an array turned round ----
+def test_an_array_turned_round_is_nearly_with_one_retry(page):
+    assert me.turned_array("4 rows of 2 = 8", "2 rows of 4 = 8") == \
+        "You made 2 rows of 4. Rows go across: make 4 rows of 2."
+    for v in ("2 rows of 4 = 9", "4 rows of 2 = 8", "3 rows of 3 = 8", "", None):
+        assert not me.turned_array("4 rows of 2 = 8", v), v
+    assert not me.turned_array("3 rows of 3 = 9", "3 rows of 3 = 9")
+    pid = _child(page, "Esme", 2)
+    tok = "ar-" + pid
+    _served(pid, tok, "4 rows of 2 = 8", "Build an array of 4 rows of 2. How many altogether?", atype="str")
+    r = _post(page, "/api/maths/check", {"token": tok, "value": "2 rows of 4 = 8"})
+    assert r["ok"] and r["retry"] and r["hint"] == "Nearly! You made 2 rows of 4. Rows go across: make 4 rows of 2.", r
+    assert not DB.attempts.find_one({"pupil_id": pid, "activity": "maths"})
+    r = _post(page, "/api/maths/check", {"token": tok, "value": "4 rows of 2 = 8"})
+    assert r["ok"] and r["correct"], r
+    # turned round again after the retry: wrong, and the first line says why
+    tok2 = tok + "b"
+    _served(pid, tok2, "4 rows of 2 = 8", "Build an array of 4 rows of 2. How many altogether?", atype="str")
+    _post(page, "/api/maths/check", {"token": tok2, "value": "2 rows of 4 = 8"})
+    r = _post(page, "/api/maths/check", {"token": tok2, "value": "2 rows of 4 = 8"})
+    assert r["correct"] is False and not r.get("retry")
+    assert r["solution"][0] == "Your total was right. You made 2 rows of 4. Rows go across: make 4 rows of 2.", r
