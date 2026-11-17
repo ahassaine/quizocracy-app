@@ -233,3 +233,47 @@ def test_my_day_shows_the_new_cards_for_the_right_years(browser):
     assert kid.locator("[data-testid=play-card]").is_visible()
     assert kid.locator("[data-testid=tile-phonics]").is_visible()
     assert not kid.locator("[data-testid=sats-card]").count()
+
+
+def test_phonics_keeps_its_phases_in_order_and_no_sound_leaves_out_listening(browser):
+    pg, kid, s, pid = _family(browser, 1, name="Lia")
+    for i in range(12):
+        q = s.post(BASE + "/api/phonics/next", json={}).json()
+        it = DB.items.find_one({"_id": q["token"]})
+        assert it["meta"]["skill"] in ("PH1.01", "PH1.02", "PH1.03"), it["meta"]       # the first phases first
+        s.post(BASE + "/api/phonics/check", json={"token": q["token"], "value": right(it["answer"])})
+    q = s.post(BASE + "/api/phonics/next", json={}).json()
+    assert s.post(BASE + "/api/phonics/nosound", json={"token": q["token"]}).json()["ok"]
+    for i in range(15):
+        q = s.post(BASE + "/api/phonics/next", json={}).json()
+        assert not q.get("say"), q
+        it = DB.items.find_one({"_id": q["token"]})
+        s.post(BASE + "/api/phonics/check", json={"token": q["token"], "value": right(it["answer"])})
+
+
+def test_a_copying_slip_in_reading_is_still_found(browser):
+    from app_path import engine
+    k = {"t": "text", "a": ["Greenfield Leisure Centre"], "copy": True}
+    assert engine.mark(k, "Greenfield Leisure Center") and engine.mark({"t": "text", "a": ["bias"], "copy": True}, "bais")
+    assert not engine.mark(k, "the swimming pool")
+
+
+def test_a_paper_answer_sheet_can_be_opened_again_by_child_and_parent(browser):
+    pg, kid, s, pid = _family(browser, 6, name="Noor")
+    st = s.post(BASE + "/api/sats/start", json={"paper": "gps"}).json()
+    res = s.post(BASE + "/api/sats/finish", json={"token": st["token"], "answers": [], "used": 30}).json()
+    assert res["ok"] and res["sheet"]
+    kid.goto("/me/sats")
+    kid.click("[data-testid=sheet-link]")
+    assert kid.locator("[data-testid=sheet-row]").count() == res["of"]
+    pg.goto(f"/children/{pid}/sats/{res['sheet']}")
+    assert pg.locator("[data-testid=sheet-row]").count() == res["of"]
+
+
+def test_arithmetic_paper_is_bare_calculations_and_reasoning_has_no_probability(browser):
+    pg, kid, s, pid = _family(browser, 6, name="Rhys")
+    st = s.post(BASE + "/api/sats/start", json={"paper": "arithmetic"}).json()
+    assert all(q["component"] == "number" for q in st["questions"]), [q["component"] for q in st["questions"]]
+    for _ in range(3):
+        st = s.post(BASE + "/api/sats/start", json={"paper": "reasoning"}).json()
+        assert not any("probab" in q["prompt"].lower() for q in st["questions"])

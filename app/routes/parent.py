@@ -17,7 +17,7 @@ from ..maths import maths_mastery
 from ..db import FAMILY_COLLECTIONS, db
 from ..deps import (Ctx, adult_name, clear_pin_lock, family_adult, family_events, family_page, full_page,
                     hit, local_time, log_event, over_limit, own_pupil, parent_page, pin_lock_until, pin_locks)
-from ..drills import bank, maths, spelling, tables, verbs
+from ..drills import bank, maths, sats, spelling, tables, verbs
 from .. import config, funnel, league, levels, mailer, progress, referrals
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
@@ -311,7 +311,7 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
                 skills=skills, plan_items=now, TIPS=TIPS, offplan=on - planned, started=await _started(p, on),
                 accuracy=accuracy(hist[-7:]), hints=level_hints(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
                 reported=request.query_params.get("reported"), sats=await sats_view(p, ctx.family),
-                offers=_offers(p, ctx.family, planned),
+                offers=_offers(p, ctx.family, planned), sheets=await sats.sheets(p, 10) if p.get("sats_papers") else [],
                 school=await spelling.school_status(p) if "spelling" in on else None,
                 other_words=await spelling.other_tries(p, progress.day_list(7)) if "spelling" in on else [],
                 focus=[{"title": focus_title(i["subject"], i["strand"]), "until": i["until"],
@@ -425,6 +425,25 @@ async def work_on(p: dict, on: set, n: int = 6) -> list:
                 sk = bank_engine.skill(d.get("key", ""))
                 if sk and "correct" in d:
                     out.append((subject, sk, int(d.get("attempts", 0)), int(d["correct"]), d))
+    if "reading" in on:
+        # reading by its skills (finding facts, inference, word meanings...), not by passage: answers of the last
+        # 30 days, each question's first answer
+        by: dict = {}
+        firsts: set = set()
+        async for r in db.attempts.find({"pupil_id": p["_id"], "activity": "reading",
+                                         "day": {"$in": progress.day_list(30)}}, {"detail": 1, "correct": 1}).sort("ts", 1):
+            d = r.get("detail") or ""
+            if d in firsts or "#" not in d:
+                continue
+            firsts.add(d)
+            q = bank_engine.question(*d.split("#", 1))
+            if q and q.get("d") in READING_SKILLS:
+                a = by.setdefault(q["d"], [0, 0])
+                a[0] += 1
+                a[1] += int(bool(r.get("correct")))
+        for dom, (att, right) in by.items():
+            out.append(("reading", {"key": "d:" + dom, "title": "Reading: " + READING_SKILLS[dom], "strand": ""},
+                        att, right, {"score": 100 * right // att if att else 0}))
     weak = [{"subject": subj, "key": sk["key"], "title": sk["title"], "strand": sk.get("strand", ""),
              "wrong": att - right, "attempts": att, "pct": 100 * right // att}
             for subj, sk, att, right, d in out if att > right and int(d.get("score", 0)) < maths_mastery.MASTERED]
@@ -433,6 +452,11 @@ async def work_on(p: dict, on: set, n: int = 6) -> list:
 
 
 WORK_MIN = 3            # answers on a skill before its share right counts for "To work on next"
+READING_SKILLS = {"vocab": "what words mean in the text", "retrieve": "finding facts in the text",
+                  "sequence": "the order things happen", "summarise": "the main idea", "infer":
+                  "working out what is not said (inference)", "predict": "what is likely to happen next",
+                  "structure": "how the text is organised", "language": "why the writer chose a word",
+                  "compare": "comparing within the text", "purpose": "why the text was written"}
 
 
 async def _started(p: dict, on: set) -> dict:
@@ -796,7 +820,7 @@ async def _skill_views(p: dict, on: set) -> dict:
         if subject in on:
             docs = [d async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})]
             out[subject] = _by_strand(bank_engine.skills(subject, levels.level(p, subject)), {d["key"]: int(d.get("score", 0)) for d in docs},
-                                      _recheck((d["key"], d) for d in docs))
+                                      _recheck((d["key"], d) for d in docs) if subject != "reading" else set())
     return out
 
 
@@ -1405,7 +1429,7 @@ async def _delete_pupils(ids: list) -> None:
     for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
         await db[c].delete_many({"pupil": {"$in": ids}})
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
-              "reports", "races"):
+              "reports", "races", "sats_sheets"):
         await db[c].delete_many({"pupil_id": {"$in": ids}})
     # A device that child was using goes back to "Who's learning?", still locked: never to parent mode.
     await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None, "locked": True}})
@@ -1480,7 +1504,7 @@ async def export(request: Request, ctx: Ctx = Depends(full_page)):
                         async for s in db.sessions.find({"family_id": fid})]}
     # Every per-child collection that deleting a child removes (see _delete_pupils), so the file is complete.
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
-              "reports", "races"):
+              "reports", "races", "sats_sheets"):
         data[c] = [d async for d in db[c].find({"pupil_id": {"$in": ids}}, {"_id": 0})]
     data["leagues"] = [{"name": lg["name"], "code": lg["code"], "families": len(lg["families"]),
                         "made_by_you": lg["owner"] == fid} for lg in await league.leagues_of(fid)]

@@ -11,7 +11,7 @@ db = client[config.DB_NAME]
 FAMILY_COLLECTIONS = (
     "accounts", "pupils", "sessions", "attempts", "maths_lab_q", "maths_attempts", "maths_mastery",
     "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items", "reports", "family_log",
-    "feedback", "races",
+    "feedback", "races", "sats_sheets",
 )
 
 
@@ -39,6 +39,7 @@ async def ensure_indexes():
     await db.bank_mastery.create_index([("pupil_id", ASCENDING), ("subject", ASCENDING)])
     await db.races.create_index([("family_id", ASCENDING), ("course", ASCENDING), ("week", ASCENDING)])
     await db.races.create_index([("pupil_id", ASCENDING)])
+    await db.sats_sheets.create_index([("pupil_id", ASCENDING), ("at", DESCENDING)])
     await db.leagues.create_index([("code", ASCENDING)], unique=True)
     await db.leagues.create_index([("families", ASCENDING)])
     await db.items.create_index([("created", ASCENDING)], expireAfterSeconds=2 * 86400)

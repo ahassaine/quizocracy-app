@@ -6,7 +6,7 @@ function Paper(PAPER) {
   const $ = (id) => document.getElementById(id);
   const PUPIL = document.body.dataset.pupil, YEAR = parseInt(($('drillHead') || {}).dataset ? $('drillHead').dataset.year : 0, 10) || 0;
   const DKEY = 'qz_sats_done';
-  let token = null, qs = [], answers = [], seen = [], at = 0, deadline = 0, secs = 0, tick = 0, finishing = false, picks = {};
+  let token = null, qs = [], answers = [], seen = [], at = 0, deadline = 0, secs = 0, tick = 0, finishing = false, picks = {}, warned = false;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   async function post(url, body) {
@@ -27,6 +27,7 @@ function Paper(PAPER) {
     const q = qs[at], area = $('pArea');
     picks = {};
     area.innerHTML = '';
+    nav();
     $('pCount').textContent = 'Question ' + (at + 1) + ' of ' + qs.length;
     $('pPrompt').textContent = q.prompt || '';
     $('pPrompt').hidden = q.kind === 'maths';
@@ -46,11 +47,50 @@ function Paper(PAPER) {
       if (q.sentence) { const s = document.createElement('div'); s.className = 'bq'; s.setAttribute('data-testid', 'paper-sentence');
         s.textContent = q.sentence; area.appendChild(s); }
       area.appendChild(input('text'));
-      try { audio.play().catch(() => {}); } catch (e) {}
+      // the word did not play (sound off, a silent phone): say so, and give its number of letters as the daily
+      // spelling does, so the sentence alone is not a guessing game
+      const noSound = () => { if ($('pNoSound')) return; const n = document.createElement('div'); n.id = 'pNoSound'; n.className = 'small';
+        n.setAttribute('data-testid', 'paper-nosound'); n.style.fontWeight = '700';
+        n.textContent = 'The word did not play. Turn the sound up and press Hear the word. It has ' + q.letters + ' letters.';
+        area.insertBefore(n, area.querySelector('.row')); };
+      audio.addEventListener('error', noSound);
+      try { const pr = audio.play(); if (pr && pr.catch) pr.catch(noSound); } catch (e) { noSound(); }
+      b.addEventListener('click', () => { setTimeout(() => { if (audio.paused && audio.currentTime === 0) noSound(); }, 1500); });
     } else bank(q, area);
+    restore(q, area);
     const a = area.querySelector('input,textarea'); if (a && q.kind !== 'maths') a.focus();
     $('pSkip').hidden = false;
   }
+  /* an answer given before, shown again when the child comes back to a question (a maths picture cannot be
+     filled in again: its answer is named, and kept unless they give a new one) */
+  function restore(q, area) {
+    const v = answers[at];
+    if (v === null || v === undefined) return;
+    if (q.kind === 'maths') {
+      const n = document.createElement('div'); n.className = 'small'; n.setAttribute('data-testid', 'paper-kept');
+      n.style.fontWeight = '700'; n.textContent = 'Your answer: ' + (Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : v)
+        + '. Answer again to change it, or press Next to keep it.';
+      area.insertBefore(n, area.firstChild.nextSibling); return;
+    }
+    if (q.kind === 'mcq') { picks.v = v; const b = area.querySelectorAll('.opt')[v]; if (b) b.classList.add('sel'); return; }
+    if (q.kind === 'tap') { picks.v = v.slice(); v.forEach(i => { const b = area.querySelectorAll('.word')[i]; if (b) b.classList.add('sel'); }); return; }
+    if (q.kind === 'order') { picks.v = v.slice(); area.querySelectorAll('.order .opt').forEach((b, i) => { const k = picks.v.indexOf(i);
+      b.classList.toggle('sel', k >= 0); b.querySelector('.num').textContent = k >= 0 ? String(k + 1) : ''; }); return; }
+    const a = $('pAnswer'); if (a) a.value = v;
+  }
+  /* the question numbers: go to any question, answered ones filled in */
+  function nav() {
+    const box = $('pNav'); if (!box) return;
+    box.innerHTML = '';
+    qs.forEach((q, k) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = String(k + 1);
+      b.className = 'pn' + (answers[k] !== null ? ' done' : '') + (k === at ? ' cur' : '');
+      b.setAttribute('aria-label', 'Question ' + (k + 1) + (answers[k] !== null ? ', answered' : ', not answered'));
+      b.setAttribute('data-testid', 'paper-nav-' + (k + 1));
+      b.addEventListener('click', () => { keep(); at = k; $('pReview').hidden = true; $('pRun').hidden = false;
+        $('pRunNav').appendChild($('pNav')); render(); });
+      box.appendChild(b); });
+  }
+  function keep() { if ($('pRun').hidden) return; const v = value(); if (v !== null) answers[at] = v; }
   function input(kind, unit) {
     const row = document.createElement('div'); row.className = 'row';
     const i = document.createElement('input'); i.type = 'text'; i.id = 'pAnswer'; i.autocomplete = 'off';
@@ -94,6 +134,9 @@ function Paper(PAPER) {
       const t = document.createElement('textarea'); t.id = 'pAnswer'; t.className = 'write'; t.rows = 2; t.value = q.s;
       t.setAttribute('spellcheck', 'false'); t.setAttribute('data-testid', 'paper-write');
       area.appendChild(lab); area.appendChild(t);
+      const rs = document.createElement('button'); rs.type = 'button'; rs.className = 'linkish small'; rs.setAttribute('data-testid', 'paper-write-reset');
+      rs.textContent = '↺ Start again with the sentence as it was'; rs.addEventListener('click', () => { t.value = q.s; t.focus(); });
+      area.appendChild(rs);
     } else {
       area.appendChild(input(q.kind === 'num' ? 'num' : 'text', q.unit));
       if (q.gap) $('pAnswer').placeholder = 'Type the missing word(s)';
@@ -112,15 +155,16 @@ function Paper(PAPER) {
   /* the next question: one not seen yet, then the skipped ones (left blank) in turn */
   function nextIndex() {
     for (let k = at + 1; k < qs.length; k++) if (!seen[k]) return k;
+    if (seen.every(Boolean)) { for (let k = at + 1; k < qs.length; k++) if (answers[k] === null) return k; }
     for (let k = 1; k <= qs.length; k++) { const j = (at + k) % qs.length; if (answers[j] === null && j !== at) return j; }
     return -1;
   }
   function next(skip) {
     if (finishing) return;
     const v = skip ? null : value();
-    if (!skip && v === null) { $('pMsg').textContent = qs[at].kind === 'order' ? 'Number every one, or press Skip for now.' : 'Answer it, or press Skip for now.'; return; }
+    if (!skip && v === null && answers[at] === null) { $('pMsg').textContent = qs[at].kind === 'order' ? 'Number every one, or press Skip for now.' : 'Answer it, or press Skip for now.'; return; }
     $('pMsg').textContent = '';
-    if (!skip) answers[at] = v;
+    if (!skip && v !== null) answers[at] = v;
     const left = answers.filter(a => a === null).length;
     $('pLeft').textContent = left ? left + ' not answered yet' : 'All answered';
     const k = nextIndex();
@@ -131,14 +175,16 @@ function Paper(PAPER) {
     const left = answers.filter(a => a === null).length;
     $('pRun').hidden = true; $('pReview').hidden = false;
     $('pReviewText').textContent = left ? 'You have ' + left + ' question' + (left > 1 ? 's' : '') + ' not answered. Go back to them, or finish now.'
-      : 'You have answered every question. Check one again, or finish now.';
+      : 'You have answered every question. Tap a number to check one again, or finish now.';
     $('pBack').hidden = !left;
+    const r = $('pReviewNav'); if (r && $('pNav')) r.appendChild($('pNav'));
   }
   function clock() {
     const leftMs = deadline - Date.now(), s = Math.max(0, Math.ceil(leftMs / 1000));
     $('pClock').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     $('pFill').style.width = Math.max(0, 100 * leftMs / (secs * 1000)) + '%';
     $('pClock').classList.toggle('low', s <= 60);
+    if (s === 60 && !warned) { warned = true; $('pMsg').textContent = 'One minute left.'; setTimeout(() => { if ($('pMsg').textContent === 'One minute left.') $('pMsg').textContent = ''; }, 6000); }
     if (leftMs <= 0) { clearInterval(tick); $('pMsg').textContent = 'Time is up.'; finish(true); }
   }
   async function start() {
@@ -155,14 +201,14 @@ function Paper(PAPER) {
       $('passageBody').innerHTML = '<div class="mut small">' + esc(P.kind) + '</div><h2 class="passage-title" data-testid="passage-title">' + esc(P.title) + '</h2>'
         + String(P.text).split(/\n\s*\n/).map(p => '<p>' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('');
     }
-    $('pMsg').textContent = ''; $('pRun').hidden = false;
+    $('pMsg').textContent = ''; $('pRun').hidden = false; warned = false;
     deadline = Date.now() + secs * 1000; clock(); tick = setInterval(clock, 500);
     $('pLeft').textContent = qs.length + ' not answered yet';
     render();
   }
   async function finish(timeUp) {
     if (finishing) return;
-    if (!timeUp) { const v = value(); if (v !== null && !$('pRun').hidden) answers[at] = v; }
+    keep();                     // what is in the box when the time runs out counts, like pencil on the paper
     finishing = true; clearInterval(tick);
     const used = Math.round(secs - Math.max(0, (deadline - Date.now()) / 1000));
     const body = { token, answers, used };
@@ -190,7 +236,7 @@ function Paper(PAPER) {
     $('pTime').textContent = (mins ? 'Time used: ' + mins + ' of ' + Math.round(d.secs / 60) + ' minutes.' : '')
       + (d.blank ? ' ' + d.blank + ' left blank.' : '');
     $('pCounted').textContent = d.counted ? 'Your answers count towards today. Any you missed are now in Practise my mistakes.' : '';
-    $('pRows').innerHTML = d.rows.map((r, i) => '<div class="card paper-row ' + (r.correct ? 'ok' : 'bad') + '" data-testid="paper-row">'
+    $('pRows').innerHTML = d.rows.map((r, i) => '<div class="paper-row ' + (r.correct ? 'ok' : 'bad') + '" data-testid="paper-row">'
       + '<div class="kid"><b>' + (i + 1) + '.</b><span class="chip ' + (r.correct ? 'done' : '') + '">' + (r.correct ? '✓ right' : r.blank ? 'not answered' : '✗ not quite') + '</span></div>'
       + '<div style="margin:4px 0">' + esc(r.prompt) + '</div>'
       + (r.blank ? '' : '<div class="small"><span class="mut">You wrote:</span> ' + esc(r.given) + '</div>')
@@ -208,7 +254,7 @@ function Paper(PAPER) {
     if (left > 0 && !confirm(left + ' question' + (left > 1 ? 's are' : ' is') + ' not answered. Finish anyway?')) return; finish(false); });
   $('pFinish2').addEventListener('click', () => finish(false));
   $('pBack').addEventListener('click', () => { $('pReview').hidden = true; $('pRun').hidden = false;
-    const k = answers.findIndex(a => a === null); at = k < 0 ? 0 : k; render(); });
+    const k = answers.findIndex(a => a === null); at = k < 0 ? 0 : k; $('pRunNav').appendChild($('pNav')); render(); });
   // a paper finished with no connection: send it now
   const old = stored();
   if (old && old.token) { $('pIntro').hidden = true; send(old).catch(() => {}); }

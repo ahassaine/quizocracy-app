@@ -41,8 +41,14 @@ async def race_page(request: Request, course: str, ctx: Ctx = Depends(child_page
         return RedirectResponse("/me/race", 303)
     board = await league.race_board(ctx.family, await _pupils(ctx), course, ctx.child)
     mine = next((r for r in board if r["me"]), None)
-    # the ghosts: the child's own best this week, and up to 3 others, the nearest faster runs first
+    # the ghosts: the child's own best this week, and up to 3 others, the nearest faster runs first; on the course
+    # for a child's own year, the children for whom it is their year's course (an older brother racing the Starter
+    # course to beat his sister does not take over her races)
     others = [r for r in board if not r["me"]]
+    year_of = {p["_id"]: int(p.get("year") or 4) async for p in db.pupils.find({"_id": {"$in": [r["id"] for r in others]}}, {"year": 1})}
+    same = [r for r in others if league.default_course(year_of.get(r["id"], 4)) == course]
+    if course == league.default_course(int(ctx.child.get("year") or 4)) and same:
+        others = same
     faster = [r for r in others if not mine or r["total"] < mine["total"]][-2:]
     slower = [r for r in others if mine and r["total"] >= mine["total"]][:3 - len(faster)]
     ghosts = ([mine] if mine else []) + faster + slower
@@ -202,7 +208,25 @@ async def sats_page(request: Request, ctx: Ctx = Depends(child_page)):
     if not sats.open_to(ctx.child):
         return RedirectResponse("/me", 303)
     return page(request, "sats.html", ctx, act={"title": "SATs practice papers", "img": "/static/img/sats.png",
-                                                 "target": 0}, papers=sats.cards(ctx.child))
+                                                 "target": 0}, papers=sats.cards(ctx.child), sheets=await sats.sheets(ctx.child, 8))
+
+
+@router.get("/me/sats/sheet/{sid}")
+async def sats_sheet_child(request: Request, sid: str, ctx: Ctx = Depends(child_page)):
+    sh = await sats.sheet(ctx.child, sid)
+    if not sh:
+        return RedirectResponse("/me/sats", 303)
+    return page(request, "sats_sheet.html", ctx, pupil=ctx.child, sheet=sh, back="/me/sats", back_label="SATs papers")
+
+
+@router.get("/children/{pid}/sats/{sid}")
+async def sats_sheet_parent(request: Request, pid: str, sid: str, ctx: Ctx = Depends(parent_page)):
+    p = await own_pupil(ctx, pid)
+    sh = await sats.sheet(p, sid)
+    if not sh:
+        raise HTTPException(404, "not found")
+    return page(request, "sats_sheet.html", ctx, pupil=p, sheet=sh, back=f"/children/{p['_id']}#sats-papers-scores",
+                back_label=f"{p['name']}'s progress")
 
 
 @router.get("/me/sats/{paper}")

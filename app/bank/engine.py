@@ -93,7 +93,7 @@ def load() -> dict:
                   for q in sk.get("qs", []) if _usable(q) and q.get("q") not in out]
             if any(not q.get("id") for q in sk.get("qs", [])):
                 log.warning("bank skill %s has questions without an id: run scripts/bank_ids.py", sk.get("key"))
-            if subject == "science":                 # "the axle" is as right as "axle" (not so in grammar)
+            if subject in ("science", "reading"):    # "the axle" is as right as "axle" (not so in grammar)
                 qs = [dict(q, loose=True) if q["t"] == "text" else q for q in qs]
             if not subject or not qs:
                 continue
@@ -191,6 +191,8 @@ def serve(q: dict) -> tuple[dict, dict]:
         key["words"] = words
     elif t == "text":
         key["a"] = q["a"]
+        if q.get("d"):                   # reading "find and copy": a copying slip still finds the answer (near_copy)
+            key["copy"] = True
         full = gap_sentences(q["q"], q["a"])
         if full:
             pub["gap"] = True
@@ -498,6 +500,8 @@ def mark(key: dict, value) -> bool:
     if t == "text":
         v = norm_text(value)
         ok = key["a"] + key.get("full", [])
+        if key.get("copy") and near_copy(key, value):
+            return True
         if key.get("loose"):
             return sci_text(v, [norm_text(a) for a in ok])
         return bool(v) and v in {norm_text(a) for a in ok}
@@ -521,6 +525,24 @@ def mark(key: dict, value) -> bool:
         v = parse_num(value, key.get("unit") or "")
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9
     return False
+
+
+def near_copy(key: dict, value) -> str:
+    """Reading "find and copy" is marked for finding, not spelling (as in the KS2 reading test): an answer a slip
+    or two from an accepted one ("Leisure Center", "bais", "changing room" for "changing rooms") is right. The
+    accepted answer it matched, when it is not exactly that ("" otherwise)."""
+    v = re.sub(r"^(the|a|an) ", "", norm_text(value))
+    if not v:
+        return ""
+    for a in key.get("a") or []:
+        w = re.sub(r"^(the|a|an) ", "", norm_text(a))
+        if v == w:
+            return ""
+        swapped = len(v) == len(w) and sum(x != y for x, y in zip(v, w)) == 2 and sorted(v) == sorted(w) and any(
+            v[i:i + 2] == w[i:i + 2][::-1] for i in range(len(w) - 1))               # two letters swapped ("bais")
+        if len(w) >= 4 and (_edits(v, w) <= (2 if len(w) >= 9 else 1) or swapped or v + "s" == w or v == w + "s"):
+            return a
+    return ""
 
 
 def sci_text(v: str, ok: list) -> bool:
@@ -594,7 +616,7 @@ def slips(key: dict, value, prompt: str = "", sk: dict | None = None) -> list:
         return []
     never = _NEVER | set(re.findall(r"[a-z]+", prompt.lower()))
     inner = False                    # only a slip inside the word (_TENSE_SKILLS)
-    if not key.get("loose"):
+    if not key.get("loose") and not (sk and sk.get("subject") == "reading"):   # reading: a copying slip, a retry
         if not sk or sk.get("subject") != "grammar":
             return []
         if spelling_matters(sk) and sk.get("key") not in _WORD_CHOICE_SKILLS and not is_term_answer(key, prompt):

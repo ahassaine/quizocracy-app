@@ -17,14 +17,17 @@ import re
 from ..activities import todays_plan
 from ..bank import engine as bank_engine
 from ..db import db
-from ..maths import maths_engine
+from ..maths import maths_engine, maths_mastery
 from .. import items, progress
 from . import spelling
 
 YEARS = (5, 6)
 # arithmetic skills of the maths engine (as on the parent's SATs card)
 ARITHMETIC = ["Y6.1.a", "Y6.1.b", "Y6.1.c", "Y6.1.d", "Y6.1.e", "Y6.1.f", "Y6.1.h", "Y6.2.f", "Y6.5.d", "Y6.5.e",
-              "Y6.5.f", "Y6.5.g", "Y6.5.h", "Y6.6.f"]
+              "Y6.5.f", "Y6.5.g", "Y6.5.h", "Y6.6.f",
+              # the fraction calculations the arithmetic paper has
+              "Y6.3.e", "Y6.3.f", "Y6.4.a", "Y6.4.b", "Y6.4.d"]
+NOT_KS2 = {"Y6.9.j"}          # probability: not in the KS2 programme of study, never on a SATs paper
 PAPERS = {
     "arithmetic": {"title": "Maths: arithmetic", "n": 12, "minutes": 10, "subject": "maths",
                    "real": "The real paper: 36 calculations in 30 minutes."},
@@ -39,6 +42,7 @@ PAPERS = {
 }
 ORDER = ["arithmetic", "reasoning", "gps", "spelling", "reading"]
 KEEP = 100                    # papers kept on the child's record
+SHEETS = 30                   # answer sheets kept per child (the newest)
 GRACE = 20                    # seconds after the time is up that a paper's answers are still taken (a slow network)
 
 
@@ -63,7 +67,13 @@ def cards(pupil: dict) -> list:
 
 def _reasoning_skills() -> list:
     return [s["key"] for s in maths_engine.skill_list()
-            if s["key"].startswith("Y6.") and s["key"] not in ARITHMETIC and s["key"] in maths_engine.GENERATORS]
+            if s["key"].startswith("Y6.") and s["key"] not in ARITHMETIC and s["key"] not in NOT_KS2
+            and s["key"] in maths_engine.GENERATORS]
+
+
+def _bare(g: dict) -> bool:
+    """A bare calculation, as on the arithmetic paper: typed, with at most a few words ("Work out 2,490 ÷ 6")."""
+    return (g.get("component") or "number") == "number" and len([w for w in g.get("prompt", "").split() if w.isalpha()]) <= 8
 
 
 def _spread(keys: list, n: int, rng=random) -> list:
@@ -76,17 +86,28 @@ def _spread(keys: list, n: int, rng=random) -> list:
     return out[:n]
 
 
-async def _maths(pupil: dict, keys: list) -> tuple[list, list]:
+async def _maths(pupil: dict, keys: list, bare: bool | None) -> tuple[list, list]:
+    """bare: True for the arithmetic paper (bare calculations only), False for reasoning (problems: words or a
+    picture, never a bare sum), None for either."""
     pub, ans = [], []
     for k in keys:
-        q = None
-        for _ in range(4):                       # a generator that fails now and then: try again
+        q, made = None, None
+        fn = maths_engine.GENERATORS[k]
+        for i in range(40):                      # a question of the paper's kind from this skill, if it makes one
             try:
-                q = await maths_engine.new_question(k, random.choice([1, 1, 2]), pupil=pupil["_id"])
+                g = maths_engine.call_generator(fn, random.choice([1, 1, 2]))
             except Exception:  # noqa: BLE001 - one broken generator must not stop the paper
-                q = None
-            if q:
+                continue
+            if bare is None or _bare(g) == bare:
+                made = g
                 break
+        if made is None:
+            continue
+        try:
+            q = await maths_engine.new_question(k, made.get("difficulty", 1) if isinstance(made.get("difficulty"), int) else 1,
+                                                pupil=pupil["_id"], made=made)
+        except Exception:  # noqa: BLE001
+            q = None
         if not q:
             continue
         pub.append({"kind": "maths", "prompt": q["prompt"], "component": q["component"], "spec": q["spec"]})
@@ -126,7 +147,7 @@ def _spelling(pupil: dict, n: int, rng=random) -> tuple[list, list]:
     for w in picked:
         cue = spelling.CUES.get(w) or spelling.CUES.get(w.lower()) or ""
         pub.append({"kind": "spelling", "prompt": "Listen, then spell the word.",
-                    "sentence": cue if "___" in cue else ""})
+                    "sentence": cue if "___" in cue else "", "letters": len(w)})
         ans.append({"t": "spelling", "word": w})
     return pub, ans
 
@@ -154,9 +175,11 @@ async def start(pupil: dict, paper: str) -> dict | None:
         return None
     P, passage = PAPERS[paper], None
     if paper == "arithmetic":
-        pub, ans = await _maths(pupil, _spread([k for k in ARITHMETIC if k in maths_engine.GENERATORS], P["n"]))
+        pub, ans = await _maths(pupil, _spread([k for k in ARITHMETIC if k in maths_engine.GENERATORS], P["n"] + 6), True)
+        pub, ans = pub[:P["n"]], ans[:P["n"]]
     elif paper == "reasoning":
-        pub, ans = await _maths(pupil, _spread(_reasoning_skills(), P["n"]))
+        pub, ans = await _maths(pupil, _spread(_reasoning_skills(), P["n"] + 6), False)
+        pub, ans = pub[:P["n"]], ans[:P["n"]]
     elif paper == "gps":
         pub, ans = _gps(P["n"])
     elif paper == "spelling":
@@ -177,6 +200,31 @@ def _same_word(typed, word: str) -> bool:
     return bool(t) and t == word.lower()
 
 
+async def bank_progress(pupil: dict, a: dict, correct: bool) -> None:
+    """A paper's grammar or reading answer moves that skill's progress, as a daily answer does (the SATs card and the
+    strong and weak spots then show the paper's topics as practised). Reading passages keep their first-time
+    score (only a first answer is noted)."""
+    from ..maths.maths_mastery import MASTERED, gain, penalty
+    subject = "reading" if a["skill"].startswith("RD") else "grammar"
+    _id = f"{pupil['_id']}:{a['skill']}"
+    doc = await db.bank_mastery.find_one({"_id": _id}) or {}
+    score, streak = int(doc.get("score", 0)), int(doc.get("streak", 0))
+    upd = {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "subject": subject, "key": a["skill"],
+           "attempts": int(doc.get("attempts", 0)) + 1, "correct": int(doc.get("correct", 0)) + int(correct),
+           "last": datetime.datetime.utcnow()}
+    if subject == "reading":
+        first = dict(doc.get("first") or {})
+        first.setdefault(a["qid"], correct)
+        sk = bank_engine.skill(a["skill"]) or {"qs": []}
+        ids = {q["id"] for q in sk["qs"]}
+        upd.update(first=first, asked=list(dict.fromkeys((doc.get("asked") or []) + [a["qid"]])),
+                   score=round(100 * sum(1 for k, v in first.items() if v and k in ids) / max(1, len(ids))))
+    else:
+        streak = streak + 1 if correct else 0
+        upd.update(streak=streak, score=min(MASTERED, score + gain(score, streak)) if correct else max(0, score - penalty(score)))
+    await db.bank_mastery.update_one({"_id": _id}, {"$set": upd}, upsert=True)
+
+
 async def _mark_maths(pupil: dict, a: dict, value) -> dict:
     doc = await db.maths_lab_q.find_one_and_update({"_id": a["token"], "pupil": pupil["_id"]}, {"$set": {"done": True}})
     if not doc:
@@ -184,6 +232,13 @@ async def _mark_maths(pupil: dict, a: dict, value) -> dict:
     ok = value not in (None, "") and maths_engine.check_answer(
         doc["answer_type"], doc["answer"], value, tolerance=doc.get("tolerance", 0), unit=doc.get("unit"),
         prompt=doc.get("prompt", ""), labels=doc.get("labels"))
+    if value not in (None, ""):
+        # a paper's maths answer is maths practice too: the skill's progress (and the SATs card) moves with it
+        try:
+            await maths_mastery.record_attempt(pupil["_id"], a["skill"], bool(ok), value, tier=doc.get("difficulty"),
+                                               shape=doc.get("shape"))
+        except Exception:  # noqa: BLE001 - the paper's mark matters more than the progress line
+            pass
     return {"correct": bool(ok), "expected": str(doc.get("display", doc["answer"])),
             "why": " ".join(doc.get("solution") or []), "prompt": doc.get("prompt", ""),
             "layout": doc.get("layout")}
@@ -213,6 +268,10 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
             r = {"correct": given is not None and _same_word(given, a["word"]), "expected": a["word"], "why": "",
                  "prompt": "Spell: " + a["word"]}
             activity, detail, gtext = "spelling", a["word"], "" if given is None else str(given)[:60]
+            if given is not None and not r["correct"] and spelling.other_word(str(given), a["word"]):
+                # a different real word, spelt right ("emergency" for "immediate"): not a spelling mistake
+                r["why"] = f"“{str(given).strip()}” is a real word, spelt right, but the word read out was “{a['word']}”."
+                r["other"] = True
         else:
             q = bank_engine.question(a["skill"], a["qid"]) or {}
             ok = given is not None and bank_engine.mark(a["key"], given)
@@ -230,7 +289,9 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
         score += int(r["correct"])
         blank += int(given is None)
         rows.append(r)
-        if given is not None and activity in plan and not late:
+        if given is not None and a["t"] == "bank":
+            await bank_progress(pupil, a, bool(r["correct"]))
+        if given is not None and activity in plan and not late and not r.get("other"):
             # a paper's answer counts for its subject today, like the Year 4 check's (src "sats")
             await progress.record(pupil, activity, r["correct"], None, detail, r["prompt"], r["expected"], gtext,
                                   src="sats")
@@ -246,7 +307,28 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
               "best": best is not None and score / max(1, len(keys)) > best, "first": best is None,
               "counted": any(not r["blank"] for r in rows) and PAPERS[paper]["subject"] in plan}
     await db.items.update_one({"_id": it["_id"]}, {"$set": {"result": result}})
+    # the answer sheet, kept so the child and a grown-up can go through it later (SHEETS per child)
+    sheet = await db.sats_sheets.insert_one({"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "at": row["at"],
+                                             "day": row["day"], "result": result})
+    old = [d["_id"] async for d in db.sats_sheets.find({"pupil_id": pupil["_id"]}, {"_id": 1}).sort("at", -1).skip(SHEETS)]
+    if old:
+        await db.sats_sheets.delete_many({"_id": {"$in": old}})
+    result["sheet"] = str(sheet.inserted_id)
     return result
+
+
+async def sheets(pupil: dict, n: int = SHEETS) -> list:
+    """The child's answer sheets, newest first: [{id, day, paper, title, score, of}]."""
+    return [{"id": str(d["_id"]), "day": d["day"], **{k: d["result"][k] for k in ("paper", "title", "score", "of")}}
+            async for d in db.sats_sheets.find({"pupil_id": pupil["_id"]}).sort("at", -1).limit(n)]
+
+
+async def sheet(pupil: dict, sid: str) -> dict | None:
+    from bson import ObjectId
+    if not ObjectId.is_valid(sid):
+        return None
+    d = await db.sats_sheets.find_one({"_id": ObjectId(sid), "pupil_id": pupil["_id"]})
+    return {**d["result"], "day": d["day"]} if d else None
 
 
 async def audio_word(pupil: dict, token: str, i: int) -> str | None:

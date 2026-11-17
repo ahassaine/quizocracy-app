@@ -52,15 +52,15 @@ YEAR_DEFAULTS = {
     # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty. Reading is off by default: with it a Year 2 day
     # runs to about 28 minutes (a parent turns it on, or swaps it for spelling)
     2: {"maths": 6, "tables": 10, "spelling": 6},
-    # Reading is not in a default day (it would take a day past about 18 minutes): the parent's page offers it
-    # (READING_OFFER), at about one passage a day (READING_TARGET)
-    3: {"maths": 8, "tables": 20, "spelling": 8},
-    4: {"maths": 8, "tables": 20, "spelling": 8},
-    5: {"maths": 10, "tables": 20, "spelling": 8},
-    6: {"maths": 10, "spelling": 8, "grammar": 5},
-    7: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
-    8: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
-    9: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
+    # Years 3-9: a reading passage a day (its questions: 6 in Years 3-4, 7 from Year 5); the day is then about 20 to
+    # 24 minutes. Year 2 is offered reading on the parent's page instead (a Year 2 day with it runs to about 28).
+    3: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
+    4: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
+    5: {"maths": 10, "tables": 20, "spelling": 8, "reading": 7},
+    6: {"maths": 10, "spelling": 8, "grammar": 5, "reading": 7},
+    7: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5, "reading": 7},
+    8: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5, "reading": 7},
+    9: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5, "reading": 7},
 }
 # Rough seconds a child needs per correct answer (wrong tries and reading the feedback included), and how much
 # longer younger children take. Only used to tell the parent how long a day takes.

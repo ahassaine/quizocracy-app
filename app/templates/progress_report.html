@@ -85,6 +85,24 @@
   </table>
 </div>{% endif %}
 
+{% set pcs = (pupil.phonics_checks or [])|selectattr('day', 'in', days)|list %}
+{% if pcs %}<h2>Phonics check practice</h2>
+<div class="card" data-testid="report-pc" style="overflow-x:auto">
+  <div class="small">{{ pcs|length }} practice check{{ '' if pcs|length == 1 else 's' }} in this period: real and alien words read aloud to a grown-up, who marked them (the full check has 40 words; in past years the expected standard has been 32).</div>
+  <table class="t small" style="margin-top:6px"><tr><th>Date</th><th>Score</th><th>Words to practise</th></tr>
+    {% for r in pcs|reverse %}<tr><td style="white-space:nowrap">{{ r.day|daylabel }}</td><td><b>{{ r.score }}</b>/{{ r.of }}</td><td class="mut">{{ (r.real_missed + r.alien_missed)|join(', ') }}</td></tr>{% endfor %}
+  </table>
+</div>{% endif %}
+
+{% set sps = (pupil.sats_papers or [])|selectattr('day', 'in', days)|list %}
+{% if sps %}{% set titles = {"arithmetic": "Maths: arithmetic", "reasoning": "Maths: reasoning", "gps": "Grammar and punctuation", "spelling": "Spelling", "reading": "Reading"} %}<h2>SATs practice papers</h2>
+<div class="card" data-testid="report-sats-papers" style="overflow-x:auto">
+  <div class="small">Short timed papers in the shape of the KS2 tests (practice, not a predicted mark).</div>
+  <table class="t small" style="margin-top:6px"><tr><th>Date</th><th>Paper</th><th>Score</th></tr>
+    {% for r in sps|reverse %}<tr><td style="white-space:nowrap">{{ r.day|daylabel }}</td><td>{{ titles.get(r.paper, r.paper) }}</td><td><b>{{ r.score }}</b>/{{ r.of }}</td></tr>{% endfor %}
+  </table>
+</div>{% endif %}
+
 {% if spelling_on %}<h2>Spellings learned</h2>
 <div class="card" data-testid="report-spelling"><div class="small"><b>{{ learned|length }} of {{ words_total }}</b> words from the Year {{ pupil.year }} word list learned (spelt right on 3 different days).</div>
 {% if learned %}<ul class="words">{% for w in learned %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}

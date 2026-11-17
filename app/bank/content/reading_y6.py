@@ -5,8 +5,8 @@ original writing, written by hand, to prepare for the KS2 SATs reading paper: qu
 the paper asks them ("Find and copy...", "Which word is closest in meaning to...", "Why did the writer...",
 "Using information from the text...", "Which of these is a fact, not an opinion?").
 
-Topics link to the Year 6 curriculum where natural: evolution (a biography of Charles Darwin: fossils and
-adaptation), the circulatory system and keeping healthy, light and how we see, electrical circuits,
+Topics link to the Year 6 curriculum where natural: a biography of Louis Braille (how braille was
+invented), the circulatory system and keeping healthy, light and how we see, electrical circuits,
 classification, the Second World War home front (an evacuee's letters: evacuation and rationing), the Maya
 number system and cities, climate zones and mountains, coastal erosion (a news report); plus stories (starting
 secondary school, suspense without horror, a moral dilemma, a sports final), a poem, a balanced argument
@@ -65,7 +65,7 @@ SKILLS = [
                       "He was worried about telling jokes."],
              "why": "He looked for someone he knew and found no one; the gap left by Callum's jokes shows how much he missed his friend."},
             {"id": "b53ae7f54d23", "t": "text", "d": "retrieve", "q": "What was Rosa drawing in the margin of her planner? Find and copy two words.",
-             "a": ["tiny maps", "maps"],
+             "a": ["tiny maps", "maps", "tiny map", "map"],
              "why": "The third paragraph says she was drawing tiny maps in the margin of her planner."},
             {"id": "028f17fd03ec", "t": "tap", "d": "language", "q": "Tap the word that shows how loud the canteen was.",
              "s": "At lunch, the canteen was a [roar] of trays and voices.",
@@ -207,7 +207,7 @@ SKILLS = [
                       "Arthur is laughing at Georgie for being frightened."],
              "why": "Adding “much” after “I am not” takes back part of what he said: he is a bit scared, though he plays it down."},
             {"id": "e18094f96912", "t": "text", "d": "retrieve", "q": "Where does Mrs Hext keep the children's ration books? Find and copy.",
-             "a": ["in the dresser drawer", "the dresser drawer", "dresser drawer", "in the dresser"],
+             "a": ["in the dresser drawer", "the dresser drawer", "dresser drawer", "in the dresser", "the dresser"],
              "why": "The second letter says she keeps them in the dresser drawer."},
             {"id": "89d584d658b5", "t": "mcq", "d": "infer", "q": "Why does Arthur think he is luckier than his mum?",
              "opts": ["The farm has plenty of eggs, so he has more to eat.",
@@ -233,72 +233,78 @@ SKILLS = [
         "key": "RD6.04",
         "year": 6,
         "strand": "Biography",
-        "title": "Charles Darwin",
+        "title": "Louis Braille",
         "nc": "Retrieve, record and present information; summarise the main ideas drawn from more than one paragraph",
         "text": (
-            "Charles Darwin was born in Shrewsbury, England, in 1809. As a boy he was not a star pupil. He found "
-            "Latin dull, but he loved to roam the countryside collecting shells, stones and birds' eggs.\n\n"
-            "His father hoped he would become a doctor, so Charles went to study medicine at Edinburgh University. "
-            "He hated watching operations, which in those days were done without anything to stop the pain, and he "
-            "left. He went next to Cambridge, where he became a keen beetle collector. Once, holding a rare beetle "
-            "in each hand, he spotted a third and popped one into his mouth to free a hand. The beetle squirted a "
-            "burning liquid, he had to spit it out, and he lost two of the three.\n\n"
-            "In 1831, when he was twenty-two, Darwin was offered a place on a ship called HMS Beagle, which was "
-            "setting off to map the coast of South America. The voyage was meant to last two years. It lasted "
-            "almost five. Darwin was terribly seasick, but whenever the ship stopped, he went ashore to study rocks, "
-            "plants and animals. In Argentina he dug the fossils of enormous animals out of the ground, including "
-            "the bones of a giant ground sloth. Nothing like it was alive anywhere on Earth. Why, he wondered, had "
-            "such creatures disappeared?\n\n"
-            "On the Galápagos Islands in the Pacific Ocean, he collected small birds called finches. Back in "
-            "England, an expert showed him that the finches were several different species, and that their beaks "
-            "were different shapes. Some had thick, strong beaks for cracking hard seeds; others had thin, pointed "
-            "beaks for catching insects. Darwin began to suspect that each kind had changed slowly, over many "
-            "generations, to suit the food where it lived.\n\n"
-            "For about twenty years, Darwin worked quietly on this idea, gathering evidence from pigeons, "
-            "barnacles and plants. He reasoned that living things vary, that some variations help an animal to "
-            "survive and have young, and that these useful features are passed on. Over a very long time, a "
-            "species could change. He called this natural selection.\n\n"
-            "In 1858 he learned that another naturalist, Alfred Russel Wallace, had reached a similar idea. The "
-            "following year, Darwin published his famous book, On the Origin of Species. It caused fierce "
-            "arguments, but today his theory of evolution is the foundation of modern biology.\n\n"
-            "Darwin died in 1882. The young collector who once lost two beetles had changed the way we understand all life "
-            "on Earth."
+            "Louis Braille was born in 1809 in Coupvray, a small village near Paris, in France. His father made "
+            "harnesses and saddles for horses, and his workshop was full of sharp tools. When Louis was three, he "
+            "picked up one of these tools while playing, and it slipped and injured one of his eyes. An infection "
+            "set in and spread to his other eye. By the age of five, Louis was completely blind.\n\n"
+            "His family were determined that he should still learn. He went to the village school with the other "
+            "children and listened carefully, and he did well. Then, when he was ten, he won a place at a special "
+            "school for blind children in Paris.\n\n"
+            "The school owned a few books for blind readers, but they were very hard to use. Each letter was a "
+            "large raised shape pressed into thick paper, so a single book was enormous and heavy. Reading meant "
+            "tracing every letter slowly with the fingers, and the pupils could not write anything in this way "
+            "themselves.\n\n"
+            "When Louis was about twelve, a former army captain named Charles Barbier visited the school. He had "
+            "invented a system he called night writing, which used patterns of raised dots so that soldiers could "
+            "read messages in the dark without lighting a lamp. The pupils were excited, but the system was "
+            "difficult: it stood for sounds rather than letters, and one sign could need so many dots that it was "
+            "too big to feel with one touch of a fingertip.\n\n"
+            "Louis saw that the idea was a good one, even if the system was not. For the next three years he "
+            "worked on it in every spare moment. By the age of fifteen he had found the answer: a small cell of "
+            "just six dots, arranged in two columns of three. Each letter was a different pattern of dots, and "
+            "every pattern fitted under a single fingertip. Readers could now move quickly along a line, and, just "
+            "as importantly, blind people could write.\n\n"
+            "Louis later became a teacher at the school, and he developed his code for numbers and music too. "
+            "Sadly, he suffered from poor health for much of his life, and he died in 1852 at the age of only "
+            "forty-three. Two years after his death, the school officially adopted his system.\n\n"
+            "Today braille is used all over the world, in books, on signs and even on medicine boxes. The boy who "
+            "lost his sight in his father's workshop gave millions of people the chance to read and write for "
+            "themselves."
         ),
         "qs": [
-            {"id": "0c81423c69b3", "t": "mcq", "d": "retrieve", "q": "What did Darwin's father hope he would become?",
-             "opts": ["a doctor", "a ship's captain", "a Latin teacher", "a map maker"],
-             "why": "The second paragraph says his father hoped he would become a doctor, so he studied medicine."},
-            {"id": "e8a5f7312fa8", "t": "mcq", "d": "retrieve", "q": "Why did Darwin leave Edinburgh University?",
-             "opts": ["He could not bear to watch painful operations.",
-                      "He had been offered a place on HMS Beagle.",
-                      "He found his Latin lessons far too dull.",
-                      "His father wanted him to collect beetles."],
-             "why": "He hated watching operations, which were done without anything to stop the pain, and then he left."},
-            {"id": "2cf20b306a1a", "t": "text", "d": "retrieve", "q": "Find and copy the name of the animal whose fossil bones Darwin dug up in Argentina.",
-             "a": ["giant ground sloth", "a giant ground sloth", "the giant ground sloth", "ground sloth", "sloth"],
-             "why": "The third paragraph says he found the bones of a giant ground sloth."},
-            {"id": "ccb4424b1965", "t": "mcq", "d": "vocab", "q": "“Darwin began to suspect that each kind had changed slowly.” Which word or phrase is closest in meaning to suspect?",
-             "opts": ["think it was likely", "prove for certain", "be frightened", "refuse to believe"],
-             "why": "To suspect something is to think it is probably true without being sure yet: he went on to gather evidence for twenty years."},
-            {"id": "8034afed7e0d", "t": "mcq", "d": "compare", "q": "According to the text, how were the finches with thick beaks different from those with thin beaks?",
-             "opts": ["Thick beaks cracked hard seeds; thin beaks caught insects.",
-                      "Thick beaks caught insects; thin beaks cracked hard seeds.",
-                      "Thick-beaked finches lived in England; thin-beaked ones did not.",
-                      "Thick-beaked finches were fossils; thin-beaked ones were alive."],
-             "why": "The fourth paragraph says thick, strong beaks were for cracking hard seeds and thin, pointed beaks were for catching insects."},
-            {"id": "5fba14da126b", "t": "order", "d": "sequence", "q": "Put these events from Darwin's life in order.",
-             "items": ["Darwin studied medicine in Edinburgh.",
-                       "Darwin set sail on HMS Beagle.",
-                       "Darwin dug up fossils in Argentina.",
-                       "Darwin learned that Wallace had a similar idea.",
-                       "Darwin published On the Origin of Species."],
-             "why": "Edinburgh came before the voyage of 1831; he found the fossils during the voyage; he heard of Wallace in 1858 and published his book the following year."},
-            {"id": "19af8c15d9f4", "t": "mcq", "d": "structure", "q": "Why does the writer mention the beetles again in the last sentence?",
-             "opts": ["to link the eager young collector to the great scientist he became",
-                      "to show that beetles were the main evidence for natural selection",
-                      "to suggest that Darwin was careless with his collections all his life",
-                      "to explain why Darwin's book caused such fierce arguments"],
-             "why": "The last sentence goes back to the beetle story in the second paragraph: the young man who loved collecting beetles grew up to change science."},
+            {"id": "44ff8d15283e", "t": "mcq", "d": "retrieve", "q": "According to the text, how did Louis lose his sight?",
+             "opts": ["A tool he was playing with injured his eye, and an infection spread.",
+                      "He was born blind in the village of Coupvray.",
+                      "He read in the dark at night until his eyes failed.",
+                      "A horse in his father's workshop kicked him in the face."],
+             "why": "The first paragraph says a tool slipped and injured one eye, and an infection spread to the other."},
+            {"id": "d69767f55fd6", "t": "mcq", "d": "infer", "q": "What does the second paragraph suggest about Louis as a young child?",
+             "opts": ["He was clever and keen to learn, even though he could not see.",
+                      "He did not enjoy school and wanted to work in the workshop.",
+                      "He found it hard to keep up with the other children.",
+                      "He was sent away to Paris because the village school refused him."],
+             "no": {"He found it hard to keep up with the other children.": "The text says he listened carefully and did well."},
+             "why": "He went to the ordinary village school, listened carefully, did well and then won a place at a school in Paris."},
+            {"id": "cbaf945db72c", "t": "text", "d": "retrieve", "q": "Find and copy the name Charles Barbier gave to his system of raised dots.",
+             "a": ["night writing", "night-writing"],
+             "why": "The fourth paragraph says he had invented a system he called night writing, for soldiers reading in the dark."},
+            {"id": "0797c27d29d6", "t": "mcq", "d": "compare", "q": "Using information from the text, what was one advantage of Louis's system over Barbier's?",
+             "opts": ["Every sign could be felt with one touch of a fingertip.",
+                      "It used patterns of raised dots instead of raised letters.",
+                      "It could be read in the dark without lighting a lamp.",
+                      "It stood for sounds rather than for letters."],
+             "no": {"It used patterns of raised dots instead of raised letters.": "Barbier's night writing used raised dots too.",
+                    "It stood for sounds rather than for letters.": "That was Barbier's system; in Louis's, each letter was a pattern of dots."},
+             "why": "Barbier's signs could be too big to feel with one fingertip; in Louis's six-dot cell, every pattern fitted under a single fingertip."},
+            {"id": "0be3b801a526", "t": "tap", "d": "vocab", "q": "Tap the word in this sentence that means “took up and began to use”.",
+             "s": "Two years after his death, the school officially [adopted] his system.",
+             "why": "To adopt a system is to take it up and start using it: the school began to use braille in 1854."},
+            {"id": "6186b36cdffd", "t": "order", "d": "sequence", "q": "Put these events from Louis Braille's life in order.",
+             "items": ["Louis became blind.",
+                       "Louis went to a school for blind children in Paris.",
+                       "Charles Barbier visited the school.",
+                       "Louis invented his six-dot code.",
+                       "The school officially adopted his system."],
+             "why": "He was blind by five, went to Paris at ten, met Barbier at about twelve, had his code by fifteen, and the school adopted it two years after his death."},
+            {"id": "31db49df9729", "t": "mcq", "d": "summarise", "q": "Which of these would be the best summary of the whole text?",
+             "opts": ["A blind boy improved an idea he was shown and gave blind people a way to read and write.",
+                      "An army captain invented a way for soldiers to read messages in the dark.",
+                      "A school in Paris owned some huge, heavy books that were hard to read.",
+                      "A boy was injured in his father's workshop and had to leave his village."],
+             "why": "Barbier, the heavy books and the accident are each one part of the story; the text as a whole is about how Louis created braille and what it gave the world."},
         ],
     },
     {
@@ -637,7 +643,7 @@ SKILLS = [
                       "Plastic pushes the electricity around the whole loop."],
              "why": "The second paragraph says the plastic coating is an insulator, which stops electricity escaping and protects anyone who touches the wire."},
             {"id": "ceb346ed95a4", "t": "text", "d": "vocab", "q": "Find and copy one word from the second paragraph that means a material electricity flows through easily.",
-             "a": ["conductor", "a conductor", "good conductor", "a good conductor"],
+             "a": ["conductor", "a conductor", "good conductor", "a good conductor", "conductors", "good conductors"],
              "why": "The text says copper is a good conductor, which means that electricity flows through it easily.",
              "no": {"insulator": "An insulator does the opposite: it stops electricity from flowing through it."}},
             {"id": "10f6d82631eb", "t": "mcq", "d": "language", "q": "The writer says the open switch symbol looks “like a drawbridge”. Why is this comparison helpful?",
@@ -652,7 +658,7 @@ SKILLS = [
                       "to explain that the two cities use different kinds of switch",
                       "to tell the reader where the first electrical circuits were made"],
              "why": "Two cities far apart are given as examples: because everyone uses the same symbols, a diagram from one can be read in the other."},
-            {"id": "d062d5def6a5", "t": "tap", "d": "retrieve", "q": "Tap the word that names the push given by the cells.",
+            {"id": "d062d5def6a5", "t": "tap", "d": "retrieve", "q": "Tap the scientific word for the push that the cells give.",
              "s": "If you add a second cell, facing the same way as the first, the bulb glows more brightly, because there is a greater push, called the [voltage].",
              "why": "The fifth paragraph says the greater push is called the voltage, measured in volts."},
             {"id": "621790a296ae", "t": "mcq", "d": "predict", "q": "Kofi's circuit has one cell and two bulbs. He adds a third bulb to the same loop. Using the text, what will happen?",
@@ -862,8 +868,8 @@ SKILLS = [
             "questions, each with only two possible answers, such as “Does it have legs?” or “Does it have more "
             "than six legs?” Each answer leads to another question, until only one possible group or species is "
             "left.\n\n"
-            "Classification is not just a tidy way of making lists. It helps scientists to see how living things "
-            "are related to one another, and it helps conservationists to know exactly which species need "
+            "Classification is not just a tidy way of making lists. It helps scientists to share what they know "
+            "about each living thing, and it helps conservationists to know exactly which species need "
             "protecting."
         ),
         "qs": [
@@ -877,7 +883,7 @@ SKILLS = [
                       "to suggest that scientists should all learn Japanese and Portuguese"],
              "why": "The everyday names differ from language to language, but the two-part Latin name is the same, so both scientists know they mean the same creature."},
             {"id": "ef95358d14ea", "t": "text", "d": "vocab", "q": "Find and copy the word that means living things so tiny they can only be seen with a microscope.",
-             "a": ["micro-organisms", "microorganisms", "micro-organism", "microorganism"],
+             "a": ["micro-organisms", "microorganisms", "micro-organism", "microorganism", "the micro-organisms", "the microorganisms"],
              "why": "The third paragraph says micro-organisms are living things so tiny that they can only be seen with a microscope."},
             {"id": "e37c3ce10569", "t": "tap", "d": "retrieve", "q": "Tap the word that names the group of animals with no backbone.",
              "s": "[Invertebrates] have no backbone; this group includes insects, spiders, worms, snails and jellyfish, and it is by far the larger of the two.",
@@ -947,7 +953,7 @@ SKILLS = [
             {"id": "b8f3188e7a90", "t": "mcq", "d": "retrieve", "q": "Who scored Millbrook's first goal?",
              "opts": ["Priya", "Hodan", "Grace", "the Rovers captain"],
              "why": "The third paragraph says Hodan sent in a cross and Priya headed it in. The Rovers captain scored for the other team."},
-            {"id": "d81df6f7b32b", "t": "tap", "d": "language", "q": "Tap the word that shows the goalkeeper tried to look as big as possible.",
+            {"id": "d81df6f7b32b", "t": "tap", "d": "language", "q": "Tap the word that tells you how big the goalkeeper made herself look.",
              "s": "The goalkeeper came rushing out, arms wide, making herself [enormous].",
              "why": "Enormous means very big: with her arms wide, the goalkeeper made herself fill as much of the goal as she could."},
             {"id": "f20c5ba45c93", "t": "mcq", "d": "infer", "q": "Why did Hodan pass to Grace instead of shooting?",
@@ -1100,7 +1106,7 @@ SKILLS = [
                       "It is in a rain shadow, so it should stay dry."],
              "why": "Places near the Equator are usually hot, and the plains around Kilimanjaro are hot; the snow is there only because the summit is so high."},
             {"id": "aabe989aee1a", "t": "text", "d": "retrieve", "q": "Find and copy the name for the point on a mountain where trees stop growing.",
-             "a": ["the tree line", "tree line", "treeline"],
+             "a": ["the tree line", "tree line", "treeline", "the treeline", "tree-line", "the tree-line"],
              "why": "The fourth paragraph says the trees stop altogether at a point called the tree line."},
             {"id": "51102f495b6c", "t": "order", "d": "sequence", "q": "Put these in order, from the foot of a tall mountain to the top.",
              "items": ["farmland or forest", "the tree line", "grassy slopes", "bare rock", "snow that never melts"],
@@ -1154,7 +1160,7 @@ SKILLS = [
                       "to buy a new pair of shoes for school",
                       "to win a race by a single step"],
              "why": "To put your best foot forward is to make a good effort; it is also a play on words, because the leaflet is about walking."},
-            {"id": "3eef0dddf396", "t": "tap", "d": "language", "q": "Tap the word that shows the cars move very slowly.",
+            {"id": "3eef0dddf396", "t": "tap", "d": "language", "q": "Tap the verb that shows how slowly the cars move along Station Road.",
              "s": "Every morning, hundreds of cars [crawl] along Station Road, queuing at the school gates, filling the air with fumes and making the crossing dangerous for our youngest children.",
              "why": "To crawl is to move very slowly, like a baby on hands and knees: the cars are stuck in a queue."},
             {"id": "9b5beaf6afd6", "t": "mcq", "d": "retrieve", "q": "According to the leaflet, how much exercise does walking to school add up to each week?",

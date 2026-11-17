@@ -368,7 +368,9 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 .opts.pics { grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); max-width:460px; }
 .opts.pics .opt { text-align:center; font-size:3rem; line-height:1.1; padding:12px 6px; }
 .gaps.seg { font-size:clamp(2.4rem, 10vw, 3.4rem); justify-content:center; padding:6px 10px; border:2px solid transparent; border-radius:14px; }
-.gaps.seg .gap { width:26px; } .gaps.seg .gap.on { width:42px; }
+.gaps.seg { flex-wrap:nowrap; }
+.gaps.seg .gap, .gaps.seg .gap.on { width:34px; flex:0 0 34px; }      /* a split never moves the letters under a finger */
+.gaps.seg .gap.on::after { left:50%; right:auto; top:12%; bottom:12%; border-left:4px solid #8B7CFF; border-bottom:0; transform:translateX(-50%); }
 .opts.order .opt { display:flex; align-items:center; gap:12px; }
 .opts.order .num { flex:0 0 34px; height:34px; border-radius:50%; border:2px dashed #3B4A72; display:inline-flex; align-items:center;
   justify-content:center; font-weight:800; }
@@ -377,8 +379,11 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 @media (min-width: 900px) { .read-wrap { grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); align-items:start; }
   .read-wrap .passage { position:sticky; top:72px; } }
 .passage { padding:14px 18px; }
-.passage-body { max-height:min(52vh, 560px); overflow-y:auto; line-height:1.6; font-size:1.08rem; overscroll-behavior:contain; }
-@media (min-width: 900px) { .passage-body { max-height:calc(100vh - 170px); } }
+/* the passage in full on phones and tablets (a box of its own hid endings that questions asked about); beside the
+   question with its own scroll on a wide screen */
+.passage-body { line-height:1.6; font-size:1.08rem; }
+@media (min-width: 900px) { .passage-body { max-height:calc(100vh - 170px); overflow-y:auto; overscroll-behavior:contain; } }
+.to-passage { display:none; } @media (max-width: 899px) { .to-passage { display:inline-flex; margin-bottom:8px; } }
 .passage-body p { margin:0 0 .8em; } .passage-title { margin:2px 0 8px; font-size:1.3rem; }
 .passage-at { font-weight:700; }
 .passage-done { margin-top:8px; font-weight:700; }

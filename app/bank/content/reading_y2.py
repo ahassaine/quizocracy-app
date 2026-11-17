@@ -65,7 +65,7 @@ SKILLS = [
                 "It eats insects and slugs. When it is grown up, it will come back to a pond in spring.",
         "qs": [
             {"id": "ac9aa6be927c", "t": "text", "d": "vocab", "q": "Find and copy the word that means a big clump of frog eggs.",
-             "a": ["frogspawn"],
+             "a": ["frogspawn", "the frogspawn"],
              "why": "The first part says a big clump of these eggs is called frogspawn."},
             {"id": "448b6a2f1197", "t": "mcq", "d": "retrieve", "q": "What does the jelly do for the eggs?",
              "opts": ["It keeps them safe.", "It is food for the frog.", "It helps them hop."],
@@ -449,7 +449,7 @@ SKILLS = [
              "s": "The pegs kept popping out of the [soggy] grass, but we got it up in the end.",
              "why": "Soggy means very wet and soft. It had rained all day."},
             {"id": "931db6a76c1c", "t": "text", "d": "vocab", "q": "Find and copy the word that is a name for a big hill in the Lake District.",
-             "a": ["fell", "a fell"],
+             "a": ["fell", "a fell", "the fell", "fells"],
              "why": "Freya says they walked up a big hill called a fell."},
             {"id": "19fb1c17d4c0", "t": "order", "d": "sequence", "q": "Put these in the order they happen in the diary.",
              "items": ["Freya and Dad put up the tent.", "They walked up a fell.",

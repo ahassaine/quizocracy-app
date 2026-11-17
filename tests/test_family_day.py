@@ -38,7 +38,7 @@ def test_default_day_by_year_with_minutes(page):
     assert on() == {"maths", "spelling", "grammar", "science"}           # no times tables for Year 8
     pid = add_child(page, "Amira", 8, year_defaults=True)
     acts = DB.pupils.find_one({"_id": pid})["activities"]
-    assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling", "grammar", "science"}
+    assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling", "grammar", "science", "reading"}
     y1 = add_child(page, "Maya", 1, year_defaults=True)
     acts = DB.pupils.find_one({"_id": y1})["activities"]
     assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling", "phonics"}     # phonics: the Year 1 check
@@ -63,6 +63,7 @@ def test_plan_change_starts_tomorrow_and_reward_is_kept(page):
     assert "start straight away" in page.inner_text("[data-testid=plan-now]")
     page.uncheck("[data-testid=on-maths]")
     page.uncheck("[data-testid=on-spelling]")
+    page.uncheck("[data-testid=on-reading]")                            # Year 4 reads every day by default
     page.click("form.card button[type=submit]")
     page.wait_for_url(re.compile(rf".*/children/{pid}.*"))
     enter_child(page, "Leo")

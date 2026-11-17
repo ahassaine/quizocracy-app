@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block title %}SATs practice papers · Quizocracy{% endblock %}
 {% block body %}
 <div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/sats.png" alt=""><h1 style="margin:0">SATs practice papers</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me">My day</a></div></div>
+{% if ctx.child.year == 5 %}<p class="small rise" data-testid="sats-y5" style="font-weight:700">These are Year 6 papers: some topics come next year, so don't worry about the ones you haven't learned yet.</p>{% endif %}
 <p class="mut rise">Short papers like the Year 6 tests in May. The clock runs for the whole paper and you see your answers at the end, just like the real thing. Practising them often makes the real day feel normal.</p>
 <div class="grid">
 {% for p in papers %}
@@ -13,5 +14,6 @@
   </div>
 {% endfor %}
 </div>
+{% if sheets %}<h2>Your papers and answers</h2><ul class="small" data-testid="sheets">{% for s in sheets %}<li>{{ s.day|daylabel }}: {{ s.title }}, <b>{{ s.score }}/{{ s.of }}</b> · <a href="/me/sats/sheet/{{ s.id }}" data-testid="sheet-link">See the answers</a></li>{% endfor %}</ul>{% endif %}
 <p class="mut small">The papers are extra practice. Answers in a subject on today's plan count towards it, and any you miss come back in Practise my mistakes.</p>
 {% endblock %}

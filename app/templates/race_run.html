@@ -14,7 +14,9 @@
   </div>
   <div id="rRun" hidden>
     <div class="kid"><span class="mut" id="rCount" data-testid="race-count"></span><span class="mtc-sec" id="rClock" data-testid="race-clock"></span></div>
+    <div class="count-in" id="rCountIn" data-testid="race-count-in" hidden aria-live="assertive"></div>
     <div class="q mtc-q" id="rQ" data-testid="race-question" aria-live="polite"></div>
+    <div class="mut small" id="rHelp" data-testid="race-help" hidden></div>
     <input class="answer" id="rA" type="text" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="Your answer" data-testid="race-answer">
     <div class="keypad" id="rPad" hidden>{% for k in ['1','2','3','4','5','6','7','8','9'] %}<button type="button" data-k="{{ k }}">{{ k }}</button>{% endfor %}<button type="button" data-k="del" aria-label="Delete">⌫</button><button type="button" data-k="0">0</button><button type="button" class="ent" data-k="ent" aria-label="Enter">✓</button></div>
   </div>
@@ -23,6 +25,7 @@
     <div class="mut">Your time</div>
     <div class="pct" style="font-size:2.6rem" id="rTime" data-testid="race-time"></div>
     <p class="mut small" id="rNote" data-testid="race-note"></p>
+    <p class="small" id="rMissed" data-testid="race-missed" hidden></p>
     <div class="row"><button class="btn primary" id="rAgain" type="button" data-testid="race-again">Race again</button><a class="btn" href="/me/race">All races</a><a class="btn" href="/me/league">League</a></div>
   </div>
   <div class="feedback warn" id="rMsg" role="status" aria-live="polite" data-testid="race-msg"></div>
@@ -30,7 +33,8 @@
 <style>
 .track{position:relative;margin:4px 0 14px;padding:6px 0}
 .lane{display:grid;grid-template-columns:minmax(80px,30%) 1fr;align-items:center;gap:8px;margin:4px 0}
-.lane .who{font-size:.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lane .who{font-size:.85rem;font-weight:700;overflow-wrap:anywhere;line-height:1.15}
+.count-in{font-family:var(--display);font-size:4rem;font-weight:800;text-align:center;margin:10px 0}
 .lane.me .who{color:var(--violet,#8B7CFF)}
 .road{position:relative;height:30px;border-radius:15px;background:rgba(127,127,127,.15);margin-right:26px}
 .runner{position:absolute;left:0;top:50%;transform:translate(-10%,-50%) scaleX(-1);font-style:normal;font-size:1.4rem;transition:left .25s linear}
@@ -58,7 +62,8 @@
     });
   }
   function clock() { const ms = Date.now() - t0; $('rClock').textContent = (ms / 1000).toFixed(1) + ' s'; ghostsAt(ms); }
-  function show() { $('rCount').textContent = (i + 1) + ' of ' + N; $('rQ').textContent = qs[i].q + ' ='; $('rA').value = ''; if (!TOUCH) $('rA').focus(); }
+  function show() { $('rCount').textContent = (i + 1) + ' of ' + N; $('rQ').textContent = qs[i].q + ' ='; $('rA').value = '';
+    $('rHelp').hidden = true; if (!TOUCH) $('rA').focus(); }
   function enter() {
     if (!live) return;
     const v = $('rA').value.trim(); if (!v) return;
@@ -68,6 +73,8 @@
       show();
     } else {
       wrong[i] = (wrong[i] || 0) + 1; $('rA').value = ''; $('rMsg').textContent = 'Not quite: try again (+2 s).';
+      // after two wrong tries the answer is shown, so a fact not known yet never stops the race
+      if (wrong[i] >= 2) { $('rHelp').hidden = false; $('rHelp').textContent = qs[i].q + ' = ' + qs[i].a + ': type ' + qs[i].a + '.'; }
       $('rA').classList.add('shake'); setTimeout(() => { $('rA').classList.remove('shake'); $('rMsg').textContent = ''; }, 700);
     }
   }
@@ -75,10 +82,14 @@
     $('rMsg').textContent = '';
     let r; try { r = await post('/api/race/start', { course: COURSE }); } catch (e) { r = null; }
     if (!r || !r.data || !r.data.ok) { $('rMsg').textContent = r && r.status === 409 ? 'Someone else signed in on this device.' : 'The race could not start. Check the connection.'; return; }
-    token = r.data.token; qs = r.data.questions; i = 0; splits = []; wrong = new Array(N).fill(0);
+    token = r.data.token; qs = r.data.questions.slice(); i = 0; splits = []; wrong = new Array(N).fill(0);
+    for (let k = qs.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [qs[k], qs[j]] = [qs[j], qs[k]]; }  // the week's 20, in a new order
     $('rIntro').hidden = true; $('rDone').hidden = true; $('rRun').hidden = false; $('rPad').hidden = !TOUCH;
     if (TOUCH) $('rA').setAttribute('readonly', 'readonly');
     place($('meRunner'), 0); ghostsAt(0);
+    $('rQ').textContent = ''; $('rCount').textContent = ''; $('rClock').textContent = '0.0 s';
+    for (const n of ['3', '2', '1', 'Go!']) { $('rCountIn').hidden = false; $('rCountIn').textContent = n; await new Promise(res => setTimeout(res, 700)); }
+    $('rCountIn').hidden = true;
     t0 = Date.now(); live = true; tick = setInterval(clock, 100); show();
   }
   async function finish() {
@@ -88,10 +99,15 @@
     for (let k = 0; k < 5 && !(r && r.data && r.data.ok); k++) { try { r = await post('/api/race/finish', { token, splits, wrong }); } catch (e) { await new Promise(res => setTimeout(res, 3000)); } }
     $('rMsg').textContent = ''; $('rDone').hidden = false;
     const extra = wrong.reduce((a, b) => a + b, 0);
+    const missed = qs.filter((q, k) => wrong[k]).map(q => q.q + ' = ' + q.a);
+    $('rMissed').hidden = !missed.length; $('rMissed').textContent = missed.length ? 'To practise: ' + missed.join(', ') : '';
     if (r && r.data && r.data.ok && r.data.kept) {
       $('rTime').textContent = r.data.time; $('rBest').hidden = !r.data.best;
       $('rNote').textContent = (extra ? extra + ' wrong (+' + 2 * extra + ' s). ' : 'No mistakes! ') + (r.data.best ? (r.data.was !== '–' ? 'Your last best was ' + r.data.was + '.' : '') : 'Your best this week is still ' + r.data.was + '.');
-      if (r.data.best && window.QZ && QZ.confetti) QZ.confetti(90);
+      // the ghosts this run beat (its time against theirs)
+      const beat = GHOSTS.filter(g => !g.me && r.data.total < g.total).map(g => g.label);
+      if (beat.length) $('rNote').insertAdjacentHTML('afterbegin', '<b data-testid="race-beat">🏁 You beat ' + beat.map(x => String(x).replace(/[<>&]/g, '')).join(' and ') + '!</b> ');
+      if ((r.data.best || beat.length) && window.QZ && QZ.confetti) QZ.confetti(90);
     } else {
       $('rTime').textContent = ((splits[splits.length - 1] || 0) / 1000 + 2 * extra).toFixed(1) + ' s';
       $('rNote').textContent = r && r.data && r.data.ok ? 'That run was too fast to be real, so it was not saved.' : 'Your time could not be saved: no connection.';

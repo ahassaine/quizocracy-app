@@ -20,12 +20,17 @@ function BankDrill(activity) {
     box.hidden = false;
     const P = q.passage;
     $('passageAt').textContent = P.n && P.of ? 'Question ' + P.n + ' of ' + P.of : '';
-    if (shownPassage === P.key) return;
+    if (!box.dataset.wired && $('toPassage')) { box.dataset.wired = '1';
+      $('toPassage').addEventListener('click', () => box.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
+    // the same passage's next question: straight to the question (on a phone the passage is above it)
+    if (shownPassage === P.key) { if (innerWidth < 900) $('stage').scrollIntoView({ block: 'start' }); return; }
     shownPassage = P.key;
     const paras = String(P.text).split(/\n\s*\n/).map(p => '<p>' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('');
     $('passageBody').innerHTML = '<div class="mut small" data-testid="passage-kind">' + esc(P.kind || '') + '</div>'
       + '<h2 class="passage-title" data-testid="passage-title">' + esc(P.title) + '</h2>' + paras;
     $('passageBody').scrollTop = 0;
+    if (P.again) $('passageBody').insertAdjacentHTML('afterbegin', '<div class="small" data-testid="passage-again" style="font-weight:700;margin-bottom:6px">'
+      + 'You have read every passage for your year, well done! This one comes round again.</div>');
   }
   /* Phonics sound buttons: tap between two letters to split the word into its sounds (sh|i|p). */
   function segmenter(w) {
@@ -43,6 +48,10 @@ function BankDrill(activity) {
     const tip = document.createElement('div'); tip.className = 'mut small';
     tip.textContent = 'Tap between the letters to split the word into its sounds. Tap again to join them.';
     area.appendChild(box); area.appendChild(tip);
+    // the whole word on one line, whatever the text size: letters shrink to fit the space beside the gaps
+    const fit = () => { const room = area.clientWidth - 34 * (w.length - 1) - 24;
+      box.style.fontSize = Math.max(22, Math.min(56, room / (w.length * 0.72))) + 'px'; };
+    fit(); addEventListener('resize', fit);
     return box;
   }
   /* Put in order: tap the events in the order they happen; each gets its number. Tap one again to take it out. */
@@ -153,11 +162,19 @@ function BankDrill(activity) {
         b.innerHTML = '<span aria-hidden="true">🔊</span> Hear the word';
         b.addEventListener('click', () => { if (window.Speak && Speak.say) Speak.say(q.say); });
         area.appendChild(b);
-        if (!(window.Speak && Speak.ok)) {   // no voice on this device: a grown-up reads it
+        // a silent phone, a quiet room: no listening questions today (the server leaves them out until tomorrow)
+        const ns = document.createElement('button'); ns.type = 'button'; ns.className = 'linkish small'; ns.setAttribute('data-testid', 'nosound');
+        ns.textContent = 'No sound here? Skip the listening questions today';
+        ns.style.display = 'block'; ns.style.margin = '-6px 0 12px';
+        ns.addEventListener('click', async () => { ns.disabled = true;
+          try { await fetch('/api/phonics/nosound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+            body: JSON.stringify({ pupil: document.body.dataset.pupil, token: q.token }) }); } catch (e) {}
+          location.reload(); });
+        area.appendChild(ns);
+        if (!(window.Speak && Speak.ok)) {   // no voice on this device at all: say so, the skip is just above
           const n = document.createElement('div'); n.className = 'mut small'; n.setAttribute('data-testid', 'no-voice');
-          n.textContent = 'This device cannot speak. Ask a grown-up to read the word hidden here: ';
-          const d = document.createElement('details'); d.innerHTML = '<summary>Grown-up: show the word</summary><b>' + esc(q.say) + '</b>';
-          n.appendChild(d); area.appendChild(n);
+          n.textContent = 'This device cannot read words aloud. Press the link above to skip listening questions.';
+          area.appendChild(n);
         }
       }
       if (q.kind === 'seg') {
@@ -195,6 +212,9 @@ function BankDrill(activity) {
         const t = document.createElement('textarea'); t.id = 'answer'; t.className = 'write'; t.rows = 2;
         t.value = q.s; t.setAttribute('spellcheck', 'false'); t.setAttribute('autocapitalize', 'off');
         area.appendChild(lab); area.appendChild(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+        const rs = document.createElement('button'); rs.type = 'button'; rs.className = 'linkish small'; rs.setAttribute('data-testid', 'write-reset');
+        rs.textContent = '↺ Start again with the sentence as it was'; rs.addEventListener('click', () => { if (!t.readOnly) { t.value = q.s; t.focus(); } });
+        area.appendChild(rs);
       } else {
         const row = document.createElement('div'); row.className = 'row';
         const i = input(q.kind === 'num' ? { inputMode: 'decimal', className: 'answer' } : { className: 'answer wide' });

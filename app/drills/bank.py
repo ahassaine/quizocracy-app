@@ -55,9 +55,15 @@ async def _state(pupil: dict, subject: str) -> dict:
     return st
 
 
+SEQUENTIAL = ("phonics",)     # subjects whose strands are steps in order (Phase 2, then 3...): never spread across them
+
+
 def _spread(skills: list, n: int) -> list:
     """The first n skills in teaching order, but no more than STRAND_WINDOW of them from one strand while other
-    strands have skills to offer: Year 9 science is not twelve Health questions before anything else."""
+    strands have skills to offer: Year 9 science is not twelve Health questions before anything else. Phonics
+    (SEQUENTIAL): simply the first n, so Phase 5 never comes before Phase 2 is learned."""
+    if skills and skills[0].get("subject") in SEQUENTIAL:
+        return skills[:n]
     out, per = [], {}
     for s in skills:
         if len(out) < n and per.get(s["strand"], 0) < STRAND_WINDOW:
@@ -141,6 +147,19 @@ async def past_target(pupil: dict, subject: str) -> bool:
     return done.get("correct", 0) >= target
 
 
+def no_sound(pupil: dict) -> bool:
+    """A grown-up or child said "No sound here?" today: phonics leaves out its listening questions until tomorrow."""
+    return pupil.get("nosound_day") == progress.today()
+
+
+def quiet(pupil: dict, sk: dict) -> dict:
+    """The skill without its listening questions (q["say"]) on a day with no sound, if it has others."""
+    if not no_sound(pupil):
+        return sk
+    qs = [q for q in sk["qs"] if not q.get("say")]
+    return {**sk, "qs": qs} if qs else sk
+
+
 def pick_question(sk: dict, seen: list, rnd=random) -> dict:
     """A question of the skill the child has not seen lately."""
     fresh = [q for q in sk["qs"] if q["id"] not in seen]
@@ -186,7 +205,7 @@ def make(subject: str):
             if r["due"] <= st["n"] and r.get("after", now) <= now and r.get("day", "") < today \
                     and f"{r['key']}#{r['qid']}" not in away:
                 sk, q = engine.skill(r["key"]), engine.question(r["key"], r["qid"])
-                if sk and q:
+                if sk and q and not (q.get("say") and no_sound(pupil)):
                     reason = "retry"
                     break
         if not reason:
@@ -200,15 +219,18 @@ def make(subject: str):
                 pool = focused = list(in_focus)                  # the chosen strand stays most of it; neighbours fill in
             width = len(pool) if pool is focused else WINDOW     # the focus share goes round all its skills
             if not pool:            # in teaching order up to the day's target; after it, the strands in turn
-                pool = spread_strands(skills, mm) if await past_target(pupil, subject) else skills
+                # (phonics keeps its order after the target too: more of the phase being learned)
+                pool = spread_strands(skills, mm) if subject not in SEQUENTIAL and await past_target(pupil, subject) \
+                    else skills
                 pool = [s for s in pool if s not in focused] or pool    # the other third: not the focus again
             run = st.get("strands", [])[-STRAND_RUN:]       # one strand three times running: another one next,
-            avoid = run[0] if len(run) == STRAND_RUN and len(set(run)) == 1 and run[0] not in strands else None
+            avoid = run[0] if len(run) == STRAND_RUN and len(set(run)) == 1 and run[0] not in strands \
+                and subject not in SEQUENTIAL else None
             runs = st.get("skills", [])[-SKILL_RUN:]        # never more than SKILL_RUN in a row from one skill
             avoid_skill = runs[0] if len(runs) == SKILL_RUN and len(set(runs)) == 1 else None
             sk, reason = pick_skill(pool, mm, avoid=avoid, width=width,   # unless the grown-up chose that
                                     avoid_skill=avoid_skill)              # strand as the focus
-            q = pick_question(sk, mm.get(sk["key"], {}).get("seen", [])
+            q = pick_question(quiet(pupil, sk), mm.get(sk["key"], {}).get("seen", [])
                               + [a.split("#", 1)[1] for a in away if a.startswith(sk["key"] + "#")])
         pub, key = engine.serve(q)
         token = await items.issue(pupil, subject, key, {"skill": sk["key"], "qid": q["id"], "reason": reason})
@@ -246,9 +268,13 @@ def make(subject: str):
         practice = bool(missed and _now() - missed < progress.PUT_RIGHT_AFTER)
         ok_ids = None
         if subject == "reading":
-            # a passage's score: the share of its questions whose latest answer is right
+            # a passage's score: the share of its questions right at the first answer (a retry puts a mistake
+            # right, but never makes the passage score better than the first reading was); ok: right lately
             ok_ids = [x for x in doc.get("ok", []) if x != meta["qid"]] + ([meta["qid"]] if correct else [])
-            score = round(100 * len(set(ok_ids) & {x["id"] for x in sk["qs"]}) / max(1, len(sk["qs"]))) if sk else 0
+            first = dict(doc.get("first") or {})
+            first.setdefault(meta["qid"], bool(correct))
+            ids = {x["id"] for x in sk["qs"]} if sk else set()
+            score = round(100 * sum(1 for k, v in first.items() if v and k in ids) / max(1, len(ids)))
             streak = streak + 1 if correct else 0
         elif practice:
             pass        # a question missed in this sitting, right again: practice, the score and streak stay
@@ -265,7 +291,7 @@ def make(subject: str):
                "score": score, "streak": streak, "attempts": int(doc.get("attempts", 0)) + 1,
                "correct": int(doc.get("correct", 0)) + (1 if correct else 0), "last": _now(), "seen": seen[-40:]}
         if ok_ids is not None:
-            upd["ok"] = ok_ids
+            upd["ok"], upd["first"] = ok_ids, first
             upd["asked"] = list(dict.fromkeys(doc.get("asked", []) + [meta["qid"]]))
         if score >= MASTERED and not doc.get("mastered_at"):
             upd["mastered_at"] = _now()
@@ -294,7 +320,8 @@ def make(subject: str):
             # the last question of the passage: how it went ("Passage finished: 5 of 6 right")
             asked = set(upd["asked"]) & {x["id"] for x in sk["qs"]}
             if len(asked) == len(sk["qs"]) and meta.get("reason") in ("new", "practice", "review"):
-                out["passage_done"] = {"right": len(set(ok_ids) & asked), "of": len(sk["qs"]), "title": sk["title"]}
+                out["passage_done"] = {"right": sum(1 for k in asked if first.get(k)), "of": len(sk["qs"]),
+                                       "title": sk["title"]}
             out["mastered"] = False
         if practice:                         # not put right yet: asked again in a later sitting
             out["again_later"] = True
@@ -306,6 +333,8 @@ def make(subject: str):
             wm = engine.word_marks(value, key["a"])     # the words that differ, marked in both sentences
             if wm:
                 out["expected"], out["marks"] = wm
+        if correct and key.get("copy") and engine.near_copy(key, value):
+            out["hint"] = f"Right! Check the spelling: {engine.near_copy(key, value)}"
         if glossed(pupil) and subject in GLOSSED:   # after the answer: the key words of the question and its explanation
             out["terms"] = engine.key_words(subject, [(q or {}).get("q", ""), out.get("why", ""), out.get("whynot", "")])
         return out
@@ -314,6 +343,12 @@ def make(subject: str):
         prompt = (q or {}).get("q", "")
         if q and q.get("s") and q["t"] in ("tap", "write"):
             prompt += " " + q["s"].replace("[", "").replace("]", "")
+        if q and q.get("w") and q["t"] != "seg":       # phonics: the word read, so a parent sees which word it was
+            prompt += f" Word: {q['w']}"
+        elif q and q.get("w"):
+            prompt += f" ({q['w']})"
+        if q and q.get("say"):                         # phonics: the word heard
+            prompt += f" (The word said: {q['say']})"
         exp = engine.expected_text(key)
         # pick: an option or words tapped, so a wrong one this quick was not read (progress.PICK_MS)
         # idk: "I don't know" pressed (nothing given, never rushed or a guess: progress.day_stats)
@@ -376,13 +411,16 @@ def make(subject: str):
             if fresh:
                 sk = fresh[0]
             else:
-                sk = min(started, key=lambda s: (mm[s["key"]].get("score", 0) >= MASTERED, mm[s["key"]].get("score", 0),
-                                                 mm[s["key"]].get("last") or datetime.datetime.min))
-            cur = {"key": sk["key"], "done": []}
+                # every passage of the year read: the one read longest ago comes round again (and the child is told)
+                sk = min(started, key=lambda s: mm[s["key"]].get("last") or datetime.datetime.min)
+            cur = {"key": sk["key"], "done": [], "again": not fresh}
             await db.bank_state.update_one({"_id": st["_id"]}, {"$set": {"cur": cur}})
         q = next(q for q in sk["qs"] if q["id"] not in cur.get("done", []))
         await db.bank_state.update_one({"_id": st["_id"]}, {"$addToSet": {"cur.done": q["id"]}})
-        return await _serve(pupil, st, mm, sk, q, "practice" if sk["key"] in mm else "new")
+        out = await _serve(pupil, st, mm, sk, q, "practice" if sk["key"] in mm else "new")
+        if cur.get("again") and out.get("passage"):
+            out["passage"]["again"] = True
+        return out
 
     async def _serve(pupil: dict, st: dict, mm: dict, sk: dict, q: dict, reason: str) -> dict:
         pub, key = engine.serve(q)

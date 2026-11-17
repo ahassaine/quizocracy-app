@@ -38,7 +38,7 @@ SKILLS = [
                 "“I'm eight, sir,” said Tom.",
         "qs": [
             {"id": "761287866d58", "t": "text", "d": "retrieve", "q": "Find and copy the name of the job Nell has done for three years.",
-             "a": ["piecer", "a piecer"],
+             "a": ["piecer", "a piecer", "the piecer", "piecers"],
              "why": "The second paragraph says Nell “had been a piecer for three years”."},
             {"id": "16914107f75b", "t": "mcq", "d": "vocab", "q": "This morning the bell “sounded like a summons”. What is a summons?",
              "opts": ["an order to come somewhere", "a warning that danger is near", "a cry for help from far away",
@@ -166,7 +166,7 @@ SKILLS = [
              "s": "pale as two [strangers] I'd just met.",
              "why": "The hands are “pale as two strangers”: in the mist even the speaker's own body looks unfamiliar, which shows how disorientated the speaker has become."},
             {"id": "c8348bacc0c2", "t": "text", "d": "retrieve", "q": "After remembering the grandmother's words, the speaker does “one thing”. Find and copy the object the speaker takes out.",
-             "a": ["the map", "map"],
+             "a": ["the map", "map", "a map"],
              "why": "Verse six ends: “And then I did one thing: I took out the map.”"},
             {"id": "b92cbe44ac42", "t": "mcq", "d": "compare", "q": "How does the speaker's behaviour change after hearing the grandmother's voice?",
              "opts": ["From hurrying blindly to acting calmly, step by step",
@@ -303,7 +303,7 @@ SKILLS = [
                 "Ibn al-Haytham was born in about 965 in Basra, in what is now Iraq, and later worked in Cairo, in Egypt. He lived at a time when scholars in cities such as Baghdad and Cairo were translating, studying and arguing over the works of Greek writers, and adding a great deal of their own. He wrote on mathematics, astronomy and many other subjects, but he is best remembered for his work on light and vision, gathered in a long work known as the Book of Optics.\n\n"
                 "His central argument was simple to state. We see an object, he said, because light travels from it into our eyes, not the other way round. A very bright light hurts the eye, he pointed out, and an afterimage can linger after you look away: both suggest that something is entering the eye from outside, rather than leaving it.\n\n"
                 "What made his work remarkable, however, was not only what he concluded but how he reached it. Ibn al-Haytham did not simply accept an idea because a famous writer had held it. He insisted that a claim should be tested by careful observation and by experiments that others could repeat. He wrote that a person who studies the works of scientists should make himself an enemy of everything he reads, questioning it from every side, and should be suspicious of his own judgement too.\n\n"
-                "One of his best-known investigations used a darkened room with a small hole in one wall. Light from the bright scene outside passed through the hole and formed an image on the opposite wall, upside down. He showed that light travels in straight lines, which is why the image is inverted. This arrangement, later called a camera obscura, Latin for “dark room”, is the ancestor of the modern camera.\n\n"
+                "One of his best-known investigations used a darkened room with a small hole in one wall. Light from the bright scene outside passed through the hole and formed an image on the opposite wall, upside down. He showed that light travels in straight lines, which is why the image is inverted. This arrangement, later called a camera obscura, Latin for “dark room”, is the forerunner of the modern camera.\n\n"
                 "His Book of Optics was translated into Latin, and European scholars studied it for centuries. In 2015, when the United Nations held an International Year of Light, his work was celebrated as part of it, roughly a thousand years after he wrote it.\n\n"
                 "Today we take it for granted that a scientific idea must earn its place through evidence. Ibn al-Haytham is one of the reasons we do.",
         "qs": [
@@ -342,7 +342,7 @@ SKILLS = [
                       "He invented the modern camera in a darkened room in Cairo",
                       "He translated the works of the Greek writers into Arabic",
                       "The United Nations named an International Year after him"],
-             "no": {"He invented the modern camera in a darkened room in Cairo": "The text calls the camera obscura “the ancestor of the modern camera”, not the camera itself, and stresses his method above any single result."},
+             "no": {"He invented the modern camera in a darkened room in Cairo": "The text calls the camera obscura “the forerunner of the modern camera”, not the camera itself, and stresses his method above any single result."},
              "why": "The writer says what was remarkable was “not only what he concluded but how he reached it”, and ends: a scientific idea “must earn its place through evidence”."},
         ],
     },
@@ -448,7 +448,7 @@ SKILLS = [
              "opts": ["give up the game, admitting defeat", "leave the chess club for good",
                       "ask for the game to be started again", "sign the score sheet at the end"],
              "why": "In chess, a player who resigns gives up the game before checkmate. Tomasz does this at the end by tipping his king over."},
-            {"id": "c918486e0176", "t": "tap", "d": "language", "q": "Tap the word in this metaphor that shows how Farah's own pawns would have trapped her king.",
+            {"id": "c918486e0176", "t": "tap", "d": "language", "q": "Tap the word that names the place the writer compares Farah's trapped king to.",
              "s": "Her own pawns would have been the walls of her [prison].",
              "why": "The metaphor turns her “loyal” pawns into prison walls: the pieces meant to protect her king would have stopped it escaping."},
             {"id": "032f18650e85", "t": "mcq", "d": "compare", "q": "How does Tomasz's attitude to Farah at the end of the game compare with his attitude at the start?",
@@ -646,7 +646,7 @@ SKILLS = [
                 "Light is the first thing to disappear. Seawater absorbs sunlight quickly, so by about 200 metres below the surface there is too little for plants and algae to grow. Below about 1,000 metres there is no sunlight at all. Scientists often divide the ocean into zones to describe this change: a sunlit zone near the surface, a dim twilight zone beneath it, and then a vast midnight zone stretching down towards the sea floor.\n\n"
                 "The second challenge is pressure. At the surface, the weight of the air above us presses on every part of our bodies. Every ten metres of seawater adds roughly the same pressure again. At the bottom of the deepest place known, the Challenger Deep in the Mariana Trench in the Pacific Ocean, nearly 11 kilometres down, the pressure is more than a thousand times that at the surface. The first people to reach it, in 1960, travelled inside a thick-walled steel sphere.\n\n"
                 "Life, astonishingly, has found ways to cope. Many deep-sea animals have soft, watery bodies with no air spaces that could be crushed. Because food is scarce, many move slowly and can survive long periods between meals. Much of what they eat drifts down from above: a steady fall of dead plankton and other scraps, which scientists call marine snow.\n\n"
-                "In the darkness, many creatures make their own light, a process called bioluminescence. Some use flashes of light to confuse attackers, some to find a mate, and the anglerfish dangles a glowing lure in front of its mouth to attract prey.\n\n"
+                "In the darkness, many creatures make their own light, a process called bioluminescence. Some use flashes of light to confuse attackers, some to signal to one another, and the anglerfish dangles a glowing lure in front of its mouth to attract prey.\n\n"
                 "The greatest surprise came in 1977. Scientists exploring the sea floor near the Galápagos Islands found hydrothermal vents: cracks where water heated by hot rock beneath the sea floor gushes out, rich in dissolved chemicals. Around them lived crowded communities of giant tube worms, clams and crabs. These animals did not depend on sunlight at all. Instead, bacteria were using the chemicals from the vents to make food, a process called chemosynthesis, and other animals fed on the bacteria or lived alongside them.\n\n"
                 "This discovery changed what scientists believed life needs. Before 1977, it was generally assumed that almost all life on Earth depended, in the end, on the Sun. Now we know that whole communities can be powered by the chemistry of the Earth itself. Some scientists even think that places like these are where we should search for life beyond our planet, in the hidden oceans thought to lie beneath the ice of certain moons.\n\n"
                 "Every deep-sea expedition still finds species no one has seen before. The deep ocean is not an empty darkness. It is a world we have barely begun to visit.",

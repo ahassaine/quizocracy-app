@@ -28,7 +28,7 @@ SKILLS = [
                 "Dad got a long stick. He poked the kite and it fell down. Sam grinned. "
                 "“Can we go again?” he said.",
         "qs": [
-            {"id": "81e7a14817b4", "t": "mcq", "d": "infer", "q": "Why did the kite fall?",
+            {"id": "81e7a14817b4", "t": "mcq", "d": "infer", "q": "Why did the kite fall into the tree?",
              "opts": ["The wind stopped.", "Sam let go of the string.", "Dad poked it with a stick."],
              "why": "The text says the wind stopped, and then the kite fell into a tree.",
              "no": {"Dad poked it with a stick.": "Dad poked it later, to get it out of the tree."}},
@@ -253,7 +253,7 @@ SKILLS = [
             {"id": "10a6eb7b5568", "t": "mcq", "d": "retrieve", "q": "What keeps the water off a duck?",
              "opts": ["the oil on its feathers", "the skin on its feet", "its mum"],
              "why": "The second part says the oil keeps the water off."},
-            {"id": "c84a87511bfc", "t": "tap", "d": "retrieve", "q": "Tap the word for little ducks.",
+            {"id": "c84a87511bfc", "t": "tap", "d": "retrieve", "q": "Little ducks have a special name. Tap it.",
              "s": "Little ducks are called [ducklings].",
              "why": "Little ducks are called ducklings."},
         ],
@@ -387,7 +387,7 @@ SKILLS = [
             {"id": "67f6f7d557a9", "t": "mcq", "d": "infer", "q": "Why was Kofi a bit sad?",
              "opts": ["The sea washed away his sandcastle.", "The sand was wet and cold.", "The crab ran away."],
              "why": "He was sad just after the waves washed the sandcastle away."},
-            {"id": "5f133107d76f", "t": "tap", "d": "vocab", "q": "Tap the word that tells you how the crab moved.",
+            {"id": "5f133107d76f", "t": "tap", "d": "vocab", "q": "Tap the word that tells you which way the crab ran.",
              "s": "It ran [sideways] under a rock.",
              "why": "Sideways means to the side, not forwards. Crabs often walk sideways."},
         ],

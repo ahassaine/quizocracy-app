@@ -508,6 +508,17 @@ async def api_check(activity: str, payload: dict = Body(...), ctx: Ctx = Depends
     return {"ok": True, **res, "day": await _day(ctx, activity)}
 
 
+@router.post("/api/phonics/nosound")
+async def api_nosound(payload: dict = Body(default={}), ctx: Ctx = Depends(child_api)):
+    """"No sound here?": no listening questions in phonics for the rest of today; the one on screen is put away
+    unanswered (nothing is recorded for it)."""
+    if (refused := _switched(ctx, payload)):
+        return refused
+    await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$set": {"nosound_day": progress.today()}})
+    await items.claim(ctx.child, "phonics", str(payload.get("token") or ""))
+    return {"ok": True}
+
+
 @router.get("/api/spelling/audio/{token}")
 async def spelling_audio(token: str, ctx: Ctx = Depends(child_api)):
     it = await items.peek(ctx.child, "spelling", token)
