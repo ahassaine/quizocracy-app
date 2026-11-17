@@ -53,7 +53,7 @@ def test_an_old_record_moves_across_to_levels_per_subject(page):
     page.goto("/home")
     assert page.get_by_test_id("kid-Chloe").get_by_test_id("home-year").inner_text() == "Year 8, working at Year 9 level"
     p = DB.pupils.find_one({"_id": pid})
-    assert p["year"] == 8 and p["levels"] == {"maths": 9, "grammar": 9, "science": 9} and "school_year" not in p
+    assert p["year"] == 8 and p["levels"] == {"maths": 9, "reading": 9, "grammar": 9, "science": 9} and "school_year" not in p
     o = DB.pupils.find_one({"_id": other})
     assert o["year"] == 5 and not o.get("levels") and "school_year" not in o
     # the form shows it the new way: Year 8, each subject at Year 9

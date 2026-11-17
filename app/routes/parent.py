@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 
-from ..activities import (ACTIVITIES, ALL_WEEK, CAP_YEARS, CHECK_SECONDS, FOCUS_MAX, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SCIENCE_AREA,
+from ..activities import (saved_acts, READING_TARGET, ACTIVITIES, ALL_WEEK, CAP_YEARS, CHECK_SECONDS, FOCUS_MAX, FOCUS_WEEKS, MAX_DAYS_OFF, ORDER, PLANS, SCIENCE_AREA,
                           SCIENCE_AREAS, SECONDS, WEEKDAYS, YEARS, day_label, days_text, default_activities,
                           focus_items, focus_title, minutes, plan_of, practice_days_on, rest_day, strand_label,
                           todays_plan, year_pace)
@@ -311,6 +311,7 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
                 skills=skills, plan_items=now, TIPS=TIPS, offplan=on - planned, started=await _started(p, on),
                 accuracy=accuracy(hist[-7:]), hints=level_hints(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
                 reported=request.query_params.get("reported"), sats=await sats_view(p, ctx.family),
+                offers=_offers(p, ctx.family, planned),
                 school=await spelling.school_status(p) if "spelling" in on else None,
                 other_words=await spelling.other_tries(p, progress.day_list(7)) if "spelling" in on else [],
                 focus=[{"title": focus_title(i["subject"], i["strand"]), "until": i["until"],
@@ -811,9 +812,28 @@ def _form_reward(form, family: dict) -> dict | None:
     return {"text": text, "threshold": max(10, min(100, threshold))}
 
 
+# the new activities a parent is offered for a child's day (they are not added to a saved plan by themselves)
+OFFER_YEARS = {"phonics": (1, 2), "reading": tuple(range(1, 10))}
+OFFER_LINES = {"phonics": "Sounds and blending, step by step, and practice for the Year 1 phonics check.",
+               "reading": "A short passage, then questions about it, like the ones at school."}
+
+
+def _offers(p: dict, family: dict, planned: set) -> list:
+    """[{key, title, line, minutes}]: phonics (Years 1-2) and reading not in the child's plan."""
+    out = []
+    for k, years in OFFER_YEARS.items():
+        if k in planned or p["year"] not in years or k not in plan_of(family)["activities"]:
+            continue
+        t = saved_acts(p.get("activities"), p["year"])[k]["target"]
+        out.append({"key": k, "title": ACTIVITIES[k]["title"], "line": OFFER_LINES[k], "img": ACTIVITIES[k]["img"],
+                    "minutes": max(1, minutes([{"key": k, "target": t}], p["year"]))})
+    return out
+
+
 def _acts(p: dict) -> dict:
-    """The child's plan, with any activity added since they were set up at its default."""
-    return {**default_activities(p["year"]), **(p.get("activities") or {})}
+    """The child's plan, with any activity added since they were set up at its default (phonics and reading off:
+    activities.saved_acts)."""
+    return saved_acts(p.get("activities"), p["year"])
 
 
 school_year = levels.school_year
@@ -826,7 +846,9 @@ def year_text(p: dict, report: bool = False) -> str:
     sy, diff = levels.school_year(p), levels.differs(p)
     if not diff or (report and p.get("levels_on_report") is False):
         return f"Year {sy}"
-    if len(diff) == len(levels.SUBJECTS) and len({lv for _, lv in diff}) == 1:
+    # every subject a year up or down alike (reading counts only when it is in the child's plan)
+    used = [x for x in levels.SUBJECTS if x != "reading" or saved_acts(p.get("activities"), sy)["reading"].get("on")]
+    if {x for x, _ in diff} >= set(used) and len({lv for _, lv in diff}) == 1:
         return f"Year {sy}, working at Year {diff[0][1]} level"
     return f"Year {sy} · {levels.levels_text(p)}"
 

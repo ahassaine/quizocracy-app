@@ -46,17 +46,18 @@ def new_family_plan() -> str:
 # The default day for each school year: the few activities that matter most at that age, about 15 minutes
 # (see minutes()). Anything else the parent can switch on.
 YEAR_DEFAULTS = {
-    # Year 1: phonics every day (the phonics check is in June); 5 spellings: within reach of a child just
-    # learning to sound words out
-    1: {"maths": 8, "spelling": 5, "phonics": 6},
+    # Year 1: phonics every day (the phonics check is in June), with 6 maths so the day stays about 18 minutes;
+    # 5 spellings: within reach of a child just learning to sound words out
+    1: {"maths": 6, "spelling": 5, "phonics": 6},
     # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty. Reading is off by default: with it a Year 2 day
     # runs to about 28 minutes (a parent turns it on, or swaps it for spelling)
     2: {"maths": 6, "tables": 10, "spelling": 6},
-    # reading: about one passage a day (Years 3-4: 6 questions, Years 5-6: 7)
-    3: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
-    4: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
-    5: {"maths": 10, "tables": 20, "spelling": 8, "reading": 7},
-    6: {"maths": 10, "spelling": 8, "grammar": 5, "reading": 7},
+    # Reading is not in a default day (it would take a day past about 18 minutes): the parent's page offers it
+    # (READING_OFFER), at about one passage a day (READING_TARGET)
+    3: {"maths": 8, "tables": 20, "spelling": 8},
+    4: {"maths": 8, "tables": 20, "spelling": 8},
+    5: {"maths": 10, "tables": 20, "spelling": 8},
+    6: {"maths": 10, "spelling": 8, "grammar": 5},
     7: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
     8: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
     9: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
@@ -94,9 +95,27 @@ def minutes(plan: list, year: int, check: bool = False) -> int:
                  + (CHECK_SECONDS / 60 if check else 0))
 
 
+# reading's target: about one passage (its questions: Year 1 4, Year 2 5, Years 3-4 6, Years 5-9 7)
+READING_TARGET = {1: 4, 2: 5, 3: 6, 4: 6}
+# activities that came after children had saved plans: missing from a saved plan, they are off (a plan a parent
+# saved never grows by itself); the parent's page offers them instead
+LATE = ("phonics", "reading")
+
+
 def default_activities(year: int) -> dict:
     d = YEAR_DEFAULTS.get(year) or YEAR_DEFAULTS[3]
-    return {k: {"on": k in d and year >= a["min_year"], "target": d.get(k, a["target"])} for k, a in ACTIVITIES.items()}
+    out = {k: {"on": k in d and year >= a["min_year"], "target": d.get(k, a["target"])} for k, a in ACTIVITIES.items()}
+    out["reading"]["target"] = d.get("reading", READING_TARGET.get(int(year or 1), 7))
+    return out
+
+
+def saved_acts(acts: dict | None, year: int) -> dict:
+    """A saved plan with every activity: one added to the app since it was saved is off if it is a LATE one,
+    else at its year's default."""
+    d = default_activities(year)
+    if not acts:
+        return d
+    return {k: acts.get(k) or ({**d[k], "on": False} if k in LATE else d[k]) for k in ACTIVITIES}
 
 
 def acts_on(pupil: dict, day: str | None) -> dict | None:
@@ -119,7 +138,8 @@ def todays_plan(pupil: dict, family: dict, day: str | None = None) -> list:
     acts = acts_on(pupil, day) or defaults
     out = []
     for k in ORDER:
-        a = acts.get(k) or defaults[k]          # an activity added after the child was set up starts on
+        # an activity added after the child was set up: at its year's default, but phonics and reading (LATE) off
+        a = acts.get(k) or ({"on": False} if k in LATE and acts is not defaults else defaults[k])
         if a.get("on") and k in allowed and pupil.get("year", 1) >= ACTIVITIES[k]["min_year"]:
             out.append({**ACTIVITIES[k], "key": k, "target": max(1, int(a.get("target") or ACTIVITIES[k]["target"]))})
     return out

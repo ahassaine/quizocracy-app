@@ -41,7 +41,7 @@ def test_default_day_by_year_with_minutes(page):
     assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling", "grammar", "science"}
     y1 = add_child(page, "Maya", 1, year_defaults=True)
     acts = DB.pupils.find_one({"_id": y1})["activities"]
-    assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling"}
+    assert {k for k, a in acts.items() if a["on"]} == {"maths", "spelling", "phonics"}     # phonics: the Year 1 check
     page.goto(f"/children/{y1}")
     for k in ("tables", "grammar", "science", "verbs"):                  # switched off: no card
         assert page.locator(f"[data-testid=card-{k}]").count() == 0, k

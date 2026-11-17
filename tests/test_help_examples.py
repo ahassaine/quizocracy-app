@@ -152,7 +152,7 @@ def test_help_gives_a_short_answer_first_and_search_finds_the_new_answers(page):
                                                      "joins now (a founding family). We will email you before any paid "
                                                      "plan starts.")                       # the founding offer, as on the landing page
     for words, section in [("price", "cost"), ("pay", "cost"), ("streak", "streak"), ("modal", "modal"),
-                           ("wrong word", "wrong-word"), ("frend", "wrong-word"), ("SATs papers", "sats-papers"),
+                           ("wrong word", "wrong-word"), ("frend", "wrong-word"), ("SATs papers on the progress page", "sats-papers"),
                            ("weak", "needs-help"), ("progress", "needs-help")]:
         shown = _search(page, words)
         assert shown and shown[0] == section, (words, shown)     # the best answer comes first

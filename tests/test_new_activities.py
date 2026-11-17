@@ -9,11 +9,11 @@ import requests
 from conftest import BASE, DB, PASSWORD, add_child, enter_child, signup, unlock_parent
 
 
-def _family(browser, year, name="Ines"):
+def _family(browser, year, name="Ines", targets=None):
     pg = browser.new_context(base_url=BASE).new_page()
     pg.set_default_timeout(15000)
     email = signup(pg)
-    pid = add_child(pg, name, year)
+    pid = add_child(pg, name, year, targets=targets)
     ctx = browser.new_context(base_url=BASE)
     kid = ctx.new_page()
     kid.set_default_timeout(15000)
@@ -73,7 +73,7 @@ def test_phonics_serves_marks_and_never_shows_the_spoken_word(browser):
 
 
 def test_reading_asks_a_passage_in_order_then_says_how_it_went(browser):
-    pg, kid, s, pid = _family(browser, 3)
+    pg, kid, s, pid = _family(browser, 3, targets={"reading": 6})
     seen = []
     done = None
     for i in range(12):
@@ -99,7 +99,7 @@ def test_reading_asks_a_passage_in_order_then_says_how_it_went(browser):
 
 
 def test_reading_mistake_comes_back_with_its_passage_in_practise_my_mistakes(browser):
-    pg, kid, s, pid = _family(browser, 4)
+    pg, kid, s, pid = _family(browser, 4, targets={"reading": 6})
     q = s.post(BASE + "/api/reading/next", json={}).json()
     it = DB.items.find_one({"_id": q["token"]})
     r = s.post(BASE + "/api/reading/check", json={"token": q["token"], "value": wrong(it["answer"])}).json()
