@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% block title %}Phonics check practice · Quizocracy{% endblock %}
+{% block body %}
+<div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/phonics.png" alt=""><h1 style="margin:0">Phonics check practice</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me">My day</a></div></div>
+<div class="stage rise rise-2" id="stage">
+  <div id="cIntro" data-testid="pc-intro">
+    <p class="m-prompt" style="margin-top:0">Like the phonics check in Year 1: read each word out loud. A grown-up sits with you and taps whether you read it right.</p>
+    <ul class="mtc-rules"><li>Real words and alien words: an alien 👽 next to a word means it is a made-up name, so just sound it out</li><li>Take your time: there is no clock</li><li>The grown-up marks it, not the app</li></ul>
+    <p class="mut small"><b>For the grown-up:</b> tap ✓ when the word is read correctly (blending all its sounds, in any accent), ✗ when not. For an alien word any sensible reading of its letters counts. In past years the expected standard has been {{ standard }} of the 40 words.</p>
+    <div class="row"><button class="btn primary big" type="button" data-size="20" data-testid="pc-start-20">Short practice: 20 words</button><button class="btn big" type="button" data-size="40" data-testid="pc-start-40">The full check: 40 words</button></div>
+    {% if hist %}<p class="mut small" data-testid="pc-history">Last checks: {% for r in hist %}{{ r.score }}/{{ r.of }}{{ ', ' if not loop.last }}{% endfor %}{% if best %} · best: {{ best.score }}/{{ best.of }}{% endif %}</p>{% endif %}
+  </div>
+  <div id="cRun" hidden>
+    <div class="kid"><span class="mut" id="cCount" data-testid="pc-count"></span><span class="mut small" id="cSection"></span></div>
+    <div class="read-word" id="cWord" data-testid="pc-word"></div>
+    <div class="row" style="justify-content:center"><button class="btn big pc-yes" type="button" id="cYes" data-testid="pc-yes">✓ Read right</button><button class="btn big pc-no" type="button" id="cNo" data-testid="pc-no">✗ Not yet</button></div>
+    <div class="row" style="justify-content:center"><button class="linkish small" type="button" id="cUndo" data-testid="pc-undo" hidden>Back one word</button></div>
+  </div>
+  <div id="cDone" hidden data-testid="pc-done">
+    <div class="display" id="cBest" hidden style="font-size:1.6rem;font-weight:800;color:var(--good)">★ Your best!</div>
+    <div class="mut">You read</div>
+    <div class="pct" style="font-size:2.6rem" data-testid="pc-score"><span id="cScore"></span> <span class="mut" style="font-size:1.4rem">out of <span id="cOf"></span></span></div>
+    <p id="cStd" class="small" data-testid="pc-standard"></p>
+    <div id="cMissed" class="small"></div>
+    <div class="row"><button class="btn primary" type="button" id="cAgain">Practise again</button><a class="btn" href="/me/phonics">Phonics</a><a class="btn" href="/me">My day</a></div>
+  </div>
+  <div class="feedback warn" id="cMsg" role="status" aria-live="polite"></div>
+</div>
+<style>.pc-yes{background:#123524;border-color:#22c55e;color:#fff}.pc-no{background:#3A1620;border-color:#f85149;color:#fff}#cWord .alien{font-size:.6em;margin-left:.3em}</style>
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  const $ = (id) => document.getElementById(id), PUPIL = document.body.dataset.pupil;
+  let token = null, words = [], marks = [], i = 0;
+  async function post(url, body) { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(Object.assign({ pupil: PUPIL }, body)) });
+    let d = null; try { d = await r.json(); } catch (e) {} return { status: r.status, data: d }; }
+  function show() { const w = words[i]; $('cCount').textContent = 'Word ' + (i + 1) + ' of ' + words.length;
+    $('cSection').textContent = 'Section ' + w.section; $('cWord').innerHTML = '';
+    $('cWord').appendChild(document.createTextNode(w.w)); if (w.alien) { const a = document.createElement('span'); a.className = 'alien'; a.textContent = '👽'; a.setAttribute('aria-label', 'alien word'); $('cWord').appendChild(a); }
+    $('cUndo').hidden = i === 0; }
+  async function start(size) { $('cMsg').textContent = ''; let r; try { r = await post('/api/phonics-check/start', { size }); } catch (e) { r = null; }
+    if (!r || !r.data || !r.data.ok) { $('cMsg').textContent = 'It could not start. Check the connection.'; return; }
+    token = r.data.token; words = r.data.words; marks = []; i = 0; $('cIntro').hidden = true; $('cDone').hidden = true; $('cRun').hidden = false; show(); }
+  async function mark(ok) { marks[i] = ok; i++; if (i < words.length) return show();
+    $('cRun').hidden = true; $('cMsg').textContent = 'Saving…'; let r = null;
+    for (let k = 0; k < 5 && !(r && r.data && r.data.ok); k++) { try { r = await post('/api/phonics-check/finish', { token, marks }); } catch (e) { await new Promise(res => setTimeout(res, 3000)); } }
+    $('cMsg').textContent = r && r.data && r.data.ok ? '' : 'It could not be saved: no connection.';
+    const d = (r && r.data) || { score: marks.filter(Boolean).length, of: words.length, real_missed: [], alien_missed: [] };
+    $('cDone').hidden = false; $('cScore').textContent = d.score; $('cOf').textContent = d.of; $('cBest').hidden = !d.best;
+    $('cStd').textContent = d.standard ? (d.score >= d.standard ? 'That is at or above the usual standard (' + d.standard + ' of ' + d.of + '). Well done!' : 'The usual standard is about ' + d.standard + ' of ' + d.of + '. Keep practising the sounds.') : '';
+    const miss = (d.real_missed || []).concat((d.alien_missed || []).map(w => w + ' 👽'));
+    $('cMissed').innerHTML = miss.length ? '<b>To practise:</b> ' + miss.map(w => String(w).replace(/[<>&]/g, '')).join(', ') : '<b>Every word read right!</b>'; }
+  document.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => start(+b.dataset.size)));
+  $('cYes').addEventListener('click', () => mark(true)); $('cNo').addEventListener('click', () => mark(false));
+  $('cUndo').addEventListener('click', () => { if (i > 0) { i--; show(); } });
+  $('cAgain').addEventListener('click', () => { $('cDone').hidden = true; $('cIntro').hidden = false; });
+})();
+</script>{% endblock %}

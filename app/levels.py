@@ -10,8 +10,9 @@ year when they differed. `fix` turns such a record into today's shape, once (at 
 record read before that ran)."""
 from .db import db
 
-SUBJECTS = ("maths", "grammar", "science")
-TITLES = {"maths": "Maths", "grammar": "Grammar", "science": "Science"}
+SUBJECTS = ("maths", "reading", "grammar", "science")
+TITLES = {"maths": "Maths", "reading": "Reading", "grammar": "Grammar", "science": "Science"}
+OLD_SUBJECTS = ("maths", "grammar", "science")      # the subjects an old one-level record (school_year) covered
 
 
 def school_year(p: dict) -> int:
@@ -25,7 +26,7 @@ def level(p: dict, subject: str) -> int:
     lv = (p.get("levels") or {}).get(subject)
     if lv:
         return int(lv)
-    if p.get("school_year") and subject in SUBJECTS:
+    if p.get("school_year") and subject in OLD_SUBJECTS:
         return int(p.get("year") or school_year(p))
     return school_year(p)
 
@@ -53,7 +54,7 @@ def _update(p: dict) -> dict | None:
         return None
     sy = school_year(p)
     old = int(p.get("year") or sy)
-    lv = clean({**{s: old for s in SUBJECTS}, **(p.get("levels") or {})}, sy) if p.get("school_year") else \
+    lv = clean({**{s: old for s in OLD_SUBJECTS}, **(p.get("levels") or {})}, sy) if p.get("school_year") else \
         clean(p.get("levels") or {}, sy)
     return {"$set": {"year": sy, "levels": lv}, "$unset": {"school_year": ""}}
 

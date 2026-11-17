@@ -11,14 +11,15 @@ from ..activities import ACTIVITIES, todays_plan
 from ..config import BASE_DIR
 from ..db import db
 from ..deps import Ctx, child_api, child_page, family_page, minutes_left, own_pupil, pin_lock_until, pin_locks
-from ..drills import bank, maths, numbers, spelling, tables, verbs
-from .. import items, levels, progress
+from ..drills import bank, maths, numbers, phonics_check, sats, spelling, tables, verbs
+from .. import items, league, levels, progress
 from ..security import verify_secret
 from ..web import page
 
 router = APIRouter()
 DRILLS = {"maths": maths, "tables": tables, "spelling": spelling, "numbers": numbers, "verbs": verbs,
-          "grammar": bank.grammar, "science": bank.science}
+          "grammar": bank.grammar, "science": bank.science, "phonics": bank.phonics, "reading": bank.reading}
+BANKS = bank.engine.SUBJECTS          # the question-bank subjects: grammar, science, phonics, reading
 AUDIO_DIR = BASE_DIR / "static" / "audio" / "words"
 PIN_RE = re.compile(r"^\d{4}$")
 
@@ -89,7 +90,10 @@ async def me(request: Request, ctx: Ctx = Depends(child_page)):
                 wins=await progress.week_wins(ctx.child),
                 fix_first=(ready or [a["key"] for a in b[0]["items"] if fix.get(a["key"])] or [None])[0],
                 check_card=tabs if tabs and ctx.child.get("year") in progress.CHECK_YEARS else None,
-                checks=tables.mtc_history(ctx.child), mtc_stopped=await tables.mtc_stopped(ctx.child))
+                checks=tables.mtc_history(ctx.child), mtc_stopped=await tables.mtc_stopped(ctx.child),
+                sats_card=sats.cards(ctx.child) if sats.open_to(ctx.child) else None,
+                pc_card=phonics_check.history(ctx.child)[-1:] if phonics_check.open_to(ctx.child) else None,
+                stars=(await league.week_stars(ctx.family, [ctx.child]))[ctx.child["_id"]]["stars"])
 
 
 def _allowed(ctx: Ctx, activity: str) -> bool:
@@ -174,10 +178,10 @@ async def api_next(activity: str, payload: dict = Body(default={}), ctx: Ctx = D
     return {"ok": True, **q, **fix, "day": await _day(ctx, activity)}
 
 
-NEAR = ("tables", "grammar", "science")      # drills that can fill a wait with questions like the waiting ones
-KNOWN_FLAG = ("maths", "grammar", "science")  # drills told that their focus is something known, not a mistake
+NEAR = ("tables", "grammar", "science", "phonics")   # drills that can fill a wait with questions like the waiting ones
+KNOWN_FLAG = ("maths", *BANKS)  # drills told that their focus is something known, not a mistake
 # those with an "I don't know" button next to Check (drill.js opts.idk), all with the same behaviour
-IDK_ACTS = ("maths", "grammar", "science", "tables", "spelling")
+IDK_ACTS = ("maths", *BANKS, "tables", "spelling")
 KNOWN_DAYS = 30          # what a child got right this far back is "already known" filler in "Practise my mistakes"
 
 
@@ -214,7 +218,7 @@ async def _known(ctx: Ctx, activity: str, fx: dict) -> str | None:
     waiting = fx.get("waiting") or []
     if activity == "tables":
         close = [d for d in cands if any(tables._near(w, *map(int, d.split("x"))) for w in waiting)]
-    elif activity in ("grammar", "science"):
+    elif activity in BANKS:
         close = [d for d in cands if any(d.split("#")[0] == w.split("#")[0] for w in waiting)]
     else:
         close = []
@@ -230,7 +234,7 @@ def _askable(pupil: dict, activity: str):
         words = set(spelling.list_for_year(pupil.get("year", 3))) | {w["w"] for w in spelling.school_words(pupil)} \
             | set(spelling.carried_words(pupil))
         return lambda d: d in words or spelling.has_clip(d)
-    if activity in ("grammar", "science"):
+    if activity in BANKS:
         keys = {s["key"] for s in bank.engine.skills(activity, levels.level(pupil, activity))}
         return lambda d: "#" in d and d.split("#")[0] in keys and bool(bank.engine.question(*d.split("#", 1)))
     if activity == "maths":
@@ -380,7 +384,7 @@ def _wait_text(n: int, secs: int, activity: str, check: bool, total: int = 0, kn
     when = (f"in about {mins} minute{'s' if mins > 1 else ''}" if secs >= 45 else
             "in less than a minute" if secs > 0 else "after a few more questions")
     fill = {"tables": "more of the same tables", "grammar": "more on the same skills",
-            "science": "more on the same skills"}.get(activity, "other questions")
+            "science": "more on the same skills", "phonics": "more on the same sounds"}.get(activity, "other questions")
     if known:
         fill = "some you already know"
     it = "it" if n == 1 else "them"

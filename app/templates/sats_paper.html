@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% block title %}{{ paper.title }} · SATs practice · Quizocracy{% endblock %}
+{% block body %}
+<div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/sats.png" alt=""><h1 style="margin:0">{{ paper.title }}</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me/sats">Papers</a></div></div>
+<div class="{% if paper.key == 'reading' %}read-wrap {% endif %}rise rise-2">
+  {% if paper.key == 'reading' %}<article class="card passage" id="passage" data-testid="passage" hidden aria-label="The passage to read"><div class="passage-body" id="passageBody" tabindex="0"></div></article>{% endif %}
+  <div class="stage" id="stage">
+    <div id="pIntro" data-testid="paper-intro">
+      <ul class="mtc-rules">
+        <li>{{ paper.n }} question{{ 's' if paper.n != 1 }}{% if paper.key == 'reading' %} about one passage: read it first{% endif %}</li>
+        <li>{{ paper.minutes }} minutes for the whole paper</li>
+        <li>Stuck? Press <b>Skip for now</b> and come back to it at the end</li>
+        <li>You see your score and every answer at the end</li>
+      </ul>
+      <p class="mut small">{{ paper.real }}{% if paper.key == 'spelling' %} Turn the sound on: each word is read to you.{% endif %}{% if paper.key in ('arithmetic', 'reasoning') %} Have paper and a pencil ready for working out. No calculator.{% endif %}</p>
+      {% if paper.last %}<p class="mut small" data-testid="paper-last">Last time: {{ paper.last.score }}/{{ paper.last.of }}{% if paper.tries > 1 %} · your best: {{ paper.best.score }}/{{ paper.best.of }}{% endif %}</p>{% endif %}
+      <div class="row"><button class="btn primary big" id="pStart" type="button" data-testid="paper-start">Start the paper</button></div>
+    </div>
+    <div id="pRun" hidden>
+      <div class="kid"><span class="mut" id="pCount" data-testid="paper-count"></span><span class="mtc-sec" id="pClock" data-testid="paper-clock" aria-label="time left"></span></div>
+      <div class="mtc-time"><i id="pFill"></i></div>
+      <div class="mut small" id="pLeft" data-testid="paper-left"></div>
+      <div class="bq" id="pPrompt" data-testid="paper-question"></div>
+      <div id="pArea"></div>
+      <div class="row"><button class="btn primary big" id="pNext" type="button" data-testid="paper-next">Next →</button><button class="btn" id="pSkip" type="button" data-testid="paper-skip">Skip for now</button><button class="btn" id="pFinish" type="button" data-testid="paper-finish">Finish the paper</button></div>
+    </div>
+    <div id="pReview" hidden data-testid="paper-review">
+      <p id="pReviewText" style="font-weight:700"></p>
+      <div class="row"><button class="btn primary" id="pBack" type="button" data-testid="paper-back">Go back to them</button><button class="btn" id="pFinish2" type="button" data-testid="paper-finish2">Finish now</button></div>
+    </div>
+    <div id="pDone" hidden data-testid="paper-done">
+      <div class="display" id="pBest" hidden data-testid="paper-best" style="font-size:1.6rem;font-weight:800;color:var(--good)">★ Your best score on this paper!</div>
+      <div class="mut">You scored</div>
+      <div class="pct" style="font-size:2.6rem" data-testid="paper-score"><span id="pScore"></span> <span class="mut" style="font-size:1.4rem">out of <span id="pOf"></span></span></div>
+      <p class="mut small" id="pTime" data-testid="paper-time"></p>
+      <p class="mut small" id="pCounted" data-testid="paper-counted"></p>
+      <div class="row"><a class="btn primary" href="/me/sats">Back to the papers</a><a class="btn" href="/me">My day</a></div>
+      <h2 style="margin-top:16px">Your answers</h2>
+      <div id="pRows"></div>
+    </div>
+    <div class="feedback warn" id="pMsg" role="status" aria-live="polite" data-testid="paper-msg"></div>
+  </div>
+</div>
+<style>.paper-row{padding:10px 14px;margin:8px 0}.paper-row.bad{border-left:4px solid var(--bad,#f85149)}.paper-row.ok{border-left:4px solid var(--good,#22c55e)}#pClock.low{color:var(--bad,#f85149)}</style>
+{% endblock %}
+{% block scripts %}
+{% if paper.key in ('arithmetic', 'reasoning') %}{% for c in ['angle', 'area_grid', 'array', 'bar_chart', 'base_ten', 'circle', 'clock', 'coordinate_grid', 'data_table', 'equal_groups', 'fraction_bar', 'inequality_line', 'io_table', 'line_graph', 'net', 'number', 'number_line', 'pictogram', 'pie_chart', 'ruler', 'scatter_plot', 'shape', 'strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v=8"></script>
+{% endfor %}<script>window.MComp = window.MComp || {};</script>{% endif %}
+<script src="/static/js/paper.js?v=1"></script><script>Paper({{ paper.key|tojson }});</script>{% endblock %}

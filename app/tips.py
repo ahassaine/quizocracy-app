@@ -26,6 +26,16 @@ TIPS = {
         "Cook, garden or build together and name the science: dissolving, evaporation, forces, friction, light and shadow.",
         "Learn the key words: many questions are lost on terms like 'evaporation' or 'photosynthesis', not on the idea itself.",
     ],
+    "phonics": [
+        "Say the pure sounds, not letter names: 'mmm', not 'muh' or 'em'. Ask the school which phonics scheme they use and copy its sounds.",
+        "Sound out, then blend: point under each sound (sh-i-p), then run a finger along and say the word.",
+        "Play 'I spy' with sounds, not letters (\"something beginning with sh\"), and spot the week's sounds on signs and packets.",
+    ],
+    "reading": [
+        "Read together every day, even a few pages. Take turns reading aloud and stop now and then to talk about what happened.",
+        "Ask questions that need thinking, not just finding: \"How do you think she felt? What in the text tells you?\"",
+        "After a wrong answer, look back at the passage together and find the sentence that holds the answer.",
+    ],
     "numbers": [
         "Read numbers aloud from real life: prices, house numbers, distances on road signs, page numbers.",
         "Remind them of the 'and' and the hyphen: three hundred and forty-two.",

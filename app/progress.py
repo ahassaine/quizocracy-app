@@ -631,5 +631,6 @@ async def week_wins(pupil: dict) -> dict:
     since = datetime.datetime.utcnow() - datetime.timedelta(days=7)
     fixed = book_counts(await mistake_book(pupil))["fixed"]      # the parent's "put right", the same rule
     secured = await db.maths_mastery.count_documents({"pupil": pupil["_id"].lower(), "mastered_at": {"$gte": since}}) \
-        + await db.bank_mastery.count_documents({"pupil_id": pupil["_id"], "mastered_at": {"$gte": since}})
+        + await db.bank_mastery.count_documents({"pupil_id": pupil["_id"], "mastered_at": {"$gte": since},
+                                                 "subject": {"$ne": "reading"}})      # a passage is not a skill
     return {"fixed": fixed, "secured": secured}

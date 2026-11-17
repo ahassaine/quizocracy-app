@@ -13,7 +13,7 @@ from . import config, errors, levels
 from .config import BASE_DIR
 from .db import db, ensure_indexes
 from .deps import Redirect, load
-from .routes import auth, child, extras, parent, team
+from .routes import auth, child, extras, parent, play, team
 from .web import page
 
 
@@ -28,7 +28,7 @@ async def lifespan(app):
 
 app = FastAPI(title="Quizocracy", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-for r in (auth.router, parent.router, child.router, team.router, extras.router):
+for r in (auth.router, parent.router, play.router, child.router, team.router, extras.router):   # play first: /me/race before /me/{activity}
     app.include_router(r)
 
 

@@ -66,7 +66,7 @@
   </form>{% endif %}
 </div>
 {% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}<div class="card" data-testid="plan"><b>Plan:</b> Free beta — every activity included
-  <p class="mut small">During the beta your family has all seven activities, rewards and room for up to {{ plan.max_children }} children, free. Nothing is charged. We will tell you before anything you rely on changes.{% if ctx.family.founding %} <b>You're a founding family:</b> after the beta, Quizocracy stays free for you for 12 more months, plus a free month for each family you invite who keeps going (<a href="/home#invite">your invitation link</a>).{% endif %}</p></div>
+  <p class="mut small">During the beta your family has all nine activities, rewards and room for up to {{ plan.max_children }} children, free. Nothing is charged. We will tell you before anything you rely on changes.{% if ctx.family.founding %} <b>You're a founding family:</b> after the beta, Quizocracy stays free for you for 12 more months, plus a free month for each family you invite who keeps going (<a href="/home#invite">your invitation link</a>).{% endif %}</p></div>
 {% else %}<div class="card" data-testid="plan"><b>Plan:</b> {{ plan.title }}</div>{% endif %}
 {% if ctx.full %}
 <div class="card"><b>Help</b><p class="mut small">Short answers about the daily plan, PINs, targets, rewards and your data.</p><a class="btn" href="/help" data-testid="settings-help">Open help</a></div>

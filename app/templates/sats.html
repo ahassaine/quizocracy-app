@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}SATs practice papers · Quizocracy{% endblock %}
+{% block body %}
+<div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/sats.png" alt=""><h1 style="margin:0">SATs practice papers</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me">My day</a></div></div>
+<p class="mut rise">Short papers like the Year 6 tests in May. The clock runs for the whole paper and you see your answers at the end, just like the real thing. Practising them often makes the real day feel normal.</p>
+<div class="grid">
+{% for p in papers %}
+  <div class="card tile rise rise-{{ [loop.index + 1, 5]|min }}" data-testid="paper-card-{{ p.key }}">
+    <div class="ttl">{{ p.title }}</div>
+    <div class="mut small">{{ p.n }} question{{ 's' if p.n != 1 }}{% if p.key == 'reading' %} on one passage{% endif %} · {{ p.minutes }} minutes</div>
+    <div class="mut small">{{ p.real }}</div>
+    {% if p.last %}<div class="small" style="margin-top:6px" data-testid="paper-last">Last time: <b>{{ p.last.score }}/{{ p.last.of }}</b>{% if p.tries > 1 %} · best: <b>{{ p.best.score }}/{{ p.best.of }}</b>{% endif %}</div>{% endif %}
+    <div class="row" style="margin-top:10px"><a class="btn{% if not p.tries %} primary{% endif %}" href="/me/sats/{{ p.key }}" data-testid="paper-go-{{ p.key }}">{{ 'Try again' if p.tries else 'Start' }}</a></div>
+  </div>
+{% endfor %}
+</div>
+<p class="mut small">The papers are extra practice. Answers in a subject on today's plan count towards it, and any you miss come back in Practise my mistakes.</p>
+{% endblock %}

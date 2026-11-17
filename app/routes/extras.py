@@ -103,7 +103,7 @@ async def report(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
     on = {a["key"] for a in todays_plan(p, ctx.family)} | set(acts)
     since = datetime.datetime.fromisoformat(days[0]) if days else datetime.datetime.utcnow()
     new = {"maths": await db.maths_mastery.count_documents({"pupil": p["_id"].lower(), "mastered_at": {"$gte": since}})}
-    for s in ("grammar", "science"):
+    for s in bank_engine.SUBJECTS:
         new[s] = await db.bank_mastery.count_documents({"pupil_id": p["_id"], "subject": s, "mastered_at": {"$gte": since}})
     skills = await _skill_views(p, on)
     weak = [(w["subject"], w) for w in await work_on(p, on, 8)]     # real weakness: wrong answers, not a low score
@@ -207,8 +207,12 @@ def _bank_example(skill: dict, used: set) -> dict:
     pub, key = bank_engine.serve(q)
     sentence = pub.get("s") or (" ".join(pub["words"]) if pub.get("words") else "")
     ans = bank_engine.expected_text(key) + (f" {q['unit']}" if q.get("unit") else "")
-    return {"skill": skill["title"], "q": q["q"], "sentence": sentence, "opts": pub.get("opts") or [],
-            "answer": ans, "why": [q["why"]] if q.get("why") else []}
+    return {"skill": skill["title"], "q": q["q"], "sentence": sentence, "opts": pub.get("opts") or pub.get("items") or [],
+            "answer": ans, "why": [q["why"]] if q.get("why") else [],
+            # phonics: the word to read (shown, never spoken) or the word the speaker says (spoken, never shown)
+            "w": q.get("w") or "", "say": q.get("say") or "",
+            # reading: the passage the question is about
+            "passage": {"title": skill["title"], "text": skill["text"]} if skill.get("text") else None}
 
 
 @router.get("/children/{pid}/examples")
@@ -225,7 +229,7 @@ async def examples(request: Request, pid: str, ctx: Ctx = Depends(parent_page)):
         year = maths.engine_year(levels.level(p, "maths"))
         skills = [s for s in maths_mastery._year_skills(year) + maths_mastery._earlier_ks3(year) if s["strand"] == strand]
         qs = [_maths_example(s) for s in _spread(skills, EXAMPLES)] if skills else []
-    elif subject in ("grammar", "science"):
+    elif subject in bank_engine.SUBJECTS:
         year = bank_engine.bank_year(subject, levels.level(p, subject))
         skills = [s for s in bank_engine.skills(subject, levels.level(p, subject)) if s["strand"] == strand and s["qs"]]
         used: set = set()

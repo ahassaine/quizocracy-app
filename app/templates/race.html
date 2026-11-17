@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Times-tables race · Quizocracy{% endblock %}
+{% block body %}
+<div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/race.png" alt=""><h1 style="margin:0">Times-tables race</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me">My day</a></div></div>
+<p class="mut rise">20 questions as fast as you can. Everyone on a course gets the same 20 this week, so you race your family{% if has_league %} and your league{% endif %}: their best runs race beside you. A new set comes every Monday.</p>
+<div class="grid">
+{% for c in courses %}
+  <div class="card rise rise-{{ [loop.index + 1, 5]|min }}" data-testid="course-{{ c.key }}">
+    <div class="kid"><b>{{ c.title }}</b>{% if c.suggested %}<span class="chip">for your year</span>{% endif %}</div>
+    <div class="mut small">{{ c.about|capitalize }}</div>
+    {% if c.mine %}<div class="small" style="margin-top:6px" data-testid="race-mine">Your best this week: <b>{{ fmt(c.mine.total) }}</b></div>{% endif %}
+    {% if c.board %}<ol class="small race-board" data-testid="race-board">{% for r in c.board %}<li{% if r.me %} class="me"{% endif %}><span aria-hidden="true">{{ r.pic }}</span> {{ r.label }} <span class="mut">{{ fmt(r.total) }}</span></li>{% endfor %}</ol>{% if c.n > 5 %}<div class="mut small">and {{ c.n - 5 }} more</div>{% endif %}{% else %}<div class="mut small" style="margin-top:6px">Nobody has raced this course this week. Be the first!</div>{% endif %}
+    <div class="row" style="margin-top:8px"><a class="btn{% if c.suggested %} primary{% endif %}" href="/me/race/{{ c.key }}" data-testid="race-go-{{ c.key }}">Race</a></div>
+  </div>
+{% endfor %}
+</div>
+<p class="mut small">Races are extra: they don't count towards your plan. A wrong answer adds 2 seconds and you type it again.</p>
+<style>.race-board{margin:6px 0 0;padding-left:20px}.race-board li.me{font-weight:800}</style>
+{% endblock %}

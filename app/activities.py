@@ -12,6 +12,10 @@ ACTIVITIES = {
                  "blurb": "Multiplication and division facts, quick-fire.", "img": "/static/img/tables.png"},
     "spelling": {"title": "Spelling", "icon": "🔤", "target": 10, "min_year": 1, "free": True,
                  "blurb": "Listen to the word, then spell it.", "img": "/static/img/spelling.png"},
+    "phonics":  {"title": "Phonics", "icon": "🔡", "target": 6, "min_year": 1, "free": False,
+                 "blurb": "Read the sounds, blend them into words, and read alien words too.", "img": "/static/img/phonics.png"},
+    "reading":  {"title": "Reading", "icon": "📖", "target": 6, "min_year": 1, "free": False,
+                 "blurb": "Read a passage, then answer questions about it.", "img": "/static/img/reading.png"},
     "numbers":  {"title": "Numbers in words", "icon": "🔢", "target": 10, "min_year": 1, "free": False,
                  "blurb": "Write numbers in words, and words in numbers.", "img": "/static/img/numbers.png"},
     "verbs":    {"title": "Irregular verbs", "icon": "📝", "target": 10, "min_year": 3, "free": False,
@@ -21,7 +25,7 @@ ACTIVITIES = {
     "science":  {"title": "Science", "icon": "🔬", "target": 5, "min_year": 1, "free": False,
                  "blurb": "Biology, chemistry and physics from the national curriculum.", "img": "/static/img/science.png"},
 }
-ORDER = ["maths", "tables", "spelling", "grammar", "science", "numbers", "verbs"]
+ORDER = ["maths", "tables", "spelling", "phonics", "reading", "grammar", "science", "numbers", "verbs"]
 
 PLANS = {
     "free":   {"title": "Free", "max_children": 1, "activities": [k for k in ORDER if ACTIVITIES[k]["free"]],
@@ -42,12 +46,17 @@ def new_family_plan() -> str:
 # The default day for each school year: the few activities that matter most at that age, about 15 minutes
 # (see minutes()). Anything else the parent can switch on.
 YEAR_DEFAULTS = {
-    1: {"maths": 8, "spelling": 5},       # 5 right: within reach of a child just learning to sound words out
-    2: {"maths": 6, "tables": 10, "spelling": 6},     # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty
-    3: {"maths": 8, "tables": 20, "spelling": 8},
-    4: {"maths": 8, "tables": 20, "spelling": 8},
-    5: {"maths": 10, "tables": 20, "spelling": 8},
-    6: {"maths": 10, "spelling": 8, "grammar": 5},
+    # Year 1: phonics every day (the phonics check is in June); 5 spellings: within reach of a child just
+    # learning to sound words out
+    1: {"maths": 8, "spelling": 5, "phonics": 6},
+    # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty. Reading is off by default: with it a Year 2 day
+    # runs to about 28 minutes (a parent turns it on, or swaps it for spelling)
+    2: {"maths": 6, "tables": 10, "spelling": 6},
+    # reading: about one passage a day (Years 3-4: 6 questions, Years 5-6: 7)
+    3: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
+    4: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
+    5: {"maths": 10, "tables": 20, "spelling": 8, "reading": 7},
+    6: {"maths": 10, "spelling": 8, "grammar": 5, "reading": 7},
     7: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
     8: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
     9: {"maths": 10, "spelling": 8, "grammar": 5, "science": 5},
@@ -55,7 +64,8 @@ YEAR_DEFAULTS = {
 # Rough seconds a child needs per correct answer (wrong tries and reading the feedback included), and how much
 # longer younger children take. Only used to tell the parent how long a day takes.
 # Times tables: 12 (was 8): a Year 3 child took about 5 minutes for 20 right in wave 6 (P8), with misses on the way.
-SECONDS = {"maths": 50, "tables": 12, "spelling": 25, "grammar": 40, "science": 35, "numbers": 40, "verbs": 20}
+SECONDS = {"maths": 50, "tables": 12, "spelling": 25, "grammar": 40, "science": 35, "numbers": 40, "verbs": 20,
+           "phonics": 20, "reading": 55}       # reading: the passage's reading time shared over its questions
 
 
 def year_pace(year: int) -> float:

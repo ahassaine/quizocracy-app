@@ -1,4 +1,10 @@
-"""Grammar and punctuation, and science: hand-written questions from app/bank, one year's skills at a time.
+"""Grammar and punctuation, science, phonics and reading: hand-written questions from app/bank, one year at a time.
+
+Reading (SPEC_READING.md) is a passage at a time: each "skill" is a passage, its questions are asked in their
+written order with the passage on screen, then the next passage in the year's order (reading_next). A passage's
+score is the share of its questions answered right (their latest answer), so it is secure when every one is right.
+A question missed comes back on a later day, with its passage.
+
 
 Mastery per skill uses the maths scoring (big gains early, a demanding last stretch; 100 = mastered).
 The child works a window of the first WINDOW unmastered skills in teaching order, interleaved; a wrong
@@ -144,6 +150,9 @@ def pick_question(sk: dict, seen: list, rnd=random) -> dict:
     return rnd.choice(fresh)
 
 
+GLOSSED = ("grammar", "science")          # subjects with key words (glossary.py)
+
+
 def glossed(pupil: dict) -> bool:
     """Key words are underlined with their meaning from Year 3 (glossary.py); Years 1-2 hear the question read."""
     return int(pupil.get("year") or 0) >= 3
@@ -154,6 +163,8 @@ def make(subject: str):
 
     async def next_question(pupil: dict, focus: str | None = None, near: list | None = None,
                             known: bool = False) -> dict | None:
+        if subject == "reading" and not (focus and "#" in focus):
+            return await reading_next(pupil)
         """focus: "skill#question" to ask again (a mistake being put right). near: questions ("skill#question")
         waiting to be put right; the question then comes from their skills, not one of them. known: focus is a
         question this child got right before, asked while a mistake waits for its gap (not a mistake)."""
@@ -205,8 +216,8 @@ def make(subject: str):
                                                            "$push": {"strands": {"$each": [sk["strand"]], "$slice": -5},
                                                                      "skills": {"$each": [sk["key"]], "$slice": -5}}})
         out = {"token": token, **pub, "skill": sk["title"], "strand": sk["strand"], "reason": reason,
-               "score": mm.get(sk["key"], {}).get("score", 0)}
-        if glossed(pupil):                  # key words in the question, tap for the meaning (none that give it away)
+               "score": mm.get(sk["key"], {}).get("score", 0), **passage_of(sk, q)}
+        if glossed(pupil) and subject in GLOSSED:                  # key words in the question, tap for the meaning (none that give it away)
             out["terms"] = engine.key_words(subject, [q["q"]], q)
         return out
 
@@ -233,7 +244,13 @@ def make(subject: str):
         score, streak = int(doc.get("score", 0)), int(doc.get("streak", 0))
         missed = await progress.last_miss(pupil, subject, detail) if correct else None
         practice = bool(missed and _now() - missed < progress.PUT_RIGHT_AFTER)
-        if practice:
+        ok_ids = None
+        if subject == "reading":
+            # a passage's score: the share of its questions whose latest answer is right
+            ok_ids = [x for x in doc.get("ok", []) if x != meta["qid"]] + ([meta["qid"]] if correct else [])
+            score = round(100 * len(set(ok_ids) & {x["id"] for x in sk["qs"]}) / max(1, len(sk["qs"]))) if sk else 0
+            streak = streak + 1 if correct else 0
+        elif practice:
             pass        # a question missed in this sitting, right again: practice, the score and streak stay
         elif correct:
             streak += 1
@@ -247,6 +264,9 @@ def make(subject: str):
         upd = {"pupil_id": pupil["_id"], "family_id": pupil["family_id"], "subject": subject, "key": meta["skill"],
                "score": score, "streak": streak, "attempts": int(doc.get("attempts", 0)) + 1,
                "correct": int(doc.get("correct", 0)) + (1 if correct else 0), "last": _now(), "seen": seen[-40:]}
+        if ok_ids is not None:
+            upd["ok"] = ok_ids
+            upd["asked"] = list(dict.fromkeys(doc.get("asked", []) + [meta["qid"]]))
         if score >= MASTERED and not doc.get("mastered_at"):
             upd["mastered_at"] = _now()
         await db.bank_mastery.update_one({"_id": f"{pupil['_id']}:{meta['skill']}"}, {"$set": upd}, upsert=True)
@@ -257,7 +277,8 @@ def make(subject: str):
                       if r["key"] == meta["skill"] and r["qid"] == meta["qid"]), 0)
         if not correct and tries < MAX_RETRIES:
             retry.append({"key": meta["skill"], "qid": meta["qid"], "due": st["n"] + RETRY_GAP, "tries": tries + 1,
-                          "after": _now() + datetime.timedelta(seconds=RETRY_SECONDS)})
+                          "after": _now() + datetime.timedelta(seconds=RETRY_SECONDS)}
+                         | ({"day": progress.today()} if subject == "reading" else {}))   # reading: a later day
         elif correct and meta.get("reason") in ("retry", "fix") and tries < MAX_RETRIES:
             # put right after a gap: asked once more on a later day, to see that it stayed
             retry.append({"key": meta["skill"], "qid": meta["qid"], "due": 0, "tries": MAX_RETRIES,
@@ -269,6 +290,12 @@ def make(subject: str):
         elif not correct:   # why the option picked is wrong; a question missed before is explained another way
             out["whynot"], out["why"] = engine.why_lines(q, key, value, meta.get("reason") in ("retry", "fix"))
         out.update({"mastered": score >= MASTERED and not doc.get("mastered_at"), "score": score})
+        if ok_ids is not None and sk:
+            # the last question of the passage: how it went ("Passage finished: 5 of 6 right")
+            asked = set(upd["asked"]) & {x["id"] for x in sk["qs"]}
+            if len(asked) == len(sk["qs"]) and meta.get("reason") in ("new", "practice", "review"):
+                out["passage_done"] = {"right": len(set(ok_ids) & asked), "of": len(sk["qs"]), "title": sk["title"]}
+            out["mastered"] = False
         if practice:                         # not put right yet: asked again in a later sitting
             out["again_later"] = True
         if slipped:                         # after the retry: which word was misspelt
@@ -279,7 +306,7 @@ def make(subject: str):
             wm = engine.word_marks(value, key["a"])     # the words that differ, marked in both sentences
             if wm:
                 out["expected"], out["marks"] = wm
-        if glossed(pupil):                   # after the answer: the key words of the question and its explanation
+        if glossed(pupil) and subject in GLOSSED:   # after the answer: the key words of the question and its explanation
             out["terms"] = engine.key_words(subject, [(q or {}).get("q", ""), out.get("why", ""), out.get("whynot", "")])
         return out
 
@@ -298,6 +325,8 @@ def make(subject: str):
             out["right"] = key["right"]
         if key["t"] == "tap":
             out["hits"] = key["hits"]
+        if key["t"] == "order":             # where each shown item belongs (0 = first)
+            out["order_pos"] = [key["order"].index(i) for i in range(len(key["order"]))]
         if key["t"] == "num" and q and q.get("unit"):
             out["expected"] = f"{exp} {q['unit']}"
         return out
@@ -313,11 +342,72 @@ def make(subject: str):
         skills = engine.skills(subject, level(pupil, subject))
         mm = await _mastery(pupil, subject)
         mastered = sum(1 for s in skills if mm.get(s["key"], {}).get("score", 0) >= MASTERED)
-        return {"mastered": mastered, "total": len(skills), "year": engine.bank_year(subject, level(pupil, subject))}
+        out = {"mastered": mastered, "total": len(skills), "year": engine.bank_year(subject, level(pupil, subject))}
+        if subject == "reading":            # passages read to the end (every question answered once)
+            out["read"] = sum(1 for s in skills if len(set(mm.get(s["key"], {}).get("asked", []))
+                                                       & {q["id"] for q in s["qs"]}) == len(s["qs"]))
+        return out
+
+    async def reading_next(pupil: dict) -> dict | None:
+        """The next reading question: a question missed on an earlier day comes back first (with its passage);
+        else the next question of the passage being read, in its written order; else the next passage: the first
+        of the year's passages not started, in order, then (all read) the one with the lowest score, least lately."""
+        skills = engine.skills(subject, level(pupil, subject))
+        if not skills:
+            return None
+        st = await _state(pupil, subject)
+        mm = await _mastery(pupil, subject)
+        last = ((await items.last_answered(pupil, subject)) or {}).get("meta") or {}
+        away = await items.just_shown(pupil, subject) | {f"{last.get('skill')}#{last.get('qid')}"}
+        now, today = _now(), progress.today()
+        cur = st.get("cur") or {}
+        sk = engine.skill(cur.get("key", "")) if cur.get("key") else None
+        reading_one = sk and any(q["id"] not in cur.get("done", []) for q in sk["qs"]) and sk in skills
+        if not reading_one:            # between passages: a question missed on an earlier day comes back first
+            for r in st.get("retry", []):
+                if r["due"] <= st["n"] and r.get("after", now) <= now and r.get("day", "") < today \
+                        and f"{r['key']}#{r['qid']}" not in away:
+                    rsk, rq = engine.skill(r["key"]), engine.question(r["key"], r["qid"])
+                    if rsk and rq:
+                        return await _serve(pupil, st, mm, rsk, rq, "retry")
+        if not reading_one:
+            started = [s for s in skills if s["key"] in mm]
+            fresh = [s for s in skills if s["key"] not in mm]
+            if fresh:
+                sk = fresh[0]
+            else:
+                sk = min(started, key=lambda s: (mm[s["key"]].get("score", 0) >= MASTERED, mm[s["key"]].get("score", 0),
+                                                 mm[s["key"]].get("last") or datetime.datetime.min))
+            cur = {"key": sk["key"], "done": []}
+            await db.bank_state.update_one({"_id": st["_id"]}, {"$set": {"cur": cur}})
+        q = next(q for q in sk["qs"] if q["id"] not in cur.get("done", []))
+        await db.bank_state.update_one({"_id": st["_id"]}, {"$addToSet": {"cur.done": q["id"]}})
+        return await _serve(pupil, st, mm, sk, q, "practice" if sk["key"] in mm else "new")
+
+    async def _serve(pupil: dict, st: dict, mm: dict, sk: dict, q: dict, reason: str) -> dict:
+        pub, key = engine.serve(q)
+        token = await items.issue(pupil, subject, key, {"skill": sk["key"], "qid": q["id"], "reason": reason})
+        await db.bank_state.update_one({"_id": st["_id"]}, {"$inc": {"n": 1},
+                                                           "$push": {"strands": {"$each": [sk["strand"]], "$slice": -5},
+                                                                     "skills": {"$each": [sk["key"]], "$slice": -5}}})
+        return {"token": token, **pub, "skill": sk["title"], "strand": sk["strand"], "reason": reason,
+                "score": mm.get(sk["key"], {}).get("score", 0), **passage_of(sk, q)}
 
     return type(subject, (), {"next_question": staticmethod(next_question), "check": staticmethod(check),
                               "summary": staticmethod(summary)})
 
 
+def passage_of(sk: dict, q: dict) -> dict:
+    """A reading question is served with its passage ({"passage": {key, title, kind, text, n, of}}); n: which
+    question of the passage this is."""
+    if not sk.get("text"):
+        return {}
+    ids = [x["id"] for x in sk["qs"]]
+    return {"passage": {"key": sk["key"], "title": sk["title"], "kind": sk["strand"], "text": sk["text"],
+                        "n": ids.index(q["id"]) + 1 if q["id"] in ids else 0, "of": len(ids)}}
+
+
 grammar = make("grammar")
 science = make("science")
+phonics = make("phonics")
+reading = make("reading")

@@ -69,7 +69,7 @@
     </script></div>
   {% if editing %}{% set lvs = pupil.levels or {} %}<fieldset class="field" id="working-at" data-testid="working-at" style="scroll-margin-top:76px;border:0;padding:0;margin:0 0 14px;min-width:0"><legend style="font-weight:700;padding:0">Working at, subject by subject</legend>
     <input type="hidden" name="level_form" value="1">
-    <div style="display:flex;flex-wrap:wrap;gap:0 14px">{% for s, t in [("maths", "Maths"), ("grammar", "Grammar and punctuation"), ("science", "Science")] %}
+    <div style="display:flex;flex-wrap:wrap;gap:0 14px">{% for s, t in [("maths", "Maths"), ("reading", "Reading"), ("grammar", "Grammar and punctuation"), ("science", "Science")] %}
       <div class="field" style="margin:6px 0;flex:1 1 180px"><label for="level_{{ s }}">{{ t }}</label>
       <select id="level_{{ s }}" name="level_{{ s }}" aria-describedby="level-hint" data-testid="level-{{ s }}"><option value="" data-at-school>At the school year (Year {{ pupil.year }})</option>{% for y in years %}<option value="{{ y }}" {% if lvs.get(s) == y %}selected{% endif %}>Year {{ y }} level</option>{% endfor %}</select></div>{% endfor %}</div>
     <div class="mut small" id="level-hint">For a child who finds one subject easy or hard: that subject's questions come from another year, and the others stay at the school year. Progress so far is kept. Pages and the report show a level only where it differs ("Maths: Year 6 level"). See <a href="/help#hard">My child finds it hard</a>.</div>

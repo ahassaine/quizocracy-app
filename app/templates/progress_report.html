@@ -58,7 +58,7 @@
 <p class="scroll-hint no-print" style="margin-top:-4px">Swipe the table sideways to see every column →</p>{% endif %}
 {% endif %}
 
-{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science"} %}
+{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science", "phonics": "Phonics", "reading": "Reading: passages"} %}
 {% if skills or tables or verbs or spelling_on %}<h2>Learned so far</h2>
 <p class="small mut">Where {{ pupil.name }} stands today. A skill is secure once it is mastered: a run of right answers on it, checked again on a later day. Practising: answered, not secure yet. Not started: not asked yet.</p>{% endif %}
 {% for subj, groups in skills.items() %}

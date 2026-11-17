@@ -160,6 +160,7 @@
     },
     feedback(text) { if (ok && talk && young && unlocked) speak([text]); },  // "Not quite. Good try! ..." (not with "questions only")
     word(text) { if (ok && young && unlocked) speak([text]); },            // an option the child tapped
+    say(text) { if (ok) { unlock(); speak([text]); } },                    // phonics "Hear the word": any year, on a tap
     stop() { if (ok) { ++run; synth.cancel(); setOn(false); } },
   };
 })();

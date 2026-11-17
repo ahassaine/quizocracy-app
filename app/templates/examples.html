@@ -10,7 +10,10 @@
 {% for e in qs %}
 <section class="card" data-testid="example">
   <div class="mut small">{{ e.skill }}</div>
+  {% if e.passage %}<details class="small" style="margin:.35em 0" data-testid="example-passage"><summary style="cursor:pointer">The passage: {{ e.passage.title }}</summary>{% for para in e.passage.text.split('\n\n') %}<p style="margin:.4em 0">{{ para|replace('\n', ' / ') }}</p>{% endfor %}</details>{% endif %}
   <p style="margin:.35em 0;font-weight:600">{{ e.q }}</p>
+  {% if e.w %}<p style="margin:.35em 0;font-size:1.5rem;font-weight:800" data-testid="example-word">{{ e.w }} <span class="mut small" style="font-weight:400">(shown big for {{ pupil.name }} to read; never read aloud)</span></p>{% endif %}
+  {% if e.say %}<p class="small" style="margin:.35em 0" data-testid="example-say">🔊 The app says: <b>{{ e.say }}</b> <span class="mut">(not shown on screen)</span></p>{% endif %}
   {% if e.sentence %}<p style="margin:.35em 0" data-testid="example-sentence">{{ e.sentence }}</p>{% endif %}
   {% if e.opts %}<ul class="small" style="margin:.35em 0;padding-left:18px">{% for o in e.opts %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
   {% if e.table %}<div style="overflow-x:auto"><table class="t small" style="width:auto;margin:.35em 0">

@@ -38,7 +38,7 @@ if(C||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches
     {% elif ctx and ctx.locked %}
       <a href="/learn">Who's learning?</a><a href="/board">Board</a><a href="/parent-unlock">Parent</a>
     {% elif ctx and ctx.account.verified_at %}
-      <a href="/home">Home</a><form method="post" action="/handover" style="display:inline"><button class="linkish" type="submit" title="Lock the parent area and hand the device to a child" data-testid="nav-handover">Hand over</button></form><a href="/board">Board</a><a href="/settings">Settings</a>
+      <a href="/home">Home</a><form method="post" action="/handover" style="display:inline"><button class="linkish" type="submit" title="Lock the parent area and hand the device to a child" data-testid="nav-handover">Hand over</button></form><a href="/board">Board</a><a href="/leagues">Leagues</a><a href="/settings">Settings</a>
       <form method="post" action="/logout" style="display:inline"><button class="linkish" type="submit">Sign out</button></form>
     {% else %}
       <a href="/login">Sign in</a><a href="/signup">Sign up</a>

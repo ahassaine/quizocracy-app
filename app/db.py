@@ -11,7 +11,7 @@ db = client[config.DB_NAME]
 FAMILY_COLLECTIONS = (
     "accounts", "pupils", "sessions", "attempts", "maths_lab_q", "maths_attempts", "maths_mastery",
     "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items", "reports", "family_log",
-    "feedback",
+    "feedback", "races",
 )
 
 
@@ -37,6 +37,10 @@ async def ensure_indexes():
     for c in ("tables_facts", "spelling_words", "verbs_state", "bank_state", "items"):
         await db[c].create_index([("pupil_id", ASCENDING)])
     await db.bank_mastery.create_index([("pupil_id", ASCENDING), ("subject", ASCENDING)])
+    await db.races.create_index([("family_id", ASCENDING), ("course", ASCENDING), ("week", ASCENDING)])
+    await db.races.create_index([("pupil_id", ASCENDING)])
+    await db.leagues.create_index([("code", ASCENDING)], unique=True)
+    await db.leagues.create_index([("families", ASCENDING)])
     await db.items.create_index([("created", ASCENDING)], expireAfterSeconds=2 * 86400)
     await db.login_failures.create_index([("ts", ASCENDING)], expireAfterSeconds=3600)
     # Wrong passwords/PINs/codes and rate-limit hits are counted by key ("email": an address, "pin:<id>",

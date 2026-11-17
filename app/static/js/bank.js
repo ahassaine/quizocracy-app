@@ -1,10 +1,69 @@
-/* Grammar and science questions: one page for every question type (mcq, tap, text, write, num). */
+/* The question banks: grammar, science, phonics and reading. One page for every question type (mcq, tap, text,
+   write, num, and seg (sound buttons) and order (put events in order)).
+   Phonics (SPEC_PHONICS.md): q.w is the word to read, shown big and never spoken; q.say is a word the speaker says,
+   never shown. Reading (SPEC_READING.md): q.passage is shown beside the question while its questions are asked. */
 function BankDrill(activity) {
   const $ = (id) => document.getElementById(id);
-  let cur = null, pick = null, taps = new Set(), choices = null, gaps = null;
+  let cur = null, pick = null, taps = new Set(), choices = null, gaps = null, seq = [], cuts = new Set(), shownPassage = null;
   const area = $('area');
   const head = $('drillHead'), YEAR = parseInt(head && head.dataset.year, 10) || 0;
-  const say = (t) => { if (window.Speak) Speak.word(t); };          // Years 1-2 hear what they tap
+  const PHONICS = activity === 'phonics';
+  // Years 1-2 hear what they tap; never in phonics, where hearing a word option would read it for them
+  const say = (t) => { if (window.Speak && !PHONICS) Speak.word(t); };
+  const PIC = /^\s*(?:\p{Extended_Pictographic}\uFE0F?\u200D?)+\s*$/u;       // an option that is one picture
+  /* Reading: the passage, beside the question (wide screens) or above it. Shown again only when another passage's
+     question comes (a mistake put right, a question missed on another day). */
+  function passage(q) {
+    const box = $('passage');
+    if (!box) return;
+    if (!q.passage) { box.hidden = true; shownPassage = null; return; }
+    box.hidden = false;
+    const P = q.passage;
+    $('passageAt').textContent = P.n && P.of ? 'Question ' + P.n + ' of ' + P.of : '';
+    if (shownPassage === P.key) return;
+    shownPassage = P.key;
+    const paras = String(P.text).split(/\n\s*\n/).map(p => '<p>' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('');
+    $('passageBody').innerHTML = '<div class="mut small" data-testid="passage-kind">' + esc(P.kind || '') + '</div>'
+      + '<h2 class="passage-title" data-testid="passage-title">' + esc(P.title) + '</h2>' + paras;
+    $('passageBody').scrollTop = 0;
+  }
+  /* Phonics sound buttons: tap between two letters to split the word into its sounds (sh|i|p). */
+  function segmenter(w) {
+    const box = document.createElement('div'); box.className = 'gaps seg'; box.setAttribute('data-testid', 'seg');
+    [...w].forEach((c, i) => {
+      if (i) {
+        const g = document.createElement('button'); g.type = 'button'; g.className = 'gap';
+        g.setAttribute('aria-label', 'Split before ' + c); g.setAttribute('data-testid', 'cut-' + i);
+        g.addEventListener('click', () => { if (g.disabled) return;
+          cuts.has(i) ? cuts.delete(i) : cuts.add(i); g.classList.toggle('on', cuts.has(i)); });
+        box.appendChild(g);
+      }
+      const l = document.createElement('span'); l.className = 'letter'; l.textContent = c; box.appendChild(l);
+    });
+    const tip = document.createElement('div'); tip.className = 'mut small';
+    tip.textContent = 'Tap between the letters to split the word into its sounds. Tap again to join them.';
+    area.appendChild(box); area.appendChild(tip);
+    return box;
+  }
+  /* Put in order: tap the events in the order they happen; each gets its number. Tap one again to take it out. */
+  function orderer(items) {
+    const box = document.createElement('div'); box.className = 'opts order'; box.setAttribute('data-testid', 'order');
+    const paint = () => box.querySelectorAll('.opt').forEach((b, i) => {
+      const at = seq.indexOf(i); b.classList.toggle('sel', at >= 0);
+      b.querySelector('.num').textContent = at >= 0 ? String(at + 1) : ''; });
+    items.forEach((t, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.setAttribute('data-testid', 'item-' + i);
+      b.innerHTML = '<span class="num" aria-hidden="true"></span><span>' + esc(t) + '</span>';
+      b.addEventListener('click', () => { if (b.disabled) return;
+        const at = seq.indexOf(i); if (at >= 0) seq.splice(at, 1); else seq.push(i); paint(); });
+      box.appendChild(b);
+    });
+    const tip = document.createElement('div'); tip.className = 'mut small';
+    tip.textContent = 'Tap them in order: first, then second… Tap one again to take it out.';
+    area.appendChild(tip); area.appendChild(box);
+    return box;
+  }
   const SPACES = /^put spaces between the words\b/i;
   /* "Put spaces between the words": tap between two letters to put a space there (a finger can't place a
      cursor inside a word on a tablet). The sentence keeps its own capitals and full stop. */
@@ -79,12 +138,35 @@ function BankDrill(activity) {
   }
   Drill({ activity, idk: true,           // the "I don't know" button next to Check
     render(q) {
-      cur = q; pick = null; taps = new Set(); choices = null; gaps = null;
-      $('skill').textContent = q.strand + ' · ' + q.skill;
+      cur = q; pick = null; taps = new Set(); choices = null; gaps = null; seq = []; cuts = new Set();
+      // the skill's own title when it already names its strand ("Phase 3: ch sh th ng"), not "Phase 3 · Phase 3: …"
+      $('skill').textContent = q.passage ? q.strand : String(q.skill).indexOf(q.strand) === 0 ? q.skill : q.strand + ' · ' + q.skill;
       kwTerms = {}; gloss($('q'), q.prompt, q.terms);
       area.innerHTML = '';
-      if (q.kind === 'mcq') {
+      passage(q);
+      if (q.w && q.kind !== 'seg') {       // phonics: the word to read, big; never read aloud
+        const w = document.createElement('div'); w.className = 'read-word'; w.setAttribute('data-testid', 'read-word');
+        w.textContent = q.w; area.appendChild(w);
+      }
+      if (q.say) {                          // phonics: the word to listen to; it is never shown
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn hear'; b.setAttribute('data-testid', 'hear');
+        b.innerHTML = '<span aria-hidden="true">🔊</span> Hear the word';
+        b.addEventListener('click', () => { if (window.Speak && Speak.say) Speak.say(q.say); });
+        area.appendChild(b);
+        if (!(window.Speak && Speak.ok)) {   // no voice on this device: a grown-up reads it
+          const n = document.createElement('div'); n.className = 'mut small'; n.setAttribute('data-testid', 'no-voice');
+          n.textContent = 'This device cannot speak. Ask a grown-up to read the word hidden here: ';
+          const d = document.createElement('details'); d.innerHTML = '<summary>Grown-up: show the word</summary><b>' + esc(q.say) + '</b>';
+          n.appendChild(d); area.appendChild(n);
+        }
+      }
+      if (q.kind === 'seg') {
+        gaps = segmenter(q.w);
+      } else if (q.kind === 'order') {
+        orderer(q.items);
+      } else if (q.kind === 'mcq') {
         const box = document.createElement('div'); box.className = 'opts';
+        if (q.opts.every(o => PIC.test(o))) box.classList.add('pics');
         q.opts.forEach((o, i) => {
           const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = o;
           b.dataset.i = i; b.setAttribute('data-testid', 'opt-' + i);
@@ -127,9 +209,11 @@ function BankDrill(activity) {
       }
     },
     speech(q) {          // what the 🔊 button reads: the question, then what there is to choose from
+      if (PHONICS) return [q.prompt].concat(q.say ? [q.say] : []);     // never the word to read, nor word options
       const p = [q.prompt];
       if (q.kind === 'mcq') p.push(q.opts.map(o => /[.?!]$/.test(o) ? o : o + '.').join(' '));
       if (q.kind === 'tap') p.push(q.words.join(' '));
+      if (q.kind === 'order') p.push(q.items.map(o => /[.?!]$/.test(o) ? o : o + '.').join(' '));
       if (q.kind === 'write' && !SPACES.test(q.prompt)) p.push(q.s);
       return p;
     },
@@ -137,6 +221,8 @@ function BankDrill(activity) {
       if (!cur) return null;
       if (cur.kind === 'mcq') return pick === null ? null : { value: pick };
       if (cur.kind === 'tap') return taps.size ? { value: [...taps] } : null;
+      if (cur.kind === 'seg') return cuts.size ? { value: [...cuts] } : null;
+      if (cur.kind === 'order') return seq.length === cur.items.length ? { value: seq.slice() } : null;
       const v = $('answer').value.trim();
       return v ? { value: v } : null;
     },
@@ -146,7 +232,9 @@ function BankDrill(activity) {
       const marked = (parts, fix) => parts.map(([t, d]) => !d ? esc(t) : fix
         ? '<span class="mk-fix" data-testid="mark-fixed" style="background:rgba(15,159,118,.45);color:#fff;border-radius:4px;padding:0 3px">' + esc(t) + '</span>'
         : '<span class="mk-bad" data-testid="mark-wrong" style="text-decoration:underline wavy var(--bad);text-underline-offset:4px;text-decoration-thickness:2px">' + esc(t) + '</span>').join(' ');
-      const lead = cur.kind === 'tap'                                     // not "The answer is a."
+      const lead = cur.kind === 'seg' ? 'The sounds are <b data-testid="seg-answer">' + esc(r.expected) + '</b>.'
+        : cur.kind === 'order' ? 'The right order is: <b>' + esc(r.expected) + '</b>.'
+        : cur.kind === 'tap'                                     // not "The answer is a."
         ? ((r.hits || []).length > 1 ? 'The words to tap are <b>' : 'The word to tap is <b>') + '“' + esc(r.expected) + '”</b>.'
         : r.marks ? 'The answer is <b>' + marked(r.marks.word, true) + '</b>' + end
           + '<div class="small" data-testid="you-wrote" style="margin-top:4px">You wrote: ' + marked(r.marks.typed, false) + '</div>'
@@ -166,6 +254,10 @@ function BankDrill(activity) {
       const a = $('answer'); if (a) { a.readOnly = true; a.style.borderColor = r.correct ? '#22c55e' : '#f85149'; }
       if (choices) choices.__mark(r);
       if (gaps) gaps.classList.add(r.correct ? 'right' : 'wrong');
+      if (cur.kind === 'order') area.querySelectorAll('.order .opt').forEach((b, i) => {
+        b.classList.add(seq.indexOf(i) === r.order_pos[i] ? 'right' : 'wrong'); });
       if (r.mastered) $('feedback').innerHTML += ' · skill mastered!';
+      if (r.passage_done) $('feedback').insertAdjacentHTML('beforeend', '<div class="passage-done" data-testid="passage-done">📖 You finished “'
+        + esc(r.passage_done.title) + '”: ' + r.passage_done.right + ' of ' + r.passage_done.of + ' right.</div>');
     } });
 }

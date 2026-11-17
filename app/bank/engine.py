@@ -1,4 +1,4 @@
-"""Hand-written question banks (grammar and punctuation, science): loading, serving and marking.
+"""Hand-written question banks (grammar and punctuation, science, phonics, reading): loading, serving and marking.
 
 The content lives in app/bank/content/*.py (format in SPEC.md). A question is served without its answer;
 what is needed to mark it stays on the server with the item (see app/items.py).
@@ -17,7 +17,8 @@ from . import excluded, glossary
 
 log = logging.getLogger("qz.bank")
 CONTENT = pathlib.Path(__file__).parent / "content"
-PREFIX = {"grammar": "GP", "science": "SC"}
+PREFIX = {"grammar": "GP", "science": "SC", "phonics": "PH", "reading": "RD"}
+SUBJECTS = tuple(PREFIX)          # every bank subject: grammar and science, phonics (SPEC_PHONICS) and reading (SPEC_READING)
 
 _BANK: dict | None = None      # {subject: {year: [skill, ...]}}
 _BY_KEY: dict = {}
@@ -53,7 +54,20 @@ def _usable(q: dict) -> bool:
         return isinstance(q.get("a"), list) and bool(q["a"])
     if t == "num":
         return isinstance(q.get("a"), (int, float))
+    if t == "seg":
+        return isinstance(q.get("w"), str) and isinstance(q.get("a"), str) and q["a"].replace("|", "") == q["w"]
+    if t == "order":
+        return isinstance(q.get("items"), list) and 3 <= len(q["items"]) <= 5
     return False
+
+
+def seg_cuts(split: str) -> list:
+    """"sh|i|p" -> [2, 3]: the letter positions a cut comes before."""
+    out, at = [], 0
+    for part in split.split("|")[:-1]:
+        at += len(part)
+        out.append(at)
+    return out
 
 
 def load() -> dict:
@@ -160,6 +174,10 @@ def serve(q: dict) -> tuple[dict, dict]:
     t = q["t"]
     pub = {"kind": t, "prompt": q["q"]}
     key: dict = {"t": t}
+    if q.get("w"):                       # phonics: the word to read, shown big and never spoken
+        pub["w"] = q["w"]
+    if q.get("say"):                     # phonics: the word the speaker says; it is never shown
+        pub["say"] = q["say"]
     if t == "mcq":
         order = list(range(len(q["opts"])))
         random.shuffle(order)
@@ -186,6 +204,16 @@ def serve(q: dict) -> tuple[dict, dict]:
         key["s"] = q["s"]                # the words the task did not ask to change (write_slips)
         if open_end(q["q"], q["s"]):
             key["open_end"] = True
+    elif t == "seg":
+        pub["w"] = q["w"]
+        key["cuts"], key["split"] = seg_cuts(q["a"]), q["a"]
+    elif t == "order":
+        order = list(range(len(q["items"])))
+        while len(order) > 1 and order == sorted(order):      # never already in order
+            random.shuffle(order)
+        pub["items"] = [q["items"][i] for i in order]
+        key["items"] = pub["items"]
+        key["order"] = [order.index(i) for i in range(len(order))]   # the shown positions, in the right order
     elif t == "num":
         pub["unit"] = q.get("unit", "")
         key["a"], key["tol"] = q["a"], q.get("tol", 0)
@@ -431,6 +459,10 @@ def expected_text(key: dict) -> str:
         return ", ".join(re.sub(r"^\W+|\W+$", "", key["words"][i]) for i in key["hits"])
     if t in ("text", "write"):
         return key["a"][0]
+    if t == "seg":
+        return key["split"].replace("|", "-")
+    if t == "order":
+        return " → ".join(key["items"][i] for i in key["order"])
     return fmt_num(key["a"])
 
 
@@ -441,6 +473,11 @@ def given_text(key: dict, value) -> str:
             return key["opts"][int(value)]
         if t == "tap":
             return ", ".join(re.sub(r"^\W+|\W+$", "", key["words"][int(i)]) for i in sorted(set(value or [])))
+        if t == "seg":
+            w, cuts = key["split"].replace("|", ""), sorted({int(i) for i in (value or [])})
+            return "-".join(w[a:b] for a, b in zip([0] + cuts, cuts + [len(w)]))
+        if t == "order":
+            return " → ".join(key["items"][int(i)] for i in (value or []))
     except (TypeError, ValueError, IndexError):
         return ""
     return str(value or "")[:200]
@@ -470,6 +507,16 @@ def mark(key: dict, value) -> bool:
         if key.get("open_end"):
             v, ok = v.rstrip(". "), {a.rstrip(". ") for a in ok}
         return bool(v) and v in ok
+    if t == "seg":
+        try:
+            return sorted({int(i) for i in (value or [])}) == key["cuts"]
+        except (TypeError, ValueError):
+            return False
+    if t == "order":
+        try:
+            return [int(i) for i in (value or [])] == key["order"]
+        except (TypeError, ValueError):
+            return False
     if t == "num":
         v = parse_num(value, key.get("unit") or "")
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9

@@ -30,6 +30,15 @@
   <div><b>Practise the Year 4 check</b>{% if mtc_stopped %}<div class="small" style="font-weight:700" data-testid="mtc-stopped" data-token="{{ mtc_stopped.token }}">Your check stopped before the end, so it didn't count. Start again?</div>{% endif %}<div class="mut small">{% if check_card and check_card.check %}{% if check_card.check.done %}Done today, well done! You can try again to beat your best.{% else %}Part of today's times tables: 25 quick questions.{% endif %}{% else %}25 quick questions, {{ 9 if ((ctx.child.activities or {}).get('tables') or {}).get('slow') else 6 }} seconds each. Extra practice: it isn't part of today's plan.{% endif %}{% if checks %} Best so far: {{ checks|map(attribute='score')|max }}/25.{% endif %}</div></div>
   <a class="btn{% if mtc_stopped or (check_card and check_card.check and not check_card.check.done) %} primary{% endif %}" href="/me/tables/year4-check" data-testid="mtc-card-go">{{ 'Start the check again' if mtc_stopped else 'Practise the check' }}</a>
 </div>{% endif %}
+{% if pc_card is not none %}<div class="card rise rise-5 kid" data-testid="pc-card" style="margin-top:12px;flex-wrap:wrap;gap:8px 12px">
+  <div><b>Practise the phonics check</b><div class="mut small">Read real and alien words to a grown-up.{% if pc_card %} Last time: {{ pc_card[0].score }}/{{ pc_card[0].of }}.{% endif %}</div></div>
+  <a class="btn" href="/me/phonics-check" data-testid="pc-card-go">Practise the check</a></div>{% endif %}
+{% if sats_card %}<div class="card rise rise-5 kid" data-testid="sats-card" style="margin-top:12px;flex-wrap:wrap;gap:8px 12px">
+  <div><b>SATs practice papers</b><div class="mut small">Short timed papers like the Year 6 tests.{% set done = sats_card|selectattr('last')|list %}{% if done %} Done so far: {{ done|length }} of {{ sats_card|length }} papers.{% endif %}</div></div>
+  <a class="btn" href="/me/sats" data-testid="sats-card-go">Papers</a></div>{% endif %}
+<div class="card rise rise-5 kid" data-testid="play-card" style="margin-top:12px;flex-wrap:wrap;gap:8px 12px">
+  <div><b>★ {{ stars }} star{{ 's' if stars != 1 }} this week</b><div class="mut small">Your plan earns stars for the league. Race the times tables against your family's best times.</div></div>
+  <div class="row" style="margin:0"><a class="btn" href="/me/league" data-testid="league-go">League</a><a class="btn" href="/me/race" data-testid="race-go">Race</a></div></div>
 <p class="mut small">Your parent can see your answers and progress.</p>
 {% if all_done or (status.reward_earned and status.pct >= (reward.threshold or 100)|int) %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
 {% endblock %}

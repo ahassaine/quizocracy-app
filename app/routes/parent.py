@@ -18,7 +18,7 @@ from ..db import FAMILY_COLLECTIONS, db
 from ..deps import (Ctx, adult_name, clear_pin_lock, family_adult, family_events, family_page, full_page,
                     hit, local_time, log_event, over_limit, own_pupil, parent_page, pin_lock_until, pin_locks)
 from ..drills import bank, maths, spelling, tables, verbs
-from .. import config, funnel, levels, mailer, progress, referrals
+from .. import config, funnel, league, levels, mailer, progress, referrals
 from ..tips import TIPS
 from ..security import hash_secret, new_id, verify_secret
 from ..web import page, templates
@@ -294,6 +294,8 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
         "verbs": await verbs.summary(p) if "verbs" in on else None,
         "grammar": await bank.grammar.summary(p) if "grammar" in on else None,
         "science": await bank.science.summary(p) if "science" in on else None,
+        "phonics": await bank.phonics.summary(p) if "phonics" in on else None,
+        "reading": await bank.reading.summary(p) if "reading" in on else None,
     }
     hist = await progress.history(p, ctx.family, 14)
     pending = [(a["key"], a["target"]) for a in nxt] != [(a["key"], a["target"]) for a in now]
@@ -416,8 +418,8 @@ async def work_on(p: dict, on: set, n: int = 6) -> list:
         for d in (await maths_mastery._mastery_map(p["_id"])).values():
             if "correct_count" in d and d.get("skill") in titles:
                 out.append(("maths", titles[d["skill"]], int(d.get("attempts", 0)), int(d["correct_count"]), d))
-    for subject in ("grammar", "science"):
-        if subject in on:
+    for subject in bank_engine.SUBJECTS:
+        if subject in on and subject != "reading":       # a passage is not a skill to work on
             async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject}):
                 sk = bank_engine.skill(d.get("key", ""))
                 if sk and "correct" in d:
@@ -449,7 +451,7 @@ async def _started(p: dict, on: set) -> dict:
         out["spelling"] = await db.spelling_words.count_documents(
             {"pupil_id": p["_id"], "word": {"$in": spelling.list_for_year(p.get("year", 3))},
              "box": {"$lt": spelling.LEARNED_BOX}})
-    for subject in ("grammar", "science"):
+    for subject in bank_engine.SUBJECTS:
         if subject in on:
             keys = {s["key"] for s in bank_engine.skills(subject, levels.level(p, subject))}
             out[subject] = len([1 async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})
@@ -747,7 +749,7 @@ def _mark_reported(mistakes: list, reports: list) -> None:
         if it["activity"] in ("verbs", "numbers"):            # one item per answer: the expected answer names it
             return same_exp or bool(r["prompt"]) and q == r["prompt"]
         # a bank mistake keeps its question and its sentence: the question as served starts it
-        return bool(r["prompt"]) and (q == r["prompt"] or it["activity"] in ("grammar", "science") and same_exp
+        return bool(r["prompt"]) and (q == r["prompt"] or it["activity"] in bank_engine.SUBJECTS and same_exp
                                       and q.startswith(r["prompt"]))
     for it in its:
         it["reported"] = any(hit(r, it) for r in reports)
@@ -789,7 +791,7 @@ async def _skill_views(p: dict, on: set) -> dict:
         # Years 8 and 9 also review earlier KS3 skills: those met so far show under their own year's strand
         review = _by_strand([s for s in maths_mastery._earlier_ks3(year) if s["key"] in scores], scores, recheck)
         out["maths"] += [{**g, "review": g["strand"].split(".")[0]} for g in review]
-    for subject in ("grammar", "science"):
+    for subject in bank_engine.SUBJECTS:
         if subject in on:
             docs = [d async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})]
             out[subject] = _by_strand(bank_engine.skills(subject, levels.level(p, subject)), {d["key"]: int(d.get("score", 0)) for d in docs},
@@ -1381,7 +1383,7 @@ async def _delete_pupils(ids: list) -> None:
     for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
         await db[c].delete_many({"pupil": {"$in": ids}})
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
-              "reports"):
+              "reports", "races"):
         await db[c].delete_many({"pupil_id": {"$in": ids}})
     # A device that child was using goes back to "Who's learning?", still locked: never to parent mode.
     await db.sessions.update_many({"child_id": {"$in": ids}}, {"$set": {"child_id": None, "locked": True}})
@@ -1456,8 +1458,10 @@ async def export(request: Request, ctx: Ctx = Depends(full_page)):
                         async for s in db.sessions.find({"family_id": fid})]}
     # Every per-child collection that deleting a child removes (see _delete_pupils), so the file is complete.
     for c in ("attempts", "tables_facts", "spelling_words", "verbs_state", "bank_mastery", "bank_state", "items",
-              "reports"):
+              "reports", "races"):
         data[c] = [d async for d in db[c].find({"pupil_id": {"$in": ids}}, {"_id": 0})]
+    data["leagues"] = [{"name": lg["name"], "code": lg["code"], "families": len(lg["families"]),
+                        "made_by_you": lg["owner"] == fid} for lg in await league.leagues_of(fid)]
     for c in ("maths_attempts", "maths_mastery", "maths_lab_q"):
         data[c] = [d async for d in db[c].find({"pupil": {"$in": ids}}, {"_id": 0})]
     data["family_log"] = [d async for d in db.family_log.find({"family_id": fid}, {"_id": 0})]
@@ -1495,6 +1499,7 @@ async def delete_account(request: Request, ctx: Ctx = Depends(full_page), passwo
     # the team board's copy of the family's "How is it going?" answers goes too
     await drop_family_feedback([d["team_msg"] async for d in db.feedback.find(
         {"family_id": fid, "team_msg": {"$exists": True}}, {"team_msg": 1})])
+    await league.drop_family(fid)                               # out of every friends' league
     for c in FAMILY_COLLECTIONS:
         await db[c].delete_many({"family_id": fid})
     await db.codes.delete_many({"family_id": fid})             # invitations still open
