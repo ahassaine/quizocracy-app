@@ -50,7 +50,7 @@ def wrong(key):
 
 
 def test_phonics_serves_marks_and_never_shows_the_spoken_word(browser):
-    pg, kid, s, pid = _family(browser, 1)
+    pg, kid, s, pid = _family(browser, 1, targets={"phonics": 6})
     kinds = set()
     for i in range(30):
         q = s.post(BASE + "/api/phonics/next", json={}).json()
@@ -227,7 +227,7 @@ def test_leagues_join_with_a_code_and_show_only_nicknames(browser):
 
 
 def test_my_day_shows_the_new_cards_for_the_right_years(browser):
-    pg, kid, s, pid = _family(browser, 1, name="Sam")
+    pg, kid, s, pid = _family(browser, 1, name="Sam", targets={"phonics": 6})
     kid.goto("/me")
     assert kid.locator("[data-testid=pc-card]").is_visible()
     assert kid.locator("[data-testid=play-card]").is_visible()
@@ -236,7 +236,7 @@ def test_my_day_shows_the_new_cards_for_the_right_years(browser):
 
 
 def test_phonics_keeps_its_phases_in_order_and_no_sound_leaves_out_listening(browser):
-    pg, kid, s, pid = _family(browser, 1, name="Lia")
+    pg, kid, s, pid = _family(browser, 1, name="Lia", targets={"phonics": 6})
     for i in range(12):
         q = s.post(BASE + "/api/phonics/next", json={}).json()
         it = DB.items.find_one({"_id": q["token"]})
@@ -277,3 +277,52 @@ def test_arithmetic_paper_is_bare_calculations_and_reasoning_has_no_probability(
     for _ in range(3):
         st = s.post(BASE + "/api/sats/start", json={"paper": "reasoning"}).json()
         assert not any("probab" in q["prompt"].lower() for q in st["questions"])
+
+
+def test_a_family_taken_out_of_a_league_cannot_rejoin_and_the_code_changes(browser):
+    pg1, kid1, s1, p1 = _family(browser, 5, name="Ava")
+    pg2, kid2, s2, p2 = _family(browser, 4, name="Ben")
+    pg1.goto("/leagues")
+    pg1.click("[data-testid=league-new] button")
+    code = pg1.inner_text("[data-testid=league-code]").strip()
+    pg2.goto("/leagues")
+    pg2.fill("[data-testid=league-code-input]", code)
+    pg2.click("[data-testid=league-join] button")
+    pg2.wait_for_selector("[data-testid=leagues-done]")
+    pg1.goto("/leagues")
+    pg1.click("[data-testid^=league-] details summary")
+    pg1.once("dialog", lambda d: d.accept())
+    pg1.click("text=Take out")
+    pg1.wait_for_selector("[data-testid=leagues-done]")
+    assert pg1.inner_text("[data-testid=league-code]").strip() != code
+    pg2.goto("/leagues")
+    pg2.fill("[data-testid=league-code-input]", pg1.inner_text("[data-testid=league-code]").strip())
+    pg2.click("[data-testid=league-join] button")
+    assert "taken your family out" in pg2.inner_text("[data-testid=league-join-error]")
+    assert pg2.goto("/leagues/join").url.endswith("/leagues")
+
+
+def test_reading_counts_questions_answered_so_a_slip_never_opens_a_second_passage(browser):
+    pg, kid, s, pid = _family(browser, 4, name="Ola", targets={"reading": 6})
+    first = None
+    for i in range(6):
+        q = s.post(BASE + "/api/reading/next", json={}).json()
+        first = first or q["passage"]["key"]
+        assert q["passage"]["key"] == first
+        it = DB.items.find_one({"_id": q["token"]})
+        r = s.post(BASE + "/api/reading/check", json={"token": q["token"], "value": wrong(it["answer"]) if i == 0 else right(it["answer"])}).json()
+        if r.get("retry"):
+            r = s.post(BASE + "/api/reading/check", json={"token": q["token"], "value": wrong(it["answer"])}).json()
+    assert r["day"]["done"] == 6 and r["day"]["target"] == 6, r["day"]
+
+
+def test_phonics_starts_where_the_parent_says(browser):
+    pg, kid, s, pid = _family(browser, 2, name="Cal", targets={"phonics": 6})
+    q = s.post(BASE + "/api/phonics/next", json={}).json()
+    assert DB.items.find_one({"_id": q["token"]})["meta"]["skill"].startswith("PH2.")
+    DB.pupils.update_one({"_id": pid}, {"$set": {"phonics_from": "PH1.04"}})
+    s.post(BASE + "/api/phonics/check", json={"token": q["token"], "value": right(DB.items.find_one({"_id": q["token"]})["answer"])})
+    q = s.post(BASE + "/api/phonics/next", json={}).json()
+    assert DB.items.find_one({"_id": q["token"]})["meta"]["skill"] in ("PH1.04", "PH1.05", "PH1.06")
+    pg.goto(f"/children/{pid}/edit")
+    assert pg.locator("[data-testid=level-phonics]").input_value() == "PH1.04"

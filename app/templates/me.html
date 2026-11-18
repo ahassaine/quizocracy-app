@@ -37,8 +37,8 @@
   <div><b>SATs practice papers</b><div class="mut small">Short timed papers like the Year 6 tests.{% set done = sats_card|selectattr('last')|list %}{% if done %} Done so far: {{ done|length }} of {{ sats_card|length }} papers.{% endif %}</div></div>
   <a class="btn" href="/me/sats" data-testid="sats-card-go">Papers</a></div>{% endif %}
 <div class="card rise rise-5 kid" data-testid="play-card" style="margin-top:12px;flex-wrap:wrap;gap:8px 12px">
-  <div><b>★ {{ stars }} star{{ 's' if stars != 1 }} this week</b><div class="mut small">Your plan earns stars for the league. Race the times tables against your family's best times.</div></div>
-  <div class="row" style="margin:0"><a class="btn" href="/me/league" data-testid="league-go">League</a><a class="btn" href="/me/race" data-testid="race-go">Race</a></div></div>
+  <div><b>★ {{ stars }} star{{ 's' if stars != 1 }} this week</b><div class="mut small">Your plan earns stars for the league.{% if (ctx.child.year or 1) >= 2 %} Race the times tables against your family's best times.{% endif %}</div></div>
+  <div class="row" style="margin:0"><a class="btn" href="/me/league" data-testid="league-go">League</a>{% if (ctx.child.year or 1) >= 2 %}<a class="btn" href="/me/race" data-testid="race-go">Race</a>{% endif %}</div></div>
 <p class="mut small">Your parent can see your answers and progress.</p>
 {% if all_done or (status.reward_earned and status.pct >= (reward.threshold or 100)|int) %}<script>addEventListener('load', () => QZ.confetti(120));</script>{% endif %}
 {% endblock %}

@@ -311,7 +311,7 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
                 skills=skills, plan_items=now, TIPS=TIPS, offplan=on - planned, started=await _started(p, on),
                 accuracy=accuracy(hist[-7:]), hints=level_hints(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
                 reported=request.query_params.get("reported"), sats=await sats_view(p, ctx.family),
-                offers=_offers(p, ctx.family, planned), sheets=await sats.sheets(p, 10) if p.get("sats_papers") else [],
+                offers=_offers(p, ctx.family, planned), races=await league.race_summary(p), sheets=await sats.sheets(p, 10) if p.get("sats_papers") else [],
                 school=await spelling.school_status(p) if "spelling" in on else None,
                 other_words=await spelling.other_tries(p, progress.day_list(7)) if "spelling" in on else [],
                 focus=[{"title": focus_title(i["subject"], i["strand"]), "until": i["until"],
@@ -878,6 +878,8 @@ def year_text(p: dict, report: bool = False) -> str:
 
 
 templates.env.globals["year_text"] = year_text
+templates.env.globals["PHONICS_STARTS"] = bank.phonics_starts()
+templates.env.globals["PHONICS_DEFAULT"] = lambda p: (bank.phonics_skills({**p, "phonics_from": None}) or [{}])[0].get("key")
 templates.env.globals["local_today"] = progress.today
 # One line under the "Working on this at school" menu for a topic whose name alone doesn't say what it covers
 # (keyed by the name the menu shows).
@@ -1141,6 +1143,10 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
         upd["year"] = year
     if "year" in groups and new_levels != (p.get("levels") or None):
         upd["levels"] = new_levels
+    if "year" in groups and "level_phonics_from" in form:     # "Phonics starts at": a phase of Year 1 or 2
+        v = form.get("level_phonics_from") or ""
+        if v in dict(bank.phonics_starts()) and v != p.get("phonics_from"):
+            upd["phonics_from"] = v
     if "year" in groups and form.get("level_form") and bool(form.get("level_report")) != (p.get("levels_on_report") is not False):
         upd["levels_on_report"] = bool(form.get("level_report"))      # "Show these levels on the printed report"
     relevel = any(levels.level(moved, s) != levels.level(p, s) for s in levels.SUBJECTS)

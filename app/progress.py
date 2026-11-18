@@ -92,7 +92,7 @@ def alike(a: str, b: str) -> bool:
 # Grammar, science and spelling ask a missed question again word for word, so getting it right in the same
 # sitting may only be remembering the answer just shown: that is practice (practised), and the mistake is put
 # right only by a right answer at least PUT_RIGHT_AFTER after the miss (a later sitting or day).
-LATER_SITTING = ("grammar", "science", "spelling")
+LATER_SITTING = ("grammar", "science", "spelling", "phonics", "reading")
 PUT_RIGHT_AFTER = datetime.timedelta(hours=1)
 
 
@@ -299,7 +299,10 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
     rest = rest_day(pupil, day)
     for a in plan:
         c = day_counts.get(a["key"], {"correct": 0, "answered": 0})
-        done = min(a["target"], c["correct"])
+        # reading counts questions answered (a slip must not open a second passage for one question: the target is
+        # one passage's questions); every other activity counts right answers
+        got = c.get("tried", c["answered"]) if a["key"] in COUNT_ANSWERED else c["correct"]
+        done = min(a["target"], got)
         # Years 1-4 (and spelling in every year): the activity also ends after YOUNG_CAP times its target in answers,
         # so a child who finds it hard is not given the longest day of all (capped: done for today, though not every
         # answer was right; activities.has_cap)
@@ -315,7 +318,7 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
         frac = Fraction(step_done, step_target)
         done_all, target_all = done_all + step_done, target_all + step_target
         items.append({**a, "done": done, "correct": c["correct"], "answered": c["answered"],
-                      "extra": c["correct"] if rest else max(0, c["correct"] - a["target"]),
+                      "extra": c["correct"] if rest else max(0, got - a["target"]),
                       "pct": pct(step_done, step_target), "complete": frac >= 1, "check": check, "capped": capped})
     # the day's percent weighs every planned answer the same: 5 science answers of 25 planned are 20%, not half
     day_pct = 0 if rest else pct(done_all, target_all) if target_all else 0
@@ -331,6 +334,7 @@ def day_status(pupil: dict, family: dict, day_counts: dict, day: str | None = No
             "rest_next": rest_day(pupil, next_day(day)), "back": back_on(pupil, day) if rest or rest_day(pupil, next_day(day)) else ""}
 
 
+COUNT_ANSWERED = ("reading",)   # activities whose target is questions answered, not right (day_status)
 CHECK_YEARS = (3, 4, 5, 6)      # the years the Year 4 multiplication check is worth practising for
 CHECK_ANSWERS = 5               # a finished Year 4 check counts as this many planned answers towards the day
 

@@ -172,6 +172,34 @@ def pick_question(sk: dict, seen: list, rnd=random) -> dict:
 GLOSSED = ("grammar", "science")          # subjects with key words (glossary.py)
 
 
+def phonics_starts() -> list:
+    """Where a parent can start phonics: [(first skill key, "Year 1 · Phase 3")], one per strand, Year 1 then 2."""
+    out, seen = [], set()
+    for y in (1, 2):
+        for s in engine.load()["phonics"].get(y, []):
+            if (y, s["strand"]) not in seen:
+                seen.add((y, s["strand"]))
+                out.append((s["key"], f"Year {y} · {s['strand']}"))
+    return out
+
+
+def phonics_skills(pupil: dict) -> list:
+    """Phonics in order across Years 1 and 2, from the child's start: the parent's choice (phonics_from), else the
+    first skill of their year's phonics (Year 2 and up: Year 2's)."""
+    bank = engine.load()["phonics"]
+    ladder = [s for y in sorted(bank) for s in bank[y]]
+    keys = [s["key"] for s in ladder]
+    start = pupil.get("phonics_from")
+    if start not in keys:
+        y = 1 if int(pupil.get("year") or 1) <= 1 else 2
+        start = next((s["key"] for s in ladder if s["year"] == y), keys[0] if keys else None)
+    return ladder[keys.index(start):] if start in keys else ladder
+
+
+def subject_skills(pupil: dict, subject: str) -> list:
+    return phonics_skills(pupil) if subject == "phonics" else engine.skills(subject, level(pupil, subject))
+
+
 def glossed(pupil: dict) -> bool:
     """Key words are underlined with their meaning from Year 3 (glossary.py); Years 1-2 hear the question read."""
     return int(pupil.get("year") or 0) >= 3
@@ -187,7 +215,7 @@ def make(subject: str):
         """focus: "skill#question" to ask again (a mistake being put right). near: questions ("skill#question")
         waiting to be put right; the question then comes from their skills, not one of them. known: focus is a
         question this child got right before, asked while a mistake waits for its gap (not a mistake)."""
-        skills = engine.skills(subject, level(pupil, subject))      # "working at" for this subject, else the school year
+        skills = subject_skills(pupil, subject)      # "working at" for this subject, else the school year (phonics: its start)
         if not skills:
             return None
         st = await _state(pupil, subject)
@@ -374,7 +402,7 @@ def make(subject: str):
         return out
 
     async def summary(pupil: dict) -> dict:
-        skills = engine.skills(subject, level(pupil, subject))
+        skills = subject_skills(pupil, subject)
         mm = await _mastery(pupil, subject)
         mastered = sum(1 for s in skills if mm.get(s["key"], {}).get("score", 0) >= MASTERED)
         out = {"mastered": mastered, "total": len(skills), "year": engine.bank_year(subject, level(pupil, subject))}

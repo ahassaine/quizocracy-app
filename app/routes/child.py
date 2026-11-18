@@ -77,7 +77,7 @@ async def me(request: Request, ctx: Ctx = Depends(child_page)):
     # again in this sitting rest, and are said as "N more come back later" (together: the parent's "to go over")
     book = await progress.mistake_book(ctx.child, plan=plan)
     # a round is at most FIX_BATCH, mixed across subjects: the child sees "Practise my mistakes (10)", never 32
-    open_ = pick_batch(_due(book), [a["key"] for a in b[0]["items"]])
+    open_ = pick_batch(_due(book, ctx.child), [a["key"] for a in b[0]["items"]])
     fix = {k: len(v) for k, v in open_.items()}
     # "Practise my mistakes" opens where a mistake is ready now, not on one still waiting for its gap
     ready = [a["key"] for a in b[0]["items"] if fix.get(a["key"]) and await _ready_keys(ctx, a["key"], open_[a["key"]])]
@@ -235,7 +235,7 @@ def _askable(pupil: dict, activity: str):
             | set(spelling.carried_words(pupil))
         return lambda d: d in words or spelling.has_clip(d)
     if activity in BANKS:
-        keys = {s["key"] for s in bank.engine.skills(activity, levels.level(pupil, activity))}
+        keys = {s["key"] for s in bank.subject_skills(pupil, activity)}
         return lambda d: "#" in d and d.split("#")[0] in keys and bool(bank.engine.question(*d.split("#", 1)))
     if activity == "maths":
         return lambda d: d in maths.maths_engine.GENERATORS
@@ -258,13 +258,23 @@ def _since(value) -> datetime.datetime:
     return t if now - datetime.timedelta(hours=SESSION_HOURS) < t <= now else now
 
 
-def _due(book: list) -> dict:
-    """{activity: [key, ...]}: the mistakes of a mistake_book due now."""
+def _due(book: list, pupil: dict | None = None) -> dict:
+    """{activity: [key, ...]}: the mistakes of a mistake_book due now. On a day with no sound (pupil), a phonics
+    listening question waits for another day (it cannot be answered without hearing it)."""
     out: dict = {}
+    quiet = bool(pupil and bank.no_sound(pupil))
     for e in book:
         if e["state"] == "due":
+            if quiet and e["activity"] == "phonics" and _listening(e["key"]):
+                continue
             out.setdefault(e["activity"], []).append(e["key"])
     return out
+
+
+def _listening(key: str) -> bool:
+    """A phonics mistake ("skill#question") whose question is heard (its word is spoken, never shown)."""
+    q = bank.engine.question(*key.split("#", 1)) if "#" in str(key) else None
+    return bool(q and q.get("say"))
 
 
 async def _ready_keys(ctx: Ctx, activity: str, todo: list) -> list:
@@ -289,7 +299,7 @@ async def _fix_state(ctx: Ctx, activity: str, from_check: bool, since: datetime.
     the gap."""
     order = [a["key"] for a in todays_plan(ctx.child, ctx.family)]
     plan = set(order)
-    open_ = _due(await progress.mistake_book(ctx.child, plan=plan, before=since))
+    open_ = _due(await progress.mistake_book(ctx.child, plan=plan, before=since), ctx.child)
     batch = None
     if not from_check:                   # a round of at most FIX_BATCH, chosen when the session began
         open_, batch = await _session_batch(ctx, open_, order, since)
@@ -516,6 +526,15 @@ async def api_nosound(payload: dict = Body(default={}), ctx: Ctx = Depends(child
         return refused
     await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$set": {"nosound_day": progress.today()}})
     await items.claim(ctx.child, "phonics", str(payload.get("token") or ""))
+    return {"ok": True}
+
+
+@router.post("/api/phonics/sound")
+async def api_sound_back(payload: dict = Body(default={}), ctx: Ctx = Depends(child_api)):
+    """"Turn them back on": listening questions come back in phonics today."""
+    if (refused := _switched(ctx, payload)):
+        return refused
+    await db.pupils.update_one({"_id": ctx.child["_id"]}, {"$unset": {"nosound_day": ""}})
     return {"ok": True}
 
 

@@ -25,6 +25,7 @@ from .db import db
 STAR_DAY = 10             # stars for a day's plan done
 STAR_EXTRA = 5            # right answers past the target for one more star ...
 STAR_EXTRA_MAX = 5        # ... and at most this many such stars a day
+STAR_RACE_MAX = 3         # a finished times-tables race: 1 star, at most this many a day
 RACE_N = 20
 RACE_WRONG_MS = 2000      # time added for each wrong answer
 RACE_MIN_MS = 350         # a question answered faster than this was not answered by a child (a script)
@@ -97,6 +98,11 @@ async def week_stars(family: dict, pupils: list, start: str | None = None) -> di
     days = week_days(start)
     today = local_today()
     c = await progress.counts([p["_id"] for p in pupils], [d for d in days if d <= today])
+    raced: dict = {}
+    async for r in db.races.find({"pupil_id": {"$in": [p["_id"] for p in pupils]}, "day": {"$in": days},
+                                  "total": {"$exists": True}}, {"pupil_id": 1, "day": 1}):
+        k = (r["pupil_id"], r["day"])
+        raced[k] = raced.get(k, 0) + 1
     out = {}
     for p in pupils:
         first = progress.first_day(p)
@@ -105,7 +111,8 @@ async def week_stars(family: dict, pupils: list, start: str | None = None) -> di
             if d > today or d < first:
                 per.append(None if d > today else 0)
                 continue
-            per.append(day_stars(progress.day_status(p, family, c.get(p["_id"], {}).get(d, {}), d)))
+            per.append(day_stars(progress.day_status(p, family, c.get(p["_id"], {}).get(d, {}), d))
+                       + min(STAR_RACE_MAX, raced.get((p["_id"], d), 0)))
         out[p["_id"]] = {"stars": sum(x or 0 for x in per), "days": per}
     return out
 
@@ -138,13 +145,16 @@ async def create_league(family: dict) -> dict | str:
 
 
 async def join_league(family: dict, code: str) -> dict | str:
-    """The league, or why not: "nocode", "already", "full" (that league), "many" (this family is in too many)."""
+    """The league, or why not: "nocode", "already", "out" (the league's maker took this family out), "full" (that
+    league), "many" (this family is in too many)."""
     code = norm_code(code)
     lg = await db.leagues.find_one({"code": code}) if len(code) == 8 else None
     if not lg:
         return "nocode"
     if family["_id"] in lg["families"]:
         return "already"
+    if family["_id"] in (lg.get("removed") or []):
+        return "out"
     if len(lg["families"]) >= LEAGUE_MAX_FAMILIES:
         return "full"
     if len(await leagues_of(family["_id"])) >= LEAGUES_PER_FAMILY:
@@ -175,8 +185,24 @@ async def remove_family(league_id: str, owner_id: str, family_id: str) -> bool:
     lg = await db.leagues.find_one({"_id": league_id, "owner": owner_id})
     if not lg or family_id == owner_id or family_id not in lg["families"]:
         return False
-    await db.leagues.update_one({"_id": league_id}, {"$pull": {"families": family_id}})
+    # out for good (the code no longer lets them in), and a new code, so an old message cannot be passed on
+    await db.leagues.update_one({"_id": league_id}, {"$pull": {"families": family_id}, "$addToSet": {"removed": family_id},
+                                                     "$set": {"code": await _free_code()}})
     return True
+
+
+async def _free_code() -> str:
+    for _ in range(10):
+        code = _code()
+        if not await db.leagues.find_one({"code": code}):
+            return code
+    return _code()
+
+
+async def new_code(league_id: str, owner_id: str) -> bool:
+    """The league's maker gives it a new code: the old one stops working (families already in stay in)."""
+    r = await db.leagues.update_one({"_id": league_id, "owner": owner_id}, {"$set": {"code": await _free_code()}})
+    return bool(r.matched_count)
 
 
 async def drop_family(family_id: str) -> None:
@@ -310,6 +336,21 @@ async def race_board(family: dict, pupils: list, course: str, viewer: dict | Non
                      "me": bool(viewer and pid == viewer["_id"])})
     rows.sort(key=lambda x: x["total"])
     return rows
+
+
+async def race_summary(pupil: dict) -> list:
+    """For the parent: this week's races per course: [{title, about, runs, best, wrong}] (wrong: wrong tries in all
+    of the week's runs on that course)."""
+    week = week_start()
+    out = []
+    for k in COURSE_ORDER:
+        runs = [r async for r in db.races.find({"pupil_id": pupil["_id"], "course": k, "week": week,
+                                                "total": {"$exists": True}})]
+        if not runs:
+            continue
+        out.append({"title": COURSES[k]["title"], "about": COURSES[k]["about"], "runs": len(runs),
+                    "best": fmt_ms(min(r["total"] for r in runs)), "wrong": sum(sum(r.get("wrong") or []) for r in runs)})
+    return out
 
 
 def fmt_ms(ms: int | None) -> str:

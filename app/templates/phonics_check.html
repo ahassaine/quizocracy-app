@@ -45,8 +45,24 @@
   addEventListener('beforeunload', guard);
   document.querySelectorAll('#drillHead a').forEach(a => a.addEventListener('click', (e) => {
     if ($('cRun').hidden) return;
-    if (!confirm('Leave the check? The words marked so far will not be kept.')) e.preventDefault(); else removeEventListener('beforeunload', guard); }));
-  async function mark(ok) { marks[i] = ok; i++; if (i < words.length) return show();
+    if (!confirm('Leave the check? You can carry on from this word when you come back.')) e.preventDefault(); else removeEventListener('beforeunload', guard); }));
+  // a check left in the middle (a tap on My day, the app closed): its marks are kept on this device, so it carries on
+  const KEY = 'qz_pc_' + PUPIL;
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ token, words, marks, i, at: Date.now() })); } catch (e) {} };
+  const drop = () => { try { localStorage.removeItem(KEY); } catch (e) {} };
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (o && o.token && Date.now() - o.at < 24 * 3600e3 && o.i > 0 && o.i < o.words.length) {
+      const b = document.createElement('div'); b.className = 'card small kid'; b.setAttribute('data-testid', 'pc-resume');
+      b.style.cssText = 'flex-wrap:wrap;gap:6px 12px;margin-bottom:10px';
+      b.innerHTML = '<span><b>Your last check stopped at word ' + (o.i + 1) + ' of ' + o.words.length + '.</b></span>';
+      const go = document.createElement('button'); go.className = 'btn primary'; go.type = 'button'; go.textContent = 'Carry on from there';
+      go.setAttribute('data-testid', 'pc-resume-go');
+      go.addEventListener('click', () => { token = o.token; words = o.words; marks = o.marks; i = o.i; b.remove();
+        $('cIntro').hidden = true; $('cRun').hidden = false; show(); });
+      b.appendChild(go); $('cIntro').insertBefore(b, $('cIntro').firstChild);
+    } } catch (e) {}
+  async function mark(ok) { marks[i] = ok; i++; save(); if (i < words.length) return show();
+    drop();
     $('cRun').hidden = true; $('cMsg').textContent = 'Saving…'; let r = null;
     for (let k = 0; k < 5 && !(r && r.data && r.data.ok); k++) { try { r = await post('/api/phonics-check/finish', { token, marks }); } catch (e) { await new Promise(res => setTimeout(res, 3000)); } }
     $('cMsg').textContent = r && r.data && r.data.ok ? '' : 'It could not be saved: no connection.';

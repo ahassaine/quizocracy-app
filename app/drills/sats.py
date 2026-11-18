@@ -11,6 +11,7 @@ answers for the day (src "sats"), so a right one counts towards the target and a
 right, as in the Year 4 check. A question left blank is not counted either way.
 """
 import datetime
+import json
 import random
 import re
 
@@ -190,7 +191,11 @@ async def start(pupil: dict, paper: str) -> dict | None:
         return None
     secs = P["minutes"] * 60
     token = await items.issue(pupil, "sats", ans, {"paper": paper, "secs": secs,
-                                                   "passage": (passage or {}).get("key")})
+                                                   "passage": (passage or {}).get("key"),
+                                                   # the pictures, kept for the answer sheet
+                                                   "shows": [{"component": q.get("component"), "spec": q.get("spec")}
+                                                             if q["kind"] == "maths" and q.get("component") not in (None, "number")
+                                                             else None for q in pub]})
     return {"token": token, "paper": paper, "title": P["title"], "questions": pub, "seconds": secs,
             **({"passage": passage} if passage else {})}
 
@@ -229,9 +234,21 @@ async def _mark_maths(pupil: dict, a: dict, value) -> dict:
     doc = await db.maths_lab_q.find_one_and_update({"_id": a["token"], "pupil": pupil["_id"]}, {"$set": {"done": True}})
     if not doc:
         return {"correct": False, "expected": "", "why": "", "prompt": ""}
-    ok = value not in (None, "") and maths_engine.check_answer(
-        doc["answer_type"], doc["answer"], value, tolerance=doc.get("tolerance", 0), unit=doc.get("unit"),
-        prompt=doc.get("prompt", ""), labels=doc.get("labels"))
+    try:
+        ok = value not in (None, "") and maths_engine.check_answer(
+            doc["answer_type"], doc["answer"], value, tolerance=doc.get("tolerance", 0), unit=doc.get("unit"),
+            prompt=doc.get("prompt", ""), labels=doc.get("labels"))
+    except Exception:  # noqa: BLE001 - an answer in a shape the checker does not take is wrong, never a failed paper
+        ok = False
+    why_extra = ""
+    if not ok and isinstance(value, str) and value.strip():
+        # a word answer misspelt ("paralel"): the SATs credit a clear spelling of the right word
+        try:
+            slipped = maths_engine.slipped_words(doc["answer_type"], doc["answer"], value, doc.get("prompt", ""))
+        except Exception:  # noqa: BLE001
+            slipped = []
+        if slipped:
+            ok, why_extra = True, "Right! Check the spelling: " + ", ".join(w for _, w in slipped) + "."
     if value not in (None, ""):
         # a paper's maths answer is maths practice too: the skill's progress (and the SATs card) moves with it
         try:
@@ -240,7 +257,7 @@ async def _mark_maths(pupil: dict, a: dict, value) -> dict:
         except Exception:  # noqa: BLE001 - the paper's mark matters more than the progress line
             pass
     return {"correct": bool(ok), "expected": str(doc.get("display", doc["answer"])),
-            "why": " ".join(doc.get("solution") or []), "prompt": doc.get("prompt", ""),
+            "why": why_extra or " ".join(doc.get("solution") or []), "prompt": doc.get("prompt", ""),
             "layout": doc.get("layout")}
 
 
@@ -258,12 +275,12 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
     answers += [None] * (len(keys) - len(answers))
     plan = {a["key"] for a in todays_plan(pupil, family)}
     rows, score, blank = [], 0, 0
-    for a, v in zip(keys, answers):
-        given = v if v not in ("", []) else None
+    for n, (a, v) in enumerate(zip(keys, answers)):
+        given = v if v not in ("", [], {}) else None
         if a["t"] == "maths":
             r = await _mark_maths(pupil, a, given)
             activity, detail = "maths", a["skill"]
-            gtext = "" if given is None else str(given)
+            gtext = "" if given is None else (json.dumps(given) if isinstance(given, (dict, list)) else str(given))[:200]
         elif a["t"] == "spelling":
             r = {"correct": given is not None and _same_word(given, a["word"]), "expected": a["word"], "why": "",
                  "prompt": "Spell: " + a["word"]}
@@ -286,6 +303,9 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
                 r["prompt"] += " " + q["s"].replace("[", "").replace("]", "")
         r["given"] = gtext
         r["blank"] = given is None
+        shows = it["meta"].get("shows") or []
+        if n < len(shows) and shows[n]:
+            r["show"] = shows[n]
         score += int(r["correct"])
         blank += int(given is None)
         rows.append(r)
@@ -302,7 +322,9 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
     before = history(pupil)
     best = max((r["score"] / max(1, r["of"]) for r in before if r.get("paper") == paper), default=None)
     await db.pupils.update_one({"_id": pupil["_id"]}, {"$push": {"sats_papers": {"$each": [row], "$slice": -KEEP}}})
+    psk = bank_engine.skill(it["meta"].get("passage") or "") if it["meta"].get("passage") else None
     result = {"paper": paper, "title": PAPERS[paper]["title"], "score": score, "of": len(keys), "blank": blank,
+              **({"passage": {"title": psk["title"], "text": psk["text"]}} if psk else {}),
               "used": used, "secs": secs, "rows": rows,
               "best": best is not None and score / max(1, len(keys)) > best, "first": best is None,
               "counted": any(not r["blank"] for r in rows) and PAPERS[paper]["subject"] in plan}

@@ -223,7 +223,11 @@ function Paper(PAPER) {
       try { r = await post('/api/sats/finish', body); } catch (e) {}
       if (r && r.status === 200 && r.data && r.data.ok) { store(null); result(r.data); return; }
       if (r && r.status === 409) { store(null); $('pMsg').textContent = 'This paper was already marked, or it is too old. Start a new one from the papers page.'; return; }
-      $('pMsg').textContent = 'No connection: your answers are kept on this device. Trying again…';
+      // the server answered but could not mark it (not a lost connection): say so, and stop after a few tries;
+      // the answers stay on this device and are sent again when the papers page opens
+      if (r && r.status >= 400 && tries >= 2) { $('pMsg').innerHTML = 'Your paper could not be marked just now. Your answers are kept on this device: '
+        + '<a href="' + location.pathname + '">try again</a> in a moment and they will be sent again.'; return; }
+      $('pMsg').textContent = r ? 'Marking your paper…' : 'No connection: your answers are kept on this device. Trying again…';
       await new Promise(res => setTimeout(res, 5000));
     }
   }

@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block title %}Times-tables race · Quizocracy{% endblock %}
 {% block body %}
 <div class="kid rise" id="drillHead" data-year="{{ ctx.child.year }}"><div class="act-head"><img src="/static/img/race.png" alt=""><h1 style="margin:0">Times-tables race</h1></div><div class="head-btns">{% include "_a11y.html" %}<a class="btn" href="/me">My day</a></div></div>
+{% if ctx.child.year == 1 %}<p class="small rise" style="font-weight:700" data-testid="race-y1">Times tables start in Year 2. You can try the Starter race for fun, but it isn't part of Year 1.</p>{% endif %}
 <p class="mut rise">20 questions as fast as you can. Everyone on a course gets the same 20 this week, so you race your family{% if has_league %} and your league{% endif %}: their best runs race beside you. A new set comes every Monday.</p>
 <div class="grid">
 {% for c in courses %}

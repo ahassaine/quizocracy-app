@@ -1,3 +1,6 @@
 {% extends "base.html" %}{% block title %}Phonics · Quizocracy{% endblock %}
-{% block body %}{% include "_bank_drill.html" %}{% endblock %}
+{% block body %}{% if ctx.child.nosound_day == local_today() %}<div class="card small kid" data-testid="nosound-on" style="flex-wrap:wrap;gap:6px 12px;margin-bottom:10px"><span><b>🔇 Listening questions are off for today.</b> Phonics asks only reading questions until tomorrow.</span>
+<button class="btn" type="button" id="soundBack" data-testid="sound-back">Turn them back on</button></div>
+<script>document.getElementById('soundBack').addEventListener('click', async () => { try { await fetch('/api/phonics/sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ pupil: document.body.dataset.pupil }) }); } catch (e) {} location.reload(); });</script>{% endif %}
+{% include "_bank_drill.html" %}{% endblock %}
 {% block scripts %}<script src="/static/js/speak.js?v=6"></script><script src="/static/js/drill.js?v=32"></script><script src="/static/js/bank.js?v=12"></script><script>BankDrill('phonics');</script>{% endblock %}

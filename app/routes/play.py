@@ -30,7 +30,7 @@ async def race_home(request: Request, ctx: Ctx = Depends(child_page)):
         board = await league.race_board(ctx.family, pupils, k, ctx.child)
         mine = next((r for r in board if r["me"]), None)
         courses.append({"key": k, **league.COURSES[k], "board": board[:5], "mine": mine, "n": len(board),
-                        "suggested": k == league.default_course(year)})
+                        "suggested": year >= 2 and k == league.default_course(year)})
     return page(request, "race.html", ctx, act=RACE_ACT, courses=courses, fmt=league.fmt_ms,
                 has_league=bool(await league.leagues_of(ctx.family["_id"])))
 
@@ -46,9 +46,8 @@ async def race_page(request: Request, course: str, ctx: Ctx = Depends(child_page
     # course to beat his sister does not take over her races)
     others = [r for r in board if not r["me"]]
     year_of = {p["_id"]: int(p.get("year") or 4) async for p in db.pupils.find({"_id": {"$in": [r["id"] for r in others]}}, {"year": 1})}
-    same = [r for r in others if league.default_course(year_of.get(r["id"], 4)) == course]
-    if course == league.default_course(int(ctx.child.get("year") or 4)) and same:
-        others = same
+    if course == league.default_course(int(ctx.child.get("year") or 4)):
+        others = [r for r in others if league.default_course(year_of.get(r["id"], 4)) == course]
     faster = [r for r in others if not mine or r["total"] < mine["total"]][-2:]
     slower = [r for r in others if mine and r["total"] >= mine["total"]][:3 - len(faster)]
     ghosts = ([mine] if mine else []) + faster + slower
@@ -120,7 +119,8 @@ async def _leagues_view(ctx: Ctx) -> dict:
 JOIN_ERRORS = {"nocode": "No league has that code. Check the 8 letters and numbers with the family who sent it.",
                "already": "Your family is already in that league.",
                "full": f"That league is full: it has {league.LEAGUE_MAX_FAMILIES} families.",
-               "many": f"Your family is in {league.LEAGUES_PER_FAMILY} leagues already: leave one first."}
+               "many": f"Your family is in {league.LEAGUES_PER_FAMILY} leagues already: leave one first.",
+               "out": "The family who made that league has taken your family out of it, so it can't be joined again."}
 
 
 @router.get("/leagues")
@@ -141,6 +141,17 @@ async def leagues_join(request: Request, ctx: Ctx = Depends(full_page), code: st
         return page(request, "leagues.html", ctx, **await _leagues_view(ctx), join_error=JOIN_ERRORS[res],
                     code=code[:20], status_code=400)
     return RedirectResponse("/leagues?done=joined", 303)
+
+
+@router.get("/leagues/join")
+async def leagues_join_get():
+    return RedirectResponse("/leagues", 303)          # a refresh after a wrong code: back to the page, not an error
+
+
+@router.post("/leagues/{lid}/code")
+async def leagues_new_code(lid: str, ctx: Ctx = Depends(full_page)):
+    await league.new_code(lid, ctx.family["_id"])
+    return RedirectResponse("/leagues?done=code", 303)
 
 
 @router.post("/leagues/{lid}/leave")

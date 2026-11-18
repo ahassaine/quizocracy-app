@@ -99,7 +99,7 @@ SKILLS = [
                       "A lack of education", "Not having enough money for food"],
              "why": "Squalor is filth and bad housing. Idleness is having no work, ignorance is lack of education, and want is poverty."},
             {"id": "a8ebd11acff3", "t": "text", "d": "retrieve", "q": "Find and copy the word in the third paragraph that tells you how the NHS was paid for.",
-             "a": ["taxation", "out of taxation", "taxes", "tax"],
+             "a": ["taxation", "out of taxation"],
              "why": "The third paragraph says the service was 'paid for out of taxation'."},
             {"id": "1a96c5e8257e", "t": "mcq", "d": "infer", "q": "What does the fourth paragraph suggest about many people's lives before 1948?",
              "opts": ["They had put up with health problems they could not afford to treat", "They already had glasses and false teeth but needed new ones",

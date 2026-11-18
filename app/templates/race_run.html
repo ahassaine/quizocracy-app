@@ -53,6 +53,15 @@
       body: JSON.stringify(Object.assign({ pupil: PUPIL }, body)) });
     let d = null; try { d = await r.json(); } catch (e) {} return { status: r.status, data: d };
   }
+  function addLane(g) {            // a lane for a ghost that was not on the page when it opened (a first best)
+    const lane = document.createElement('div'); lane.className = 'lane ghost';
+    lane.innerHTML = '<span class="who"></span><div class="road"><i class="runner"></i></div>';
+    lane.querySelector('.who').textContent = g.label; const r = lane.querySelector('.runner'); r.textContent = g.pic;
+    r.dataset.i = String(GHOSTS.indexOf(g));
+    document.querySelectorAll('.lane.ghost .runner').forEach(x => { x.dataset.i = String(+x.dataset.i + 1); });
+    r.dataset.i = '0';
+    document.getElementById('track').insertBefore(lane, document.querySelector('.finish-line'));
+  }
   const place = (el, frac) => { el.style.left = 'calc(' + Math.min(1, frac) * 100 + '% - ' + Math.min(1, frac) * 22 + 'px)'; };
   function ghostsAt(ms) {
     document.querySelectorAll('.lane.ghost .runner').forEach(el => {
@@ -108,6 +117,10 @@
       const beat = GHOSTS.filter(g => !g.me && r.data.total < g.total).map(g => g.label);
       if (beat.length) $('rNote').insertAdjacentHTML('afterbegin', '<b data-testid="race-beat">🏁 You beat ' + beat.map(x => String(x).replace(/[<>&]/g, '')).join(' and ') + '!</b> ');
       if ((r.data.best || beat.length) && window.QZ && QZ.confetti) QZ.confetti(90);
+      if (r.data.best) {            // "Race again" chases the new best, not the one the page opened with
+        const mine = GHOSTS.find(g => g.me), run = { label: 'Your best', pic: '🏃', splits: splits.slice(), total: r.data.total, me: true };
+        if (mine) Object.assign(mine, run); else { GHOSTS.unshift(run); addLane(run); }
+      }
     } else {
       $('rTime').textContent = ((splits[splits.length - 1] || 0) / 1000 + 2 * extra).toFixed(1) + ' s';
       $('rNote').textContent = r && r.data && r.data.ok ? 'That run was too fast to be real, so it was not saved.' : 'Your time could not be saved: no connection.';
