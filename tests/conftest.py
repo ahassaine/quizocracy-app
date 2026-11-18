@@ -91,10 +91,20 @@ def add_child(page, name="Sami", year=4, pin=None, targets=None, year_defaults=F
     page.fill("#pin", pin)
     # The form ticks the year's short default day. Most tests want every activity the year allows, as before;
     # year_defaults=True keeps the form's own default plan. A target given always switches its activity on.
-    # (phonics and reading, added later, keep the form's own default unless a test gives them a target)
+    # (phonics and reading, added later, are off unless a test gives them a target: the tests written before them
+    # count on their own plans)
     for box in ([] if year_defaults else page.locator("[data-testid^=on-]").all()):
-        if box.is_enabled() and box.get_attribute("data-testid") not in ("on-phonics", "on-reading"):
+        if not box.is_enabled():
+            continue
+        if box.get_attribute("data-testid") in ("on-phonics", "on-reading"):
+            box.uncheck()
+        else:
             box.check()
+    if year_defaults and targets:          # the year's plan for these targets: without phonics and reading unless named
+        for k in ("phonics", "reading"):
+            box = page.locator(f"[data-testid=on-{k}]")
+            if k not in targets and box.count() and box.is_enabled():
+                box.uncheck()
     for k, v in (targets or {}).items():
         box = page.locator(f"[data-testid=on-{k}]")
         if box.is_enabled():
