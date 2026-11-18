@@ -88,7 +88,8 @@ def day_stars(st: dict) -> int:
         plan = 0
         extra = int(st.get("extra") or 0)
     else:
-        plan = min(STAR_DAY, int(st.get("pct") or 0) // 10)
+        # stars earned before today's plan grew ("Today too") are kept (kept.<day>.stars)
+        plan = max(min(STAR_DAY, int(st.get("pct") or 0) // 10), int((st.get("kept") or {}).get("stars") or 0))
         extra = sum(int(i.get("extra") or 0) for i in st.get("items") or [])
     return plan + min(STAR_EXTRA_MAX, extra // STAR_EXTRA)
 
@@ -144,6 +145,23 @@ async def create_league(family: dict) -> dict | str:
           "name": f"League {code[:4]}", "created": datetime.datetime.utcnow()}
     await db.leagues.insert_one(lg)
     return lg
+
+
+async def league_by_code(code: str) -> dict | None:
+    code = norm_code(code)
+    return await db.leagues.find_one({"code": code}) if len(code) == 8 else None
+
+
+def league_names() -> list:
+    """The names a league's maker can choose: from the nickname words only (never text a family typed)."""
+    return [f"{a} {b} League" for a in NICK_ADJ for b, _ in NICK_ANIMAL]
+
+
+async def rename(league_id: str, owner_id: str, name: str) -> bool:
+    if name not in league_names():
+        return False
+    r = await db.leagues.update_one({"_id": league_id, "owner": owner_id}, {"$set": {"name": name}})
+    return r.matched_count == 1
 
 
 async def join_league(family: dict, code: str) -> dict | str:

@@ -68,7 +68,9 @@ async def finish(pupil: dict, token: str, marks: list) -> dict | None:
     before = history(pupil)
     best = max((r["score"] / r["of"] for r in before), default=None)
     await db.pupils.update_one({"_id": pupil["_id"]}, {"$push": {"phonics_checks": {"$each": [row], "$slice": -KEEP}}})
+    last = next((r for r in reversed(before) if r["of"] == len(ws)), None)     # the last check of the same size
     result = {**{k: v for k, v in row.items() if k != "at"}, "best": best is not None and score / len(ws) > best,
+              "last": last["score"] if last else None,
               "first": best is None, "standard": STANDARD if len(ws) == 40 else STANDARD // 2}
     await db.items.update_one({"_id": it["_id"]}, {"$set": {"result": result}})
     return result

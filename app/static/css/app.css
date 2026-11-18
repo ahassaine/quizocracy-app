@@ -382,7 +382,13 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 /* the passage in full on phones and tablets (a box of its own hid endings that questions asked about); beside the
    question with its own scroll on a wide screen */
 .passage-body { line-height:1.6; font-size:1.08rem; }
-@media (min-width: 900px) { .passage-body { max-height:calc(100vh - 170px); overflow-y:auto; overscroll-behavior:contain; } }
+@media (min-width: 900px) { .passage-body { max-height:calc(100vh - 170px); overflow-y:auto; overscroll-behavior:contain; }
+  /* more of the passage below: a shadow at the foot of the box (pure CSS: it goes once scrolled to the end) */
+  .passage-body { background:
+      linear-gradient(var(--card, #151B2E) 30%, transparent) center top / 100% 40px no-repeat local,
+      linear-gradient(transparent, var(--card, #151B2E) 70%) center bottom / 100% 40px no-repeat local,
+      radial-gradient(farthest-side at 50% 0, rgba(127,127,127,.45), transparent) center top / 100% 14px no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, rgba(127,127,127,.55), transparent) center bottom / 100% 14px no-repeat scroll; } }
 .to-passage { display:none; } @media (max-width: 899px) { .to-passage { display:inline-flex; margin-bottom:8px; } }
 .passage-body p { margin:0 0 .8em; } .passage-title { margin:2px 0 8px; font-size:1.3rem; }
 .passage-at { font-weight:700; }
@@ -390,3 +396,7 @@ textarea.answer.grow { width:100%; max-width:100%; resize:none; overflow:hidden;
 :root.a11y-big .passage-body { font-size:1.3rem; }
 .passage[hidden] { display:none; }
 .answer.shake { animation:shake .45s; } :root.a11y-calm .answer.shake { animation:none; }
+
+/* tap questions on a bulleted list: one point a line */
+.words .bullet-break { flex-basis:100%; height:0; }
+.words .bullet { font-weight:800; padding:0 4px 0 2px; align-self:center; }

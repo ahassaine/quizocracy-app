@@ -257,12 +257,17 @@ async def mistakes(pupil: dict, days: list) -> list:
     by_day: dict = {}
     for e in await mistake_book(pupil, days):
         m = e["latest"]
-        earlier = []
+        earlier, like_qs = [], []
         for x in e["misses"][:-1]:
-            if x["got"] != m["got"] and x["got"] not in earlier:
+            # maths: a question like it with other numbers, shown with its question (a fact and its reverse,
+            # 9 × 5 and 5 × 9, stay one item with its earlier answers)
+            if e["activity"] == "maths" and x["q"] and m["q"] and x["q"] != m["q"]:
+                if (x["q"], x["got"]) not in like_qs:
+                    like_qs.append((x["q"], x["got"]))
+            elif x["got"] != m["got"] and x["got"] not in earlier:
                 earlier.append(x["got"])
         it = {"activity": e["activity"], "q": m["q"] or m["detail"], "exp": m["exp"], "got": m["got"], "idk": m.get("idk"),
-              "earlier": earlier,
+              "earlier": earlier, "like_qs": [{"q": q, "got": g} for q, g in like_qs],
               "times": len(e["misses"]), "like": e["activity"] == "maths", "fixed": bool(e["fixed"]),
               "practised": e["practised"], "later": e["state"] == "later", "again": e["again"], "nolike": m["nolike"],
               "rid": str(m["id"]), "rids": [str(x["id"]) for x in e["misses"]],
@@ -377,7 +382,9 @@ async def _keep(pupil: dict, day: str, pct: int, reward: str) -> None:
     """Remember that this day reached pct (and earned reward), so a later change of plan or reward cannot
     take it back. Days older than a month are dropped."""
     old = sorted(d for d in (pupil.get("kept") or {}) if d < day_list(31)[0])
-    upd = {"$set": {f"kept.{day}": {"pct": pct, "reward": reward or (pupil.get("kept") or {}).get(day, {}).get("reward", "")}}}
+    was = (pupil.get("kept") or {}).get(day, {})
+    upd = {"$set": {f"kept.{day}": {"pct": pct, "reward": reward or was.get("reward", ""),
+                                    **({"stars": was["stars"]} if was.get("stars") else {})}}}   # league.day_stars
     if old:
         upd["$unset"] = {f"kept.{d}": "" for d in old}
     await db.pupils.update_one({"_id": pupil["_id"]}, upd)

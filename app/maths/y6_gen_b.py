@@ -1676,12 +1676,13 @@ def _(d=1):
         a, b = pairs[j]
         rn, rd = _simp(a, b)
         rows[j][1] = ""
-        return _dtq("Complete the table. Type the denominator of %d/%d written "
-                    "in its lowest terms." % (a, b),
-                    ["Fraction", "Lowest terms"], rows, rd,
+        # the whole fraction goes in the box: a bare denominator would leave a false row ("10/12 | 6")
+        return _dtq("Complete the table: write %d/%d in its lowest terms."
+                    % (a, b),
+                    ["Fraction", "Lowest terms"], rows, "%d/%d" % (rn, rd),
                     ["The HCF of %d and %d is %d." % (a, b, _hcf(a, b)),
                      "%d/%d = %d/%d." % (a, b, rn, rd)], missing=(j, 1),
-                    placeholder="the denominator")
+                    answer_type="frac", placeholder="a fraction, e.g. 1/2")
 
     def hcf_first():
         return _numq("What is the highest common factor of %d and %d? You "
@@ -1858,13 +1859,15 @@ def _(d=1):
         table[j][1] = ""
         w = int(rows[j][0].split()[0])
         p = int(rows[j][0].split()[1].split("/")[0])
-        return _dtq("Complete the table. Type the numerator of %s written as "
-                    "an improper fraction." % rows[j][0],
-                    ["Mixed number", "Improper fraction"], table, ans,
+        return _dtq("Complete the table: write %s as an improper fraction."
+                    % rows[j][0],
+                    ["Mixed number", "Improper fraction"], table,
+                    "%d/%d" % (ans, den),
                     ["%d × %d = %d." % (w, den, w * den),
                      "%d + %d = %d, so %s = %d/%d."
                      % (w * den, p, ans, rows[j][0], ans, den)],
-                    missing=(j, 1), placeholder="the numerator")
+                    missing=(j, 1), answer_type="frac",
+                    placeholder="a fraction, e.g. 7/4")
 
     opts = [improper_to_mixed_whole, improper_to_mixed_num,
             improper_to_mixed_full, mixed_to_improper, mixed_to_improper_frac,
@@ -3019,13 +3022,14 @@ def _(d=1):
         ans = num * (j + 1)
         rows[j][1] = ""
         return _dtq("Each portion of a recipe uses %d/%d of a litre of milk. "
-                    "Complete the table: type the numerator of the amount "
-                    "needed for %s, over the denominator %d."
-                    % (num, den, _pl(j + 1, "portion"), den), ["Portions", "Litres of milk"],
-                    rows, ans,
+                    "Complete the table: write the amount needed for %s "
+                    "as a fraction." % (num, den, _pl(j + 1, "portion")),
+                    ["Portions", "Litres of milk"],
+                    rows, "%d/%d" % (ans, den),
                     ["%d/%d × %d = %d/%d." % (num, den, j + 1, ans, den),
-                     "The numerator is %d." % ans], missing=(j, 1),
-                    placeholder="the numerator")
+                     "So %s need %d/%d of a litre." % (_pl(j + 1, "portion"), ans, den)],
+                    missing=(j, 1), answer_type="frac",
+                    placeholder="a fraction, e.g. 3/4")
 
     def word_length():
         m = random.randint(3, 8)
@@ -3514,13 +3518,14 @@ def _(d=1):
         ans = den * (j + 2)
         rows[j][1] = ""
         return _dtq("%d/%d is shared equally between different numbers of "
-                    "children. Type the denominator of the fraction each child "
-                    "gets when it is shared between %d children."
+                    "children. Complete the table: write the fraction each "
+                    "child gets when it is shared between %d children."
                     % (num, den, j + 2),
-                    ["Number of children", "Fraction each"], rows, ans,
+                    ["Number of children", "Fraction each"], rows,
+                    "%d/%d" % (num, ans),
                     ["%d/%d ÷ %d = %d/%d." % (num, den, j + 2, num, ans),
-                     "The denominator is %d." % ans], missing=(j, 1),
-                    placeholder="the denominator")
+                     "Each child gets %d/%d." % (num, ans)], missing=(j, 1),
+                    answer_type="frac", placeholder="a fraction, e.g. 1/6")
 
     opts = [bare, unit_bare, denominator_only, shade_result,
             shade_area_result, on_line, word_share_pizza, word_ribbon,
@@ -3686,11 +3691,12 @@ def _(d=1):
         ans = j + 1
         rows[j][1] = ""
         return _dtq("Every division in this table is written as a fraction "
-                    "with denominator %d. Type the numerator that belongs in "
-                    "the empty cell." % b, ["Division", "Fraction"], rows, ans,
+                    "with denominator %d. Write the fraction that belongs in "
+                    "the empty cell." % b, ["Division", "Fraction"], rows,
+                    "%d/%d" % (ans, b),
                     ["%d ÷ %d = %d/%d." % (j + 1, b, j + 1, b),
-                     "The numerator is %d." % ans], missing=(j, 1),
-                    placeholder="the numerator")
+                     "So the empty cell is %d/%d." % (ans, b)], missing=(j, 1),
+                    answer_type="frac", placeholder="a fraction, e.g. 2/5")
 
     def which_is_more():
         p, q = _two_names()

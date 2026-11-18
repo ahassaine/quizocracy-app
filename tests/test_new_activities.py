@@ -240,7 +240,8 @@ def test_phonics_keeps_its_phases_in_order_and_no_sound_leaves_out_listening(bro
     for i in range(12):
         q = s.post(BASE + "/api/phonics/next", json={}).json()
         it = DB.items.find_one({"_id": q["token"]})
-        assert it["meta"]["skill"] in ("PH1.01", "PH1.02", "PH1.03"), it["meta"]       # the first phases first
+        # Year 1 starts at Phase 3's digraphs (wave 11: Phase 2 is Reception's), and keeps to the steps in order
+        assert it["meta"]["skill"] in ("PH1.05", "PH1.06", "PH1.07"), it["meta"]
         s.post(BASE + "/api/phonics/check", json={"token": q["token"], "value": right(it["answer"])})
     q = s.post(BASE + "/api/phonics/next", json={}).json()
     assert s.post(BASE + "/api/phonics/nosound", json={"token": q["token"]}).json()["ok"]
@@ -290,7 +291,7 @@ def test_a_family_taken_out_of_a_league_cannot_rejoin_and_the_code_changes(brows
     pg2.click("[data-testid=league-join] button")
     pg2.wait_for_selector("[data-testid=leagues-done]")
     pg1.goto("/leagues")
-    pg1.click("[data-testid^=league-] details summary")
+    pg1.click("[data-testid=league-takeout] summary")
     pg1.once("dialog", lambda d: d.accept())
     pg1.click("text=Take out")
     pg1.wait_for_selector("[data-testid=leagues-done]")
@@ -347,3 +348,77 @@ def test_a_finished_check_or_paper_earns_league_stars(browser):
     s.post(BASE + "/api/sats/finish", json={"token": st["token"], "answers": [], "used": 10})
     kid.goto("/me")
     assert int(kid.inner_text("[data-testid=play-card] b").split()[1]) == before + 2
+
+
+def test_find_and_copy_takes_a_longer_exact_copy_of_the_sentence(browser):
+    # wave 11 stopper: "she stood alone by the fence" (copied exactly) was marked wrong for "by the fence"
+    from app_path import engine
+    q = next(q for q in engine.skill("RD3.01")["qs"] if q["t"] == "text")
+    pub, key = engine.serve(q)
+    for v in ("she stood alone by the fence", "At break time she stood alone by the fence.", "by the fense"):
+        assert engine.mark(key, v), v
+    for v in ("by the wall", "stood alone", "over to the fence", "she never stood alone by the fence"):
+        assert not engine.mark(key, v), v
+
+
+def test_a_lowest_terms_table_takes_the_whole_fraction(browser):
+    # wave 11 stopper: the table asked for a bare denominator, so "10/12 | 6" was the "right" row and 5/6 was wrong
+    import random as _r
+    from app_path import maths_engine as me
+    _r.seed(11)
+    seen = 0
+    for _ in range(400):
+        q = me.call_generator(me.GENERATORS["Y6.3.b"], 1)
+        if q.get("component") != "data_table":
+            continue
+        seen += 1
+        assert q["answer_type"] == "frac" and "/" in q["answer"], q
+        assert me.check_answer("frac", q["answer"], q["answer"], prompt=q["prompt"])
+        n, d = (int(x) for x in q["answer"].split("/"))
+        assert not me.check_answer("frac", q["answer"], str(d), prompt=q["prompt"])
+    assert seen
+
+
+def test_a_league_code_works_as_an_invitation_and_joins_the_league(browser):
+    from conftest import last_mail, new_email
+    pg1, kid1, s1, p1 = _family(browser, 4, name="Ola")
+    pg1.goto("/leagues")
+    pg1.click("[data-testid=league-new] button")
+    code = pg1.inner_text("[data-testid=league-code]").strip()
+    assert code in pg1.get_attribute("[data-testid=league-copy]", "data-copy")
+    pg = browser.new_context(base_url=BASE).new_page()
+    email = new_email()
+    pg.goto("/signup")
+    pg.fill("#email", email)
+    pg.fill("#password", PASSWORD)
+    if pg.locator("#invite").count():
+        pg.fill("#invite", code.lower())
+    pg.check("#consent")
+    pg.click("button[type=submit]")
+    pg.wait_for_url("**/verify")
+    fam = DB.accounts.find_one({"email": email})["family_id"]
+    lg = DB.leagues.find_one({"code": code})
+    assert fam in lg["families"]
+
+
+def test_today_too_keeps_the_league_stars_already_earned(browser):
+    # wave 11: ticking a new activity "Today too" took a finished day's league stars away until it was done
+    pg, kid, s, pid = _family(browser, 4, name="Noa", targets={"reading": 6})
+    acts = {k: {**v, "on": k == "reading"} for k, v in DB.pupils.find_one({"_id": pid})["activities"].items()}
+    DB.pupils.update_one({"_id": pid}, {"$set": {"activities": acts, "plan_log": [{"from": "", "acts": acts}]}})
+    for _ in range(6):
+        q = s.post(BASE + "/api/reading/next", json={}).json()
+        it = DB.items.find_one({"_id": q["token"]})
+        s.post(BASE + "/api/reading/check", json={"token": q["token"], "value": right(it["answer"])})
+    stars = lambda: int(re.search(r"★ (\d+)", (pg.goto("/leagues") and pg.inner_text("[data-testid=home-league]"))).group(1))  # noqa: E731
+    before = stars()
+    assert before >= 1
+    pg.goto(f"/children/{pid}/edit")
+    pg.check("[data-testid=on-maths]")                                # today's plan grows: the % drops
+    pg.fill("[data-testid=target-maths]", "20")
+    pg.check("[data-testid=plan-today]")
+    pg.click("form.card button[type=submit]")
+    pg.wait_for_url(re.compile(rf".*/children/{pid}.*"))
+    kept = DB.pupils.find_one({"_id": pid}).get("kept") or {}
+    assert any((v or {}).get("stars") for v in kept.values()), kept
+    assert stars() >= before

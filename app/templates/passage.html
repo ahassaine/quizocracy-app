@@ -7,7 +7,7 @@
 <h2>The questions</h2>
 {% for q in rows %}<section class="card" data-testid="passage-q" style="border-left:5px solid {{ 'var(--good)' if q.right else 'var(--bad)' if q.answered else 'var(--line)' }}">
   <p style="margin:.2em 0;font-weight:600">{{ loop.index }}. {{ q.q }}</p>
-  <p class="small" style="margin:.2em 0"><span class="mut">The answer:</span> <b>{{ q.answer }}</b>{% if q.answered and not q.right %} · <span class="mut">{{ pupil.name }} wrote</span> {{ q.given }}{% elif not q.answered %} · <span class="mut">not answered yet</span>{% endif %}</p>
+  <p class="small" style="margin:.2em 0"><span class="mut">The answer:</span> <b>{{ q.answer }}</b>{% if q.answered and not q.right %} · <span class="mut">{{ pupil.name }} {{ q.verb }}</span> {{ q.given }}{% elif q.differs %} · <span class="mut">right; {{ pupil.name }} wrote</span> {{ q.given }}{% elif not q.answered %} · <span class="mut">not answered yet</span>{% endif %}</p>
   <p class="small mut" style="margin:.2em 0">{{ q.why }}</p>
 </section>{% endfor %}
 <p class="mut small">Talking about the passage together (what happened, why, which words they liked) is one of the best ways to help with reading.</p>

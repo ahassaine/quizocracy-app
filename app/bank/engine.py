@@ -95,6 +95,8 @@ def load() -> dict:
                 log.warning("bank skill %s has questions without an id: run scripts/bank_ids.py", sk.get("key"))
             if subject in ("science", "reading"):    # "the axle" is as right as "axle" (not so in grammar)
                 qs = [dict(q, loose=True) if q["t"] == "text" else q for q in qs]
+            if subject == "reading" and sk.get("text"):  # find-and-copy: the passage sentences holding an answer,
+                qs = [dict(q, src=copy_sources(sk["text"], q["a"])) if q["t"] == "text" else q for q in qs]
             if not subject or not qs:
                 continue
             skill = {**sk, "qs": qs, "subject": subject}
@@ -194,6 +196,8 @@ def serve(q: dict) -> tuple[dict, dict]:
         key["a"] = q["a"]
         if q.get("d"):                   # reading "find and copy": a copying slip still finds the answer (near_copy)
             key["copy"] = True
+            if q.get("src"):             # and a longer exact copy that holds the answer is right (longer_copy)
+                key["src"] = q["src"]
         full = gap_sentences(q["q"], q["a"])
         if full:
             pub["gap"] = True
@@ -501,7 +505,7 @@ def mark(key: dict, value) -> bool:
     if t == "text":
         v = norm_text(value)
         ok = key["a"] + key.get("full", [])
-        if key.get("copy") and near_copy(key, value):
+        if key.get("copy") and (near_copy(key, value) or longer_copy(key, value)):
             return True
         if key.get("loose"):
             return sci_text(v, [norm_text(a) for a in ok])
@@ -525,6 +529,36 @@ def mark(key: dict, value) -> bool:
     if t == "num":
         v = parse_num(value, key.get("unit") or "")
         return v is not None and abs(v - float(key["a"])) <= float(key.get("tol") or 0) + 1e-9
+    return False
+
+
+def copy_sources(text: str, answers: list) -> list:
+    """The sentences of a passage that hold one of a find-and-copy question's answers (normalised)."""
+    sents = [norm_text(x) for x in re.split(r"(?<=[.!?])\s+|\n+", text or "") if x.strip()]
+    for a in sorted(answers, key=len, reverse=True):     # the fullest answer's sentence: "the fence" alone would
+        out = [n for n in sents if _has_words(n, norm_text(a))]   # also find "walked over to the fence"
+        if out:
+            return list(dict.fromkeys(out))
+    return []
+
+
+def _has_words(hay: str, needle: str) -> bool:
+    return bool(needle) and re.search(r"(?<![\w'])" + re.escape(needle) + r"(?![\w'])", hay) is not None
+
+
+def longer_copy(key: dict, value) -> bool:
+    """Children copy a little more than needed ("she stood alone by the fence" for "by the fence"): right, when it
+    is copied from the very sentence that holds an accepted answer and holds that answer. Not a negation of it."""
+    v = norm_text(value).rstrip(",;:")
+    if not v or len(v.split()) > 25:
+        return False
+    for a in key.get("a") or []:
+        w = re.sub(r"^(the|a|an) ", "", norm_text(a))
+        if not _has_words(v, w):
+            continue
+        for src in key.get("src") or []:
+            if _has_words(src, v) and not re.search(r"\b(not|never|no)\b", v.replace(w, "")):
+                return True
     return False
 
 

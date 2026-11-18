@@ -239,7 +239,7 @@ def test_extra_right_answers_show_in_the_header(browser):
             assert pg.locator("[data-testid=day-extra]").is_hidden()
         if n < 3:
             pg.click("#next")
-    assert pg.inner_text("[data-testid=day-extra]") == "· +2 extra today ★"     # one line, one colour (wave 6)
+    assert pg.inner_text("[data-testid=day-extra]") == "· +2 extra answers today"     # one line, one colour (wave 6)
     pg.context.close()
 
 

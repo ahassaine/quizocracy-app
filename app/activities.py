@@ -49,9 +49,10 @@ YEAR_DEFAULTS = {
     # Year 1: phonics every day (the phonics check is in June), with 6 maths so the day stays about 18 minutes;
     # 5 spellings: within reach of a child just learning to sound words out
     1: {"maths": 6, "spelling": 5, "phonics": 6},
-    # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty. Reading is off by default: with it a Year 2 day
-    # runs to about 28 minutes (a parent turns it on, or swaps it for spelling)
-    2: {"maths": 6, "tables": 10, "spelling": 6},
+    # Year 2 learns the 2, 5 and 10 tables: 10 right is plenty. Phonics goes on (Phase 6, and the check retake):
+    # about 22 minutes. Reading is off by default: with it a Year 2 day runs to about 31 minutes (a parent turns it
+    # on in the plan, or swaps it for spelling)
+    2: {"maths": 6, "tables": 10, "spelling": 5, "phonics": 5},
     # Years 3-9: a reading passage a day (its questions: 6 in Years 3-4, 7 from Year 5); the day is then about 20 to
     # 24 minutes. Year 2 is offered reading on the parent's page instead (a Year 2 day with it runs to about 28).
     3: {"maths": 8, "tables": 20, "spelling": 8, "reading": 6},
@@ -225,7 +226,7 @@ FOCUS_SUBJECTS = ("maths", "grammar", "science")
 SCIENCE_AREAS = {
     "Biology": ["Plants", "Animals, including humans", "Living things and their habitats",
                 "Fossils, inheritance and adaptation", "Cells and organisation", "Skeletal and muscular systems",
-                "Reproduction", "Nutrition and digestion", "Gas exchange", "Respiration", "Photosynthesis", "Health",
+                "Plant reproduction", "Nutrition and digestion", "Gas exchange", "Respiration", "Photosynthesis", "Health",
                 "Inheritance and variation", "Ecosystems"],
     "Chemistry": ["Everyday materials", "Uses of everyday materials", "Rocks", "States of matter",
                   "Properties and changes of materials", "Particles", "Mixtures and separation", "Acids and alkalis",

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from pymongo.errors import DuplicateKeyError
 
-from .. import config, mailer, referrals
+from .. import config, league, mailer, referrals
 from ..activities import new_family_plan, plan_of
 from ..db import db
 from ..deps import (FULL_ROLES, ROLE_TITLES, Ctx, adult_name, client_ip, create_session, device_text, end_session,
@@ -80,6 +80,11 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
     err = None
     # Another family's code (its invitation link) lets a family in like the beta's code, and is remembered.
     by = await referrals.family_by_ref(invite) or await referrals.family_by_ref(ref)
+    # a friends' league code works too: the family is let in by the league's maker, and joins the league
+    lg = None if by else await league.league_by_code(invite)
+    if lg:
+        by = await db.families.find_one({"_id": lg["owner"]}, {"_id": 1})
+        lg = lg if by else None
     if config.INVITE_CODE and _code(invite) != _code(config.INVITE_CODE) and not by:
         err = ("That invitation code is not right. Check it against your invitation (small or capital letters both work)."
                if invite.strip() else "Sign-up needs the invitation code from your invitation email.")
@@ -107,6 +112,8 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
            "role": "owner", "created": _now(), "verified_at": None, "report_emails": True}
     await db.families.insert_one(fam)
     await db.accounts.insert_one(acc)
+    if lg:
+        await league.join_league(fam, lg["code"])
     await db.waitlist.delete_one({"_id": email})   # on the waiting list before: not kept once the family is in
     await hit(f"mail:verify:{email}")              # the first code counts towards the resend limit
     await _send_code(acc)

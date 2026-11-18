@@ -16,6 +16,7 @@ function BankDrill(activity) {
   function passage(q) {
     const box = $('passage');
     if (!box) return;
+    window.QZ_MID_PASSAGE = !!(q.passage && q.passage.n && q.passage.n < q.passage.of);   // drill.js: Next stays the big button
     if (!q.passage) { box.hidden = true; shownPassage = null; return; }
     box.hidden = false;
     const P = q.passage;
@@ -195,6 +196,11 @@ function BankDrill(activity) {
       } else if (q.kind === 'tap') {
         const box = document.createElement('div'); box.className = 'words';
         q.words.forEach((w, i) => {
+          if (w === '•') {                 // a bulleted list: each point on its own line, the bullet not a word to tap
+            if (i) box.appendChild(Object.assign(document.createElement('span'), { className: 'bullet-break' }));
+            box.appendChild(Object.assign(document.createElement('span'), { className: 'bullet', textContent: '•' }));
+            return;
+          }
           const b = document.createElement('button'); b.type = 'button'; b.className = 'word'; b.textContent = w;
           b.setAttribute('data-testid', 'word-' + i);
           b.addEventListener('click', () => { if (b.disabled) return;
@@ -254,7 +260,7 @@ function BankDrill(activity) {
         ? '<span class="mk-fix" data-testid="mark-fixed" style="background:rgba(15,159,118,.45);color:#fff;border-radius:4px;padding:0 3px">' + esc(t) + '</span>'
         : '<span class="mk-bad" data-testid="mark-wrong" style="text-decoration:underline wavy var(--bad);text-underline-offset:4px;text-decoration-thickness:2px">' + esc(t) + '</span>').join(' ');
       const lead = cur.kind === 'seg' ? 'The sounds are <b data-testid="seg-answer">' + esc(r.expected) + '</b>.'
-        : cur.kind === 'order' ? 'The right order is: <b>' + esc(r.expected) + '</b>.'
+        : cur.kind === 'order' ? 'The right order is: <b>' + esc(r.expected) + '</b>' + (/[.?!]$/.test(String(r.expected || '')) ? '' : '.')
         : cur.kind === 'tap'                                     // not "The answer is a."
         ? ((r.hits || []).length > 1 ? 'The words to tap are <b>' : 'The word to tap is <b>') + '“' + esc(r.expected) + '”</b>.'
         : r.marks ? 'The answer is <b>' + marked(r.marks.word, true) + '</b>' + end

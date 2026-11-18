@@ -3,10 +3,11 @@ parent's leagues page. Included before child.router, so /me/race is not taken fo
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
+from ..activities import todays_plan
 from ..db import db
 from ..deps import Ctx, child_api, child_page, full_page, own_pupil, parent_page
 from ..drills import phonics_check, sats, spelling
-from .. import league
+from .. import config, league
 from ..web import page
 from .child import AUDIO_DIR, _switched
 
@@ -30,7 +31,8 @@ async def race_home(request: Request, ctx: Ctx = Depends(child_page)):
         board = await league.race_board(ctx.family, pupils, k, ctx.child)
         mine = next((r for r in board if r["me"]), None)
         courses.append({"key": k, **league.COURSES[k], "board": board[:5], "mine": mine, "n": len(board),
-                        "suggested": year >= 2 and k == league.default_course(year)})
+                        "suggested": year >= 2 and k == league.default_course(year),
+                        "harder": league.COURSE_ORDER.index(k) > league.COURSE_ORDER.index(league.default_course(max(2, year)))})
     return page(request, "race.html", ctx, act=RACE_ACT, courses=courses, fmt=league.fmt_ms,
                 has_league=bool(await league.leagues_of(ctx.family["_id"])))
 
@@ -113,7 +115,8 @@ async def _leagues_view(ctx: Ctx) -> dict:
         await league.nick_of(p)
     return {"leagues": out, "pupils": pupils, "family_table": await league.table(ctx.family, pupils),
             "ADJ": league.NICK_ADJ, "ANIMALS": league.NICK_ANIMAL, "MAX": league.LEAGUES_PER_FAMILY,
-            "MAX_FAMILIES": league.LEAGUE_MAX_FAMILIES}
+            "MAX_FAMILIES": league.LEAGUE_MAX_FAMILIES, "LEAGUE_NAMES": league.league_names(),
+            "SIGNUP": config.PUBLIC_URL + "/signup"}
 
 
 JOIN_ERRORS = {"nocode": "No league has that code. Check the 8 letters and numbers with the family who sent it.",
@@ -132,6 +135,12 @@ async def leagues_page(request: Request, ctx: Ctx = Depends(parent_page)):
 async def leagues_new(ctx: Ctx = Depends(full_page)):
     res = await league.create_league(ctx.family)
     return RedirectResponse("/leagues?done=" + ("many" if res == "full" else "made"), 303)
+
+
+@router.post("/leagues/{lid}/name")
+async def leagues_name(lid: str, ctx: Ctx = Depends(full_page), name: str = Form("")):
+    ok = await league.rename(lid, ctx.family["_id"], name)
+    return RedirectResponse("/leagues?done=" + ("saved" if ok else ""), 303)
 
 
 @router.post("/leagues/join")
@@ -185,7 +194,8 @@ async def phonics_check_page(request: Request, ctx: Ctx = Depends(child_page)):
         return RedirectResponse("/me", 303)
     hist = phonics_check.history(ctx.child)
     return page(request, "phonics_check.html", ctx, act=CHECK_ACT, hist=hist[-5:], standard=phonics_check.STANDARD,
-                best=max(hist, key=lambda r: r["score"] / r["of"]) if hist else None)
+                best=max(hist, key=lambda r: r["score"] / r["of"]) if hist else None,
+                phonics_today=any(a["key"] == "phonics" for a in todays_plan(ctx.child, ctx.family)))
 
 
 @router.post("/api/phonics-check/start")

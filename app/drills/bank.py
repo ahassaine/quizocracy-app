@@ -173,14 +173,19 @@ GLOSSED = ("grammar", "science")          # subjects with key words (glossary.py
 
 
 def phonics_starts() -> list:
-    """Where a parent can start phonics: [(first skill key, "Year 1 · Phase 3")], one per strand, Year 1 then 2."""
-    out, seen = [], set()
+    """Where a parent can start phonics: [(skill key, "Year 1 · Phase 3: ai ee igh oa")], every step in order, named
+    by its sounds (a parent knows "the ai, oa sounds" from the school's letters more often than the phase)."""
+    out = []
     for y in (1, 2):
         for s in engine.load()["phonics"].get(y, []):
-            if (y, s["strand"]) not in seen:
-                seen.add((y, s["strand"]))
-                out.append((s["key"], f"Year {y} · {s['strand']}"))
+            t = s["title"].split(": ", 1)[1] if s["title"].startswith(s["strand"] + ":") else s["title"]
+            out.append((s["key"], f"Year {y} · {s['strand']}: {t}"))
     return out
+
+
+# Year 1's default start: Phase 3's digraphs (ch sh th ng). Reception teaches Phases 2 and 3; Year 1 goes over
+# Phase 3 in the autumn and moves on to 4 and 5. A child who needs Phase 2 again: the parent picks it.
+PHONICS_START = {1: "PH1.05", 2: "PH2.01"}
 
 
 def phonics_skills(pupil: dict) -> list:
@@ -192,7 +197,8 @@ def phonics_skills(pupil: dict) -> list:
     start = pupil.get("phonics_from")
     if start not in keys:
         y = 1 if int(pupil.get("year") or 1) <= 1 else 2
-        start = next((s["key"] for s in ladder if s["year"] == y), keys[0] if keys else None)
+        start = PHONICS_START[y] if PHONICS_START[y] in keys else \
+            next((s["key"] for s in ladder if s["year"] == y), keys[0] if keys else None)
     return ladder[keys.index(start):] if start in keys else ladder
 
 
@@ -363,6 +369,9 @@ def make(subject: str):
                 out["expected"], out["marks"] = wm
         if correct and key.get("copy") and engine.near_copy(key, value):
             out["hint"] = f"Right! Check the spelling: {engine.near_copy(key, value)}"
+        elif correct and key.get("copy") and engine.longer_copy(key, value) \
+                and engine.norm_text(value) not in {engine.norm_text(a) for a in key["a"]}:
+            out["hint"] = f"Right! These words were enough: {key['a'][0]}"
         if glossed(pupil) and subject in GLOSSED:   # after the answer: the key words of the question and its explanation
             out["terms"] = engine.key_words(subject, [(q or {}).get("q", ""), out.get("why", ""), out.get("whynot", "")])
         return out

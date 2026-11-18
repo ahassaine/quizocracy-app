@@ -2074,7 +2074,7 @@ SKILLS = [
     {
         "key": "SC7.20",
         "year": 7,
-        "strand": "Reproduction",
+        "strand": "Plant reproduction",
         "title": "Parts of a flower",
         "nc": "Reproduction in plants, including flower structure",
         "qs": [
@@ -2171,7 +2171,7 @@ SKILLS = [
     {
         "key": "SC7.21",
         "year": 7,
-        "strand": "Reproduction",
+        "strand": "Plant reproduction",
         "title": "Wind and insect pollination",
         "nc": "Wind and insect pollination",
         "qs": [
@@ -2296,7 +2296,7 @@ SKILLS = [
     {
         "key": "SC7.22",
         "year": 7,
-        "strand": "Reproduction",
+        "strand": "Plant reproduction",
         "title": "Fertilisation, seeds and fruits in plants",
         "nc": "Fertilisation, seed and fruit formation",
         "qs": [
@@ -2399,7 +2399,7 @@ SKILLS = [
     {
         "key": "SC7.23",
         "year": 7,
-        "strand": "Reproduction",
+        "strand": "Plant reproduction",
         "title": "Seed dispersal",
         "nc": "Seed and fruit dispersal, including quantitative investigation of some dispersal mechanisms",
         "qs": [

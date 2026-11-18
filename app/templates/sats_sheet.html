@@ -4,7 +4,7 @@
 /* each question's picture as it was on the paper, to look at (nothing to answer here) */
 document.querySelectorAll('.sheet-pic').forEach(h => { const c = (window.MComp || {})[h.dataset.component];
   try { if (c) c.render(h, JSON.parse(h.dataset.spec || '{}'), { submit() {}, year: 6, prompt: '' }); } catch (e) { h.remove(); }
-  h.querySelectorAll('input,button,select,textarea').forEach(x => { x.disabled = true; x.tabIndex = -1; }); });
+  h.querySelectorAll('input,button,select,textarea').forEach(x => { x.disabled = true; x.tabIndex = -1; x.style.display = 'none'; }); });
 </script>{% endif %}{% endblock %}
 {% block body %}
 <p class="small" style="margin:0 0 6px"><a href="{{ back }}">← {{ back_label }}</a></p>
@@ -16,6 +16,7 @@ document.querySelectorAll('.sheet-pic').forEach(h => { const c = (window.MComp |
   <div class="kid"><b>{{ loop.index }}.</b><span class="chip{% if r.correct %} done{% endif %}">{{ '✓ right' if r.correct else 'not answered' if r.blank else '✗ not quite' }}</span></div>
   <p style="margin:.35em 0">{{ r.prompt }}</p>
   {% if r.show %}<div class="m-host sheet-pic" data-component="{{ r.show.component }}" data-spec="{{ r.show.spec|tojson|forceescape }}" style="pointer-events:none;max-width:520px"></div>{% endif %}
+  {% if r.opts %}<ul class="small" data-testid="sheet-opts" style="margin:.2em 0 .4em;padding-left:20px">{% for o in r.opts %}<li>{{ o }}{% if o == r.expected %} <b>✓</b>{% elif o == r.given %} <span class="mut">(chosen)</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
   {% if not r.blank %}<p class="small" style="margin:.2em 0"><span class="mut">Answer given:</span> {{ r.given }}</p>{% endif %}
   {% if not r.correct %}<p class="small" style="margin:.2em 0"><span class="mut">The answer:</span> <b>{{ r.expected }}</b></p>{% endif %}
   {% if not r.correct and r.why %}<p class="small mut" style="margin:.2em 0">{{ r.why }}</p>{% endif %}

@@ -16,10 +16,17 @@
 <h2>Friends' leagues</h2>
 {% for lg in leagues %}<div class="card" data-testid="league-{{ lg.id }}">
   <div class="kid"><b>{{ lg.name }}</b><span class="mut small">{{ lg.families|length + 1 }} famil{{ 'y' if not lg.families else 'ies' }}</span></div>
-  <div class="small" style="margin-top:4px">Code to share: <b class="code" data-testid="league-code" style="font-size:1.2rem;letter-spacing:.12em">{{ lg.code }}</b> <button class="btn" type="button" data-copy="{{ lg.code }}" style="padding:4px 10px">Copy</button></div>
+  <div class="small" style="margin-top:4px">Code to share: <b class="code" data-testid="league-code" style="font-size:1.2rem;letter-spacing:.12em">{{ lg.code }}</b>
+    {% set msg = "Join our children's league on Quizocracy (" ~ lg.name ~ "). Already on Quizocracy? Go to Leagues, Join a league, and type the code " ~ lg.code ~ ". Not on it yet? Sign up at " ~ SIGNUP ~ " and type " ~ lg.code ~ " as the invitation code: your family joins the league straight away." %}
+    <button class="btn" type="button" data-copy="{{ msg }}" data-testid="league-copy" style="padding:4px 10px">Copy a message to send</button>
+    <details class="mut" style="margin-top:4px"><summary style="cursor:pointer">What the message says</summary><span data-testid="league-msg">{{ msg }}</span></details>
+    <div class="mut" style="margin-top:2px">A family not on Quizocracy yet can sign up with this code: it works as their invitation.</div></div>
+  {% if lg.owner %}<form method="post" action="/leagues/{{ lg.id }}/name" class="row small" style="margin-top:6px;flex-wrap:wrap;gap:6px" data-testid="league-name-form">Name:
+    <select name="name" aria-label="League name">{% for n in LEAGUE_NAMES %}<option {% if n == lg.name %}selected{% endif %}>{{ n }}</option>{% endfor %}{% if lg.name not in LEAGUE_NAMES %}<option selected>{{ lg.name }}</option>{% endif %}</select>
+    <button class="btn" type="submit" style="padding:3px 10px">Save</button></form>{% endif %}
   <table class="t small" style="margin-top:8px"><tr><th></th><th>Child</th><th>Stars</th></tr>{% for r in lg.rows %}<tr{% if r.mine %} style="font-weight:700"{% endif %}><td>{{ r.place }}</td><td><span aria-hidden="true">{{ r.pic }}</span> {{ r.label }}</td><td>★ {{ r.stars }}</td></tr>{% endfor %}</table>
   {% if lg.owner %}<form method="post" action="/leagues/{{ lg.id }}/code" style="margin-top:6px" onsubmit="return confirm('Make a new code? The old one will stop working.')"><button class="btn" type="submit" data-testid="league-new-code" style="padding:3px 10px">Make a new code</button> <span class="mut small">if the code went further than you meant</span></form>{% endif %}
-  {% if lg.owner and lg.families %}<details class="small" style="margin-top:8px"><summary>Take a family out</summary>{% for f in lg.families %}<form method="post" action="/leagues/{{ lg.id }}/remove" style="margin:6px 0" onsubmit="return confirm('Take this family out of the league?')"><input type="hidden" name="family" value="{{ f.id }}"><span>{{ f.label }}</span> <button class="btn" type="submit" style="padding:3px 10px">Take out</button></form>{% endfor %}</details>{% endif %}
+  {% if lg.owner and lg.families %}<details class="small" style="margin-top:8px" data-testid="league-takeout"><summary>Take a family out</summary>{% for f in lg.families %}<form method="post" action="/leagues/{{ lg.id }}/remove" style="margin:6px 0" onsubmit="return confirm('Take this family out of the league?')"><input type="hidden" name="family" value="{{ f.id }}"><span>{{ f.label }}</span> <button class="btn" type="submit" style="padding:3px 10px">Take out</button></form>{% endfor %}</details>{% endif %}
   {% if ctx.full %}<form method="post" action="/leagues/{{ lg.id }}/leave" style="margin-top:8px" onsubmit="return confirm('Leave this league? Your children\'s stars stay at home.')"><button class="btn" type="submit" data-testid="league-leave">Leave this league</button></form>{% endif %}
 </div>{% else %}<p class="mut small" data-testid="no-leagues">Your family is not in a friends' league yet.</p>{% endfor %}
 {% if not ctx.full %}<p class="small" data-testid="leagues-carer"><b>Only a parent can start or join a league,</b> or change a child's nickname. Ask the parent to do it from their Leagues page.</p>{% endif %}
@@ -40,5 +47,5 @@
     <select name="animal" aria-label="Animal">{% for a, pic in ANIMALS %}<option value="{{ a }}" {% if a == parts[1] %}selected{% endif %}>{{ pic }} {{ a }}</option>{% endfor %}</select>
     <button class="btn" type="submit">Save</button></div>
 </form>{% endfor %}{% endif %}
-<script>document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; } catch (e) {} }));</script>
+<script>document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied: paste it into a message'; } catch (e) {} }));</script>
 {% endblock %}

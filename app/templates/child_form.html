@@ -113,7 +113,7 @@
   <div class="field"><label for="reward_threshold">Earned at (% of the day)</label><input id="reward_threshold" name="reward_threshold" type="number" min="10" max="100" value="{{ pupil.reward.threshold if pupil and pupil.reward else 100 }}" style="max-width:120px"></div>
   {% endif %}
   <h2>Daily plan</h2>
-  <p class="mut small">Only the ticked activities are in the day. Targets count right answers.</p>
+  <p class="mut small">Only the ticked activities are in the day. Targets count right answers (reading: questions answered).</p>
   {% call explain(testid="plan-weighting") %}An activity for an older year can't be ticked yet. The day's % counts every planned answer the same: with Maths 20 and Science 5, the 5 science answers are 20% of the day, not half. A bigger target gives an activity more weight.{% endcall %}
   <p data-testid="plan-minutes" style="font-weight:700;margin:.2em 0 .6em">About <span id="planMin">{{ minutes_est if minutes_est is defined else '' }}</span> minutes a day</p>
   <p class="mut small" id="planCap" data-testid="plan-cap" hidden>Years 1 to 4: each activity also ends after twice its target in answers, right or wrong, so a hard day stays short: at most about <b id="planCapMin"></b> minutes.</p>
@@ -133,7 +133,11 @@
       <div class="mut small">{% if not a.free and not (cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family') %}Family plan · {% endif %}from Year {{ a.min_year }}</div></td>
       <td><input class="inline" type="number" name="target_{{ k }}" min="1" max="200" value="{{ cur.target or a.target }}" style="width:90px" data-testid="target-{{ k }}"> a day{% if k == 'tables' %}
         <span id="checkOpts" style="display:block"><label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_tables" value="1" {% if cur.check %}checked{% endif %} data-testid="check-tables"> + a Year 4 check</label><span class="mut small" style="display:block">Years 3 to 6: 25 quick questions</span><span class="small" id="checkY4" style="display:none;font-weight:600" data-testid="check-y4-hint">Year 4: the real check is in June. Ticking this adds about 4 minutes a day.</span></span>
-        <label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_slow" value="1" {% if cur.slow %}checked{% endif %} data-testid="check-slow"> Extra time to start with (9 seconds)</label><span class="mut small" style="display:block">For a nervous child: practice only, the real check gives 6 seconds. Works straight away.</span>{% endif %}</td></tr>
+        <label class="check small" style="font-weight:400;margin-top:4px"><input type="checkbox" name="check_slow" value="1" {% if cur.slow %}checked{% endif %} data-testid="check-slow"> Extra time to start with (9 seconds)</label><span class="mut small" style="display:block">For a nervous child: practice only, the real check gives 6 seconds. Works straight away.</span>{% endif %}{% if k == 'phonics' and not editing %}
+        <span id="phStart" style="display:block;margin-top:6px"><label class="small" for="phonics_from" style="font-weight:600;display:block">Which sounds is the school on?</label>
+        <select id="phonics_from" name="phonics_from" data-testid="new-phonics-from" style="max-width:100%">{% for pk, pt in PHONICS_STARTS %}<option value="{{ pk }}">{{ pt }}</option>{% endfor %}</select>
+        <span class="mut small" style="display:block">Phonics starts there and goes on in order. Not sure? Keep the suggestion; you can change it later in Settings.</span></span>{% endif %}{% if k == 'reading' %}
+        <span class="mut small" style="display:block" data-testid="reading-target-note">Questions answered, right or wrong: about one passage a day.</span>{% endif %}</td></tr>
   {% endfor %}
   </table>
   <script>
@@ -150,6 +154,8 @@
       const check = ck && ck.checked && tb && tb.checked && !tb.disabled && y >= 3 && y <= 6 ? J.check_secs : 0;
       const co = document.getElementById('checkOpts'); if (co) co.style.display = y >= 3 && y <= 6 ? 'block' : 'none';   // only for Years 3-6
       const c4 = document.getElementById('checkY4'); if (c4) c4.style.display = y === 4 ? 'block' : 'none';
+      const ph = document.getElementById('phStart'), phOn = document.querySelector('[data-testid=on-phonics]');
+      if (ph) ph.style.display = y <= 2 && phOn && phOn.checked ? 'block' : 'none';   // the start of a Year 1-2 phonics
       const m = Math.max(s ? 1 : 0, Math.round((s * J.pace[y] + check) / 60));
       document.getElementById('planMin').textContent = m;
       // Years 1-4: the cap (twice the target in answers, activities.has_cap) bounds a hard day, about 1.5 times the
@@ -169,6 +175,11 @@
       });
       est();
     }
+    const phSel = document.getElementById('phonics_from');
+    function phDefault() { if (phSel && !phSel.dataset.touched) phSel.value = J.phonics_start[+year.value <= 1 ? 1 : 2]; }
+    if (phSel) phSel.addEventListener('change', () => { phSel.dataset.touched = '1'; });
+    year.addEventListener('change', phDefault);
+    phDefault();
     year.addEventListener('change', () => forYear(NEW));
     document.getElementById('planTable').addEventListener('input', est);
     forYear(false);

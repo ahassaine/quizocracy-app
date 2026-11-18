@@ -4,7 +4,7 @@
 <div class="stage rise rise-2" id="stage">
   <div class="track" id="track" data-testid="track" aria-hidden="true">
     <div class="lane me"><span class="who">You</span><div class="road"><i class="runner" id="meRunner">🏃</i></div></div>
-    {% for g in ghosts %}<div class="lane ghost"><span class="who">{{ g.pic }} {{ g.label }}</span><div class="road"><i class="runner" data-i="{{ loop.index0 }}">{{ g.pic or '👻' }}</i></div></div>{% endfor %}
+    {% for g in ghosts %}<div class="lane ghost{% if g.me %} mine{% endif %}"><span class="who">{% if g.me %}Your best ({{ fmt(g.total) }}){% else %}{{ g.pic }} {{ g.label }}{% endif %}</span><div class="road"><i class="runner" data-i="{{ loop.index0 }}">{{ '🏃' if g.me else (g.pic or '👻') }}</i></div></div>{% endfor %}
     <div class="finish-line"></div>
   </div>
   <div id="rIntro" data-testid="race-intro">
@@ -37,6 +37,8 @@
 .lane .who{font-size:.85rem;font-weight:700;overflow-wrap:anywhere;line-height:1.15}
 .count-in{font-family:var(--display);font-size:4rem;font-weight:800;text-align:center;margin:10px 0}
 .lane.me .who{color:var(--violet,#8B7CFF)}
+.lane .who{font-size:.95rem}
+.lane.mine .runner{opacity:.45}   /* your best run: a faded you */
 .road{position:relative;height:30px;border-radius:15px;background:rgba(127,127,127,.15);margin-right:26px}
 .runner{position:absolute;left:0;top:50%;transform:translate(-10%,-50%) scaleX(-1);font-style:normal;font-size:1.4rem;transition:left .25s linear}
 .finish-line{position:absolute;right:20px;top:0;bottom:0;border-right:4px dashed var(--good,#22c55e)}
@@ -57,7 +59,8 @@
   function addLane(g) {            // a lane for a ghost that was not on the page when it opened (a first best)
     const lane = document.createElement('div'); lane.className = 'lane ghost';
     lane.innerHTML = '<span class="who"></span><div class="road"><i class="runner"></i></div>';
-    lane.querySelector('.who').textContent = g.label; const r = lane.querySelector('.runner'); r.textContent = g.pic;
+    if (g.me) lane.classList.add('mine');
+    lane.querySelector('.who').textContent = g.label; const r = lane.querySelector('.runner'); r.textContent = g.me ? '🏃' : g.pic;
     r.dataset.i = String(GHOSTS.indexOf(g));
     document.querySelectorAll('.lane.ghost .runner').forEach(x => { x.dataset.i = String(+x.dataset.i + 1); });
     r.dataset.i = '0';
@@ -118,10 +121,16 @@
       // the ghosts this run beat (its time against theirs)
       const beat = GHOSTS.filter(g => !g.me && r.data.total < g.total).map(g => g.label);
       if (beat.length) $('rNote').insertAdjacentHTML('afterbegin', '<b data-testid="race-beat">🏁 You beat ' + beat.map(x => String(x).replace(/[<>&]/g, '')).join(' and ') + '!</b> ');
+      else {                        // lost to the others: by how much, to the nearest one ("So close!")
+        const ahead = GHOSTS.filter(g => !g.me && r.data.total >= g.total).sort((a, b) => b.total - a.total)[0];
+        if (ahead) $('rNote').insertAdjacentHTML('afterbegin', '<b data-testid="race-behind">' + ((r.data.total - ahead.total) < 5000 ? 'So close! ' : '')
+          + ((r.data.total - ahead.total) / 1000).toFixed(1) + ' s behind ' + String(ahead.label).replace(/[<>&]/g, '') + '.</b> ');
+      }
       if ((r.data.best || beat.length) && window.QZ && QZ.confetti) QZ.confetti(90);
       if (r.data.best) {            // "Race again" chases the new best, not the one the page opened with
-        const mine = GHOSTS.find(g => g.me), run = { label: 'Your best', pic: '🏃', splits: splits.slice(), total: r.data.total, me: true };
-        if (mine) Object.assign(mine, run); else { GHOSTS.unshift(run); addLane(run); }
+        const mine = GHOSTS.find(g => g.me), run = { label: 'Your best (' + r.data.time + ')', pic: '🏃', splits: splits.slice(), total: r.data.total, me: true };
+        if (mine) { Object.assign(mine, run); const w = document.querySelector('.lane.mine .who'); if (w) w.textContent = run.label; }
+        else { GHOSTS.unshift(run); addLane(run); }
       }
     } else {
       $('rTime').textContent = ((splits[splits.length - 1] || 0) / 1000 + 2 * extra).toFixed(1) + ' s';

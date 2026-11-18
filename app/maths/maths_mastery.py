@@ -410,10 +410,10 @@ _TOPICS = (("decimal", "decimals"), ("fraction", "fractions"), ("percent", "perc
 
 
 def ease_note(title):
-    """The one line a child sees when the next question is easier after a slip."""
-    t = (title or "").lower()
-    topic = next((w for k, w in _TOPICS if k in t), "this")
-    return "Let's go over %s with an easier one." % topic
+    """The one line a child sees when the next question is a step easier after a slip. It promises nothing about
+    "easier" or the topic: a step down in the generator is not always easier to a child's eye (a bigger number,
+    a "largest digit" question), and a title word can name the wrong topic ("negative" indices)."""
+    return "Let's try another one like it."
 
 
 async def eased(pupil, skill_key, tier):

@@ -95,7 +95,7 @@
     // right answers past the target: the child sees the extra effort too, not only the parent
     const ex = $('dayExtra');
     // one short line in one colour (app.css .daybar): "6 of 6 right today · +1 extra today · All done for today."
-    if (ex) { ex.hidden = !(d.extra > 0); ex.textContent = d.extra > 0 ? '· +' + d.extra + ' extra today' + (CALM() ? '' : ' ★') : ''; }
+    if (ex) { ex.hidden = !(d.extra > 0); ex.textContent = d.extra > 0 ? '· +' + d.extra + ' extra answer' + (d.extra === 1 ? '' : 's') + ' today' : ''; }   // no ★: league stars are counted differently
     if (d.day_pct >= 100) $('dayMsg').innerHTML = '· All done for today. <a href="/me">See my day</a>';
     else if (d.capped) $('dayMsg').textContent = '· That’s plenty for today: ' + d.answered + ' tries. Well done!';
     else if (d.done >= d.target) $('dayMsg').textContent = '· Target reached. You can keep going.';
@@ -121,7 +121,7 @@
       nx.parentNode.insertBefore(back, nx);
     }
     if (back) back.style.display = on ? '' : 'none';
-    nx.classList.toggle('big', !on); nx.textContent = on ? 'Keep going' : 'Next →';
+    nx.classList.toggle('big', !on); nx.textContent = on ? 'Keep going' : window.QZ_MID_PASSAGE ? 'Next question →' : 'Next →';
   }
 
   window.Drill = function (opts) {
@@ -163,9 +163,17 @@
         + '<div class="row" style="justify-content:center"><a class="btn primary big" href="/me" data-testid="fix-end-back">Back to My day</a>'
         + (FIX_CHECK ? '<a class="btn" href="/me/tables/year4-check">Try the check again</a>' : '') + '</div></div>';
       if ($('backDay')) $('backDay').style.display = 'none';
+      endPassage();
       const said = parts.join('. ').replace(/\s*✓/g, '') + '.';
       if (window.Speak) { Speak.set([said]); Speak.feedback(said); }
       const b = $('stage').querySelector('a'); if (b) b.focus();
+    }
+    /* The end of a round: a reading passage beside it has no question left here, so it goes, and the end card is
+       in view (on a phone it was below the whole passage, with "Question 3 of 7" still on top). */
+    function endPassage() {
+      const box = $('passage'); if (box) box.hidden = true;
+      window.QZ_MID_PASSAGE = false;
+      const st = $('stage'); if (st && st.scrollIntoView) st.scrollIntoView({ block: 'center' });
     }
     /* On to the next subject of "Practise my mistakes": a short card that waits for a press, so a new activity
        never appears by itself. shownHere: this page has shown a question. */
@@ -185,6 +193,7 @@
         + '<div class="row" style="justify-content:center"><a class="btn primary big" href="' + esc(to) + '" data-testid="fix-move-go">'
         + esc(go) + '</a><a class="btn" href="/me">Back to My day</a></div></div>';
       if ($('backDay')) $('backDay').style.display = 'none';
+      endPassage();
       const said = line.replace(/\s*✓/g, '.') + ' Next: ' + title + '.';
       if (window.Speak) { Speak.set([said]); Speak.feedback(said); }
       const b = $('stage').querySelector('a'); if (b) b.focus();
@@ -308,7 +317,12 @@
       if (val === null) {                  // nothing given yet: the page may say what to do (opts.empty), e.g. "Add some blocks first."
         $('feedback').className = 'feedback warn';
         $('feedback').textContent = (opts.empty && opts.empty())
-          || (document.querySelector('[data-testid=choices]') ? 'Tap your answer first.' : 'Type your answer first.');
+          || (document.querySelector('#stage [data-testid=seg]') ? 'Tap between the letters first.'
+            : document.querySelector('#stage [data-testid=order]') ? 'Tap them in order first.'
+            : document.querySelector('#stage [data-testid=gaps]') ? 'Tap where the space goes first.'
+            : document.querySelector('#stage [data-testid^=word-]') ? 'Tap a word first.'
+            : document.querySelector('#stage [data-testid=choices], #stage [data-testid^=opt-]') ? 'Tap your answer first.'
+            : 'Type your answer first.');
         if (window.Speak) Speak.feedback($('feedback').textContent);       // Years 1-2 hear it: they may not read it
         return;
       }
@@ -347,7 +361,8 @@
       }
       $('check').disabled = true; $('next').style.display = '';
       if ($('idk')) $('idk').style.display = 'none';
-      finishButtons(!!day.now && !FIX_CHECK);  // after the Year 4 check, its missed facts have their own end: Next stays the main button
+      // in the middle of a reading passage, the next question stays the main button (the passage is not finished)
+      finishButtons(!!day.now && !FIX_CHECK && !(window.QZ_MID_PASSAGE && !FIX));  // after the Year 4 check, its missed facts have their own end: Next stays the main button
       const fb = $('feedback');
       if (res.idk) {                       // calm and neutral: no "Not quite", no shake, no "slow down"
         fb.className = 'feedback warn';

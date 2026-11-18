@@ -58,13 +58,13 @@
 <p class="scroll-hint no-print" style="margin-top:-4px">Swipe the table sideways to see every column →</p>{% endif %}
 {% endif %}
 
-{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science", "phonics": "Phonics", "reading": "Reading: passages"} %}
+{% set skill_names = {"maths": "Maths", "grammar": "Grammar and punctuation", "science": "Science", "phonics": "Phonics", "reading": "Reading passages"} %}
 {% if skills or tables or verbs or spelling_on %}<h2>Learned so far</h2>
 <p class="small mut">Where {{ pupil.name }} stands today. A skill is secure once it is mastered: a run of right answers on it, checked again on a later day. Practising: answered, not secure yet. Not started: not asked yet.</p>{% endif %}
 {% for subj, groups in skills.items() %}
 <div class="card" data-testid="report-skills-{{ subj }}" style="overflow-x:auto">
   <b>{{ skill_names[subj] }}{% if subj == 'maths' %} · Year {{ maths_year }}{% endif %}</b>
-  {% set yg = groups|rejectattr('review')|list %}<span class="small mut">· {{ yg|sum(attribute='secure') }} of {{ yg|sum(attribute='secure') + yg|sum(attribute='practising') + yg|sum(attribute='new') }} skills secure{% if new.get(subj) %}, {{ new[subj] }} newly mastered in this period{% endif %}</span>
+  {% set yg = groups|rejectattr('review')|list %}<span class="small mut">· {{ yg|sum(attribute='secure') }} of {{ yg|sum(attribute='secure') + yg|sum(attribute='practising') + yg|sum(attribute='new') }} {{ 'passages with every question right' if subj == 'reading' else ('phonics steps secure (Years 1 and 2)' if subj == 'phonics' else 'skills secure') }}{% if new.get(subj) %}, {{ new[subj] }} newly mastered in this period{% endif %}</span>
   <table class="t small" style="margin-top:6px">
     <tr><th>Strand</th><th>Secure</th><th>Practising</th><th>Not started</th></tr>
     {% for g in groups %}<tr><td>{{ g.strand }}{% if g.review %} <span class="mut">· Year {{ g.review }} review</span>{% endif %}</td><td><b>{{ g.secure }}</b></td><td>{{ g.practising }}</td><td class="mut">{{ g.new }}</td></tr>{% endfor %}

@@ -280,7 +280,10 @@ async def passage_page(request: Request, pid: str, key: str, ctx: Ctx = Depends(
         rows.append({"q": q["q"] + (" " + q["s"].replace("[", "").replace("]", "") if q.get("s") else ""),
                      "answer": bank_engine.expected_text(k) if q["t"] != "order" else " → ".join(q["items"]),
                      "why": q.get("why", ""), "answered": bool(r), "right": bool(r and r.get("correct")),
-                     "given": (r or {}).get("got", "")})
+                     "given": (r or {}).get("got", ""), "verb": "wrote" if q["t"] == "text" else "chose",
+                     # right but not word for word (a copying slip, or more words than needed): worth a look together
+                     "differs": bool(r and r.get("correct") and q["t"] == "text" and r.get("got")
+                                     and bank_engine.norm_text(r["got"]) not in {bank_engine.norm_text(a) for a in q["a"]})})
     done = [x for x in rows if x["answered"]]
     return page(request, "passage.html", ctx, pupil=p, sk=sk, rows=rows,
                 first={"right": sum(x["right"] for x in done), "of": len(rows)} if done else None)

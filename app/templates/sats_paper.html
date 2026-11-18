@@ -11,7 +11,15 @@
         <li>Stuck? Press <b>Skip for now</b> and come back to it at the end</li>
         <li>You see your score and every answer at the end</li>
       </ul>
-      <p class="mut small">{{ paper.real }}{% if paper.key == 'spelling' %} Turn the sound on: each word is read to you.{% endif %}{% if paper.key in ('arithmetic', 'reasoning') %} Have paper and a pencil ready for working out. No calculator.{% endif %}</p>
+      <p class="mut small">{{ paper.real }}{% if paper.key == 'spelling' %} Turn the sound on: each word is read to you.{% endif %}{% if paper.key in ('arithmetic', 'reasoning') %} Have paper and a pencil ready for working out. No calculator.{% endif %}</p>{% if paper.key == 'spelling' %}
+      <div class="card small" data-testid="sound-check" style="margin:8px 0"><b>Check the sound first.</b> Several words in this paper only make sense when you hear them read (“sufficient” or “enough”?).
+        <div class="row" style="margin-top:6px"><button class="btn" type="button" id="pSound" data-testid="sound-test">🔊 Test the sound</button></div>
+        <div class="mut" id="pSoundSay" role="status" style="margin-top:4px"></div></div>
+      <script>document.getElementById('pSound').addEventListener('click', () => {
+        const ok = window.Speak && Speak.say && Speak.say('Can you hear me? Then the sound is working. Good luck!');
+        document.getElementById('pSoundSay').textContent = ok === false || !window.speechSynthesis
+          ? 'This device cannot read words aloud: do another paper here, or the spelling paper on another device.'
+          : 'Heard it? Then press Start. Nothing? Turn the volume up, or do another paper today.'; });</script>{% endif %}
       {% if paper.last %}<p class="mut small" data-testid="paper-last">Last time: {{ paper.last.score }}/{{ paper.last.of }}{% if paper.tries > 1 %} · your best: {{ paper.best.score }}/{{ paper.best.of }}{% endif %}</p>{% endif %}
       <div class="row"><button class="btn primary big" id="pStart" type="button" data-testid="paper-start">Start the paper</button></div>
     </div>
@@ -42,7 +50,9 @@
     <div class="feedback warn" id="pMsg" role="status" aria-live="polite" data-testid="paper-msg"></div>
   </div>
 </div>
-<style>.pnav{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pnav .pn{min-width:38px;height:38px;border-radius:10px;border:2px solid #3B4A72;background:transparent;color:inherit;font-weight:800;cursor:pointer}.pnav .pn.done{background:#2A2560;border-color:#8B7CFF}.pnav .pn.cur{outline:3px solid var(--sun,#ffb21a);outline-offset:1px}.paper-row{padding:10px 14px;margin:8px 0;border-radius:12px;background:rgba(127,127,127,.12);color:inherit}.paper-row .mut{opacity:.8}.paper-row.bad{border-left:4px solid var(--bad,#f85149)}.paper-row.ok{border-left:4px solid var(--good,#22c55e)}#pClock.low{color:var(--bad,#f85149)}</style>
+<style>.pnav{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pnav .pn{min-width:38px;height:38px;border-radius:10px;border:2px solid #3B4A72;background:transparent;color:inherit;font-weight:800;cursor:pointer}.pnav .pn.done{background:#2A2560;border-color:#8B7CFF}.pnav .pn.cur{outline:3px solid var(--sun,#ffb21a);outline-offset:1px}.paper-row{padding:10px 14px;margin:8px 0;border-radius:12px;background:rgba(127,127,127,.12);color:inherit}.paper-row .mut{opacity:.8}.paper-row.bad{border-left:4px solid var(--bad,#f85149)}.paper-row.ok{border-left:4px solid var(--good,#22c55e)}#pClock.low{color:var(--bad,#f85149)}
+/* a paper's clock is long: a calm bar, amber in the last minute (the 6-second check's bar stays sun to coral) */
+#pFill{background:var(--good,#22c55e);transition:width .5s linear}#pFill.low{background:var(--sun,#ffb21a)}</style>
 {% endblock %}
 {% block scripts %}
 {% if paper.key in ('arithmetic', 'reasoning') %}{% for c in ['angle', 'area_grid', 'array', 'bar_chart', 'base_ten', 'circle', 'clock', 'coordinate_grid', 'data_table', 'equal_groups', 'fraction_bar', 'inequality_line', 'io_table', 'line_graph', 'net', 'number', 'number_line', 'pictogram', 'pie_chart', 'ruler', 'scatter_plot', 'shape', 'strip_model'] %}<script src="/static/maths/components/{{ c }}.js?v=8"></script>

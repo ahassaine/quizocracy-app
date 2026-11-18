@@ -6,7 +6,7 @@
 <div class="grid">
 {% for c in courses %}
   <div class="card rise rise-{{ [loop.index + 1, 5]|min }}" data-testid="course-{{ c.key }}">
-    <div class="kid"><b>{{ c.title }}</b>{% if c.suggested %}<span class="chip">for your year</span>{% endif %}</div>
+    <div class="kid"><b>{{ c.title }}</b>{% if c.suggested %}<span class="chip">for your year</span>{% elif c.harder %}<span class="chip" data-testid="race-harder">harder than your year</span>{% endif %}</div>
     <div class="mut small">{{ c.about|capitalize }}</div>
     {% if c.mine %}<div class="small" style="margin-top:6px" data-testid="race-mine">Your best this week: <b>{{ fmt(c.mine.total) }}</b></div>{% endif %}
     {% if c.board %}<ol class="small race-board" data-testid="race-board">{% for r in c.board %}<li{% if r.me %} class="me"{% endif %}><span aria-hidden="true">{{ r.pic }}</span> {{ r.label }} <span class="mut">{{ fmt(r.total) }}</span></li>{% endfor %}</ol>{% if c.n > 5 %}<div class="mut small">and {{ c.n - 5 }} more</div>{% endif %}{% else %}<div class="mut small" style="margin-top:6px">Nobody has raced this course this week. Be the first!</div>{% endif %}

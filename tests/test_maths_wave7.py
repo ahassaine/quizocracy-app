@@ -79,8 +79,8 @@ def test_after_a_slip_the_drop_is_one_tier_and_said(monkeypatch):
         return t, await mm.eased("sim", "Y8.2.a", t)
     t, eased = _run(monkeypatch, go)
     assert t == 1 and eased, (t, eased)
-    assert mm.ease_note("Add and subtract decimals") == "Let's go over decimals with an easier one."
-    assert mm.ease_note("Divisibility rules") == "Let's go over dividing with an easier one."
+    # wave 11: a step down was not always easier to a child's eye, nor the topic word right: the line promises neither
+    assert mm.ease_note("Add and subtract decimals") == "Let's try another one like it."
 
 
 def test_year8_easiest_decimals_are_year8_ones():
@@ -162,7 +162,7 @@ def test_an_easier_question_after_a_slip_says_so(page):
         "pupil": pid, "skill": "Y7.5.a", "score": 3, "streak": 0, "attempts": 1, "correct_count": 0, "tier": 1,
         "last": datetime.datetime.utcnow()}}, upsert=True)
     q = s.post(BASE + "/api/maths/next", json={}).json()
-    assert q["skill"] == "Y7.5.a" and q.get("ease") == "Let's go over decimals with an easier one.", q
+    assert q["skill"] == "Y7.5.a" and q.get("ease") == "Let's try another one like it.", q
     assert DB.maths_lab_q.find_one({"_id": q["token"]})["difficulty"] == 0       # one tier below the last
     s.post(BASE + "/api/maths/check", json={"token": q["token"], "value": "1"})   # wrong again at the same tier
     nxt = s.post(BASE + "/api/maths/next", json={}).json()

@@ -69,6 +69,7 @@ def cards(pupil: dict) -> list:
 def _reasoning_skills() -> list:
     return [s["key"] for s in maths_engine.skill_list()
             if s["key"].startswith("Y6.") and s["key"] not in ARITHMETIC and s["key"] not in NOT_KS2
+            and s["key"] not in maths_mastery.OUT_OF_YEAR            # mode, median and range: KS3
             and s["key"] in maths_engine.GENERATORS]
 
 
@@ -296,6 +297,8 @@ async def finish(pupil: dict, token: str, answers: list, used: int | None, famil
                  "prompt": q.get("q", "")}
             if a["key"]["t"] == "tap":
                 r["hits"] = a["key"]["hits"]
+            if a["key"]["t"] == "mcq" and q.get("opts"):     # every choice, to talk through "why not this one?"
+                r["opts"] = list(q["opts"])
             activity = "reading" if a["skill"].startswith("RD") else "grammar"
             detail = f"{a['skill']}#{a['qid']}"
             gtext = "" if given is None else bank_engine.given_text(a["key"], given)

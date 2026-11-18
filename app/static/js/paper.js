@@ -21,6 +21,19 @@ function Paper(PAPER) {
   }
   function store(v) { try { if (v) localStorage.setItem(DKEY, JSON.stringify(v)); else localStorage.removeItem(DKEY); } catch (e) {} }
   function stored() { try { return JSON.parse(localStorage.getItem(DKEY) || 'null'); } catch (e) { return null; } }
+  /* A paper under way is kept on this device too (the tab closed, the battery ran out): it carries on while its
+     clock runs, and once the time is up it is marked as it is, like a paper collected at the end. */
+  const RKEY = 'qz_sats_run_' + PUPIL + '_' + PAPER;
+  let passage = null;
+  function saveRun() { try { if (token && !finishing) localStorage.setItem(RKEY, JSON.stringify({ token, qs, answers, seen, at, deadline, secs, passage })); } catch (e) {} }
+  function dropRun() { try { localStorage.removeItem(RKEY); } catch (e) {} }
+  function savedRun() { try { const o = JSON.parse(localStorage.getItem(RKEY) || 'null'); return o && o.token && o.qs ? o : null; } catch (e) { return null; } }
+  function showPassage(P) {
+    if (!P) return;
+    const box = $('passage'); box.hidden = false;
+    $('passageBody').innerHTML = '<div class="mut small">' + esc(P.kind) + '</div><h2 class="passage-title" data-testid="passage-title">' + esc(P.title) + '</h2>'
+      + String(P.text).split(/\n\s*\n/).map(p => '<p>' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('');
+  }
 
   /* ---- one question ---- */
   function render() {
@@ -112,7 +125,13 @@ function Paper(PAPER) {
       area.appendChild(box);
     } else if (q.kind === 'tap') {
       const box = document.createElement('div'); box.className = 'words'; picks.v = [];
-      q.words.forEach((w, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'word'; b.textContent = w;
+      q.words.forEach((w, i) => {
+        if (w === '•') {                   // a bulleted list: each point on its own line, the bullet not a word to tap
+          if (i) box.appendChild(Object.assign(document.createElement('span'), { className: 'bullet-break' }));
+          box.appendChild(Object.assign(document.createElement('span'), { className: 'bullet', textContent: '•' }));
+          return;
+        }
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'word'; b.textContent = w;
         b.setAttribute('data-testid', 'paper-word-' + i);
         b.addEventListener('click', () => { const k = picks.v.indexOf(i);
           if (k < 0 && q.pick === 1) { picks.v = []; box.querySelectorAll('.word').forEach(x => x.classList.remove('sel')); }
@@ -167,6 +186,7 @@ function Paper(PAPER) {
     if (!skip && v === null && answers[at] === null) { $('pMsg').textContent = qs[at].kind === 'order' ? 'Number every one, or press Skip for now.' : 'Answer it, or press Skip for now.'; return; }
     $('pMsg').textContent = '';
     if (!skip && v !== null) answers[at] = v;
+    saveRun();
     const left = answers.filter(a => a === null).length;
     $('pLeft').textContent = left ? left + ' not answered yet' : 'All answered';
     const k = nextIndex();
@@ -176,7 +196,7 @@ function Paper(PAPER) {
   function review() {            // every question answered or skipped: finish, or go back to the skipped ones
     const left = answers.filter(a => a === null).length;
     $('pRun').hidden = true; $('pReview').hidden = false;
-    $('pReviewText').textContent = left ? 'You have ' + left + ' question' + (left > 1 ? 's' : '') + ' not answered. Go back to them, or finish now.'
+    $('pReviewText').textContent = left ? 'You have ' + left + ' question' + (left > 1 ? 's' : '') + ' not answered. Go back to ' + (left > 1 ? 'them' : 'it') + ', or finish now.'
       : 'You have answered every question. Tap a number to check one again, or finish now.';
     $('pBack').hidden = !left;
     const r = $('pReviewNav'); if (r && $('pNav')) r.appendChild($('pNav'));
@@ -185,7 +205,7 @@ function Paper(PAPER) {
     const leftMs = deadline - Date.now(), s = Math.max(0, Math.ceil(leftMs / 1000));
     $('pClock').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     $('pFill').style.width = Math.max(0, 100 * leftMs / (secs * 1000)) + '%';
-    $('pClock').classList.toggle('low', s <= 60);
+    $('pClock').classList.toggle('low', s <= 60); $('pFill').classList.toggle('low', s <= 60);
     if (s === 60 && !warned) { warned = true; $('pMsg').textContent = 'One minute left.'; setTimeout(() => { if ($('pMsg').textContent === 'One minute left.') $('pMsg').textContent = ''; }, 6000); }
     if (leftMs <= 0) { clearInterval(tick); $('pMsg').textContent = 'Time is up.'; finish(true); }
   }
@@ -198,15 +218,16 @@ function Paper(PAPER) {
         : 'The paper could not start. Check the connection and try again.'; return; }
     const d = r.data; token = d.token; qs = d.questions; secs = d.seconds;
     answers = qs.map(() => null); seen = qs.map(() => false); at = 0;
-    if (d.passage) {
-      const P = d.passage, box = $('passage'); box.hidden = false;
-      $('passageBody').innerHTML = '<div class="mut small">' + esc(P.kind) + '</div><h2 class="passage-title" data-testid="passage-title">' + esc(P.title) + '</h2>'
-        + String(P.text).split(/\n\s*\n/).map(p => '<p>' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('');
-    }
-    $('pMsg').textContent = ''; $('pRun').hidden = false; warned = false;
-    deadline = Date.now() + secs * 1000; clock(); tick = setInterval(clock, 500);
-    $('pLeft').textContent = qs.length + ' not answered yet';
-    render();
+    passage = d.passage || null; showPassage(passage);
+    deadline = Date.now() + secs * 1000;
+    run();
+  }
+  function run() {
+    $('pIntro').hidden = true; $('pMsg').textContent = ''; $('pRun').hidden = false; warned = false;
+    clock(); tick = setInterval(clock, 500);
+    const left = answers.filter(a => a === null).length;
+    $('pLeft').textContent = left ? left + ' not answered yet' : 'All answered';
+    saveRun(); render();
   }
   async function finish(timeUp) {
     if (finishing) return;
@@ -214,7 +235,7 @@ function Paper(PAPER) {
     finishing = true; clearInterval(tick);
     const used = Math.round(secs - Math.max(0, (deadline - Date.now()) / 1000));
     const body = { token, answers, used };
-    store(body);
+    store(body); dropRun();
     await send(body);
   }
   async function send(body) {
@@ -245,11 +266,18 @@ function Paper(PAPER) {
     $('pRows').innerHTML = d.rows.map((r, i) => '<div class="paper-row ' + (r.correct ? 'ok' : 'bad') + '" data-testid="paper-row">'
       + '<div class="kid"><b>' + (i + 1) + '.</b><span class="chip ' + (r.correct ? 'done' : '') + '">' + (r.correct ? '✓ right' : r.blank ? 'not answered' : '✗ not quite') + '</span></div>'
       + '<div style="margin:4px 0">' + esc(r.prompt) + '</div>'
+      + (r.show ? '<div class="m-host sheet-pic" data-row="' + i + '" style="pointer-events:none;max-width:520px"></div>' : '')
+      + (r.opts ? '<ul class="small" style="margin:.2em 0 .4em;padding-left:20px">' + r.opts.map(o => '<li>' + esc(o)
+          + (o === r.expected ? ' <b>✓</b>' : o === r.given ? ' <span class="mut">(your choice)</span>' : '') + '</li>').join('') + '</ul>' : '')
       + (r.blank ? '' : '<div class="small"><span class="mut">You wrote:</span> ' + esc(r.given) + '</div>')
       + (r.correct ? '' : '<div class="small"><span class="mut">The answer:</span> <b>' + esc(r.expected) + '</b></div>')
       + (!r.correct && r.why ? '<div class="why small">' + esc(r.why) + '</div>' : '')
       + (!r.correct && r.layout && r.layout.grid ? '<pre class="m-col small" style="font:600 .9rem/1.3 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto;padding:6px 8px;border-radius:8px;background:rgba(127,127,127,.12)">' + esc(r.layout.grid) + '</pre>' : '')
       + '</div>').join('');
+    // each question's picture again (a chart to re-check), to look at only
+    $('pRows').querySelectorAll('.sheet-pic').forEach(h => { const r = d.rows[+h.dataset.row], c = (window.MComp || {})[r.show.component];
+      try { if (c) c.render(h, r.show.spec || {}, { submit() {}, year: 6, prompt: '' }); else h.remove(); } catch (e) { h.remove(); }
+      h.querySelectorAll('input,button,select,textarea').forEach(x => { x.disabled = true; x.tabIndex = -1; x.style.display = 'none'; }); });
     if (window.QZ && QZ.confetti && d.best) QZ.confetti(100);
   }
 
@@ -264,4 +292,22 @@ function Paper(PAPER) {
   // a paper finished with no connection: send it now
   const old = stored();
   if (old && old.token) { $('pIntro').hidden = true; send(old).catch(() => {}); }
+  else {
+    const o = savedRun();
+    if (o && o.deadline > Date.now()) {          // under way, time left: carry on from where it stopped
+      const b = document.createElement('div'); b.className = 'card small kid'; b.setAttribute('data-testid', 'paper-resume');
+      b.style.cssText = 'flex-wrap:wrap;gap:6px 12px;margin-bottom:10px';
+      const left = Math.ceil((o.deadline - Date.now()) / 60000), done = o.answers.filter(a => a !== null).length;
+      b.innerHTML = '<span><b>You have a paper under way:</b> ' + done + ' of ' + o.qs.length + ' answered, about ' + left + ' minute' + (left === 1 ? '' : 's') + ' left on its clock.</span>';
+      const go = document.createElement('button'); go.className = 'btn primary'; go.type = 'button'; go.textContent = 'Carry on';
+      go.setAttribute('data-testid', 'paper-resume-go');
+      go.addEventListener('click', () => { b.remove(); ({ token, qs, answers, seen, at, deadline, secs, passage } = o); showPassage(passage); run(); });
+      b.appendChild(go); $('pIntro').insertBefore(b, $('pIntro').firstChild);
+    } else if (o) {                               // its time ran out while away: marked as it is
+      dropRun(); token = o.token; secs = o.secs; $('pIntro').hidden = true;
+      const body = { token: o.token, answers: o.answers, used: o.secs }; store(body);
+      $('pMsg').textContent = 'The time on your last paper ran out, so it is marked as it was.';
+      send(body).catch(() => {});
+    }
+  }
 }

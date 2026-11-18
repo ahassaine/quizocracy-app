@@ -32,7 +32,8 @@ PIN_RE = re.compile(r"^\d{4}$")
 templates.env.globals["PLAN_JS"] = {"defaults": {y: default_activities(y) for y in YEARS}, "seconds": SECONDS,
                                     "pace": {y: year_pace(y) for y in YEARS}, "check_secs": CHECK_SECONDS,
                                     "cap_years": CAP_YEARS,
-                                    "min_year": {k: a["min_year"] for k, a in ACTIVITIES.items()}}
+                                    "min_year": {k: a["min_year"] for k, a in ACTIVITIES.items()},
+                                    "phonics_start": bank.PHONICS_START}
 templates.env.filters["daylabel"] = day_label          # "2026-11-24" -> "24 Nov"
 
 
@@ -257,6 +258,8 @@ async def child_new(request: Request, ctx: Ctx = Depends(full_page)):
     p = {"_id": new_id("p"), "family_id": ctx.family["_id"], "name": name, "year": year if year in YEARS else 3,
          "pin": hash_secret(pin), "pin_view": pin, "activities": acts, "reward": _form_reward(form, ctx.family),
          "created": datetime.datetime.utcnow(), **_form_calm(form)}
+    if form.get("phonics_from") in dict(bank.phonics_starts()):   # "Which sounds is the school on?" (Years 1-2)
+        p["phonics_from"] = form.get("phonics_from")
     # this week's school spelling list (optional, folded on the form), with the same "did you mean" check as Settings
     school, school_err = _form_school_words(form, p) if (form.get("school_words") or "").strip() else ({}, "")
     school.pop("_withdraw", None)
@@ -832,7 +835,9 @@ async def _skill_views(p: dict, on: set) -> dict:
     for subject in bank_engine.SUBJECTS:
         if subject in on:
             docs = [d async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": subject})]
-            out[subject] = _by_strand(bank_engine.skills(subject, levels.level(p, subject)), {d["key"]: int(d.get("score", 0)) for d in docs},
+            # phonics: the child's ladder across Years 1 and 2 from their start, as on the progress card
+            out[subject] = _by_strand(bank.subject_skills(p, subject) if subject == "phonics"
+                                      else bank_engine.skills(subject, levels.level(p, subject)), {d["key"]: int(d.get("score", 0)) for d in docs},
                                       _recheck((d["key"], d) for d in docs) if subject != "reading" else set())
     return out
 
@@ -856,10 +861,12 @@ OFFER_LINES = {"phonics": "Sounds and blending, step by step, and practice for t
 
 
 def _offers(p: dict, family: dict, planned: set) -> list:
-    """[{key, title, line, minutes}]: phonics (Years 1-2) and reading not in the child's plan."""
+    """[{key, title, line, minutes}]: phonics (Years 1-2) and reading, for a child whose plan was saved before they
+    were in the app (a plan that has them, ticked or not, was chosen with them in view: no "New" card then)."""
     out = []
+    saved = p.get("activities") or {}
     for k, years in OFFER_YEARS.items():
-        if k in planned or p["year"] not in years or k not in plan_of(family)["activities"]:
+        if k in planned or k in saved or p["year"] not in years or k not in plan_of(family)["activities"]:
             continue
         t = saved_acts(p.get("activities"), p["year"])[k]["target"]
         out.append({"key": k, "title": ACTIVITIES[k]["title"], "line": OFFER_LINES[k], "img": ACTIVITIES[k]["img"],
@@ -1198,6 +1205,12 @@ async def child_edit(request: Request, pid: str, ctx: Ctx = Depends(parent_page)
                                        "school_fix": spelling.school_fixes(form), "plan_today": bool(form.get("plan_today"))},
                                 dirty=sorted(changed or []), pin_typed=(form.get("pin") or "").strip()[:4])
     today = progress.today()
+    if form.get("plan_today") and "plan_log" in upd:
+        # the league's plan stars already earned today stay earned when today's plan grows (league.day_stars)
+        c = (await progress.counts([p["_id"]], [today])).get(p["_id"], {}).get(today, {})
+        now_pct = progress.day_status(p, ctx.family, c, today).get("pct") or 0
+        upd[f"kept.{today}.stars"] = max(int(((p.get("kept") or {}).get(today) or {}).get("stars") or 0),
+                                         min(league.STAR_DAY, int(now_pct) // 10))
     if form.get("plan_today") and "plan_log" in upd and ((p.get("kept") or {}).get(today) or {}).get("pct"):
         # "Change today's plan too" reopens a finished day when today's plan grew: the child sees what is left
         # (a reward already earned stays earned, see progress.board)
