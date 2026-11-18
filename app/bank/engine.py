@@ -187,6 +187,7 @@ def serve(q: dict) -> tuple[dict, dict]:
     elif t == "tap":
         words, hits = tap_parse(q["s"])
         pub["words"] = words
+        pub["pick"] = len(hits)          # how many to tap: with one, a new tap moves the choice (not a second pick)
         key["hits"] = hits
         key["words"] = words
     elif t == "text":

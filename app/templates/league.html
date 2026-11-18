@@ -6,7 +6,7 @@
 <div class="card rise rise-2" data-testid="my-stars">
   <div class="kid"><b>Your stars this week</b><span class="pct">★ {{ mine.stars }}</span></div>
   <div class="week-stars">{% for d in days %}{% set s = mine.days[loop.index0] %}<div class="ws{% if s is none %} later{% endif %}"><span class="mut small">{{ d }}</span><b>{{ '·' if s is none else s }}</b></div>{% endfor %}</div>
-  <p class="mut small" style="margin:8px 0 0">Up to {{ STAR_DAY }} stars a day for doing your plan (1 for every 10%), and 1 more for every {{ STAR_EXTRA }} extra right answers (up to {{ STAR_EXTRA_MAX }} a day), and 1 for each finished times-tables race (up to 3 a day). Rest days cost you nothing. A new week starts on Monday.</p>
+  <p class="mut small" style="margin:8px 0 0">Up to {{ STAR_DAY }} stars a day for doing your plan (1 for every 10%), and 1 more for every {{ STAR_EXTRA }} extra right answers (up to {{ STAR_EXTRA_MAX }} a day), 1 for each finished times-tables race (up to 3 a day), and 2 for a finished practice check or SATs paper (once a day). Rest days cost you nothing. A new week starts on Monday.</p>
 </div>
 {% if family_table %}<h2 class="rise">Your family</h2>{{ league_table(family_table, 'family-league') }}{% endif %}
 {% for t in tables %}<h2 class="rise">{{ t.name }}</h2><p class="mut small" style="margin-top:-.4em">Other families see you as <b>{{ nick.pic }} {{ nick.name }}</b>, never your name.</p>{{ league_table(t.rows, 'friends-league') }}{% endfor %}

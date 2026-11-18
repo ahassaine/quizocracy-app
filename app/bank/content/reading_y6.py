@@ -528,7 +528,7 @@ SKILLS = [
     {
         "key": "RD6.08",
         "year": 6,
-        "strand": "Persuasive writing",
+        "strand": "Balanced arguments",
         "title": "Should pupils wear school uniform?",
         "nc": "Identify how language, structure and presentation contribute to meaning; distinguish arguments for and against",
         "text": (

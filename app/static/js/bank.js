@@ -198,6 +198,7 @@ function BankDrill(activity) {
           const b = document.createElement('button'); b.type = 'button'; b.className = 'word'; b.textContent = w;
           b.setAttribute('data-testid', 'word-' + i);
           b.addEventListener('click', () => { if (b.disabled) return;
+            if (q.pick === 1 && !taps.has(i)) { taps.clear(); box.querySelectorAll('.word').forEach(x => x.classList.remove('sel')); }
             taps.has(i) ? taps.delete(i) : taps.add(i); b.classList.toggle('sel', taps.has(i)); say(w); });
           box.appendChild(b);
         });

@@ -28,7 +28,7 @@ MIN_QS, MIN_TYPES = 20, 3
 DOMAINS = {"vocab", "retrieve", "sequence", "summarise", "infer", "predict", "structure", "language", "compare", "purpose"}
 KS1_DOMAINS = {"vocab", "retrieve", "sequence", "infer", "predict"}
 KINDS = {"Stories", "Information", "Instructions", "Poems", "Letters and diaries", "Biography", "News reports",
-         "Persuasive writing", "Play scripts", "Explanations"}
+         "Persuasive writing", "Play scripts", "Explanations", "Balanced arguments"}
 # words per passage and questions per passage, by year (SPEC_READING.md)
 READ_WORDS = {1: (30, 80), 2: (80, 160), 3: (150, 250), 4: (200, 300), 5: (250, 380), 6: (300, 450), 7: (350, 550),
               8: (350, 550), 9: (350, 550)}

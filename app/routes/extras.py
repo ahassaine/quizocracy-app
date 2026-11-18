@@ -2,6 +2,7 @@
 service worker, and the waiting list for families without an invitation code."""
 import datetime
 import random
+import re
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -258,3 +259,28 @@ async def key_words(request: Request, pid: str, ctx: Ctx = Depends(parent_page))
     strands = [(st, strand_label(st), bank_engine.strand_key_words(subject, sks)) for st, sks in by.items()]
     return page(request, "keywords.html", ctx, pupil=p, subject=subject, subject_title=ACTIVITIES[subject]["title"],
                 year=bank_engine.bank_year(subject, lvl), strands=[s for s in strands if s[2]])
+
+
+@router.get("/children/{pid}/passage/{key}")
+async def passage_page(request: Request, pid: str, key: str, ctx: Ctx = Depends(parent_page)):
+    """A passage the child read, in full, with each question, its answer and the child's first answer: for a grown-up
+    to talk it through with them. Read-only; nothing is recorded."""
+    p = await own_pupil(ctx, pid)
+    sk = bank_engine.skill(key)
+    if not sk or not sk.get("text"):
+        raise HTTPException(404, "not found")
+    firsts: dict = {}
+    async for r in db.attempts.find({"pupil_id": p["_id"], "activity": "reading", "detail": {"$regex": "^" + re.escape(key) + "#"}},
+                                    {"detail": 1, "correct": 1, "got": 1}).sort("ts", 1):
+        firsts.setdefault(r["detail"].split("#", 1)[1], r)
+    rows = []
+    for q in sk["qs"]:
+        pub, k = bank_engine.serve(q)
+        r = firsts.get(q["id"])
+        rows.append({"q": q["q"] + (" " + q["s"].replace("[", "").replace("]", "") if q.get("s") else ""),
+                     "answer": bank_engine.expected_text(k) if q["t"] != "order" else " → ".join(q["items"]),
+                     "why": q.get("why", ""), "answered": bool(r), "right": bool(r and r.get("correct")),
+                     "given": (r or {}).get("got", "")})
+    done = [x for x in rows if x["answered"]]
+    return page(request, "passage.html", ctx, pupil=p, sk=sk, rows=rows,
+                first={"right": sum(x["right"] for x in done), "of": len(rows)} if done else None)

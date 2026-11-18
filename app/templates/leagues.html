@@ -27,7 +27,8 @@
   <form class="card" method="post" action="/leagues/new" data-testid="league-new"><b>Start a league</b><p class="mut small">You get a code to send to friends' families.</p><button class="btn primary" type="submit" {% if leagues|length >= MAX %}disabled{% endif %}>Start a league</button>{% if leagues|length >= MAX %}<div class="mut small">You are in {{ MAX }} leagues: leave one first.</div>{% endif %}</form>
   <form class="card" method="post" action="/leagues/join" data-testid="league-join"><b>Join a league</b><p class="mut small">Type the 8-letter code another family sent you.</p>
     <div class="row"><input name="code" value="{{ code or '' }}" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="League code" placeholder="ABCD2345" style="text-transform:uppercase;max-width:12em" data-testid="league-code-input"><button class="btn primary" type="submit">Join</button></div>
-    {% if join_error %}<div class="small" role="alert" data-testid="league-join-error" style="color:var(--bad);font-weight:700;margin-top:6px">{{ join_error }}</div>{% endif %}</form>
+    {% if join_error %}<div class="small" role="alert" id="joinError" data-testid="league-join-error" style="color:var(--bad);font-weight:700;margin-top:6px">{{ join_error }}</div>
+    <script>document.getElementById('joinError').closest('form').scrollIntoView({ block: 'center' });</script>{% endif %}</form>
 </div>
 <h2>Your children in friends' leagues</h2>
 {% for p in pupils %}{% set n = p.nick or {} %}<form class="card" id="child-{{ p._id }}" method="post" action="/children/{{ p._id }}/league" data-testid="league-child-{{ p.name }}" style="scroll-margin-top:76px">

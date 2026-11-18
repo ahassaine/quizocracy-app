@@ -30,7 +30,7 @@ SKILLS = [
   steps (instructions, a recipe) writes each step on its own line starting `1. `, `2. ` … No markdown, no
   headings inside the text (the title is shown above it), no pictures.
 * Strands (`KINDS`): `Stories`, `Information`, `Instructions`, `Poems`, `Letters and diaries`,
-  `Biography`, `News reports`, `Persuasive writing`, `Play scripts`, `Explanations`. Each year mixes them;
+  `Biography`, `News reports`, `Persuasive writing`, `Balanced arguments` (for and against), `Play scripts`, `Explanations`. Each year mixes them;
   stories and information texts are about half; every year has at least one poem.
 * The child reads the passage once and answers its questions in the order written, with the passage on screen
   the whole time. So order the questions roughly as the text goes, the overall question (summary, main idea,

@@ -56,7 +56,7 @@ SKILLS = [
                       "She was too excited about her bigger bedroom.",
                       "Hannah had asked her to be brave and not cry."],
              "why": "She had decided that if she did not cry, it would not really be happening: she was trying not to face the move."},
-            {"id": "1e6050ee88c6", "t": "tap", "d": "infer", "q": "Tap the word that shows how Ifeoma's body reacted to her nerves.",
+            {"id": "1e6050ee88c6", "t": "tap", "d": "infer", "q": "Tap the word that tells you what Ifeoma's stomach did.",
              "s": "Every time a sign showed how many miles were left, Ifeoma's stomach [tightened] a little more.",
              "why": "Her stomach tightened: a stomach that tightens is the body's sign of worry, and it gets worse as they get closer."},
             {"id": "5e713ce488f3", "t": "mcq", "d": "vocab", "q": "\"A garden that sloped down towards a stone wall.\" What does \"sloped\" mean here?",

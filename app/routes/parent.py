@@ -311,7 +311,10 @@ async def child_detail(request: Request, pid: str, ctx: Ctx = Depends(parent_pag
                 skills=skills, plan_items=now, TIPS=TIPS, offplan=on - planned, started=await _started(p, on),
                 accuracy=accuracy(hist[-7:]), hints=level_hints(p, accuracy(hist[-7:])), work_on=await work_on(p, on), reasons=REPORT_REASONS,
                 reported=request.query_params.get("reported"), sats=await sats_view(p, ctx.family),
-                offers=_offers(p, ctx.family, planned), races=await league.race_summary(p), sheets=await sats.sheets(p, 10) if p.get("sats_papers") else [],
+                offers=_offers(p, ctx.family, planned), races=await league.race_summary(p),
+                passages=[{"key": d["key"], "title": (bank_engine.skill(d["key"]) or {}).get("title", d["key"]), "score": d.get("score", 0)}
+                          async for d in db.bank_mastery.find({"pupil_id": p["_id"], "subject": "reading"}).sort("last", -1).limit(20)]
+                         if "reading" in on else [], sheets=await sats.sheets(p, 10) if p.get("sats_papers") else [],
                 school=await spelling.school_status(p) if "spelling" in on else None,
                 other_words=await spelling.other_tries(p, progress.day_list(7)) if "spelling" in on else [],
                 focus=[{"title": focus_title(i["subject"], i["strand"]), "until": i["until"],
@@ -444,7 +447,7 @@ async def work_on(p: dict, on: set, n: int = 6) -> list:
         for dom, (att, right) in by.items():
             out.append(("reading", {"key": "d:" + dom, "title": "Reading: " + READING_SKILLS[dom], "strand": ""},
                         att, right, {"score": 100 * right // att if att else 0}))
-    weak = [{"subject": subj, "key": sk["key"], "title": sk["title"], "strand": sk.get("strand", ""),
+    weak = [{"subject": subj, "key": sk["key"], "title": _plain_title(subj, sk), "strand": sk.get("strand", ""),
              "wrong": att - right, "attempts": att, "pct": 100 * right // att}
             for subj, sk, att, right, d in out if att > right and int(d.get("score", 0)) < maths_mastery.MASTERED]
     weak.sort(key=lambda w: (w["attempts"] < WORK_MIN, w["pct"], -w["wrong"]))
@@ -452,6 +455,16 @@ async def work_on(p: dict, on: set, n: int = 6) -> list:
 
 
 WORK_MIN = 3            # answers on a skill before its share right counts for "To work on next"
+
+
+def _plain_title(subject: str, sk: dict) -> str:
+    """What a parent reads for a skill: phonics "Phase 2: s a t p i n m d" says what it is ("Reading words with the
+    sounds s a t p i n m d (Phase 2)")."""
+    t = sk["title"]
+    if subject == "phonics" and t.startswith("Phase ") and ":" in t:
+        phase, sounds = t.split(":", 1)
+        return f"Reading words with the sounds {sounds.strip()} ({phase})"
+    return t
 READING_SKILLS = {"vocab": "what words mean in the text", "retrieve": "finding facts in the text",
                   "sequence": "the order things happen", "summarise": "the main idea", "infer":
                   "working out what is not said (inference)", "predict": "what is likely to happen next",

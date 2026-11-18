@@ -6,7 +6,7 @@
   <div class="stage" id="stage">
     <div id="pIntro" data-testid="paper-intro">
       <ul class="mtc-rules">
-        <li>{{ paper.n }} question{{ 's' if paper.n != 1 }}{% if paper.key == 'reading' %} about one passage: read it first{% endif %}</li>
+        <li>{% if paper.key == 'reading' %}One passage and its 7 or 8 questions: read it first{% else %}{{ paper.n }} questions{% endif %}</li>
         <li>{{ paper.minutes }} minutes for the whole paper</li>
         <li>Stuck? Press <b>Skip for now</b> and come back to it at the end</li>
         <li>You see your score and every answer at the end</li>

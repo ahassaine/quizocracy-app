@@ -26,6 +26,7 @@ STAR_DAY = 10             # stars for a day's plan done
 STAR_EXTRA = 5            # right answers past the target for one more star ...
 STAR_EXTRA_MAX = 5        # ... and at most this many such stars a day
 STAR_RACE_MAX = 3         # a finished times-tables race: 1 star, at most this many a day
+STAR_CHECK = 2            # a finished practice check or paper (phonics check, Year 4 check, SATs paper): once a day
 RACE_N = 20
 RACE_WRONG_MS = 2000      # time added for each wrong answer
 RACE_MIN_MS = 350         # a question answered faster than this was not answered by a child (a script)
@@ -111,8 +112,9 @@ async def week_stars(family: dict, pupils: list, start: str | None = None) -> di
             if d > today or d < first:
                 per.append(None if d > today else 0)
                 continue
+            checked = any(r.get("day") == d for f in ("phonics_checks", "mtc", "sats_papers") for r in p.get(f) or [])
             per.append(day_stars(progress.day_status(p, family, c.get(p["_id"], {}).get(d, {}), d))
-                       + min(STAR_RACE_MAX, raced.get((p["_id"], d), 0)))
+                       + min(STAR_RACE_MAX, raced.get((p["_id"], d), 0)) + (STAR_CHECK if checked else 0))
         out[p["_id"]] = {"stars": sum(x or 0 for x in per), "days": per}
     return out
 
@@ -304,7 +306,8 @@ async def race_finish(pupil: dict, token: str, splits: list, wrong: list) -> dic
                                       "done": True, "total": {"$exists": True}}, sort=[("total", 1)])
     await db.races.update_one({"_id": r["_id"]}, {"$set": {"splits": splits, "wrong": wrong, "total": total,
                                                           "day": progress.today(), "at": datetime.datetime.utcnow()}})
-    return {"kept": True, "total": total, "wrong": sum(wrong),
+    today = await db.races.count_documents({"pupil_id": pupil["_id"], "day": progress.today(), "total": {"$exists": True}})
+    return {"kept": True, "total": total, "wrong": sum(wrong), "star": today <= STAR_RACE_MAX,
             "best": before is None or total < before["total"], "was": before["total"] if before else None}
 
 

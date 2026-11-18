@@ -114,7 +114,9 @@ function Paper(PAPER) {
       const box = document.createElement('div'); box.className = 'words'; picks.v = [];
       q.words.forEach((w, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'word'; b.textContent = w;
         b.setAttribute('data-testid', 'paper-word-' + i);
-        b.addEventListener('click', () => { const k = picks.v.indexOf(i); if (k >= 0) picks.v.splice(k, 1); else picks.v.push(i);
+        b.addEventListener('click', () => { const k = picks.v.indexOf(i);
+          if (k < 0 && q.pick === 1) { picks.v = []; box.querySelectorAll('.word').forEach(x => x.classList.remove('sel')); }
+          if (k >= 0) picks.v.splice(k, 1); else picks.v.push(i);
           b.classList.toggle('sel', k < 0); });
         box.appendChild(b); });
       area.appendChild(box);

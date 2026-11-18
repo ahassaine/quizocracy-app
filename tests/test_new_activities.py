@@ -326,3 +326,24 @@ def test_phonics_starts_where_the_parent_says(browser):
     assert DB.items.find_one({"_id": q["token"]})["meta"]["skill"] in ("PH1.04", "PH1.05", "PH1.06")
     pg.goto(f"/children/{pid}/edit")
     assert pg.locator("[data-testid=level-phonics]").input_value() == "PH1.04"
+
+
+def test_a_grown_up_reads_the_passage_with_the_childs_answers(browser):
+    pg, kid, s, pid = _family(browser, 4, name="Rio", targets={"reading": 6})
+    q = s.post(BASE + "/api/reading/next", json={}).json()
+    it = DB.items.find_one({"_id": q["token"]})
+    s.post(BASE + "/api/reading/check", json={"token": q["token"], "value": right(it["answer"])})
+    pg.goto(f"/children/{pid}")
+    pg.click("[data-testid=passages] summary")
+    pg.click("[data-testid=passage-link]")
+    assert q["passage"]["title"] in pg.inner_text("h1")
+    assert pg.locator("[data-testid=passage-q]").count() == q["passage"]["of"]
+
+
+def test_a_finished_check_or_paper_earns_league_stars(browser):
+    pg, kid, s, pid = _family(browser, 6, name="Isa")
+    before = int(kid.goto("/me") and kid.inner_text("[data-testid=play-card] b").split()[1])
+    st = s.post(BASE + "/api/sats/start", json={"paper": "gps"}).json()
+    s.post(BASE + "/api/sats/finish", json={"token": st["token"], "answers": [], "used": 10})
+    kid.goto("/me")
+    assert int(kid.inner_text("[data-testid=play-card] b").split()[1]) == before + 2

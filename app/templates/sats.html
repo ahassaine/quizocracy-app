@@ -7,7 +7,7 @@
 {% for p in papers %}
   <div class="card tile rise rise-{{ [loop.index + 1, 5]|min }}" data-testid="paper-card-{{ p.key }}">
     <div class="ttl">{{ p.title }}</div>
-    <div class="mut small">{{ p.n }} question{{ 's' if p.n != 1 }}{% if p.key == 'reading' %} on one passage{% endif %} · {{ p.minutes }} minutes</div>
+    <div class="mut small">{% if p.key == 'reading' %}One passage and its 7 or 8 questions{% else %}{{ p.n }} questions{% endif %} · {{ p.minutes }} minutes</div>
     <div class="mut small">{{ p.real }}</div>
     {% if p.last %}<div class="small" style="margin-top:6px" data-testid="paper-last">Last time: <b>{{ p.last.score }}/{{ p.last.of }}</b>{% if p.tries > 1 %} · best: <b>{{ p.best.score }}/{{ p.best.of }}</b>{% endif %}</div>{% endif %}
     <div class="row" style="margin-top:10px"><a class="btn{% if not p.tries %} primary{% endif %}" href="/me/sats/{{ p.key }}" data-testid="paper-go-{{ p.key }}">{{ 'Do this paper again' if p.tries else 'Start this paper' }}</a></div>

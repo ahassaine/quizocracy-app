@@ -33,6 +33,7 @@
 <style>
 .track{position:relative;margin:4px 0 14px;padding:6px 0}
 .lane{display:grid;grid-template-columns:minmax(80px,30%) 1fr;align-items:center;gap:8px;margin:4px 0}
+@media (max-width:520px){.lane{grid-template-columns:1fr;gap:2px;margin:6px 0}.lane .who{font-size:.9rem}}
 .lane .who{font-size:.85rem;font-weight:700;overflow-wrap:anywhere;line-height:1.15}
 .count-in{font-family:var(--display);font-size:4rem;font-weight:800;text-align:center;margin:10px 0}
 .lane.me .who{color:var(--violet,#8B7CFF)}
@@ -71,7 +72,7 @@
     });
   }
   function clock() { const ms = Date.now() - t0; $('rClock').textContent = (ms / 1000).toFixed(1) + ' s'; ghostsAt(ms); }
-  function show() { $('rCount').textContent = (i + 1) + ' of ' + N; $('rQ').textContent = qs[i].q + ' ='; $('rA').value = '';
+  function show() { $('rMsg').textContent = ''; $('rCount').textContent = (i + 1) + ' of ' + N; $('rQ').textContent = qs[i].q + ' ='; $('rA').value = '';
     $('rHelp').hidden = true; if (!TOUCH) $('rA').focus(); }
   function enter() {
     if (!live) return;
@@ -84,7 +85,7 @@
       wrong[i] = (wrong[i] || 0) + 1; $('rA').value = ''; $('rMsg').textContent = 'Not quite: try again (+2 s).';
       // after two wrong tries the answer is shown, so a fact not known yet never stops the race
       if (wrong[i] >= 2) { $('rHelp').hidden = false; $('rHelp').textContent = qs[i].q + ' = ' + qs[i].a + ': type ' + qs[i].a + '.'; }
-      $('rA').classList.add('shake'); setTimeout(() => { $('rA').classList.remove('shake'); $('rMsg').textContent = ''; }, 700);
+      $('rA').classList.add('shake'); setTimeout(() => { $('rA').classList.remove('shake'); }, 700);   // the line stays until the next answer
     }
   }
   async function start() {
@@ -112,7 +113,8 @@
     $('rMissed').hidden = !missed.length; $('rMissed').textContent = missed.length ? 'To practise: ' + missed.join(', ') : '';
     if (r && r.data && r.data.ok && r.data.kept) {
       $('rTime').textContent = r.data.time; $('rBest').hidden = !r.data.best;
-      $('rNote').textContent = (extra ? extra + ' wrong (+' + 2 * extra + ' s). ' : 'No mistakes! ') + (r.data.best ? (r.data.was !== '–' ? 'Your last best was ' + r.data.was + '.' : '') : 'Your best this week is still ' + r.data.was + '.');
+      $('rNote').textContent = (r.data.star ? '+1 ★ for the league. ' : 'No more race stars today (3 a day), but the time counts. ')
+        + (extra ? extra + ' wrong (+' + 2 * extra + ' s). ' : 'No mistakes! ') + (r.data.best ? (r.data.was !== '–' ? 'Your last best was ' + r.data.was + '.' : '') : 'Your best this week is still ' + r.data.was + '.');
       // the ghosts this run beat (its time against theirs)
       const beat = GHOSTS.filter(g => !g.me && r.data.total < g.total).map(g => g.label);
       if (beat.length) $('rNote').insertAdjacentHTML('afterbegin', '<b data-testid="race-beat">🏁 You beat ' + beat.map(x => String(x).replace(/[<>&]/g, '')).join(' and ') + '!</b> ');
