@@ -28,6 +28,9 @@ ARITHMETIC = ["Y6.1.a", "Y6.1.b", "Y6.1.c", "Y6.1.d", "Y6.1.e", "Y6.1.f", "Y6.1.
               "Y6.5.f", "Y6.5.g", "Y6.5.h", "Y6.6.f",
               # the fraction calculations the arithmetic paper has
               "Y6.3.e", "Y6.3.f", "Y6.4.a", "Y6.4.b", "Y6.4.d"]
+# a picture the child makes (shades, plots, sets, builds): on the answer sheet it would show as it started, empty,
+# beside what the child wrote (wave 12), so the sheet keeps only pictures that are read
+DRAWN = {"shade", "plot", "set", "build", "build_area", "fraction", "turn", "classify", "equal_parts", "part_whole"}
 NOT_KS2 = {"Y6.9.j"}          # probability: not in the KS2 programme of study, never on a SATs paper
 PAPERS = {
     "arithmetic": {"title": "Maths: arithmetic", "n": 12, "minutes": 10, "subject": "maths",
@@ -196,6 +199,7 @@ async def start(pupil: dict, paper: str) -> dict | None:
                                                    # the pictures, kept for the answer sheet
                                                    "shows": [{"component": q.get("component"), "spec": q.get("spec")}
                                                              if q["kind"] == "maths" and q.get("component") not in (None, "number")
+                                                             and (q.get("spec") or {}).get("mode") not in DRAWN
                                                              else None for q in pub]})
     return {"token": token, "paper": paper, "title": P["title"], "questions": pub, "seconds": secs,
             **({"passage": passage} if passage else {})}

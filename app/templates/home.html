@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block title %}Home · Quizocracy{% endblock %}
 {% block body %}
 {% if welcome %}<div class="ok">Your email is verified. Add your first child to get started.</div>{% endif %}
+{% if ctx.family.joined_league and ctx.full %}<div class="card small" data-testid="joined-league" style="font-weight:600">You are in the friends' league “{{ ctx.family.joined_league }}”. Add your child, and their stars count in it from today. <a href="/leagues">See the league</a></div>{% endif %}
 {% if request.query_params.get('joined') %}<div class="ok" role="status" data-testid="joined">Welcome! You have joined {{ ctx.family.name }}. Sign in with your own email and password from now on.</div>{% endif %}
 {% if request.query_params.get('deleted') %}<div class="ok" role="status" data-testid="child-deleted">{{ deleted_name or 'The child' }}'s profile is deleted, with all the practice.{% if ctx.full %} The other parents have been told by email.{% endif %}</div>{% endif %}
 <div class="kid rise"><h1>{{ ctx.family.name }}</h1><span class="chip" data-testid="plan-chip">{% if cfg.BETA_FAMILY_PLAN and ctx.family.plan == 'family' %}Free during the beta{% else %}{{ plan.title }} plan{% endif %}</span></div>

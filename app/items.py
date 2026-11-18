@@ -40,7 +40,12 @@ async def just_shown(pupil: dict, activity: str) -> set:
 async def waits(pupil: dict, activity: str) -> dict:
     """{item: seconds before it may come back (0: only questions are missing)} for each item whose answer this
     child was shown too recently: missed, or answered right straight after being shown (copied), which starts
-    the gap again. For maths the item is the mistake ("skill@row id", progress.mistake_key)."""
+    the gap again. For maths the item is the mistake ("skill@row id", progress.mistake_key).
+    Reading has no gap: its passage is on screen anyway, and a right answer in the same sitting only counts as
+    practised (progress.LATER_SITTING), so the gap only made a child re-answer the passage's other questions
+    first (waves 11 and 12)."""
+    if activity == "reading":
+        return {}
     now = datetime.datetime.utcnow()
     rows = [r async for r in db.attempts.find(
         {"pupil_id": pupil["_id"], "activity": activity, "ts": {"$gt": now - datetime.timedelta(seconds=RECALL_STALE)}},

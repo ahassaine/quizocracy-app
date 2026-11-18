@@ -89,8 +89,8 @@
 {% if pcs %}<h2>Phonics check practice</h2>
 <div class="card" data-testid="report-pc" style="overflow-x:auto">
   <div class="small">{{ pcs|length }} practice check{{ '' if pcs|length == 1 else 's' }} in this period: real and alien words read aloud to a grown-up, who marked them (the full check has 40 words; in past years the expected standard has been 32).</div>
-  <table class="t small" style="margin-top:6px"><tr><th>Date</th><th>Score</th><th>Words to practise</th></tr>
-    {% for r in pcs|reverse %}<tr><td style="white-space:nowrap">{{ r.day|daylabel }}</td><td><b>{{ r.score }}</b>/{{ r.of }}</td><td class="mut">{{ (r.real_missed + r.alien_missed)|join(', ') }}</td></tr>{% endfor %}
+  <table class="t small" style="margin-top:6px"><tr><th>Date</th><th>Kind</th><th>Score</th><th>Words to practise</th></tr>
+    {% for r in pcs|reverse %}<tr><td style="white-space:nowrap">{{ r.day|daylabel }}</td><td>{{ 'full check' if r.of == 40 else 'short practice' }}</td><td><b>{{ r.score }}</b>/{{ r.of }} <span class="mut">({{ (100 * r.score / r.of)|round|int }}%)</span></td><td class="mut">{{ (r.real_missed + r.alien_missed)|join(', ') }}</td></tr>{% endfor %}
   </table>
 </div>{% endif %}
 

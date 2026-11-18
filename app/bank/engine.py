@@ -308,6 +308,7 @@ def parse_num(s, unit: str = "") -> float | None:
     that unit typed any usual way counts ("4 g/cm3", "9.8 m s^-2", "6 metres"); another unit is a wrong answer
     ("4 kg/m3" for g/cm³), since the quantity is then wrong."""
     s = _quotes("" if s is None else str(s)).strip().replace("−", "-")
+    s = re.sub(r"^ph\s*(?=[\d.])", "", s, flags=re.I)  # "pH 7": the scale's name before the number (wave 12)
     if s.lower() in _WORD_NUM:                       # "two" for 2: the number is the answer, not how it is written
         return _WORD_NUM[s.lower()]
     m = re.match(r"^[-+]?(?:\d{1,3}(?:[, ]\d{3})+(?!\d)|\d+)(?:\.\d+)?|^[-+]?\.\d+", s)

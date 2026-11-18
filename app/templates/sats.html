@@ -14,6 +14,21 @@
   </div>
 {% endfor %}
 </div>
+<script>
+/* A paper under way on this device (paper.js keeps it while its clock runs): its card says so, and its button
+   carries on instead of looking like a fresh start (wave 12) */
+(function () { const P = document.body.dataset.pupil;
+  document.querySelectorAll('[data-testid^=paper-go-]').forEach(a => { const k = a.dataset.testid.slice(9);
+    let o = null; try { o = JSON.parse(localStorage.getItem('qz_sats_run_' + P + '_' + k) || 'null'); } catch (e) {}
+    if (!o || !o.token || !o.qs) return;
+    const card = a.closest('.card'), note = document.createElement('div'); note.className = 'small'; note.setAttribute('data-testid', 'paper-under-way');
+    note.style.cssText = 'margin-top:6px;font-weight:700';
+    if (o.deadline > Date.now()) { const m = Math.ceil((o.deadline - Date.now()) / 60000);
+      note.textContent = 'Under way: ' + o.answers.filter(x => x !== null).length + ' of ' + o.qs.length + ' answered, about ' + m + ' min left (the clock keeps running).';
+      a.textContent = 'Carry on this paper'; a.classList.add('primary'); }
+    else { note.textContent = 'Its time ran out while you were away: open it to see it marked as it was.'; a.textContent = 'See it marked'; }
+    a.parentNode.parentNode.insertBefore(note, a.parentNode); }); })();
+</script>
 {% if sheets %}<h2>Your papers and answers</h2><ul class="small" data-testid="sheets">{% for s in sheets %}<li>{{ s.day|daylabel }}: {{ s.title }}, <b>{{ s.score }}/{{ s.of }}</b> · <a href="/me/sats/sheet/{{ s.id }}" data-testid="sheet-link">See the answers</a></li>{% endfor %}</ul>{% endif %}
 <p class="mut small">The papers are extra practice. Answers in a subject on today's plan count towards it, and any you miss come back in Practise my mistakes.</p>
 {% endblock %}

@@ -112,8 +112,9 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
            "role": "owner", "created": _now(), "verified_at": None, "report_emails": True}
     await db.families.insert_one(fam)
     await db.accounts.insert_one(acc)
-    if lg:
-        await league.join_league(fam, lg["code"])
+    if lg and isinstance(await league.join_league(fam, lg["code"]), dict):
+        # Home says so on arrival (wave 12: the new family could not tell it had worked)
+        await db.families.update_one({"_id": fam["_id"]}, {"$set": {"joined_league": lg["name"]}})
     await db.waitlist.delete_one({"_id": email})   # on the waiting list before: not kept once the family is in
     await hit(f"mail:verify:{email}")              # the first code counts towards the resend limit
     await _send_code(acc)

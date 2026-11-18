@@ -252,6 +252,8 @@ def make(subject: str):
             if pool is focused and len(focused) > len(in_focus) and random.random() < OWN_SHARE:
                 pool = focused = list(in_focus)                  # the chosen strand stays most of it; neighbours fill in
             width = len(pool) if pool is focused else WINDOW     # the focus share goes round all its skills
+            if subject in SEQUENTIAL:      # phonics: one step at a time, so the school's step is what is practised
+                width = 1                  # (wave 12: three side by side put untaught sounds in the first evening)
             if not pool:            # in teaching order up to the day's target; after it, the strands in turn
                 # (phonics keeps its order after the target too: more of the phase being learned)
                 pool = spread_strands(skills, mm) if subject not in SEQUENTIAL and await past_target(pupil, subject) \

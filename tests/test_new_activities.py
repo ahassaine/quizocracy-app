@@ -399,6 +399,7 @@ def test_a_league_code_works_as_an_invitation_and_joins_the_league(browser):
     fam = DB.accounts.find_one({"email": email})["family_id"]
     lg = DB.leagues.find_one({"code": code})
     assert fam in lg["families"]
+    assert DB.families.find_one({"_id": fam}).get("joined_league") == lg["name"]      # Home says so on arrival
 
 
 def test_today_too_keeps_the_league_stars_already_earned(browser):
@@ -422,3 +423,19 @@ def test_today_too_keeps_the_league_stars_already_earned(browser):
     kept = DB.pupils.find_one({"_id": pid}).get("kept") or {}
     assert any((v or {}).get("stars") for v in kept.values()), kept
     assert stars() >= before
+
+
+def test_a_race_typed_after_clicking_the_box_goes_on(browser):
+    # wave 12: on a laptop, clicking the answer box before typing seemed to stop the typing being taken
+    pg, kid, s, pid = _family(browser, 5, name="Kai")
+    kid.goto("/me/race/full")
+    kid.click("[data-testid=race-start]")
+    kid.wait_for_selector("[data-testid=race-question]:has-text('=')", timeout=8000)
+    for n in range(3):
+        q = kid.inner_text("[data-testid=race-question]").replace("=", "").strip()
+        a, b = (int(x) for x in re.split(r"\s*[×x]\s*", q))
+        kid.click("[data-testid=race-answer]")
+        kid.keyboard.type(str(a * b), delay=60)
+        kid.keyboard.press("Enter")
+        kid.wait_for_function("n => document.querySelector('[data-testid=race-count]').textContent.startsWith(String(n))", arg=n + 2)
+    assert kid.locator("[data-testid=race-done]").is_hidden()

@@ -49,7 +49,8 @@ async def race_page(request: Request, course: str, ctx: Ctx = Depends(child_page
     others = [r for r in board if not r["me"]]
     year_of = {p["_id"]: int(p.get("year") or 4) async for p in db.pupils.find({"_id": {"$in": [r["id"] for r in others]}}, {"year": 1})}
     if course == league.default_course(int(ctx.child.get("year") or 4)):
-        others = [r for r in others if league.default_course(year_of.get(r["id"], 4)) == course]
+        # (only for other families: a brother or sister always races beside the child, wave 12)
+        others = [r for r in others if r["mine"] or league.default_course(year_of.get(r["id"], 4)) == course]
     faster = [r for r in others if not mine or r["total"] < mine["total"]][-2:]
     slower = [r for r in others if mine and r["total"] >= mine["total"]][:3 - len(faster)]
     ghosts = ([mine] if mine else []) + faster + slower
@@ -128,6 +129,8 @@ JOIN_ERRORS = {"nocode": "No league has that code. Check the 8 letters and numbe
 
 @router.get("/leagues")
 async def leagues_page(request: Request, ctx: Ctx = Depends(parent_page)):
+    if ctx.family.get("joined_league"):          # the "you are in the league" card on Home has done its job
+        await db.families.update_one({"_id": ctx.family["_id"]}, {"$unset": {"joined_league": ""}})
     return page(request, "leagues.html", ctx, **await _leagues_view(ctx), done=request.query_params.get("done", ""))
 
 

@@ -1530,8 +1530,9 @@ def _(d=1):
         a variable."""
         b = random.randint(2, _by_d(d, 9, 20, 50))
         c = random.randint(2, _by_d(d, 9, 20, 50))
-        kind = pick(["identity", "commutative", "associative", "name_comm",
-                     "name_ident"])
+        # no "which property is this? type commutative, associative or identity": England's KS2 teaches the
+        # rules, not their names (wave 12); each question here explains the rule it uses
+        kind = pick(["identity", "commutative", "associative"])
         if kind == "identity":
             return _wordq("The identity property of addition says that adding "
                           "zero leaves a number unchanged. Complete this "
@@ -1579,8 +1580,7 @@ def _(d=1):
         distributive) with a variable."""
         b = random.randint(2, _by_d(d, 6, 9, 12))
         c = random.randint(2, _by_d(d, 6, 9, 12))
-        kind = pick(["identity", "commutative", "associative", "distributive",
-                     "name_comm", "name_dist"])
+        kind = pick(["identity", "commutative", "associative", "distributive"])
         if kind == "identity":
             return _wordq("The identity property of multiplication says that "
                           "multiplying by one leaves a number unchanged. "
