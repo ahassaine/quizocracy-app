@@ -524,7 +524,7 @@ SKILLS = [
              "opts": ["to make readers think of their own unused toys", "to test how much readers know about toys",
                       "to find out who has the most toys", "to explain how the swap works"],
              "why": "Questions like “A game you have grown out of?” make each reader think about the toys at home they no longer play with."},
-            {"id": "649e4f76cec7", "t": "mcq", "d": "vocab", "q": "“A game you have grown out of.” What does “grown out of” mean here?",
+            {"id": "649e4f76cec7", "t": "mcq", "d": "vocab", "q": "“A game you have grown out of?” What does “grown out of” mean here?",
              "opts": ["become too old to enjoy", "become too big to fit inside",
                       "lost some of the pieces of", "played with too many times"],
              "why": "You grow out of a game when you get older and it no longer interests you."},

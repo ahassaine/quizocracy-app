@@ -157,8 +157,8 @@ SKILLS = [
             "thread to make it stronger, then adds more threads to build a frame.\n\n"
             "Next, the spider runs threads from the edge of the frame to the middle, like the spokes of a bicycle "
             "wheel. These spokes are not sticky. After that, it lays a spiral of sticky silk round and round, "
-            "starting near the edge and working in towards the centre. As it moves about, the spider steps on the "
-            "dry spokes, so that it does not get caught in its own trap.\n\n"
+            "starting near the edge and working in towards the centre. As it moves about, the spider steps mostly "
+            "on the dry spokes, which helps it not to get caught in its own trap.\n\n"
             "When the web is finished, the spider waits, either in the centre or hidden close by with one leg "
             "resting on a signal thread. If an insect flies into the sticky spiral, the web shakes. The spider "
             "rushes out and wraps its prey in silk.\n\n"
@@ -325,14 +325,14 @@ SKILLS = [
             "in many different towns the bricks were made to the same shape and proportions.\n\n"
             "The cities were also very clean for their time. Many houses had their own washing area and a toilet. "
             "Waste water from the houses flowed into drains that ran under the streets, covered with bricks. In "
-            "Mohenjo-daro there was a large pool, now called the Great Bath, which was lined with tar to keep the "
-            "water in. Nobody knows for certain what it was used for.\n\n"
+            "Mohenjo-daro there was a large pool, now called the Great Bath, which had a layer of natural tar behind "
+            "its brick walls to keep the water in. Nobody knows for certain what it was used for.\n\n"
             "The Indus people were traders. They used sets of stone weights, all carefully measured, so that goods "
             "could be weighed fairly. They also carved small, square seals out of stone. Many seals show an animal, "
             "such as a bull or an elephant, along with a few signs of writing. Experts have studied these signs "
             "for many years, but nobody has yet worked out how to read them.\n\n"
             "After hundreds of years, the great cities slowly emptied, and they lay buried until archaeologists "
-            "began to dig them up about a hundred years ago."
+            "began to dig them up in the 1920s."
         ),
         "qs": [
             {"id": "20ab53de5bb3", "t": "text", "d": "retrieve", "q": "What did the river leave behind when it flooded? Find and copy two words.",
@@ -355,7 +355,7 @@ SKILLS = [
              "opts": ["so that goods could be weighed fairly", "to hold down the roofs of their houses",
                       "to carve the small square seals", "to line the Great Bath"],
              "why": "The fourth paragraph says the weights were carefully measured so that goods could be weighed fairly.",
-             "no": {"to line the Great Bath": "The Great Bath was lined with tar, not with weights."}},
+             "no": {"to line the Great Bath": "The Great Bath was kept watertight with tar and bricks, not with weights."}},
             {"id": "40b4f604ae88", "t": "mcq", "d": "summarise", "q": "Which sentence best sums up the whole text?",
              "opts": ["The Indus people built well-planned, clean cities and were skilled traders.",
                       "The Indus people lived in small villages with no streets or drains.",
