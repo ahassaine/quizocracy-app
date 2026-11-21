@@ -5,8 +5,15 @@ fams = {a["family_id"] for a in DB.accounts.find({"email": {"$regex": r"@example
 pupils = [p["_id"] for p in DB.pupils.find({"family_id": {"$in": list(fams)}}, {"_id": 1})]
 for c in ("maths_lab_q", "maths_attempts", "maths_mastery"):
     DB[c].delete_many({"pupil": {"$in": pupils}})
-for c in ("accounts", "pupils", "sessions", "attempts", "tables_facts", "spelling_words", "verbs_state", "items"):
+for c in ("accounts", "pupils", "sessions", "attempts", "tables_facts", "spelling_words", "verbs_state", "items",
+          "bank_mastery", "bank_state", "reports", "races", "sats_sheets", "feedback", "weekly_sends"):
     DB[c].delete_many({"family_id": {"$in": list(fams)}})
+for c in ("bank_mastery", "bank_state", "reports", "races", "sats_sheets"):     # rows keyed by child only
+    DB[c].delete_many({"pupil_id": {"$in": pupils}})
+# leagues a test family started go; other leagues just lose the test families
+DB.leagues.delete_many({"owner": {"$in": list(fams)}})
+DB.leagues.update_many({}, {"$pull": {"families": {"$in": list(fams)}}})
+DB.leagues.delete_many({"families": {"$size": 0}})
 DB.families.delete_many({"_id": {"$in": list(fams)}})
 DB.outbox.delete_many({"to": {"$regex": r"@example\.test$"}})
 DB.codes.delete_many({"email": {"$regex": r"@example\.test$"}})
